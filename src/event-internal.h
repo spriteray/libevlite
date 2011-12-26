@@ -90,7 +90,7 @@ inline int32_t event_active( struct event * self, int16_t res );
 //
 
 #define TIMER_MAX_PRECISION 100
-#define TIMER_BUCKET_COUNT  4096
+#define TIMER_BUCKET_COUNT  4096		// 必须是2的N次方 
 
 struct evtimer
 {
@@ -101,6 +101,8 @@ struct evtimer
     int32_t dispatch_index;             //
     struct event_list * bucket_array;   // 桶的数组
 };
+
+#define EVTIMER_INDEX(t,c) 				( (c) & ((t)->bucket_count-1) )
 
 struct evtimer * evtimer_create( int32_t max_precision, int32_t bucket_count );
 int32_t evtimer_append( struct evtimer * self, struct event * ev );
@@ -128,6 +130,7 @@ struct eventset
     struct event_list activelist;
 };
 
+inline int64_t mtime();
 inline int64_t rmtime();
 
 

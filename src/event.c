@@ -3,12 +3,20 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/time.h>
 
 #include "event-internal.h"
 
 // --------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------
+
+//
+// 版本
+//
+#ifndef __EVENT_VERSION__
+#define __EVENT_VERSION__ "libudkevent-X.X.X"
+#endif
 
 //
 // linux和freebsd的兼容性定义
@@ -23,8 +31,12 @@
     const struct eventop * evsel = NULL;
 #endif
 
-#ifndef __EVENT_VERSION__
-#define __EVENT_VERSION__ "libevent-X.X.X"
+//
+// 是否使用MONOTONIC
+// 不受系统时间的影响, 效率不如gettimeofday()
+//
+#ifndef USE_MONOTONIC
+#define USE_MONOTONIC 0
 #endif
 
 //
@@ -41,30 +53,41 @@ inline int32_t event_list_remove( struct eventset * sets, struct event * ev, int
 // --------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------
 
+int64_t mtime()
+{
+	int64_t now = -1;
+	struct timeval tv;
+	
+	if ( gettimeofday( &tv, NULL ) == 0 )
+	{
+		now = tv.tv_sec * 1000ll + tv.tv_usec / 1000ll;
+	}
+	
+	return now;
+}
 
 int64_t rmtime()
 {
-    int64_t now = -1;
-    struct timespec ts;
+	int32_t now = -1;
 
-    if ( clock_gettime( CLOCK_MONOTONIC, &ts ) == -1 )
-    {
-        return -1;
-    }
+#if defined(CLOCK_MONOTONIC) && USE_MONOTONIC
+	struct timespec ts;
+	if ( clock_gettime( CLOCK_MONOTONIC, &ts ) == 0 )
+	{
+		now = ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
+	}
+#else
+	now = mtime();
+#endif
 
-    now = ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll; 
-
-    return now;
+	return now;
 }
 
 int32_t event_list_insert( struct eventset * sets, struct event * ev, int32_t type )
 {
     if ( ev->status & type )
     {
-        //
         // 事件已经处于该列表中
-        //
-
         return 1;
     }
 
@@ -283,7 +306,7 @@ const char * evsets_get_version()
 
 int32_t evsets_add(evsets_t self, event_t ev, int32_t tv )
 {
-    int32_t rc = 0;
+    int32_t rc = 1;
     struct event * e = (struct event *)ev;
     struct eventset * sets = (struct eventset *)self;
 
@@ -304,7 +327,7 @@ int32_t evsets_add(evsets_t self, event_t ev, int32_t tv )
         }
     }
 
-    if ( rc == 0 && tv > 0 )
+    if ( rc >= 0 && tv > 0 )
     {
         //
         // 如果已经在定时器中了,
@@ -327,6 +350,7 @@ int32_t evsets_add(evsets_t self, event_t ev, int32_t tv )
             event_list_remove( sets, e, EVSTATUS_ACTIVE );
         }
 
+        rc = 0;
         e->timer_msecs = tv < sets->timer_precision ? sets->timer_precision : tv;
         event_list_insert( sets, e, EVSTATUS_TIMER );
     }
