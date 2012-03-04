@@ -16,7 +16,7 @@ struct evtimer * evtimer_create( int32_t max_precision, int32_t bucket_count )
         t->bucket_count = bucket_count;
         t->max_precision = max_precision;
 
-        t->bucket_array = (struct event_list *)calloc( bucket_count, sizeof(struct event_list) );
+        t->bucket_array = (struct event_list *)malloc( bucket_count * sizeof(struct event_list) );
         if ( t->bucket_array == NULL )
         {
             free( t );
@@ -122,7 +122,7 @@ int32_t evtimer_dispatch( struct evtimer * self )
         if ( do_event->timer_stepcnt > 0 )
         {
             //
-            // 超时时间还没有到
+            // 未超时
             //
             TAILQ_REMOVE( head, do_event, timerlink );
             TAILQ_INSERT_TAIL( head, do_event, timerlink );
@@ -130,11 +130,11 @@ int32_t evtimer_dispatch( struct evtimer * self )
         else if ( do_event->timer_stepcnt == 0 )
         {
             //
-            // 超时时间已经到了
+            // 超时了
             // 从队列中删除, 并添加到激活队列中
             //
             ++rc;
-            evsets_del( event_get_evsets((event_t)do_event), (event_t)do_event );
+            evsets_del( event_get_sets((event_t)do_event), (event_t)do_event );
             event_active( do_event, EV_TIMEOUT );
         }
         else
@@ -142,7 +142,7 @@ int32_t evtimer_dispatch( struct evtimer * self )
             //
             // 出错了
             //
-            evsets_del( event_get_evsets((event_t)do_event), (event_t)do_event );
+            evsets_del( event_get_sets((event_t)do_event), (event_t)do_event );
         }
     }
 
@@ -167,7 +167,7 @@ int32_t evtimer_clean( struct evtimer * self )
         {
             struct event * next = TAILQ_NEXT( ev, timerlink );
 
-            evsets_del( event_get_evsets((event_t)ev), (event_t)ev );
+            evsets_del( event_get_sets((event_t)ev), (event_t)ev );
             //event_destroy( (event_t)ev );
 
             ++rc;

@@ -29,7 +29,7 @@ int32_t kqueue_del( void * arg, struct event * ev );
 int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv );
 void kqueue_final( void * arg );
 
-int32_t kqueue_expend( struct kqueuer * self );
+int32_t kqueue_expand( struct kqueuer * self );
 int32_t kqueue_insert( struct kqueuer * self, struct kevent * ev );
 
 const struct eventop kqueueops = {
@@ -76,12 +76,12 @@ void * kqueue_init()
     return poller;
 }
 
-int32_t kqueue_expend( struct kqueuer * self )
+int32_t kqueue_expand( struct kqueuer * self )
 {
     int32_t nevents = self->nevents;
     struct kevent * newevents = NULL;
 
-    nevents *= 2;
+    nevents <<= 1;
 
     newevents = realloc( self->events, nevents*sizeof(struct kevent) );
     if ( newevents == NULL )
@@ -103,7 +103,7 @@ int32_t kqueue_insert( struct kqueuer * self, struct kevent * ev )
     {
         struct kevent * newchanges = NULL;
 
-        changessize *= 2;
+        changessize <<= 1;
 
         newchanges = realloc( self->changes, changessize*sizeof(struct kevent) );
         if ( newchanges == NULL )
@@ -298,7 +298,7 @@ int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv )
 
     if ( res == poller->nevents )
     {
-        kqueue_expend( poller );
+        kqueue_expand( poller );
     }
 
     return res;

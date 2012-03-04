@@ -207,12 +207,8 @@ void echoserver_signal_handler( int32_t signo )
     isstarted = 0;
 }
 
-#if USE_LIBEVENT
-void
-#else
-int32_t
-#endif
-echoserver_process_message( int32_t fd, int16_t ev, void * arg )
+
+void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
 {
     struct session * s = (struct session *)arg;
 
@@ -228,7 +224,7 @@ echoserver_process_message( int32_t fd, int16_t ev, void * arg )
             printf( "Client[%ld, %d] is closed, BYTES:%d, TIME:%lld .\n",
                 s->sid, s->fd, s->iobytes, rmtime() );
 #endif
-            //evsets_del( event_get_evsets(s->evread), s->evread );
+            //evsets_del( event_get_sets(s->evread), s->evread );
             event_destroy( s->evread );
             close( s->fd );
             free( s );
@@ -250,7 +246,7 @@ echoserver_process_message( int32_t fd, int16_t ev, void * arg )
             event_add( s->evread, &tv );
         }
 #else
-        evsets_add( event_get_evsets(s->evread), s->evread, TIMEOUT_MSECS );
+        evsets_add( event_get_sets(s->evread), s->evread, TIMEOUT_MSECS );
 #endif
     }
     else
@@ -262,19 +258,11 @@ echoserver_process_message( int32_t fd, int16_t ev, void * arg )
 
 PROCESS_END :
 
-#if USE_LIBEVENT
     return;
-#else
-    return 0;
-#endif
+
 }
 
-#if USE_LIBEVENT
-void
-#else
-int32_t
-#endif
-accept_new_session( int32_t fd, int16_t ev, void * arg )
+void accept_new_session( int32_t fd, int16_t ev, void * arg )
 {
     struct iothread * thr = (struct iothread *)arg;
     struct acceptor * a = thr->core_acceptor;
@@ -343,11 +331,7 @@ accept_new_session( int32_t fd, int16_t ev, void * arg )
 
 ACCEPT_END :
 
-#if USE_LIBEVENT
     return;
-#else
-    return 0;
-#endif
 }
 
 void trylock_accept_mutex( struct iothread * thr )

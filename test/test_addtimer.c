@@ -22,21 +22,21 @@
 
 #define NTEST   60000
 
-int32_t ev_callback( int32_t fd, int16_t ev, void * arg )
+void ev_callback( int32_t fd, int16_t ev, void * arg )
 {
-    return 0;
+    return;
 }
 
-int32_t ev_timer_callback( int32_t fd, int16_t ev, void * arg )
+void ev_timer_callback( int32_t fd, int16_t ev, void * arg )
 {
 	event_t e = (event_t)arg;
-	evsets_t sets = event_get_evsets( e );
+	evsets_t sets = event_get_sets( e );
 
 	printf("ev_timer_callback(fd=%d, ev=%d) : %d \n", fd, ev, time(NULL) );
 
 	evsets_add( sets, e, 1*1000 );
 
-	return 0;
+	return;
 }
 
 int32_t test_addtimer( evsets_t sets, event_t * events )

@@ -60,7 +60,7 @@ struct event
 
     // cb 一定要合法
     void * arg;
-    int32_t (*cb)( int32_t, int16_t, void * ); 
+    void (*cb)( int32_t, int16_t, void * ); 
 
     // 定时器的超时时间
     int32_t timer_msecs;        
@@ -118,6 +118,7 @@ void evtimer_destroy( struct evtimer * self );
 
 struct eventset
 {
+    int8_t working;
     int32_t timer_precision;
     
     int64_t expire_time;

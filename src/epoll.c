@@ -42,7 +42,7 @@ int32_t epoll_del( void * arg, struct event * ev );
 int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv );
 void epoll_final( void * arg );
 
-int32_t epoll_expend( struct epoller * self );
+int32_t epoll_expand( struct epoller * self );
 int32_t epoll_insert( struct epoller * self, int32_t max );
 
 const struct eventop epollops = {
@@ -92,12 +92,12 @@ void * epoll_init()
     return poller;
 }
 
-int32_t epoll_expend( struct epoller * self )
+int32_t epoll_expand( struct epoller * self )
 {
     int32_t nevents = self->nevents;
     struct epoll_event * newevents = NULL;
 
-    nevents *= 2;
+    nevents <<= 1;
 
     newevents = realloc( self->events, nevents*sizeof(struct epoll_event) );
     if ( newevents == NULL )
@@ -352,7 +352,7 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
 
     if ( res == poller->nevents )
     {
-        epoll_expend( poller );
+        epoll_expand( poller );
     }
 
     return res;

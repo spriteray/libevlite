@@ -44,8 +44,8 @@
 //
 
 inline int32_t evsets_process_active( struct eventset * self );
-inline int32_t event_list_insert( struct eventset * sets, struct event * ev, int32_t type );
-inline int32_t event_list_remove( struct eventset * sets, struct event * ev, int32_t type );
+inline int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type );
+inline int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t type );
 
 
 
@@ -83,7 +83,7 @@ int64_t rmtime()
 	return now;
 }
 
-int32_t event_list_insert( struct eventset * sets, struct event * ev, int32_t type )
+int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type )
 {
     if ( ev->status & type )
     {
@@ -97,19 +97,19 @@ int32_t event_list_insert( struct eventset * sets, struct event * ev, int32_t ty
     {
         case EVSTATUS_INSERTED :
         {
-            TAILQ_INSERT_TAIL( &(sets->eventlist), ev, eventlink );
+            TAILQ_INSERT_TAIL( &(self->eventlist), ev, eventlink );
         }
         break;
 
         case EVSTATUS_ACTIVE :
         {
-            TAILQ_INSERT_TAIL( &(sets->activelist), ev, activelink );
+            TAILQ_INSERT_TAIL( &(self->activelist), ev, activelink );
         }
         break;
 
         case EVSTATUS_TIMER :
         {
-            evtimer_append( sets->core_timer, ev );
+            evtimer_append( self->core_timer, ev );
         }
         break;
 
@@ -123,7 +123,7 @@ int32_t event_list_insert( struct eventset * sets, struct event * ev, int32_t ty
     return 0;
 }
 
-int32_t event_list_remove( struct eventset * sets, struct event * ev, int32_t type )
+int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t type )
 {
     if ( !(ev->status & type) )
     {
@@ -136,19 +136,19 @@ int32_t event_list_remove( struct eventset * sets, struct event * ev, int32_t ty
     {
         case EVSTATUS_INSERTED :
         {
-            TAILQ_REMOVE( &(sets->eventlist), ev, eventlink );
+            TAILQ_REMOVE( &(self->eventlist), ev, eventlink );
         }
         break;
 
         case EVSTATUS_ACTIVE :
         {
-            TAILQ_REMOVE( &(sets->activelist), ev, activelink );
+            TAILQ_REMOVE( &(self->activelist), ev, activelink );
         }
         break;
 
         case EVSTATUS_TIMER :
         {
-            evtimer_remove( sets->core_timer, ev );
+            evtimer_remove( self->core_timer, ev );
         }
         break;
 
@@ -203,7 +203,7 @@ void event_set( event_t self, int32_t fd, int16_t ev )
     return;
 }
 
-void event_set_callback( event_t self, int32_t (*cb)(int32_t, int16_t, void *), void * arg )
+void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), void * arg )
 {
     struct event * e = (struct event *)self;
 
@@ -225,7 +225,7 @@ int32_t event_get_fd( event_t self )
     return e->fd;
 }
 
-evsets_t event_get_evsets( event_t self )
+evsets_t event_get_sets( event_t self )
 { 
     struct event * e = (struct event *)self;
 
@@ -279,7 +279,8 @@ evsets_t evsets_create()
             {
                 TAILQ_INIT( &(self->eventlist) );
                 TAILQ_INIT( &(self->activelist) );
-
+                
+                self->working = 0;
                 self->timer_precision = TIMER_MAX_PRECISION;
                 self->expire_time = rmtime() + self->timer_precision;
             }
@@ -391,6 +392,12 @@ int32_t evsets_del( evsets_t self, event_t ev )
     return 0;
 }
 
+int8_t evsets_is_busy( evsets_t self )
+{
+     struct eventset * sets = (struct eventset *)self;
+     return sets->working;   
+}
+
 int32_t evsets_dispatch( evsets_t self )
 {
     int64_t now = 0;
@@ -443,8 +450,10 @@ int32_t evsets_dispatch( evsets_t self )
     //
     // 处理所有事件, 并回调定义好的函数
     //
+    sets->working = 1;
     res = evsets_process_active( sets );
-
+    sets->working = 0;
+    
     return res;
 }
 

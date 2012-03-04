@@ -40,13 +40,13 @@ void event_set( event_t self, int32_t fd, int16_t ev );
 
 // 设置事件的回调函数
 // 设置发生事件后的回调函数
-void event_set_callback( event_t self, int32_t (*cb)(int32_t, int16_t, void *), void * arg );
+void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), void * arg );
 
 // 获取事件关注的描述符FD
 int32_t event_get_fd( event_t self );
 
 // 获取事件所属事件集
-evsets_t event_get_evsets( event_t self );
+evsets_t event_get_sets( event_t self );
 
 // 销毁事件
 void event_destroy( event_t self );
@@ -69,6 +69,9 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv );
 
 // 从事件集中删除事件
 int32_t evsets_del( evsets_t self, event_t ev );
+
+// 事件集是否繁忙
+int8_t evsets_is_busy( evsets_t self );
 
 // 分发并处理事件
 // 返回激活的事件个数
