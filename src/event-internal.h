@@ -98,7 +98,7 @@ struct evtimer
     int32_t bucket_count;               // 桶的个数
     int32_t max_precision;              // 最大精度, 精确到1毫秒
 
-    int32_t dispatch_index;             //
+    int32_t dispatch_refer;             //
     struct event_list * bucket_array;   // 桶的数组
 };
 

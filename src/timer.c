@@ -12,7 +12,7 @@ struct evtimer * evtimer_create( int32_t max_precision, int32_t bucket_count )
     if ( t )
     {
         t->event_count = 0;
-        t->dispatch_index = 0;
+        t->dispatch_refer = 0;
         t->bucket_count = bucket_count;
         t->max_precision = max_precision;
 
@@ -50,7 +50,7 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
     // 把桶的索引号写入事件句柄中, 便于查找以及删除
     // 如果定时器超时时间过长, 设定其定时器周期数
     //
-    index = EVTIMER_INDEX(self, tv/self->max_precision + self->dispatch_index);	
+    index = EVTIMER_INDEX(self, tv/self->max_precision + self->dispatch_refer);	
 	
     ev->timer_index = index;
     ev->timer_stepcnt = tv / ( self->max_precision * self->bucket_count ) + 1;
@@ -84,69 +84,71 @@ int32_t evtimer_remove( struct evtimer * self, struct event * ev )
 
 int32_t evtimer_dispatch( struct evtimer * self )
 {
-    int32_t done = 0, rc = 0;
-    
-    struct event * laster = NULL;
-    struct event_list * head = NULL;
-    
-    head = &( self->bucket_array[ self->dispatch_index ] );
-    self->dispatch_index = EVTIMER_INDEX(self, ++self->dispatch_index);
+	int32_t done = 0, rc = 0;
 
-    //
-    // 该桶中没有定时的事件
-    //
-    if ( TAILQ_EMPTY(head) )
-    {
-        return 0;
-    }
+	struct event * laster = NULL;
+	struct event_list * head = NULL;
 
-    //
-    // 遍历超时事件链表
-    //
-    laster = TAILQ_LAST( head, event_list );
-    while ( !done )
-    {
-        struct event * do_event = TAILQ_FIRST(head);
+	int32_t index = EVTIMER_INDEX(self, self->dispatch_refer);
 
-        //
-        // 由于某些事件的超时时间过长
-        // 所以还是需要继续添加到事件链表中的
-        // 必须判断当前节点是否是链表的尾部元素
-        //
-        if ( do_event == laster )
-        {
-            done = 1;
-        }
+	++self->dispatch_refer;
+	head = &( self->bucket_array[index] );
 
-        --do_event->timer_stepcnt;
-        if ( do_event->timer_stepcnt > 0 )
-        {
-            //
-            // 未超时
-            //
-            TAILQ_REMOVE( head, do_event, timerlink );
-            TAILQ_INSERT_TAIL( head, do_event, timerlink );
-        }
-        else if ( do_event->timer_stepcnt == 0 )
-        {
-            //
-            // 超时了
-            // 从队列中删除, 并添加到激活队列中
-            //
-            ++rc;
-            evsets_del( event_get_sets((event_t)do_event), (event_t)do_event );
-            event_active( do_event, EV_TIMEOUT );
-        }
-        else
-        {
-            //
-            // 出错了
-            //
-            evsets_del( event_get_sets((event_t)do_event), (event_t)do_event );
-        }
-    }
+	//
+	// 该桶中没有定时的事件
+	//
+	if ( TAILQ_EMPTY(head) )
+	{
+		return 0;
+	}
 
-    return rc;
+	//
+	// 遍历超时事件链表
+	//
+	laster = TAILQ_LAST( head, event_list );
+	while ( !done )
+	{
+		struct event * ev = TAILQ_FIRST(head);
+
+		//
+		// 由于某些事件的超时时间过长
+		// 所以还是需要继续添加到事件链表中的
+		// 必须判断当前节点是否是链表的尾部元素
+		//
+		if ( ev == laster )
+		{
+			done = 1;
+		}
+
+		--ev->timer_stepcnt;
+		if ( ev->timer_stepcnt > 0 )
+		{
+			//
+			// 未超时
+			//
+			TAILQ_REMOVE( head, ev, timerlink );
+			TAILQ_INSERT_TAIL( head, ev, timerlink );
+		}
+		else if ( ev->timer_stepcnt == 0 )
+		{
+			//
+			// 超时了
+			// 从队列中删除, 并添加到激活队列中
+			//
+			++rc;
+			evsets_del( event_get_sets((event_t)ev), (event_t)ev );
+			event_active( ev, EV_TIMEOUT );
+		}
+		else
+		{
+			//
+			// 出错了
+			//
+			evsets_del( event_get_sets((event_t)ev), (event_t)ev );
+		}
+	}
+
+	return rc;
 }
 
 int32_t evtimer_count( struct evtimer * self )
@@ -156,29 +158,28 @@ int32_t evtimer_count( struct evtimer * self )
 
 int32_t evtimer_clean( struct evtimer * self )
 {
-    int32_t i = 0, rc = 0;
+	int32_t i = 0, rc = 0;
 
-    for ( i = 0; i < self->bucket_count; ++i )
-    {
-        struct event * ev = NULL;
-        struct event_list * head = &( self->bucket_array[i] );
+	for ( i = 0; i < self->bucket_count; ++i )
+	{
+		struct event * ev = NULL;
+		struct event_list * head = &( self->bucket_array[i] );
 
-        for ( ev = TAILQ_FIRST(head); ev; )
-        {
-            struct event * next = TAILQ_NEXT( ev, timerlink );
+		for ( ev = TAILQ_FIRST(head); ev; )
+		{
+			struct event * next = TAILQ_NEXT( ev, timerlink );
 
-            evsets_del( event_get_sets((event_t)ev), (event_t)ev );
-            //event_destroy( (event_t)ev );
+			evsets_del( event_get_sets((event_t)ev), (event_t)ev );
 
-            ++rc;
-            ev = next;
-            --self->event_count;
-        }
-    }
+			++rc;
+			ev = next;
+			--self->event_count;
+		}
+	}
 
-    self->dispatch_index = 0;
+	self->dispatch_refer = 0;
 
-    return rc;
+	return rc;
 }
 
 void evtimer_destroy( struct evtimer * self )
