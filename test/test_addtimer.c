@@ -32,9 +32,9 @@ void ev_timer_callback( int32_t fd, int16_t ev, void * arg )
 	event_t e = (event_t)arg;
 	evsets_t sets = event_get_sets( e );
 
-	printf("ev_timer_callback(fd=%d, ev=%d) : %d \n", fd, ev, time(NULL) );
+	printf("ev_timer_callback(handler=%p, fd=%d, ev=%d) : %d \n", e, fd, ev, time(NULL) );
 
-	evsets_add( sets, e, 1*1000 );
+	evsets_add( sets, e, 2*1000 );
 
 	return;
 }

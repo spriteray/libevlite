@@ -30,7 +30,7 @@ void fifo_read( int32_t fd, int16_t ev, void * arg )
     int32_t rc = 0;
 
     event_t evfifo = (event_t)arg;
-    evsets_t evsets = event_get_evsets( evfifo );
+    evsets_t evsets = event_get_sets( evfifo );
 
     rc = evsets_add( evsets, evfifo, 0 );
     

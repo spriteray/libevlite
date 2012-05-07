@@ -38,27 +38,27 @@ struct evtimer * evtimer_create( int32_t max_precision, int32_t bucket_count )
 
 int32_t evtimer_append( struct evtimer * self, struct event * ev )
 {
-    int32_t index = -1;
-    int32_t tv = EVENT_TIMEOUT(ev);
+	int32_t index = -1;
+	int32_t tv = EVENT_TIMEOUT(ev);
 
-    if ( tv <= 0 )
-    {
-        return -1;
-    }
+	if ( tv <= 0 )
+	{
+		return -1;
+	}
 
-    //
-    // 把桶的索引号写入事件句柄中, 便于查找以及删除
-    // 如果定时器超时时间过长, 设定其定时器周期数
-    //
-    index = EVTIMER_INDEX(self, tv/self->max_precision + self->dispatch_refer);	
-	
-    ev->timer_index = index;
-    ev->timer_stepcnt = tv / ( self->max_precision * self->bucket_count ) + 1;
+	//
+	// 把桶的索引号写入事件句柄中, 便于查找以及删除
+	// 如果定时器超时时间过长, 设定其定时器周期数
+	//
+	index = EVTIMER_INDEX(self, tv/self->max_precision+self->dispatch_refer+1);
 
-    ++self->event_count;
-    TAILQ_INSERT_TAIL( &(self->bucket_array[index]), ev, timerlink );
+	ev->timer_index = index;
+	ev->timer_stepcnt = tv / ( self->max_precision * self->bucket_count ) + 1;
 
-    return 0;
+	++self->event_count;
+	TAILQ_INSERT_TAIL( &(self->bucket_array[index]), ev, timerlink );
+
+	return 0;
 }
 
 int32_t evtimer_remove( struct evtimer * self, struct event * ev )
@@ -84,13 +84,13 @@ int32_t evtimer_remove( struct evtimer * self, struct event * ev )
 
 int32_t evtimer_dispatch( struct evtimer * self )
 {
-	int32_t done = 0, rc = 0;
+	int32_t rc = 0;
+	int32_t done = 0, index = 0;
 
 	struct event * laster = NULL;
 	struct event_list * head = NULL;
 
-	int32_t index = EVTIMER_INDEX(self, self->dispatch_refer);
-
+	index = EVTIMER_INDEX(self, self->dispatch_refer);
 	++self->dispatch_refer;
 	head = &( self->bucket_array[index] );
 
