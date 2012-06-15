@@ -3,12 +3,14 @@
 
 CC	= gcc
 CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
-LFLAGS	= -ggdb -lrt -lpthread
-SOFLAGS	= -shared -Wl,-soname,$(SONAME)
+LFLAGS	= -ggdb -lpthread
+SOFLAGS	= -shared -Wl
 
 LIBNAME	= libudkevent.so
 SONAME	= $(LIBNAME).1
 REALNAME= $(LIBNAME).1.0.1
+
+OS		= $(shell uname)
 
 #
 # 利用git tag发布软件版本
@@ -24,7 +26,7 @@ REALNAME= $(LIBNAME).1.0.1
 
 OBJS 	= timer.o event.o
 
-ifeq ($(os),linux)
+ifeq ($(OS),Linux)
 	LFLAGS += -lrt
 	OBJS += epoll.o
 else
