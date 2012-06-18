@@ -15,7 +15,7 @@
 // °æ±¾
 //
 #ifndef __EVENT_VERSION__
-#define __EVENT_VERSION__ "libudkevent-X.X.X"
+#define __EVENT_VERSION__ "libevlite-X.X.X"
 #endif
 
 //
