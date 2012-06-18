@@ -239,7 +239,6 @@ int32_t epoll_del( void * arg, struct event * ev )
             // 删除的是读事件, 写事件仍然要监听
             // 并且还需要从写事件中查看是否支持了边缘触发模式
             delwrite = 0;
-
             events = EPOLLOUT;
             op = EPOLL_CTL_MOD;
             if ( evpair->evwrite->events & EV_EDGETRIGGERED )
@@ -252,7 +251,6 @@ int32_t epoll_del( void * arg, struct event * ev )
             // 删除的是写事件, 读事件仍然要监听
             // 并且还需要从读事件中查看是否支持了边缘触发模式
             delread = 0;
-
             events = EPOLLIN;
             op = EPOLL_CTL_MOD;
             if ( evpair->evread->events & EV_EDGETRIGGERED )

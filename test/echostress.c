@@ -19,7 +19,7 @@
 // --------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------
 
-#define SENDBUFFER_SIZE 4096
+#define SENDBUFFER_SIZE 16384
 #define INBUFFER_SIZE   16384
 
 struct stress_client
@@ -31,8 +31,8 @@ struct stress_client
 
     char inbuffer[INBUFFER_SIZE];
 
-    int32_t send_nbytes;
-    int32_t recv_nbytes;
+    int64_t send_nbytes;
+    int64_t recv_nbytes;
 };
 
 static  int8_t g_running;
