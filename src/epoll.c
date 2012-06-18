@@ -137,223 +137,229 @@ int32_t epoll_insert( struct epoller * self, int32_t max )
 
 int32_t epoll_add( void * arg, struct event * ev )
 {
-    int32_t fd = 0;
-    int32_t op = 0, events = 0;
+	int32_t fd = 0, rc = 0;
+	int32_t op = 0, events = 0;
 
-    struct epoll_event epevent;
-    struct eventpair * evpair = NULL;
-    struct epoller * poller = (struct epoller *)arg;
+	struct epoll_event epevent;
+	struct eventpair * evpair = NULL;
+	struct epoller * poller = (struct epoller *)arg;
 
-    fd = event_get_fd( (event_t)ev );
-    if ( fd >= poller->npairs )
-    {
-        if ( epoll_insert( poller, fd ) != 0 )
-        {
-            return -1;
-        }
-    }
+	fd = event_get_fd( (event_t)ev );
+	if ( fd >= poller->npairs )
+	{
+		if ( epoll_insert( poller, fd ) != 0 )
+		{
+			return -1;
+		}
+	}
 
-    events = 0;
-    op = EPOLL_CTL_ADD;
-    evpair = &( poller->evpairs[fd] );
+	events = 0;
+	op = EPOLL_CTL_ADD;
+	evpair = &( poller->evpairs[fd] );
 
-    if ( evpair->evread != NULL )
-    {
-        events |= EPOLLIN;
-        op = EPOLL_CTL_MOD;
-    }
-    if ( evpair->evwrite != NULL )
-    {
-        events |= EPOLLOUT;
-        op = EPOLL_CTL_MOD;
-    }
+	if ( evpair->evread != NULL )
+	{
+		events |= EPOLLIN;
+	}
+	if ( evpair->evwrite != NULL )
+	{
+		events |= EPOLLOUT;
+	}
 
-    if ( ev->events & EV_READ )
-    {
-        events |= EPOLLIN;
-    }
-    if ( ev->events & EV_WRITE )
-    {
-        events |= EPOLLOUT;
-    }
-    if ( ev->events & EV_EDGETRIGGERED )
-    {
-        events |= EPOLLET;
-    }
+	if ( ev->events & EV_READ )
+	{
+		events |= EPOLLIN;
+	}
+	if ( ev->events & EV_WRITE )
+	{
+		events |= EPOLLOUT;
+	}
+	if ( ev->events & EV_ET )
+	{
+		events |= EPOLLET;
+	}
 
-    epevent.data.fd = fd;
-    epevent.events = events;
-    if ( epoll_ctl( poller->epollfd, op, fd, &epevent ) == -1 )
-    {
-        return -2;
-    }
+	epevent.data.fd = fd;
+	epevent.events = events;
+	rc = epoll_ctl( poller->epollfd, op, fd, &epevent );
+	if ( rc == -1 && errno != EEXIST )
+	{
+		return -2;
+	}
 
-    if ( ev->events & EV_READ )
-    {
-        evpair->evread = ev;
-    }
-    if ( ev->events & EV_WRITE )
-    {
-        evpair->evwrite = ev;
-    }
+	if ( ev->events & EV_READ )
+	{
+		evpair->evread = ev;
+	}
+	if ( ev->events & EV_WRITE )
+	{
+		evpair->evwrite = ev;
+	}
 
-    return 0;
+	return 0;
 }
 
 int32_t epoll_del( void * arg, struct event * ev )
 {
-    int32_t fd = 0;
-    int32_t op = 0, events = 0;
-    int32_t delwrite = 1, delread = 1;
+	int32_t fd = 0, rc = 0;
+	int32_t op = 0, events = 0;
+	int32_t delwrite = 1, delread = 1;
 
-    struct epoll_event epevent;
-    struct eventpair * evpair = NULL;
-    struct epoller * poller = (struct epoller *)arg;
-    
-    fd = event_get_fd((event_t)ev);
-    if ( fd >= poller->npairs )
-    {
-        return -1;
-    }
+	struct epoll_event epevent;
+	struct eventpair * evpair = NULL;
+	struct epoller * poller = (struct epoller *)arg;
 
-    // 简单的删除指定的事件
-    events = 0;
-    op = EPOLL_CTL_DEL;
-    evpair = &( poller->evpairs[fd] );
+	fd = event_get_fd((event_t)ev);
+	if ( fd >= poller->npairs )
+	{
+		return -1;
+	}
 
-    if ( ev->events & EV_READ )
-    {
-        events |= EPOLLIN;
-    }
-    if ( ev->events & EV_WRITE )
-    {
-        events |= EPOLLOUT;
-    }
+	// 简单的删除指定的事件
+	events = 0;
+	op = EPOLL_CTL_DEL;
+	evpair = &( poller->evpairs[fd] );
 
-    // 删除的同时查看该描述符是否支持了其他事件
-    // 如有, 则不能直接简单的删除
-    if ( (events & (EPOLLIN|EPOLLOUT)) != (EPOLLIN|EPOLLOUT) )
-    {
-        if ( (events & EPOLLIN) && evpair->evwrite != NULL )
-        {
-            // 删除的是读事件, 写事件仍然要监听
-            // 并且还需要从写事件中查看是否支持了边缘触发模式
-            delwrite = 0;
-            events = EPOLLOUT;
-            op = EPOLL_CTL_MOD;
-            if ( evpair->evwrite->events & EV_EDGETRIGGERED )
-            {
-                 events |= EPOLLET;
-            }
-        }
-        else if ( (events & EPOLLOUT) && evpair->evread != NULL )
-        {
-            // 删除的是写事件, 读事件仍然要监听
-            // 并且还需要从读事件中查看是否支持了边缘触发模式
-            delread = 0;
-            events = EPOLLIN;
-            op = EPOLL_CTL_MOD;
-            if ( evpair->evread->events & EV_EDGETRIGGERED )
-            {
-                 events |= EPOLLET;
-            }
-        }
-    }
+	if ( ev->events & EV_READ )
+	{
+		events |= EPOLLIN;
+	}
+	if ( ev->events & EV_WRITE )
+	{
+		events |= EPOLLOUT;
+	}
 
-    epevent.data.fd = fd;
-    epevent.events = events;
-    
-    if ( delread )
-    {
-        evpair->evread = NULL;
-    }
-    if ( delwrite )
-    {
-        evpair->evwrite = NULL;
-    }
+	// 删除的同时查看该描述符是否支持了其他事件
+	// 如有, 则不能直接简单的删除
+	if ( (events & (EPOLLIN|EPOLLOUT)) != (EPOLLIN|EPOLLOUT) )
+	{
+		if ( (events & EPOLLIN) && evpair->evwrite != NULL )
+		{
+			struct event * evwrite = evpair->evwrite;
 
-    if ( epoll_ctl( poller->epollfd, op, fd, &epevent ) == -1 )
-    {
-        return -2;
-    }
+			// 删除的是读事件, 写事件仍然要监听
+			// 并且还需要从写事件中查看是否支持了边缘触发模式
+			delwrite = 0;
+			events = EPOLLOUT;
+			op = EPOLL_CTL_ADD;
 
-    return 0;
+			if ( evwrite->events & EV_ET )
+			{
+				events |= EPOLLET;
+			}
+		}
+		else if ( (events & EPOLLOUT) && evpair->evread != NULL )
+		{
+			struct event * evread = evpair->evread;
+
+			// 删除的是写事件, 读事件仍然要监听
+			// 并且还需要从读事件中查看是否支持了边缘触发模式
+			delread = 0;
+			events = EPOLLIN;
+			op = EPOLL_CTL_ADD;
+
+			if ( evread->events & EV_ET )
+			{
+				events |= EPOLLET;
+			}
+		}
+	}
+
+	epevent.data.fd = fd;
+	epevent.events = events;
+
+	if ( delread )
+	{
+		evpair->evread = NULL;
+	}
+	if ( delwrite )
+	{
+		evpair->evwrite = NULL;
+	}
+
+	rc = epoll_ctl( poller->epollfd, op, fd, &epevent );
+	if ( rc == -1 && errno != EEXIST )
+	{
+		return -2;
+	}
+
+	return 0;
 }
 
 int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
 {
-    int32_t i, res = -1;
-    struct epoller * poller = (struct epoller *)arg;
+	int32_t i, res = -1;
+	struct epoller * poller = (struct epoller *)arg;
 
-    if ( tv > MAX_EPOLL_WAIT )
-    {
-        tv = MAX_EPOLL_WAIT;
-    }
+	if ( tv > MAX_EPOLL_WAIT )
+	{
+		tv = MAX_EPOLL_WAIT;
+	}
 
-    res = epoll_wait( poller->epollfd, poller->events, poller->nevents, tv );
-    if ( res == -1 )
-    {
-        if ( errno != EINTR )
-        {
-            return -1;
-        }
+	res = epoll_wait( poller->epollfd, poller->events, poller->nevents, tv );
+	if ( res == -1 )
+	{
+		if ( errno != EINTR )
+		{
+			return -1;
+		}
 
-        return 0;
-    }
+		return 0;
+	}
 
-    for ( i = 0; i < res; ++i )
-    {
-        int32_t fd = poller->events[i].data.fd;
-        int32_t what = poller->events[i].events;
+	for ( i = 0; i < res; ++i )
+	{
+		int32_t fd = poller->events[i].data.fd;
+		int32_t what = poller->events[i].events;
 
-        struct eventpair * evep = NULL;
-        struct event * evread = NULL, * evwrite = NULL;
+		struct eventpair * evep = NULL;
+		struct event * evread = NULL, * evwrite = NULL;
 
-        if ( fd < 0 || fd >= poller->npairs )
-        {
-            continue;
-        }
-        
-        evep = &( poller->evpairs[fd] );
+		if ( fd < 0 || fd >= poller->npairs )
+		{
+			continue;
+		}
 
-        if ( what & (EPOLLHUP|EPOLLERR) )
-        {
-            evread = evep->evread;
-            evwrite = evep->evwrite;
-        }
-        else
-        {
-            if ( what & (EPOLLIN|EPOLLPRI) )
-            {
-                evread = evep->evread;
-            }
-            if ( what & EPOLLOUT )
-            {
-                evwrite = evep->evwrite;
-            }
-        }
+		evep = &( poller->evpairs[fd] );
 
-        if ( !(evread||evwrite) )
-        {
-            continue;
-        }
+		if ( what & (EPOLLHUP|EPOLLERR) )
+		{
+			evread = evep->evread;
+			evwrite = evep->evwrite;
+		}
+		else
+		{
+			if ( what & (EPOLLIN|EPOLLPRI) )
+			{
+				evread = evep->evread;
+			}
+			if ( what & EPOLLOUT )
+			{
+				evwrite = evep->evwrite;
+			}
+		}
 
-        if ( evread )
-        {
-            event_active( evread, EV_READ );
-        }
-        if ( evwrite )
-        {
-            event_active( evwrite, EV_WRITE );
-        }
-    }
+		if ( !(evread||evwrite) )
+		{
+			continue;
+		}
 
-    if ( res == poller->nevents )
-    {
-        epoll_expand( poller );
-    }
+		if ( evread )
+		{
+			event_active( evread, EV_READ );
+		}
+		if ( evwrite )
+		{
+			event_active( evwrite, EV_WRITE );
+		}
+	}
 
-    return res;
+	if ( res == poller->nevents )
+	{
+		epoll_expand( poller );
+	}
+
+	return res;
 }
 
 void epoll_final( void * arg )

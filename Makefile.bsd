@@ -6,7 +6,7 @@ CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$
 LFLAGS	= -ggdb -lthr
 SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 
-LIBNAME	= libudkevent.so
+LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).1
 REALNAME= $(LIBNAME).1.0.1
 

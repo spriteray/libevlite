@@ -140,7 +140,7 @@ int32_t kqueue_add( void * arg, struct event * ev )
         {
             kev.flags |= EV_ONESHOT;
         }
-        if ( ev->events & EV_EDGETRIGGERED )
+        if ( ev->events & EV_ET )
         {
             kev.flags |= EV_CLEAR;
         }
@@ -163,7 +163,7 @@ int32_t kqueue_add( void * arg, struct event * ev )
         {
             kev.flags |= EV_ONESHOT;
         }
-        if ( ev->events & EV_EDGETRIGGERED )
+        if ( ev->events & EV_ET )
         {
             kev.flags |= EV_CLEAR;
         }

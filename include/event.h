@@ -13,11 +13,11 @@ extern "C"
 // 事件库所支持的事件类型
 //
 
-#define EV_READ             0x01    // 读事件
-#define EV_WRITE            0x02    // 写事件
-#define EV_TIMEOUT          0x04    // 超时事件
-#define EV_PERSIST          0x08    // 永久模式
-#define EV_EDGETRIGGERED    0x10    // Edge Triggered模式
+#define EV_READ		0x01    // 读事件
+#define EV_WRITE	0x02    // 写事件
+#define EV_TIMEOUT	0x04    // 超时事件
+#define EV_PERSIST	0x08    // 永久模式
+#define EV_ET		0x10    // Edge Triggered模式
 
 
 //
