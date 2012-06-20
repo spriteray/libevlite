@@ -6,11 +6,11 @@
 // FreeBSD 7.4
 // Xeon E5410 * 1, 8G
 //
-// evsets_add(60000) : 0 secs, 2493 usecs .
-// evsets_del(60000) : 0 secs, 1927 usecs .
+// evsets_add(1000000) : 0 secs, 63969 usecs .
+// evsets_del(1000000) : 0 secs, 57534 usecs .
 // --------------------------------------------------------
-// libevent_add(60000) : 0 secs, 94520 usecs .
-// libevent_del(60000) : 0 secs, 30013 usecs .
+// libevent_add(1000000) : 0 secs, 310279 usecs .
+// libevent_del(1000000) : 0 secs, 490534 usecs .
 //
 
 #include <time.h>
@@ -20,7 +20,7 @@
 
 #include "event.h"
 
-#define NTEST   60000
+#define NTEST   1000000
 
 void ev_callback( int32_t fd, int16_t ev, void * arg )
 {

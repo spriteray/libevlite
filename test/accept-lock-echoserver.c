@@ -1,6 +1,6 @@
 
 /*
- * cc -I/usr/local/include -lpthread -L/usr/local/lib -levent test/accept-lock-echoserver.c -o echoserver-libevent
+ * cc -I/usr/local/include -lpthread -L/usr/local/lib -levent test/accept-lock-echoserver.c -o echoserver-lock-libevent
  */
 
 
@@ -106,6 +106,11 @@ int32_t tcp_listen( const char * host, uint16_t port )
     flags = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags) );
     setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+	
+#if defined (linux)	
+	flags = 1;
+	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
+#endif
 
     set_fd_nonblock( fd );
 

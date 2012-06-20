@@ -78,8 +78,8 @@ void * epoll_init()
 
     poller->epollfd = epollfd;
 
-    poller->evpairs = (struct eventpair *)malloc( NEVENTS * sizeof(struct eventpair) );
-    poller->events = (struct epoll_event *)malloc( NEVENTS * sizeof(struct epoll_event) );
+    poller->evpairs = (struct eventpair *)calloc( NEVENTS, sizeof(struct eventpair) );
+    poller->events = (struct epoll_event *)calloc( NEVENTS, sizeof(struct epoll_event) );
     if ( poller->evpairs == NULL || poller->events == NULL )
     {
         epoll_final( poller );
