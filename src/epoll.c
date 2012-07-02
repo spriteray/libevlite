@@ -140,8 +140,8 @@ int32_t epoll_add( void * arg, struct event * ev )
 	int32_t fd = 0, rc = 0;
 	int32_t op = 0, events = 0;
 
-	struct epoll_event epevent;
-	struct eventpair * evpair = NULL;
+	struct epoll_event epollevent;
+	struct eventpair * eventpair = NULL;
 	struct epoller * poller = (struct epoller *)arg;
 
 	fd = event_get_fd( (event_t)ev );
@@ -155,13 +155,13 @@ int32_t epoll_add( void * arg, struct event * ev )
 
 	events = 0;
 	op = EPOLL_CTL_ADD;
-	evpair = &( poller->evpairs[fd] );
+	eventpair = &( poller->evpairs[fd] );
 
-	if ( evpair->evread != NULL )
+	if ( eventpair->evread != NULL )
 	{
 		events |= EPOLLIN;
 	}
-	if ( evpair->evwrite != NULL )
+	if ( eventpair->evwrite != NULL )
 	{
 		events |= EPOLLOUT;
 	}
@@ -179,9 +179,9 @@ int32_t epoll_add( void * arg, struct event * ev )
 		events |= EPOLLET;
 	}
 
-	epevent.data.fd = fd;
-	epevent.events = events;
-	rc = epoll_ctl( poller->epollfd, op, fd, &epevent );
+	epollevent.data.fd = fd;
+	epollevent.events = events;
+	rc = epoll_ctl( poller->epollfd, op, fd, &epollevent );
 	if ( rc == -1 && errno != EEXIST )
 	{
 		return -2;
@@ -189,11 +189,11 @@ int32_t epoll_add( void * arg, struct event * ev )
 
 	if ( ev->events & EV_READ )
 	{
-		evpair->evread = ev;
+		eventpair->evread = ev;
 	}
 	if ( ev->events & EV_WRITE )
 	{
-		evpair->evwrite = ev;
+		eventpair->evwrite = ev;
 	}
 
 	return 0;
@@ -205,8 +205,8 @@ int32_t epoll_del( void * arg, struct event * ev )
 	int32_t op = 0, events = 0;
 	int32_t delwrite = 1, delread = 1;
 
-	struct epoll_event epevent;
-	struct eventpair * evpair = NULL;
+	struct epoll_event epollevent;
+	struct eventpair * eventpair = NULL;
 	struct epoller * poller = (struct epoller *)arg;
 
 	fd = event_get_fd((event_t)ev);
@@ -218,7 +218,7 @@ int32_t epoll_del( void * arg, struct event * ev )
 	// 简单的删除指定的事件
 	events = 0;
 	op = EPOLL_CTL_DEL;
-	evpair = &( poller->evpairs[fd] );
+	eventpair = &( poller->evpairs[fd] );
 
 	if ( ev->events & EV_READ )
 	{
@@ -233,9 +233,9 @@ int32_t epoll_del( void * arg, struct event * ev )
 	// 如有, 则不能直接简单的删除
 	if ( (events & (EPOLLIN|EPOLLOUT)) != (EPOLLIN|EPOLLOUT) )
 	{
-		if ( (events & EPOLLIN) && evpair->evwrite != NULL )
+		if ( (events & EPOLLIN) && eventpair->evwrite != NULL )
 		{
-			struct event * evwrite = evpair->evwrite;
+			struct event * evwrite = eventpair->evwrite;
 
 			// 删除的是读事件, 写事件仍然要监听
 			// 并且还需要从写事件中查看是否支持了边缘触发模式
@@ -248,9 +248,9 @@ int32_t epoll_del( void * arg, struct event * ev )
 				events |= EPOLLET;
 			}
 		}
-		else if ( (events & EPOLLOUT) && evpair->evread != NULL )
+		else if ( (events & EPOLLOUT) && eventpair->evread != NULL )
 		{
-			struct event * evread = evpair->evread;
+			struct event * evread = eventpair->evread;
 
 			// 删除的是写事件, 读事件仍然要监听
 			// 并且还需要从读事件中查看是否支持了边缘触发模式
@@ -265,19 +265,19 @@ int32_t epoll_del( void * arg, struct event * ev )
 		}
 	}
 
-	epevent.data.fd = fd;
-	epevent.events = events;
+	epollevent.data.fd = fd;
+	epollevent.events = events;
 
 	if ( delread )
 	{
-		evpair->evread = NULL;
+		eventpair->evread = NULL;
 	}
 	if ( delwrite )
 	{
-		evpair->evwrite = NULL;
+		eventpair->evwrite = NULL;
 	}
 
-	rc = epoll_ctl( poller->epollfd, op, fd, &epevent );
+	rc = epoll_ctl( poller->epollfd, op, fd, &epollevent );
 	if ( rc == -1 && errno != EEXIST )
 	{
 		return -2;
@@ -312,7 +312,7 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
 		int32_t fd = poller->events[i].data.fd;
 		int32_t what = poller->events[i].events;
 
-		struct eventpair * evep = NULL;
+		struct eventpair * eventpair = NULL;
 		struct event * evread = NULL, * evwrite = NULL;
 
 		if ( fd < 0 || fd >= poller->npairs )
@@ -320,22 +320,22 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
 			continue;
 		}
 
-		evep = &( poller->evpairs[fd] );
+		eventpair = &( poller->evpairs[fd] );
 
 		if ( what & (EPOLLHUP|EPOLLERR) )
 		{
-			evread = evep->evread;
-			evwrite = evep->evwrite;
+			evread = eventpair->evread;
+			evwrite = eventpair->evwrite;
 		}
 		else
 		{
 			if ( what & (EPOLLIN|EPOLLPRI) )
 			{
-				evread = evep->evread;
+				evread = eventpair->evread;
 			}
 			if ( what & EPOLLOUT )
 			{
-				evwrite = evep->evwrite;
+				evwrite = eventpair->evwrite;
 			}
 		}
 

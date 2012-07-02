@@ -118,7 +118,6 @@ void evtimer_destroy( struct evtimer * self );
 
 struct eventset
 {
-    int8_t working;
     int32_t timer_precision;
     
     int64_t expire_time;

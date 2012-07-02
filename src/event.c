@@ -392,12 +392,6 @@ int32_t evsets_del( evsets_t self, event_t ev )
     return 0;
 }
 
-int8_t evsets_is_busy( evsets_t self )
-{
-     struct eventset * sets = (struct eventset *)self;
-     return sets->working;   
-}
-
 int32_t evsets_dispatch( evsets_t self )
 {
     int64_t now = 0;
@@ -450,9 +444,7 @@ int32_t evsets_dispatch( evsets_t self )
     //
     // 处理所有事件, 并回调定义好的函数
     //
-    sets->working = 1;
     res = evsets_process_active( sets );
-    sets->working = 0;
     
     return res;
 }

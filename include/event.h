@@ -70,9 +70,6 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv );
 // 从事件集中删除事件
 int32_t evsets_del( evsets_t self, event_t ev );
 
-// 事件集是否繁忙
-int8_t evsets_is_busy( evsets_t self );
-
 // 分发并处理事件
 // 返回激活的事件个数
 int32_t evsets_dispatch( evsets_t self );

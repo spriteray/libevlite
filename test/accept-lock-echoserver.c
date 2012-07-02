@@ -219,10 +219,10 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_READ )
     {
-        char buf[8192];
+        char buf[16384];
         int32_t readn = -1;
 
-        readn = read( fd, buf, 8192 );
+        readn = read( fd, buf, 16384 );
         if ( readn <= 0 )
         {
 #if __DEBUG
