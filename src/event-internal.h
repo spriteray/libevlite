@@ -2,11 +2,6 @@
 #ifndef EVENT_INTERNAL_H
 #define EVENT_INTERNAL_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "queue.h"
 #include "event.h"
 
@@ -129,10 +124,6 @@ struct eventset
     struct event_list eventlist;
     struct event_list activelist;
 };
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 

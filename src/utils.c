@@ -1,4 +1,13 @@
 
+
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
+#include <pthread.h>
+#include <sys/socket.h>
+
 #include <sys/time.h>
 
 int64_t mtime()
@@ -12,5 +21,273 @@ int64_t mtime()
 	}
 	
 	return now;
+}
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+
+uint32_t nextpow2( uint32_t size )
+{
+	--size;
+	size |= size >> 1;
+	size |= size >> 2;
+	size |= size >> 4;
+	size |= size >> 8;
+	size |= size >> 16;
+	return ++size;
+}
+
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+struct queue * queue_create( uint32_t size )
+{
+	struct queue * self = NULL;
+
+	size = size ? size : 8;
+	size = nextpow2( size );
+
+	self = (struct queue *)malloc( sizeof(struct queue) );
+	if ( self )
+	{
+		self->entries = (struct task *)calloc( size, sizeof(struct task) );
+		if ( self->entries )
+		{
+			self->size 	= size;
+			self->head 	= self->tail = 0;
+		}
+		else
+		{
+			free( self );
+			self = NULL;
+		}
+	}
+
+	return self;
+}
+
+int32_t queue_push( struct queue * self, struct task * task )
+{
+	int32_t rc = 0;
+
+	if ( queue_count(self) >= self->size )
+	{
+		// 需要扩展
+
+		uint32_t new_size = self->size;
+		struct task * new_entries = NULL;
+		uint32_t headlen = 0, taillen = 0;
+
+		new_size <<= 1;
+		new_entries = (struct task * )malloc( sizeof(struct task) * new_size );
+		if ( new_entries )
+		{
+			// 扩展内存块失败
+			return -1;
+		}
+
+		// TODO: 此处做优化
+		if ( self->head < self->tail )
+		{
+			headlen = self->tail - self->head;
+		}
+		else
+		{
+			headlen = self->count - self->tail;
+			taillen = self->tail;
+		}
+
+		memcpy( new_entries, &(self->entries[self->head]), sizeof(struct task)*headlen );
+		if ( taillen )
+		{
+			memcpy( &(new_entries[headlen]), self->entries, sizeof(struct task)*taillen );
+		}
+
+		self->head = 0;
+		self->size = new_size;
+		self->tail = headlen + taillen;
+
+		free ( self->entries );
+		self->entries = new_entries;
+	}
+
+	self->entries[ self->tail++ ] = *task;
+	self->tail = (self->tail & (self->size-1));
+	
+	return rc;
+}
+
+int32_t queue_pop( struct queue * self, struct task * task )
+{
+	int32_t rc = -1;
+
+	if ( self->count > 0 )
+	{
+		*task = self->entries[ self->head++ ];
+		self->head = (self->head & (self->size-1));
+
+		rc = 0;
+	}
+
+	return rc;
+}
+
+int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
+{
+	// TODO: 
+}
+
+uint32_t queue_count( struct queue * self )
+{
+    return (self->tail + self->size - self->head);
+}
+
+int32_t queue_destroy( struct queue * self )
+{
+    if ( self->entries )
+    {
+        free( self->entries );
+        self->entries = NULL;
+    }
+
+    self->size = 0;
+    self->head = self->tail = 0;
+
+    free(self);
+
+    return 0;
+}
+
+// -----------------------------------------------------------------------------------------------------------------
+
+struct msgqueue * msgqueue_create( uint32_t size )
+{
+    struct msgqueue * self = NULL;
+
+    self = (struct msgqueue *)malloc( sizeof(struct msgqueue) );
+    if ( self )
+    {
+        self->popfd = -1;
+        self->pushfd = -1;
+        pthread_mutex_init( &self->lock, NULL );
+    
+        self->queue = queue_create( size );
+        if ( self->queue == NULL )
+        {
+            msgqueue_destroy( self );
+            self = NULL;
+        }
+        else
+        {
+            int32_t rc = -1;
+            int32_t fds[2] = { -1, -1 };
+
+            rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
+            if ( rc == -1 )
+            {
+                msgqueue_destroy( self );
+                self = NULL;
+            }
+            else
+            {
+                self->popfd = fds[0];
+                self->pushfd = fds[1];
+				
+#ifdef O_NOATIME
+				// linux在读pipe的时候会更新访问时间, touch_atime(), 这个的开销也不小
+				fcntl( self->popfd, F_SETFL, O_NOATIME );
+#endif
+            }
+        }
+    }
+
+    return self;
+}
+
+int32_t msgqueue_push( struct msgqueue * self, struct task * task )
+{
+    int32_t rc = -1;
+    int32_t isbc = 0;
+
+    pthread_mutex_lock( &self->lock );
+
+    rc = queue_push( self->queue, task );
+    isbc = queue_count( self->queue );
+    
+    pthread_mutex_unlock( &self->lock );
+
+    if ( rc == 0 && isbc == 1 )
+    {
+        char buf[1] = {0};
+        write( self->pushfd, buf, 1 );
+    }
+
+    return rc;
+}
+
+int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
+{
+    int32_t rc = -1;
+
+    pthread_mutex_lock( &self->lock );
+    rc = queue_pop( self->queue, task );
+    pthread_mutex_unlock( &self->lock );
+
+    return rc;
+}
+
+int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t count )
+{
+	// TODO: 
+}
+
+uint32_t msgqueue_count( struct msgqueue * self )
+{
+	uint32_t rc = 0;
+	
+	pthread_mutex_lock( &self->lock );
+	rc = queue_count( self->queue );
+	pthread_mutex_unlock( &self->lock );
+	
+	return rc;
+}
+
+int32_t msgqueue_popfd( struct msgqueue * self )
+{
+	int32_t rc = 0;
+	
+	pthread_mutex_lock( &self->lock );
+	rc = self->popfd;
+	pthread_mutex_unlock( &self->lock );
+	
+	return rc;
+}
+
+int32_t msgqueue_destroy( struct msgqueue * self )
+{
+	if ( self->queue )
+	{
+		queue_destroy( self->queue );
+		self->queue = NULL;
+	}
+	
+	if ( self->popfd )
+	{
+		close( self->popfd );
+		self->popfd = -1;
+	}
+	if ( self->pushfd )
+	{
+		close( self->pushfd );
+		self->pushfd = -1;
+	}
+	
+	pthread_mutex_destroy( &self->lock );
+	
+	return 0;
 }
 
