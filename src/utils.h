@@ -38,7 +38,7 @@ struct queue * queue_create( uint32_t size );
 int32_t queue_push( struct queue * self, struct task * task );
 int32_t queue_pop( struct queue * self, struct task * task );
 int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count );
-uint32_t queue_count( struct queue * self );
+inline uint32_t queue_count( struct queue * self );
 int32_t queue_destroy( struct queue * self );
 
 // 消息队列

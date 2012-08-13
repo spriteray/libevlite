@@ -73,8 +73,9 @@ struct queue * queue_create( uint32_t size )
 int32_t queue_push( struct queue * self, struct task * task )
 {
 	int32_t rc = 0;
+	uint32_t count = queue_count(self);
 
-	if ( queue_count(self) >= self->size )
+	if ( count >= self->size )
 	{
 		// 需要扩展
 
@@ -90,14 +91,13 @@ int32_t queue_push( struct queue * self, struct task * task )
 			return -1;
 		}
 
-		// TODO: 此处做优化
 		if ( self->head < self->tail )
 		{
 			headlen = self->tail - self->head;
 		}
 		else
 		{
-			headlen = self->count - self->tail;
+			headlen = count - self->tail;
 			taillen = self->tail;
 		}
 
@@ -125,7 +125,7 @@ int32_t queue_pop( struct queue * self, struct task * task )
 {
 	int32_t rc = -1;
 
-	if ( self->count > 0 )
+	if ( queue_count(self) > 0 )
 	{
 		*task = self->entries[ self->head++ ];
 		self->head = (self->head & (self->size-1));
@@ -138,7 +138,17 @@ int32_t queue_pop( struct queue * self, struct task * task )
 
 int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
 {
-	// TODO: 
+	int32_t i = 0;
+
+	for ( i = 0; i < count; ++i )
+	{
+		if ( queue_pop( self, &(tasks[i]) ) != 0 )
+		{
+			break;
+		}
+	}
+
+	return i;
 }
 
 uint32_t queue_count( struct queue * self )
@@ -242,7 +252,13 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
 
 int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t count )
 {
-	// TODO: 
+	int32_t rc = -1;
+
+    pthread_mutex_lock( &self->lock );
+    rc = queue_pops( self->queue, tasks, count );
+    pthread_mutex_unlock( &self->lock );
+
+    return rc;
 }
 
 uint32_t msgqueue_count( struct msgqueue * self )
