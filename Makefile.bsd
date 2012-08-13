@@ -22,7 +22,7 @@ REALNAME= $(LIBNAME).1.0.1
 #REALNAME=$(APPNAME).so.$(VERSION)
 #
 
-OBJS 	= timer.o kqueue.o event.o
+OBJS 	= utils.o timer.o kqueue.o event.o
 
 # -----------------------------------------------------------
 

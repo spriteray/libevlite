@@ -130,10 +130,6 @@ struct eventset
     struct event_list activelist;
 };
 
-inline int64_t mtime();
-inline int64_t rmtime();
-
-
 #ifdef __cplusplus
 }
 #endif

@@ -5,6 +5,7 @@
 #include <assert.h>
 #include <sys/time.h>
 
+#include "utils.h"
 #include "event-internal.h"
 
 // -----------------------------------------------------------------------------
@@ -32,14 +33,6 @@
 #endif
 
 //
-// 是否使用MONOTONIC
-// 不受系统时间的影响, 效率不如gettimeofday()
-//
-#ifndef USE_MONOTONIC
-#define USE_MONOTONIC 0
-#endif
-
-//
 // event.c中的工具定义
 //
 
@@ -52,36 +45,6 @@ inline int32_t event_list_remove( struct eventset * self, struct event * ev, int
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-
-int64_t mtime()
-{
-	int64_t now = -1;
-	struct timeval tv;
-	
-	if ( gettimeofday( &tv, NULL ) == 0 )
-	{
-		now = tv.tv_sec * 1000ll + tv.tv_usec / 1000ll;
-	}
-	
-	return now;
-}
-
-int64_t rmtime()
-{
-	int32_t now = -1;
-
-#if defined(CLOCK_MONOTONIC) && USE_MONOTONIC
-	struct timespec ts;
-	if ( clock_gettime( CLOCK_MONOTONIC, &ts ) == 0 )
-	{
-		now = ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
-	}
-#else
-	now = mtime();
-#endif
-
-	return now;
-}
 
 int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type )
 {
@@ -280,9 +243,8 @@ evsets_t evsets_create()
                 TAILQ_INIT( &(self->eventlist) );
                 TAILQ_INIT( &(self->activelist) );
                 
-                self->working = 0;
                 self->timer_precision = TIMER_MAX_PRECISION;
-                self->expire_time = rmtime() + self->timer_precision;
+                self->expire_time = mtime() + self->timer_precision;
             }
             else
             {
@@ -394,11 +356,11 @@ int32_t evsets_del( evsets_t self, event_t ev )
 
 int32_t evsets_dispatch( evsets_t self )
 {
-    int64_t now = 0;
+    struct eventset * sets = (struct eventset *)self;
 
+    int64_t now = 0;
 	int32_t res = 0;
 	int32_t seconds4wait = sets->timer_precision;
-    struct eventset * sets = (struct eventset *)self;
 
     //
     // 首先事件集的定时器中要有超时事件
@@ -409,7 +371,7 @@ int32_t evsets_dispatch( evsets_t self )
         //
         // 根据定时器的超时时间, 确认IO的等待时间
         //
-        seconds4wait = (int32_t)( sets->expire_time - rmtime() );
+        seconds4wait = (int32_t)( sets->expire_time - mtime() );
         if ( seconds4wait < 0 )
         {
             seconds4wait = 0;
@@ -432,7 +394,7 @@ int32_t evsets_dispatch( evsets_t self )
     //
     // 事件集的超时时间是要及时更新的
     //
-    now = rmtime();
+    now = mtime();
     if ( sets->expire_time <= now )
     {
         //

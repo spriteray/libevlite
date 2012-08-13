@@ -18,6 +18,7 @@
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
 
+#include "utils.h"
 
 #define __DEBUG         0
 #define MAGIC_NUM       9
@@ -45,23 +46,6 @@
 #endif
 
 int8_t isstarted;
-
-#if USE_LIBEVENT
-int64_t rmtime()
-{
-    int64_t now = -1;
-    struct timespec ts;
-
-    if ( clock_gettime( CLOCK_MONOTONIC, &ts ) == -1 )
-    {
-        return -1;
-    }
-
-    now = ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
-
-    return now;
-}
-#endif
 
 int32_t set_fd_nonblock( int32_t fd )
 {
@@ -227,7 +211,7 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
         {
 #if __DEBUG
             printf( "Client[%ld, %d] is closed, BYTES:%d, TIME:%lld .\n",
-                s->sid, s->fd, s->iobytes, rmtime() );
+                s->sid, s->fd, s->iobytes, mtime() );
 #endif
             //evsets_del( event_get_sets(s->evread), s->evread );
             event_destroy( s->evread );
@@ -239,7 +223,7 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
         else
         {
 #if __DEBUG
-            printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, rmtime() );
+            printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, mtime() );
 #endif
             readn = write( fd, buf, readn );
             s->iobytes += readn;
@@ -257,7 +241,7 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
     else
     {
 #if __DEBUG
-        printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, rmtime() );
+        printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, mtime() );
 #endif
     }
 
