@@ -1,4 +1,13 @@
 
+#include <stdio.h>
+#include <stdlib.h>
+#include <assert.h>
+
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
+
+#include "utils.h"
 #include "threads.h"
 #include "threads-internal.h"
 
@@ -44,7 +53,7 @@ int32_t iothreads_start( iothreads_t self )
 	// 开启网络线程
 	for ( i = 0; i < iothreads->nthreads; ++i )
 	{
-		iothread_start( iothreads->threadgroup + i );
+		iothread_start( iothreads->threadgroup+i, i, self );
 	}
 
 	return 0;
@@ -100,7 +109,7 @@ void iothreads_stop( iothreads_t self )
 	return;
 }
 
-void iothread_destroy( iothreads_t self )
+void iothreads_destroy( iothreads_t self )
 {
 	struct iothreads * iothreads = (struct iothreads *)(self);
 
@@ -152,10 +161,10 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 	// 启动线程
 	pthread_attr_t attr;
 	pthread_attr_init( &attr );
-	assert( pthread_attr_setstacksize( &attr, THREAD_DEFAULT_STACK_SIZE ) );
+//	assert( pthread_attr_setstacksize( &attr, THREAD_DEFAULT_STACK_SIZE ) );
 	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
 
-	int32_t rc = pthread_create(&(iothread->id), &attr, iothread_main, iothread);
+	int32_t rc = pthread_create(&(self->id), &attr, iothread_main, self);
 	pthread_attr_destroy( &attr );
 	
 	if ( rc != 0 )
@@ -214,7 +223,7 @@ void * iothread_main( void * arg )
 		evsets_dispatch( thread->sets );
 
 		// 处理任务
-		ntasks = msgqueue_pops( thread->queue, &tasks, POP_TASKS_COUNT );
+		ntasks = msgqueue_pops( thread->queue, tasks, POP_TASKS_COUNT );
 		for ( i = 0; i < ntasks; ++i )
 		{
 			if ( tasks[i].type == X_THREAD_STOPCMD )
@@ -237,21 +246,14 @@ void * iothread_main( void * arg )
 
 void iothread_on_command( int32_t fd, int16_t ev, void * arg )
 {
-	struct iothread * iothread = (struct iothread *)arg;
+	//struct iothread * iothread = (struct iothread *)arg;
 
 	if ( ev & EV_READ )
 	{	
-		char buf[ 512 ];		
+		char buf[ 64 ];		
 		int32_t nread = 0;
-
-		while ( 1 )
-		{
-			nread = read( fd, buf, sizeof(buf) );
-			if ( nread <= 0 )
-			{
-				break;
-			}
-		}
+		
+		nread = read( fd, buf, sizeof(buf) );
 	}
 
 	return;

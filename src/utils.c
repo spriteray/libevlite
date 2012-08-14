@@ -1,6 +1,7 @@
 
 
 #include <stdio.h>
+#include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
@@ -23,6 +24,7 @@ int64_t mtime()
 	
 	return now;
 }
+
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -80,11 +82,12 @@ int32_t queue_push( struct queue * self, struct task * task )
 	{
 		// ÐèÒªÀ©Õ¹
 
-		uint32_t new_size = self->size;
-		struct task * new_entries = NULL;
+		uint32_t headindex = 0;
 		uint32_t headlen = 0, taillen = 0;
+		uint32_t new_size = (self->size) << 1;
 
-		new_size <<= 1;
+		struct task * new_entries = NULL;
+
 		new_entries = (struct task * )malloc( sizeof(struct task) * new_size );
 		if ( new_entries )
 		{
@@ -92,32 +95,31 @@ int32_t queue_push( struct queue * self, struct task * task )
 			return -1;
 		}
 
+		headindex = (self->head) & (self->size-1);
+
 		if ( self->head < self->tail )
 		{
 			headlen = self->tail - self->head;
 		}
 		else
 		{
-			headlen = count - self->tail;
-			taillen = self->tail;
+			headlen = self->size - headindex; 
+			taillen = count - headlen; 
 		}
 
-		memcpy( new_entries, &(self->entries[self->head]), sizeof(struct task)*headlen );
-		if ( taillen )
-		{
-			memcpy( &(new_entries[headlen]), self->entries, sizeof(struct task)*taillen );
-		}
+		memcpy( new_entries, &(self->entries[headindex]), sizeof(struct task)*headlen );
+		memcpy( &(new_entries[headlen]), self->entries, sizeof(struct task)*taillen );
 
 		self->head = 0;
 		self->size = new_size;
-		self->tail = headlen + taillen;
+		self->tail = count; 
 
 		free ( self->entries );
 		self->entries = new_entries;
 	}
 
-	self->entries[ self->tail++ ] = *task;
-	self->tail = (self->tail & (self->size-1));
+	self->entries[ (self->tail)&(self->size-1) ] = *task;
+	++self->tail;
 	
 	return rc;
 }
@@ -128,8 +130,8 @@ int32_t queue_pop( struct queue * self, struct task * task )
 
 	if ( queue_count(self) > 0 )
 	{
-		*task = self->entries[ self->head++ ];
-		self->head = (self->head & (self->size-1));
+		*task = self->entries[ (self->head)&(self->size-1) ];
+		++self->head;
 
 		rc = 0;
 	}
@@ -154,7 +156,7 @@ int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
 
 uint32_t queue_count( struct queue * self )
 {
-    return (self->tail + self->size - self->head);
+    return (self->tail+self->size-self->head) & (self->size-1);
 }
 
 int32_t queue_destroy( struct queue * self )

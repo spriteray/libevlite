@@ -3,12 +3,12 @@
 #define SRC_UTILS_H
 
 #include <stdint.h>
+#include <pthread.h>
 
 //
 // 
 //
 inline int64_t mtime();
-
 
 //
 // »ù´¡Ëã·¨Àà

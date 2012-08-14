@@ -14,7 +14,7 @@
 #define MSGQUEUE_DEFAULT_SIZE		1024
 
 // 线程默认栈大小
-#define THREAD_DEFAULT_STACK_SIZE	(8*1024*1024)
+#define THREAD_DEFAULT_STACK_SIZE	(8*1024)
 
 //
 // 网络线程
@@ -23,6 +23,7 @@
 struct iothread
 {
 	uint8_t 	index;
+	pthread_t	id;
 	
 	evsets_t 	sets;
 	void *		parent;

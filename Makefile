@@ -24,7 +24,7 @@ OS		= $(shell uname)
 #REALNAME=$(APPNAME).so.$(VERSION)
 #
 
-OBJS 	= utils.o timer.o event.o
+OBJS 	= utils.o timer.o event.o threads.o
 
 ifeq ($(OS),Linux)
 	LFLAGS += -lrt
@@ -45,7 +45,7 @@ $(REALNAME) : $(OBJS)
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : test_events test_addtimer echoserver
+test : test_events test_addtimer echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 
@@ -62,6 +62,10 @@ echoserver : accept-lock-echoserver.o $(OBJS)
 echostress :
 
 	$(CC) -I/usr/local/include -L/usr/local/lib -levent test/echostress.c -o $@
+
+iothreads_dispatcher : test_iothreads.o $(OBJS)
+
+	$(CC) $(LFLAGS) $^ -o $@
 
 clean :
 
