@@ -5,11 +5,16 @@
 #include "threads.h"
 
 // 停止命令
-#define X_THREAD_STOPCMD	0xff
+#define X_THREAD_STOPCMD			0xff
 
 // 一次从队列中批量获取任务
-#define POP_TASKS_COUNT		128
+#define POP_TASKS_COUNT				128
 
+// 队列默认大小
+#define MSGQUEUE_DEFAULT_SIZE		1024
+
+// 线程默认栈大小
+#define THREAD_DEFAULT_STACK_SIZE	(8*1024*1024)
 
 //
 // 网络线程
@@ -22,10 +27,11 @@ struct iothread
 	evsets_t 	sets;
 	void *		parent;
 
+	event_t	 	cmdevent;
 	struct msgqueue * queue;
 };
 
-int32_t iothread_start( struct iothread * self );
+int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
 int32_t iothread_post( struct iothread * self, int32_t type, void * task );
 int32_t iothread_stop( struct iothread * self );
 
@@ -36,7 +42,7 @@ int32_t iothread_stop( struct iothread * self );
 struct iothreads
 {
 	struct iothread * threadgroup;
-	void (*onTask)( uint8_t, evsets_t, int32_t, void *);	
+	void (*method)( uint8_t, evsets_t, int32_t, void *);	
 	
 	uint8_t nthreads;
 	uint8_t runflags;

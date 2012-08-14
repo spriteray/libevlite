@@ -4,15 +4,15 @@
 
 // 创建网络线程组
 // nthreads		- 网络线程组中的线程数
-// cb			- 任务处理函数
-iothreads_t iothreads_create( uint8_t nthreads, void (*cb)(uint8_t, evsets_t, int32_t, void *) )
+// method		- 任务处理函数
+iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t, int32_t, void *) )
 {
 	struct iothreads * iothreads = NULL;
 
 	iothreads = calloc( 1, sizeof(struct iothreads) );
 	if ( iothreads )
 	{
-		iothreads->onTask = cb;
+		iothreads->method = method;
 		iothreads->nrunthreads = 0;
 		iothreads->nthreads = nthreads;
 
@@ -58,7 +58,7 @@ int32_t iothreads_post( iothreads_t self, uint8_t index, int32_t type, void * ta
 {
 	struct iothreads * iothreads = (struct iothreads *)(self);
 
-	if ( index > iothreads->nthreads )
+	if ( index >= iothreads->nthreads )
 	{
 		return -1;
 	}
@@ -121,19 +121,82 @@ void iothread_destroy( iothreads_t self )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t iothread_start( struct iothread * self )
-{
+static void * iothread_main( void * arg );
+static void iothread_on_command( int32_t fd, int16_t ev, void * arg );
 
+int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent )
+{
+	self->index = index;
+	self->parent = parent;
+
+	self->sets = evsets_create();
+	if ( self->sets == NULL )
+	{
+		iothread_stop(self);
+		return -1;
+	}
+
+	self->cmdevent = event_create();
+	self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE );
+	if ( self->queue == NULL || self->cmdevent == NULL )
+	{
+		iothread_stop(self);
+		return -2;
+	}
+
+	// 初始化命令事件
+	event_set( self->cmdevent, msgqueue_popfd(self->queue), EV_READ|EV_PERSIST );
+	event_set_callback( self->cmdevent, iothread_on_command, self );
+	evsets_add( self->sets, self->cmdevent, 0 );
+
+	// 启动线程
+	pthread_attr_t attr;
+	pthread_attr_init( &attr );
+	assert( pthread_attr_setstacksize( &attr, THREAD_DEFAULT_STACK_SIZE ) );
+	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
+
+	int32_t rc = pthread_create(&(iothread->id), &attr, iothread_main, iothread);
+	pthread_attr_destroy( &attr );
+	
+	if ( rc != 0 )
+	{
+		iothread_stop(self);
+		return -3;
+	}
+
+	return 0;
 }
 
 int32_t iothread_post( struct iothread * self, int32_t type, void * task )
 {
+	struct task intask;
+	intask.type = type;
+	intask.data = task;
 
+	return msgqueue_push( self->queue, &intask );
 }
 
 int32_t iothread_stop( struct iothread * self )
 {
+	if ( self->queue )
+	{
+		msgqueue_destroy( self->queue );
+		self->queue = NULL;
+	}
 
+	if ( self->cmdevent )
+	{
+		event_destroy( self->cmdevent );
+		self->cmdevent = NULL;
+	}
+
+	if ( self->sets )
+	{
+		evsets_destroy( self->sets );
+		self->sets = NULL;
+	}
+
+	return 0;
 }
 
 void * iothread_main( void * arg )
@@ -158,7 +221,8 @@ void * iothread_main( void * arg )
 			{
 				continue;
 			}
-			parent->onTask( thread->index, thread->sets, tasks[i].type, tasks[i].data);
+			
+			parent->method( thread->index, thread->sets, tasks[i].type, tasks[i].data);
 		}
 	}
 
@@ -169,5 +233,27 @@ void * iothread_main( void * arg )
 	pthread_mutex_unlock( &(parent->lock) );
 	
 	return NULL;
+}
+
+void iothread_on_command( int32_t fd, int16_t ev, void * arg )
+{
+	struct iothread * iothread = (struct iothread *)arg;
+
+	if ( ev & EV_READ )
+	{	
+		char buf[ 512 ];		
+		int32_t nread = 0;
+
+		while ( 1 )
+		{
+			nread = read( fd, buf, sizeof(buf) );
+			if ( nread <= 0 )
+			{
+				break;
+			}
+		}
+	}
+
+	return;
 }
 

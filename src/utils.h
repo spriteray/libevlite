@@ -15,6 +15,7 @@ inline int64_t mtime();
 //
 uint32_t nextpow2( uint32_t size );
 
+// хннЯ
 struct task
 {
 	int32_t type;

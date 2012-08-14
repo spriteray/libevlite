@@ -7,8 +7,9 @@
 
 #include <pthread.h>
 #include <sys/socket.h>
-
 #include <sys/time.h>
+
+#include "utils.h"
 
 int64_t mtime()
 {
