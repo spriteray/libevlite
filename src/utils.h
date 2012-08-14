@@ -47,13 +47,15 @@ struct msgqueue
 {
 	struct queue * queue;
 
+	uint8_t isnotify;
+	
 	int32_t popfd;
 	int32_t pushfd;
 
-	pthread_mutex_t lock; 
+	pthread_spinlock_t lock; 
 };
 
-struct msgqueue * msgqueue_create( uint32_t size );
+struct msgqueue * msgqueue_create( uint32_t size, uint8_t is_notify );
 int32_t msgqueue_push( struct msgqueue * self, struct task * task );
 int32_t msgqueue_pop( struct msgqueue * self, struct task * task );
 int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t count );

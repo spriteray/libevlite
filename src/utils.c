@@ -177,7 +177,7 @@ int32_t queue_destroy( struct queue * self )
 
 // -----------------------------------------------------------------------------------------------------------------
 
-struct msgqueue * msgqueue_create( uint32_t size )
+struct msgqueue * msgqueue_create( uint32_t size, uint8_t is_notify )
 {
     struct msgqueue * self = NULL;
 
@@ -186,7 +186,8 @@ struct msgqueue * msgqueue_create( uint32_t size )
     {
         self->popfd = -1;
         self->pushfd = -1;
-        pthread_mutex_init( &self->lock, NULL );
+        self->isnotify = is_notify;
+        pthread_spin_init( &self->lock );
     
         self->queue = queue_create( size );
         if ( self->queue == NULL )
@@ -226,14 +227,14 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task )
     int32_t rc = -1;
     int32_t isbc = 0;
 
-    pthread_mutex_lock( &self->lock );
+    pthread_spin_lock( &self->lock );
 
     rc = queue_push( self->queue, task );
     isbc = queue_count( self->queue );
     
-    pthread_mutex_unlock( &self->lock );
+    pthread_spin_unlock( &self->lock );
 
-    if ( rc == 0 && isbc == 1 )
+    if ( rc == 0 && isbc == 1 && self->isnotify == 1 )
     {
         char buf[1] = {0};
         write( self->pushfd, buf, 1 );
@@ -246,9 +247,9 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
 {
     int32_t rc = -1;
 
-    pthread_mutex_lock( &self->lock );
+    pthread_spin_lock( &self->lock );
     rc = queue_pop( self->queue, task );
-    pthread_mutex_unlock( &self->lock );
+    pthread_spin_unlock( &self->lock );
 
     return rc;
 }
@@ -257,9 +258,9 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
 {
 	int32_t rc = -1;
 
-    pthread_mutex_lock( &self->lock );
+    pthread_spin_lock( &self->lock );
     rc = queue_pops( self->queue, tasks, count );
-    pthread_mutex_unlock( &self->lock );
+    pthread_spin_unlock( &self->lock );
 
     return rc;
 }
@@ -268,9 +269,9 @@ uint32_t msgqueue_count( struct msgqueue * self )
 {
 	uint32_t rc = 0;
 	
-	pthread_mutex_lock( &self->lock );
+	pthread_spin_lock( &self->lock );
 	rc = queue_count( self->queue );
-	pthread_mutex_unlock( &self->lock );
+	pthread_spin_unlock( &self->lock );
 	
 	return rc;
 }
@@ -279,9 +280,9 @@ int32_t msgqueue_popfd( struct msgqueue * self )
 {
 	int32_t rc = 0;
 	
-	pthread_mutex_lock( &self->lock );
+	pthread_spin_lock( &self->lock );
 	rc = self->popfd;
-	pthread_mutex_unlock( &self->lock );
+	pthread_spin_unlock( &self->lock );
 	
 	return rc;
 }
@@ -305,7 +306,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 		self->pushfd = -1;
 	}
 	
-	pthread_mutex_destroy( &self->lock );
+	pthread_spin_destroy( &self->lock );
 	
 	return 0;
 }

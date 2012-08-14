@@ -146,7 +146,7 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 	}
 
 	self->cmdevent = event_create();
-	self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE );
+	self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE, 0 );
 	if ( self->queue == NULL || self->cmdevent == NULL )
 	{
 		iothread_stop(self);
