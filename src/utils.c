@@ -187,7 +187,7 @@ struct msgqueue * msgqueue_create( uint32_t size, uint8_t is_notify )
         self->popfd = -1;
         self->pushfd = -1;
         self->isnotify = is_notify;
-        pthread_spin_init( &self->lock );
+        pthread_spin_init( &self->lock, 0 );
     
         self->queue = queue_create( size );
         if ( self->queue == NULL )

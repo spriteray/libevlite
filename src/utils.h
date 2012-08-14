@@ -15,11 +15,27 @@ inline int64_t mtime();
 //
 uint32_t nextpow2( uint32_t size );
 
-// 任务
+// 任务填充长度
+# define TASK_PADDING_SIZE		60
+
+// 任务类型
+enum
+{
+	eTaskType_Null		= 0,	// 空任务
+	eTaskType_User		= 1,	// 用户任务
+	eTaskType_Data		= 2,	// 数据任务
+};
+
+// 任务数据
 struct task
 {
-	int32_t type;
-	void * 	data;
+	int16_t type;				// 2bytes
+	int16_t utype;				// 2bytes
+	union
+	{
+		void *	task;
+		char	data[TASK_PADDING_SIZE];
+	};
 };
 
 // 队列

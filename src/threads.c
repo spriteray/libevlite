@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -14,7 +15,7 @@
 // 创建网络线程组
 // nthreads		- 网络线程组中的线程数
 // method		- 任务处理函数
-iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t, int32_t, void *) )
+iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t, int16_t, void *) )
 {
 	struct iothreads * iothreads = NULL;
 
@@ -61,10 +62,12 @@ int32_t iothreads_start( iothreads_t self )
 
 // 向网络线程组中指定的线程提交任务
 // index	- 指定网络线程的编号
-// type		- 提交的任务类型, NOTE:0xff内置的任务类型
+// type		- 提交的任务类型
 // task		- 提交的任务数据
-int32_t iothreads_post( iothreads_t self, uint8_t index, int32_t type, void * task )
+// size		- 任务数据的长度, 默认设置为0
+int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * task, uint8_t size )
 {
+	int16_t intype = eTaskType_Data;
 	struct iothreads * iothreads = (struct iothreads *)(self);
 
 	if ( index >= iothreads->nthreads )
@@ -72,12 +75,21 @@ int32_t iothreads_post( iothreads_t self, uint8_t index, int32_t type, void * ta
 		return -1;
 	}
 
-	if ( type == X_THREAD_STOPCMD )
+	if ( size > TASK_PADDING_SIZE )
 	{
-		return -2;
+		intype = eTaskType_Null;	
+	}
+	else if ( size == 0 )
+	{
+		intype = eTaskType_User;
 	}
 
-	return iothread_post( iothreads->threadgroup+index, type, task );
+	if ( intype != eTaskType_Null )
+	{
+		return iothread_post( iothreads->threadgroup+index, intype, type, task, size );
+	}
+
+	return -2; 
 }
 
 void iothreads_stop( iothreads_t self )
@@ -89,7 +101,7 @@ void iothreads_stop( iothreads_t self )
 	iothreads->runflags = 0;
 	for ( i = 0; i < iothreads->nthreads; ++i )
 	{
-		iothread_post( iothreads->threadgroup+i, X_THREAD_STOPCMD, NULL );
+		iothread_post( iothreads->threadgroup+i, eTaskType_Null, 0, NULL, 0 );
 	}
 
 	// 等待线程退出
@@ -146,7 +158,7 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 	}
 
 	self->cmdevent = event_create();
-	self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE, 0 );
+	self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE, 1 );
 	if ( self->queue == NULL || self->cmdevent == NULL )
 	{
 		iothread_stop(self);
@@ -176,11 +188,20 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 	return 0;
 }
 
-int32_t iothread_post( struct iothread * self, int32_t type, void * task )
+int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void * task, uint8_t size )
 {
 	struct task intask;
-	intask.type = type;
-	intask.data = task;
+
+	intask.type		= type;
+	intask.utype	= utype;
+	if ( size > 0 )
+	{
+		memcpy( &(intask.data), task, size );
+	}
+	else
+	{
+		intask.task = task;
+	}
 
 	return msgqueue_push( self->queue, &intask );
 }
@@ -226,12 +247,33 @@ void * iothread_main( void * arg )
 		ntasks = msgqueue_pops( thread->queue, tasks, POP_TASKS_COUNT );
 		for ( i = 0; i < ntasks; ++i )
 		{
-			if ( tasks[i].type == X_THREAD_STOPCMD )
+			void * data = NULL;
+
+			switch ( tasks[i].type )
 			{
-				continue;
-			}
+			case eTaskType_Null :
+				{
+					// 空命令	
+				}
+				break;
 			
-			parent->method( thread->index, thread->sets, tasks[i].type, tasks[i].data);
+			case eTaskType_User :
+				{
+					// 用户命令
+					data = tasks[i].task;
+				}
+				break;
+
+			case eTaskType_Data :
+				{
+					// 数据命令	
+					data = (void *)(tasks[i].data);
+				}
+				break;	
+			}			
+			
+			// 回调
+			parent->method( thread->index, thread->sets, tasks[i].utype, data);
 		}
 	}
 

@@ -18,7 +18,7 @@ typedef void * iothreads_t;
 // 创建网络线程组
 // nthreads		- 网络线程组中的线程数
 // method		- 任务处理函数
-iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t, int32_t, void *) );
+iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t, int16_t, void *) );
 
 // 网络线程组开始运行
 int32_t iothreads_start( iothreads_t self );
@@ -27,7 +27,9 @@ int32_t iothreads_start( iothreads_t self );
 // index	- 指定网络线程的编号
 // type		- 提交的任务类型, NOTE:0xff内置的任务类型
 // task		- 提交的任务数据
-int32_t iothreads_post( iothreads_t self, uint8_t index, int32_t type, void * task );
+// size		- 任务数据的长度, 默认设置为0
+int32_t iothreads_post( iothreads_t self, uint8_t index, 
+						int16_t type, void * task, uint8_t size );
 
 // 网络线程组停止
 void iothreads_stop( iothreads_t self );

@@ -7,17 +7,17 @@
 
 uint8_t runflags;
 
-void task_method( uint8_t index, evsets_t sets, int32_t type, void * task )
+void task_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 {
 	printf("Thread[%d]: recv a task \n", index);	
 }
 
-int32_t signal_handler( int32_t signo )
+void signal_handler( int32_t signo )
 {
 	printf("receive a quit signal \n");	
 	runflags = 0;
 
-	return 0;
+	return ;
 }
 
 int32_t main()
@@ -41,7 +41,7 @@ int32_t main()
 	while ( runflags )
 	{
 		uint8_t _index = index&(nthreads-1);
-		iothreads_post( threadgroup, _index, 0, NULL );
+		iothreads_post( threadgroup, _index, 0, NULL, 0 );
 		++index;
 	}
 
