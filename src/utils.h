@@ -27,6 +27,7 @@ enum
 };
 
 // 任务数据
+#pragma pack(4)
 struct task
 {
 	int16_t type;				// 2bytes
@@ -37,18 +38,20 @@ struct task
 		char	data[TASK_PADDING_SIZE];
 	};
 };
+#pragma pack()
 
 // 队列
 struct queue
 {
-	uint32_t size;
-	struct task * entries;
+	uint32_t size;					// (4+4)bytes
+	struct task * entries;			// 8bytes
+	uint32_t padding1[12];			// 48,padding
 
-	uint32_t padding1[13];
-	uint32_t head;
-	
-	uint32_t padding2[16];
-	uint32_t tail;
+	uint32_t head;					// 4bytes
+	uint32_t padding2[15];			// 60bytes 
+
+	uint32_t tail;					// 4bytes
+	uint32_t padding3[15];			// 60bytes 
 };
 
 struct queue * queue_create( uint32_t size );

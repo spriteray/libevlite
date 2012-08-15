@@ -82,7 +82,6 @@ int32_t queue_push( struct queue * self, struct task * task )
 	{
 		// ÐèÒªÀ©Õ¹
 
-		uint32_t headindex = 0;
 		uint32_t headlen = 0, taillen = 0;
 		uint32_t new_size = (self->size) << 1;
 
@@ -95,31 +94,29 @@ int32_t queue_push( struct queue * self, struct task * task )
 			return -1;
 		}
 
-		headindex = (self->head) & (self->size-1);
-
 		if ( self->head < self->tail )
 		{
 			headlen = self->tail - self->head;
 		}
 		else
 		{
-			headlen = self->size - headindex; 
-			taillen = count - headlen; 
+			headlen = self->size - self->head; 
+			taillen = self->tail; 
 		}
 
-		memcpy( new_entries, &(self->entries[headindex]), sizeof(struct task)*headlen );
+		memcpy( new_entries, &(self->entries[self->head]), sizeof(struct task)*headlen );
 		memcpy( &(new_entries[headlen]), self->entries, sizeof(struct task)*taillen );
 
 		self->head = 0;
 		self->size = new_size;
-		self->tail = count; 
+		self->tail = headlen+taillen; 
 
 		free ( self->entries );
 		self->entries = new_entries;
 	}
 
-	self->entries[ (self->tail)&(self->size-1) ] = *task;
-	++self->tail;
+	self->entries[self->tail] = *task;
+	self->tail = (++self->tail)&(self->size-1);
 	
 	return rc;
 }
@@ -130,8 +127,8 @@ int32_t queue_pop( struct queue * self, struct task * task )
 
 	if ( queue_count(self) > 0 )
 	{
-		*task = self->entries[ (self->head)&(self->size-1) ];
-		++self->head;
+		*task = self->entries[ self->head ];
+		self->head = (++self->head)&(self->size-1);
 
 		rc = 0;
 	}
