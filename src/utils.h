@@ -16,7 +16,7 @@ inline int64_t mtime();
 uint32_t nextpow2( uint32_t size );
 
 // 任务填充长度
-# define TASK_PADDING_SIZE		60
+# define TASK_PADDING_SIZE		56	
 
 // 任务类型
 enum
@@ -27,18 +27,16 @@ enum
 };
 
 // 任务数据
-#pragma pack(4)
 struct task
 {
 	int16_t type;				// 2bytes
 	int16_t utype;				// 2bytes
 	union
 	{
-		void *	task;
+		void *	task;			 
 		char	data[TASK_PADDING_SIZE];
 	};
 };
-#pragma pack()
 
 // 队列
 struct queue
