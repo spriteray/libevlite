@@ -99,6 +99,11 @@ int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * ta
 		return -1;
 	}
 
+	if ( iothreads->runflags != 1 )
+	{
+		return -2;
+	}
+
 	if ( size > TASK_PADDING_SIZE )
 	{
 		intype = eTaskType_Null;	
@@ -113,7 +118,7 @@ int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * ta
 		return iothread_post( iothreads->threadgroup+index, intype, type, task, size );
 	}
 
-	return -2; 
+	return -3;
 }
 
 void iothreads_stop( iothreads_t self )
