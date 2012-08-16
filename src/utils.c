@@ -3,10 +3,8 @@
 #include <fcntl.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
+#include <errno.h>
 
-#include <pthread.h>
-#include <sys/socket.h>
 #include <sys/time.h>
 
 #include "utils.h"
@@ -22,6 +20,131 @@ int64_t mtime()
 	}
 	
 	return now;
+}
+
+int32_t is_connected( int32_t fd )
+{
+	int32_t value = -1;
+	socklen_t length = sizeof(int32_t);
+
+	if ( getsockopt( fd, SOL_SOCKET, SO_ERROR, (void *)&value, &length ) == 0 )
+	{
+		return value;
+	}
+
+	return value;
+}
+
+int32_t set_non_block( int32_t fd )
+{
+	int32_t flags;
+	int32_t rc = -1;
+
+	flags = fcntl( fd, F_GETFL );
+	if ( flags >= 0 )
+	{
+		flags |= O_NONBLOCK;
+		rc = fcntl(fd, F_SETFL, flags)!=-1 ? 0 : -2 ;
+	}
+
+	return rc;
+}
+
+int32_t tcp_connect( char * host, uint16_t port, int8_t issync )
+{
+	int32_t fd = -1;
+	int32_t rc = -1;
+
+	struct sockaddr_in addr;
+
+	fd = socket( AF_INET, SOCK_STREAM, 0 );
+	if ( fd < 0 )
+	{
+		return -1;
+	}
+
+	if ( issync != 0 )
+	{
+		// 指定了异步连接
+		set_non_block( fd );
+	}
+
+	memset( &addr, 0, sizeof(addr) );
+	addr.sin_family = AF_INET;
+	addr.sin_port	= htons(port);
+	inet_pton(AF_INET, host, (void *)&(addr.sin_addr.s_addr));
+
+	rc = connect( fd, (struct sockaddr *)&addr, sizeof(struct sockaddr) );
+	if ( rc == -1 && errno != EINPROGRESS )
+	{
+		// 连接出错
+		close( fd );
+		fd = -1;
+	}
+
+	return fd;
+}
+
+int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
+{
+	int32_t cfd = -1;
+	struct sockaddr_in in_addr;
+	socklen_t len = sizeof( struct sockaddr );
+
+	*remoteport = 0;
+	remotehost[0] = 0;
+
+	memset( &in_addr, 0, sizeof(in_addr) );
+
+	cfd = accept( fd, (struct sockaddr *)&in_addr, &len );
+	if ( cfd != -1 )
+	{
+		*remoteport = ntohs( in_addr.sin_port );
+		strncpy( remotehost, inet_ntoa(in_addr.sin_addr), INET_ADDRSTRLEN );
+	}
+
+	return cfd;
+}
+
+int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) )
+{
+	int32_t fd = -1;
+	struct sockaddr_in addr;
+
+	fd = socket( AF_INET, SOCK_STREAM, 0 );
+	if ( fd < 0 )
+	{
+		return -1;
+	}
+
+	// 对描述符的选项操作
+	options( fd );
+
+	memset( &addr, 0, sizeof(addr) );
+	addr.sin_family = AF_INET;
+	addr.sin_port	= htons( port );
+	if ( host != NULL )
+	{
+		addr.sin_addr.s_addr = inet_addr( host );
+	}
+	else
+	{
+		addr.sin_addr.s_addr = INADDR_ANY;
+	}
+
+	if ( bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) == -1 )
+	{
+		close( fd );
+		return -2;
+	}
+
+	if ( listen( fd, 8192 ) == -1 )
+	{
+		close( fd );
+		return -3;
+	}
+
+	return fd;
 }
 
 
