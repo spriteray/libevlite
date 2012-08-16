@@ -173,7 +173,7 @@ int32_t queue_destroy( struct queue * self )
 
 // -----------------------------------------------------------------------------------------------------------------
 
-struct msgqueue * msgqueue_create( uint32_t size, uint8_t is_notify )
+struct msgqueue * msgqueue_create( uint32_t size )
 {
     struct msgqueue * self = NULL;
 
@@ -182,7 +182,6 @@ struct msgqueue * msgqueue_create( uint32_t size, uint8_t is_notify )
     {
         self->popfd = -1;
         self->pushfd = -1;
-        self->isnotify = is_notify;
         pthread_spin_init( &self->lock, 0 );
     
         self->queue = queue_create( size );
@@ -218,7 +217,7 @@ struct msgqueue * msgqueue_create( uint32_t size, uint8_t is_notify )
     return self;
 }
 
-int32_t msgqueue_push( struct msgqueue * self, struct task * task )
+int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnotify  )
 {
     int32_t rc = -1;
     int32_t isbc = 0;
@@ -226,11 +225,14 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task )
     pthread_spin_lock( &self->lock );
 
     rc = queue_push( self->queue, task );
-    isbc = queue_count( self->queue );
+    if ( isnotify != 0 )
+    {
+		isbc = queue_count( self->queue );
+    }
     
     pthread_spin_unlock( &self->lock );
 
-    if ( rc == 0 && isbc == 1 && self->isnotify == 1 )
+    if ( rc == 0 && isbc == 1 )
     {
         char buf[1] = {0};
         write( self->pushfd, buf, 1 );
