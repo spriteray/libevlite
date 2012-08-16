@@ -187,7 +187,7 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 	}
 
 	self->cmdevent = event_create();
-	self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE, 1 );
+	self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE );
 	if ( self->queue == NULL || self->cmdevent == NULL )
 	{
 		iothread_stop(self);
@@ -232,7 +232,7 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
 		intask.task = task;
 	}
 
-	return msgqueue_push( self->queue, &intask );
+	return msgqueue_push( self->queue, &intask, 1 );
 }
 
 int32_t iothread_stop( struct iothread * self )
