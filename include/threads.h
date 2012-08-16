@@ -23,6 +23,12 @@ iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t
 // 网络线程组开始运行
 int32_t iothreads_start( iothreads_t self );
 
+// 获取网络线程组中指定线程的ID
+pthread_t iothreads_get_id( iothreads_t self, uint8_t index );
+
+// 获取网络线程组中指定线程的事件集
+evsets_t iothreads_get_sets( iothreads_t self, uint8_t index );
+
 // 向网络线程组中指定的线程提交任务
 // index	- 指定网络线程的编号
 // type		- 提交的任务类型, NOTE:0xff内置的任务类型

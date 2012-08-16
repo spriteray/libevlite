@@ -60,6 +60,30 @@ int32_t iothreads_start( iothreads_t self )
 	return 0;
 }
 
+pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
+{
+	struct iothreads * iothreads = (struct iothreads *)(self);
+
+	if ( index >= iothreads->nthreads )
+	{
+		return 0;
+	}
+
+	return iothreads->threadgroup[index].id;
+}
+
+evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
+{
+	struct iothreads * iothreads = (struct iothreads *)(self);
+
+	if ( index >= iothreads->nthreads )
+	{
+		return 0;
+	}
+
+	return iothreads->threadgroup[index].sets;
+}
+
 // 向网络线程组中指定的线程提交任务
 // index	- 指定网络线程的编号
 // type		- 提交的任务类型
