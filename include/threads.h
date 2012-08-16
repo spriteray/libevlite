@@ -28,8 +28,7 @@ int32_t iothreads_start( iothreads_t self );
 // type		- 提交的任务类型, NOTE:0xff内置的任务类型
 // task		- 提交的任务数据
 // size		- 任务数据的长度, 默认设置为0
-int32_t iothreads_post( iothreads_t self, uint8_t index, 
-						int16_t type, void * task, uint8_t size );
+int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * task, uint8_t size );
 
 // 网络线程组停止
 void iothreads_stop( iothreads_t self );
