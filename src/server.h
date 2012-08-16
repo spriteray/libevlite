@@ -16,9 +16,9 @@ struct server
 	//
 	//
 	
-	iothreads_t layer;
+	iothreads_t group;
 
-	
+	void **		managers;
 };
 
 //
