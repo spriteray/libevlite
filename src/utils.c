@@ -74,7 +74,6 @@ struct queue * queue_create( uint32_t size )
 
 int32_t queue_push( struct queue * self, struct task * task )
 {
-	int32_t rc = 0;
 	uint32_t count = queue_count(self);
 
 	if ( count >= self->size )
@@ -82,12 +81,12 @@ int32_t queue_push( struct queue * self, struct task * task )
 		// 需要扩展
 
 		uint32_t headlen = 0, taillen = 0;
-		uint32_t new_size = (self->size) << 1;
+		uint32_t new_size = self->size << 1;
 
 		struct task * new_entries = NULL;
 
 		new_entries = (struct task * )malloc( sizeof(struct task) * new_size );
-		if ( new_entries )
+		if ( new_entries == NULL )
 		{
 			// 扩展内存块失败
 			return -1;
@@ -103,8 +102,8 @@ int32_t queue_push( struct queue * self, struct task * task )
 			taillen = self->tail; 
 		}
 
-		memcpy( new_entries, &(self->entries[self->head]), sizeof(struct task)*headlen );
-		memcpy( &(new_entries[headlen]), self->entries, sizeof(struct task)*taillen );
+		memcpy( new_entries, self->entries+self->head, sizeof(struct task)*headlen );
+		memcpy( new_entries+headlen, self->entries, sizeof(struct task)*taillen );
 
 		self->head = 0;
 		self->size = new_size;
@@ -117,22 +116,20 @@ int32_t queue_push( struct queue * self, struct task * task )
 	self->entries[self->tail] = *task;
 	self->tail = (++self->tail)&(self->size-1);
 	
-	return rc;
+	return 0;
 }
 
 int32_t queue_pop( struct queue * self, struct task * task )
 {
-	int32_t rc = -1;
-
 	if ( queue_count(self) > 0 )
 	{
 		*task = self->entries[ self->head ];
 		self->head = (++self->head)&(self->size-1);
 
-		rc = 0;
+		return 0;
 	}
 
-	return rc;
+	return -1;
 }
 
 int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
@@ -220,7 +217,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
 int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnotify  )
 {
     int32_t rc = -1;
-    int32_t isbc = 0;
+    uint32_t isbc = 0;
 
     pthread_spin_lock( &self->lock );
 
