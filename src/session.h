@@ -13,6 +13,8 @@ struct session
 {
 	int8_t reading;
 	int8_t writing;
+
+	struct arraylist outmsglist;
 };
 
 

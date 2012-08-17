@@ -5,7 +5,8 @@
 int32_t session_send( struct session * self, evsets_t sets, char * buf, uint32_t nbytes )
 {
 	// 判断session是否繁忙
-	if ( self->writing == 1 || arraylist_count(self->outmsglist) > 0 )
+	if ( self->writing == 1 
+		|| arraylist_count(&(self->outmsglist)) > 0 )
 	{
 		// 创建message, 添加到发送队列中
 

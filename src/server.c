@@ -1,5 +1,7 @@
 
 #include <stdio.h>
+#include <syslog.h>
+#include <stdarg.h>
 
 #include "network.h"
 
@@ -106,10 +108,11 @@ int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds )
 	struct session * session = session_manager_get( manager, task->id );
 	if ( session == NULL )
 	{
-		// TODO: 记录日志, server_set_timeout() failed, session[%ld] is invalid
+		syslog(LOG_WARNING, "server_set_timeout() failed, session[%ld] is invalid", id );
 		return -1;
 	}
 
+	
 
 	return 0;
 }
@@ -186,7 +189,7 @@ int32_t _send_direct( evsets_t sets, struct stask_send * task )
 	struct session * session = session_manager_get( task->manager, task->id );
 	if ( session == NULL )
 	{
-		// TODO: 记录日志, server_send_direct() failed, session[%ld] is invalid
+		syslog(LOG_WARNING, "server_send_direct() failed, session[%ld] is invalid", id );
 		return -1;
 	}
 
@@ -207,6 +210,7 @@ void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 	case eIOTaskType_Send :
 		{
 			// 发送数据
+			_send_direct( sets, (struct stask_send *)task );
 		}
 		break;
 
