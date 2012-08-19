@@ -60,6 +60,7 @@ struct queue * queue_create( uint32_t size )
 		if ( self->entries )
 		{
 			self->size 	= size;
+			self->count	= 0;
 			self->head 	= self->tail = 0;
 		}
 		else
@@ -74,9 +75,7 @@ struct queue * queue_create( uint32_t size )
 
 int32_t queue_push( struct queue * self, struct task * task )
 {
-	uint32_t count = queue_count(self);
-
-	if ( count >= self->size )
+	if ( self->count >= self->size )
 	{
 		// ÐèÒªÀ©Õ¹
 
@@ -113,6 +112,7 @@ int32_t queue_push( struct queue * self, struct task * task )
 		self->entries = new_entries;
 	}
 
+	++self->count;
 	self->entries[self->tail] = *task;
 	self->tail = (++self->tail)&(self->size-1);
 	
@@ -121,8 +121,9 @@ int32_t queue_push( struct queue * self, struct task * task )
 
 int32_t queue_pop( struct queue * self, struct task * task )
 {
-	if ( queue_count(self) > 0 )
+	if ( self->count > 0 )
 	{
+		--self->count;
 		*task = self->entries[ self->head ];
 		self->head = (++self->head)&(self->size-1);
 
@@ -149,7 +150,7 @@ int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
 
 uint32_t queue_count( struct queue * self )
 {
-    return (self->tail+self->size-self->head) & (self->size-1);
+    return self->count;
 }
 
 int32_t queue_destroy( struct queue * self )
@@ -161,6 +162,7 @@ int32_t queue_destroy( struct queue * self )
     }
 
     self->size = 0;
+    self->count= 0;
     self->head = self->tail = 0;
 
     free(self);
