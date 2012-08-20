@@ -282,7 +282,8 @@ void * iothread_main( void * arg )
 			{
 			case eTaskType_Null :
 				{
-					// ¿ÕÃüÁî	
+					// ¿ÕÃüÁî
+					continue;
 				}
 				break;
 			

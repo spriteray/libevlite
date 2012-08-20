@@ -30,6 +30,17 @@ int64_t mtime()
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+uint32_t getpower( uint32_t size )
+{
+	uint32_t n = 0;
+
+	while ( size >>= 1 )
+	{
+		++n;
+	}
+
+	return n;
+}
 
 uint32_t nextpow2( uint32_t size )
 {
@@ -47,20 +58,7 @@ uint32_t nextpow2( uint32_t size )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-static uint32_t _queue_getpower( uint32_t size );
 static int32_t _queue_expand( struct queue * self );
-
-uint32_t _queue_getpower( uint32_t size )
-{
-	uint32_t n = 0;
-
-	while ( size >>= 1 )
-	{
-		++n;
-	}
-
-	return n;
-}
 
 int32_t _queue_expand( struct queue * self )
 {
@@ -110,7 +108,7 @@ struct queue * queue_create( uint32_t size )
 
 	size = size ? size : 8;
 	size = nextpow2( size );
-	npower = _queue_getpower( size );
+	npower = getpower( size );
 
 	self = (struct queue *)malloc( sizeof(struct queue) );
 	if ( self )

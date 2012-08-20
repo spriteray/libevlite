@@ -17,6 +17,7 @@ inline int64_t mtime();
 //
 // 基础算法类
 //
+uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
 
 // 任务类型
