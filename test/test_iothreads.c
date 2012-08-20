@@ -14,7 +14,7 @@ void task_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 {
 	if ( rand()%10 == 0 )
 	{
-		usleep(2);
+		//usleep(2);
 	}
 }
 
