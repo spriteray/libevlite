@@ -49,8 +49,7 @@ struct task
  */
 struct queue
 {
-	uint32_t size;					// 4bytes
-	uint32_t count;					// 4bytes
+	uint32_t size;					// (4+4)bytes
 	struct task * entries;			// 8bytes
 	uint32_t padding1[12];			// 48,padding
 

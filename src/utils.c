@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -46,12 +47,70 @@ uint32_t nextpow2( uint32_t size )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+static uint32_t _queue_getpower( uint32_t size );
+static int32_t _queue_expand( struct queue * self );
+
+uint32_t _queue_getpower( uint32_t size )
+{
+	uint32_t n = 0;
+
+	while ( size >>= 1 )
+	{
+		++n;
+	}
+
+	return n;
+}
+
+int32_t _queue_expand( struct queue * self )
+{
+	// 需要扩展
+	uint32_t headlen = 0, taillen = 0;
+	uint32_t new_size = self->size << 1;
+
+	struct task * new_entries = NULL;
+
+	new_entries = (struct task * )malloc( sizeof(struct task) * new_size );
+	if ( new_entries == NULL )
+	{
+		// 扩展内存块失败
+		return -1;
+	}
+
+	uint32_t headidx = self->head&(self->size-1);
+	uint32_t tailidx = self->tail&(self->size-1);
+
+	if ( headidx < tailidx )
+	{
+		headlen = tailidx - headidx; 
+	}
+	else
+	{
+		headlen = self->size - headidx;
+		taillen = tailidx;
+	}
+
+	memcpy( new_entries, self->entries+headidx, sizeof(struct task)*headlen );
+	memcpy( new_entries+headlen, self->entries, sizeof(struct task)*taillen );
+
+	self->head = 0;
+	self->tail = headlen+taillen; 
+	self->size = new_size;
+
+	free ( self->entries );
+	self->entries = new_entries;
+
+	return 0;	
+}
+
 struct queue * queue_create( uint32_t size )
 {
+	uint32_t npower = 0;
 	struct queue * self = NULL;
 
 	size = size ? size : 8;
 	size = nextpow2( size );
+	npower = _queue_getpower( size );
 
 	self = (struct queue *)malloc( sizeof(struct queue) );
 	if ( self )
@@ -60,7 +119,6 @@ struct queue * queue_create( uint32_t size )
 		if ( self->entries )
 		{
 			self->size 	= size;
-			self->count	= 0;
 			self->head 	= self->tail = 0;
 		}
 		else
@@ -75,62 +133,34 @@ struct queue * queue_create( uint32_t size )
 
 int32_t queue_push( struct queue * self, struct task * task )
 {
-	if ( self->count >= self->size )
+	if ( self->size + self->head - self->tail <= 0 ) 
 	{
 		// 需要扩展
-
-		uint32_t headlen = 0, taillen = 0;
-		uint32_t new_size = self->size << 1;
-
-		struct task * new_entries = NULL;
-
-		new_entries = (struct task * )malloc( sizeof(struct task) * new_size );
-		if ( new_entries == NULL )
+		if ( _queue_expand(self) != 0 )
 		{
-			// 扩展内存块失败
-			return -1;
+			return -1; 
 		}
-
-		if ( self->head < self->tail )
-		{
-			headlen = self->tail - self->head;
-		}
-		else
-		{
-			headlen = self->size - self->head; 
-			taillen = self->tail; 
-		}
-
-		memcpy( new_entries, self->entries+self->head, sizeof(struct task)*headlen );
-		memcpy( new_entries+headlen, self->entries, sizeof(struct task)*taillen );
-
-		self->head = 0;
-		self->size = new_size;
-		self->tail = headlen+taillen; 
-
-		free ( self->entries );
-		self->entries = new_entries;
-	}
-
-	++self->count;
-	self->entries[self->tail] = *task;
-	self->tail = (++self->tail)&(self->size-1);
+	}	
 	
+	self->entries[self->tail&(self->size-1)] = *task;
+	++self->tail;
+
 	return 0;
 }
 
 int32_t queue_pop( struct queue * self, struct task * task )
 {
-	if ( self->count > 0 )
-	{
-		--self->count;
-		*task = self->entries[ self->head ];
-		self->head = (++self->head)&(self->size-1);
+	uint32_t count = self->tail - self->head;
 
-		return 0;
+	if ( count > 0 )
+	{
+		*task = self->entries[self->head&(self->size-1)];
+		++self->head;
+
+		return 1;
 	}
 
-	return -1;
+	return 0;
 }
 
 int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
@@ -139,7 +169,7 @@ int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
 
 	for ( i = 0; i < count; ++i )
 	{
-		if ( queue_pop( self, &(tasks[i]) ) != 0 )
+		if ( queue_pop( self, &(tasks[i]) ) == 0 )
 		{
 			break;
 		}
@@ -150,7 +180,7 @@ int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
 
 uint32_t queue_count( struct queue * self )
 {
-    return self->count;
+	return self->tail - self->head;
 }
 
 int32_t queue_destroy( struct queue * self )
@@ -162,7 +192,6 @@ int32_t queue_destroy( struct queue * self )
     }
 
     self->size = 0;
-    self->count= 0;
     self->head = self->tail = 0;
 
     free(self);
