@@ -32,6 +32,7 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) );
 //
 // 基础算法类
 //
+uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
 
 // 任务类型
@@ -64,8 +65,7 @@ struct task
  */
 struct queue
 {
-	uint32_t size;					// 4bytes
-	uint32_t count;					// 4bytes
+	uint32_t size;					// (4+4)bytes
 	struct task * entries;			// 8bytes
 	uint32_t padding1[12];			// 48,padding
 
