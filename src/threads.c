@@ -232,7 +232,8 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
 		intask.task = task;
 	}
 
-	return msgqueue_push( self->queue, &intask, 1 );
+	// 默认: 提交任务不提醒消费者
+	return msgqueue_push( self->queue, &intask, 0 );
 }
 
 int32_t iothread_stop( struct iothread * self )
@@ -273,38 +274,41 @@ void * iothread_main( void * arg )
 		evsets_dispatch( thread->sets );
 
 		// 处理任务
-		ntasks = msgqueue_pops( thread->queue, tasks, POP_TASKS_COUNT );
-		for ( i = 0; i < ntasks; ++i )
+		do
 		{
-			void * data = NULL;
-
-			switch ( tasks[i].type )
+			ntasks = msgqueue_pops( thread->queue, tasks, POP_TASKS_COUNT );
+			for ( i = 0; i < ntasks; ++i )
 			{
-			case eTaskType_Null :
-				{
-					// 空命令
-					continue;
-				}
-				break;
-			
-			case eTaskType_User :
-				{
-					// 用户命令
-					data = tasks[i].task;
-				}
-				break;
+				void * data = NULL;
 
-			case eTaskType_Data :
+				switch ( tasks[i].type )
 				{
-					// 数据命令	
-					data = (void *)(tasks[i].data);
+				case eTaskType_Null :
+					{
+						// 空命令
+						continue;
+					}
+					break;
+
+				case eTaskType_User :
+					{
+						// 用户命令
+						data = tasks[i].task;
+					}
+					break;
+
+				case eTaskType_Data :
+					{
+						// 数据命令
+						data = (void *)(tasks[i].data);
+					}
+					break;
 				}
-				break;	
-			}			
-			
-			// 回调
-			parent->method( thread->index, thread->sets, tasks[i].utype, data);
-		}
+
+				// 回调
+				parent->method( thread->index, thread->sets, tasks[i].utype, data);
+			}
+		} while ( ntasks == POP_TASKS_COUNT );
 	}
 
 	// 向主线程发送终止信号
