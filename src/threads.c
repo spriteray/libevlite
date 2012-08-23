@@ -306,9 +306,10 @@ void * iothread_main( void * arg )
 				}
 
 				// 回调
-				parent->method( thread->index, thread->sets, tasks[i].utype, data);
+				parent->method( thread->index, thread->sets, tasks[i].utype, data );
 			}
-		} while ( ntasks == POP_TASKS_COUNT );
+		}
+		while ( ntasks == POP_TASKS_COUNT );
 	}
 
 	// 向主线程发送终止信号
