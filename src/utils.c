@@ -176,6 +176,122 @@ uint32_t nextpow2( uint32_t size )
 	return ++size;
 }
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+struct arraylist * arraylist_create( uint32_t size )
+{
+	struct arraylist * self = NULL;
+
+	self = (struct arraylist *)malloc( sizeof(struct arraylist) );
+	if ( self )
+	{
+		if ( arraylist_init( self, size ) != 0 )
+		{
+			free( self );
+			self = NULL;
+		}
+	}
+
+	return self;
+}
+
+int32_t arraylist_init( struct arraylist * self, uint32_t size )
+{
+	size = size ? size : 8;
+    size = nextpow2( size );
+
+    self->count = 0;
+    self->size = size;
+    self->entries = (void **)calloc( self->size, sizeof(void *) );
+    if ( self->entries == NULL )
+    {
+        free( self );
+        return -1;
+    }
+
+    return 0;
+}
+
+uint32_t arraylist_count( struct arraylist * self )
+{
+    return self->count;
+}
+
+void arraylist_reset( struct arraylist * self )
+{
+    memset( self->entries, 0, sizeof(void *)*self->count );
+    self->count = 0;
+
+    return;
+}
+
+int32_t arraylist_append( struct arraylist * self, void * data )
+{
+    if ( self->count >= self->size )
+    {
+        self->size <<= 1;
+        self->entries = (void **)realloc( self->entries, sizeof(void *)*self->size );
+
+        assert( self->entries != NULL );
+        memset( self->entries+self->count, 0, (self->size-self->count)*sizeof(void *) );
+    }
+
+    self->entries[self->count++] = data;
+
+    return 0;
+}
+
+void * arraylist_get( struct arraylist * self, int32_t index )
+{
+    uint32_t id = 0;
+    void * data = NULL;
+
+    id = index == -1 ? self->count-1 : index;
+    if ( id < self->count )
+    {
+        data = self->entries[id];
+    }
+
+    return data;
+}
+
+void * arraylist_take( struct arraylist * self, int32_t index )
+{
+    uint32_t id = 0;
+    void * data = NULL;
+
+    id = index == -1 ? self->count-1 : index;
+    if ( id < self->count )
+    {
+        data = self->entries[id];
+        --self->count;
+
+        if ( id != self->count )
+        {
+            self->entries[id] = self->entries[self->count];
+        }
+
+        self->entries[self->count] = NULL;
+    }
+
+    return data;
+}
+
+int32_t arraylist_destroy( struct arraylist * self )
+{
+    if ( self->entries )
+    {
+        free( self->entries );
+        self->entries = NULL;
+    }
+
+    free(self);
+
+    return 0;
+}
+
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

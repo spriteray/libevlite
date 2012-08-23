@@ -9,8 +9,8 @@
 
 static void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task );
 
-static int32_t _send_direct( evsets_t sets, struct stask_send * task );
-static int32_t _shutdown_direct( evsets_t sets, struct stask_shutdown * task );
+static int32_t _send_direct( struct stask_send * task );
+static int32_t _shutdown_direct( struct stask_shutdown * task );
 
 static inline struct session_manager * _get_manager( struct server * self, uint8_t index );
 
@@ -141,8 +141,7 @@ int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes,
 	if ( pthread_self() == iothreads_get_id( server->group, index ) )
 	{
 		// 本线程内直接发送
-		evsets_t sets = iothreads_get_sets( server->group, index );
-		return _send_direct( sets, &task );
+		return _send_direct( &task );
 	}
 
 	// 跨线程提交发送任务
@@ -162,13 +161,14 @@ int32_t server_shutdown( server_t self, sid_t id )
 	struct stask_shutdown task;
 	task.id		= id;
 	task.manager= _get_manager( server, index );
-
+	
+#if 0
 	if ( pthread_self() == iothreads_get_id( server->group, index ) )
 	{
 		// 本线程内直接关闭
-		evsets_t sets = iothreads_get_sets( server->group, index );
-		return _shutdown_direct( sets, &task );
+		return _shutdown_direct( &task );
 	}
+#endif
 
 	// 跨线程提交发送任务
 	return iothreads_post( server->group, index, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
@@ -184,16 +184,32 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _send_direct( evsets_t sets, struct stask_send * task )
+int32_t _send_direct( struct stask_send * task )
 {
-	struct session * session = session_manager_get( task->manager, task->id );
+	struct session_manager * manager = task->manager;
+	
+	struct session * session = session_manager_get( manager, task->id );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "server_send_direct() failed, session[%ld] is invalid", id );
 		return -1;
 	}
 
-	return session_send( session, sets, task->buf, task->nbytes );
+	return session_send( session, task->buf, task->nbytes );
+}
+
+int32_t _shutdown_direct( struct stask_shutdown * task )
+{
+	struct session_manager * manager = task->manager;
+
+	struct session * session = session_manager_get( manager, task->id );
+	if ( session == NULL )
+	{
+		syslog(LOG_WARNING, "server_shutdown_direct() failed, session[%ld] is invalid", id );
+		return -1;
+	}
+
+	return channel_shutdown( session );
 }
 
 void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
@@ -210,7 +226,7 @@ void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 	case eIOTaskType_Send :
 		{
 			// 发送数据
-			_send_direct( sets, (struct stask_send *)task );
+			_send_direct( (struct stask_send *)task );
 		}
 		break;
 
@@ -223,7 +239,7 @@ void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 	case eIOTaskType_Shutdown :
 		{
 			// 关闭一个连接
-			_shutdown_direct( sets, (struct stask_shutdown *)task );
+			_shutdown_direct( (struct stask_shutdown *)task );
 		}
 		break;
 

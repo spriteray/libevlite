@@ -10,5 +10,7 @@
 #include <stdint.h>
 
 
+int32_t channel_shutdown( struct session * session );
+
 #endif
 

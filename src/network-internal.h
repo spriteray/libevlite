@@ -19,5 +19,8 @@ enum
 	eIOTaskType_Shutdowns	= 6,	
 };
 
+#define INET_ADDRSTR_LEN	16
+
+
 #endif
 

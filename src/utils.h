@@ -35,6 +35,27 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) );
 uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
 
+/*
+ *
+ */ 
+struct arraylist
+{
+    uint32_t size;
+    uint32_t count;
+
+    void ** entries;
+};
+
+struct arraylist * arraylist_create( uint32_t size );
+int32_t arraylist_init( struct arraylist * self, uint32_t size );
+uint32_t arraylist_count( struct arraylist * self );
+void arraylist_reset( struct arraylist * self );
+int32_t arraylist_append( struct arraylist * self, void * data );
+void * arraylist_get( struct arraylist * self, int32_t index );
+void * arraylist_take( struct arraylist * self, int32_t index );
+int32_t arraylist_destroy( struct arraylist * self );
+
+
 // 任务类型
 enum
 {
