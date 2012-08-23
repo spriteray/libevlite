@@ -20,6 +20,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 
 }
 
+//
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
 	evsets_t sets = self->evsets;
@@ -37,7 +38,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 	return channel_send( self, sets, buf, nbytes ); 
 }
 
-
+// 
 void session_add_event( struct session * self, int16_t ev )
 {
 	int8_t status = self->status;
@@ -126,8 +127,6 @@ int32_t session_end( struct session * self )
 
 static struct session_entry * _get_entry( struct session_manager * self, sid_t id );
 
-
-
 struct session_entry * _get_entry( struct session_manager * self, sid_t id )
 {
 	uint32_t i = 0;
@@ -146,19 +145,61 @@ struct session_entry * _get_entry( struct session_manager * self, sid_t id )
 	return NULL;
 }
 
-struct session * session_manager_alloc( struct session_manager * self, int32_t fd )
+struct session_manager * session_manager_create( uint8_t index, uint32_t size )
+{
+	uint32_t i = 0;
+	struct session_manager * self = NULL;
+
+	self = calloc( 1, sizeof(struct session_manager) );
+	if ( self == NULL )
+	{
+		return NULL;
+	}
+
+	self->count = 0;
+	self->size = size;
+	self->index = index;
+
+	self->entries = calloc( size, sizeof(struct arraylist) );
+	if ( self->entries == NULL )
+	{
+		free( self );
+		return NULL;
+	}
+
+	for ( i = 0; i < size; ++i )
+	{
+		int32_t rc = arraylist_init( self->entries+i, 8 );
+		if ( rc != 0 )
+		{
+			uint32_t j = 0;
+			for ( j = 0; j < i; ++j )
+			{
+				arraylist_reset( self->entries+j );
+			}
+
+			free( self->entries );
+			free( self );
+			return NULL;
+		}
+	}
+
+	return self;
+}
+
+struct session * session_manager_alloc( struct session_manager * self, int32_t key )
 {
 	sid_t id = 0;
 	uint32_t i = 0;
 
 	struct session * session = NULL;
 	struct session_entry * entry = NULL; 
-	struct arraylist * bucket = self->entries + ( fd&(self->size-1) );
+	struct arraylist * bucket = self->entries + ( key&(self->size-1) );
 
 	for ( i = 0; i < arraylist_count(bucket); ++i )
 	{
 		entry = arraylist_get( bucket, i );
-		if ( entry->key == fd )
+		if ( entry->key == key )
 		{
 			// 会话冲突了, 很严重的错误
 			assert( entry->data.sid == 0 );
@@ -173,20 +214,20 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t f
 		{
 			return NULL;
 		}
-		
-		entry->key = fd;
+
 		entry->seq = 0;
+		entry->key = key;
 		arraylist_append( bucket, entry );
 	}
-	
+
 	// 生成sid
 	id = self->index+1;
 	id <<= 32;
 	id |= entry->key;
 	id <<= 16;
 	id |= entry->seq;
-	id &= 0x00ffffffffffffff;
-	
+	id &= SID_MASK;
+
 	session = &(entry->data);
 
 	// 会话初始化操作
@@ -211,8 +252,9 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
 
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
 {
-	struct session_entry * entry = _get_entry( self, session->id );	
-
+	sid_t id = session->id;
+	
+	struct session_entry * entry = _get_entry( self, id );	
 	if ( entry == NULL )
 	{
 		return -1;
@@ -230,4 +272,8 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 	return 0;
 }
 
+void session_manager_destroy( struct session_manager * self )
+{
+
+}
 

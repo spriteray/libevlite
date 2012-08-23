@@ -80,6 +80,7 @@ void server_destroy( server_t self )
 int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context )
 {
 	int32_t fd = -1;
+	uint8_t index = 0;
 	struct server * server = (struct server *)self;
 
 	// 创建listenfd
@@ -106,6 +107,10 @@ int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, 
 	
 	// 线程组开始运行
 	iothreads_start( server->group );
+
+	// 随机提交一个网络线程负责接收
+	index = time(NULL) % server->nthreads;
+	iothreads_post( server->group, index, eIOTaskType_Listen, acceptor, 0 );
 
 	return fd;
 }

@@ -69,12 +69,13 @@ struct session
 // |RES	|INDEX	|FD			|SEQ	|
 // |8	|8		|32			|16		|
 
+#define SID_MASK	0x00ffffffffffffff
 #define KEY_MASK	0x0000ffffffff0000
 #define SEQ_MASK	0x000000000000ffff
 #define INDEX_MASK	0x00ff000000000000
 
 #define SID_SEQ(sid)	( sid&SEQ_MASK )
-#define SID_KEY(sid)	( (sid&FD_MASK) >> 16 )
+#define SID_KEY(sid)	( (sid&KEY_MASK) >> 16 )
 #define SID_INDEX(sid)	( ( (sid&INDEX_MASK) >> 48 ) - 1 )
 
 // 会话开始
@@ -115,17 +116,20 @@ struct session_manager
 // 创建会话管理器
 // index	- 会话管理器索引号
 // count	- 会话管理器中管理多少个会话
-struct session_manager * session_manager_create( uint8_t index, uint32_t count );
+struct session_manager * session_manager_create( uint8_t index, uint32_t size );
 
 // 分配一个会话
-// fd		- 会话的描述符
-struct session * session_manager_alloc( struct session_manager * self, int32_t fd );
+// key		- 会话的描述符
+struct session * session_manager_alloc( struct session_manager * self, int32_t key );
 
 // 从会话管理器中取出一个会话
 struct session * session_manager_get( struct session_manager * self, sid_t id );
 
 // 从会话管理器中移出会话
 int32_t session_manager_remove( struct session_manager * self, struct session * session );
+
+// 销毁会话管理器
+void session_manager_destroy( struct session_manager * self );
 
 #endif
 
