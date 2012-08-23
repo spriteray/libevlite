@@ -47,9 +47,9 @@ int32_t _transmit( struct session * session )
 
 	int32_t offsets = session->msgoffsets;
 
-	for ( i = 0; i < array_count( &session->outmsglist ); ++i )
+	for ( i = 0; i < arraylist_count( &session->outmsglist ); ++i )
 	{
-		struct message * message = array_get( &session->outmsglist, i );
+		struct message * message = arraylist_get( &session->outmsglist, i );
 
 		if ( offsets >= message_get_length(message) )
 		{
@@ -81,16 +81,16 @@ int32_t _transmit( struct session * session )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( ; array_count( &session->outmsglist ); )
+		for ( ; arraylist_count( &session->outmsglist ); )
 		{
-			struct message * message = array_get( &session->outmsglist, 0 );
+			struct message * message = arraylist_get( &session->outmsglist, 0 );
 
 			if ( offsets < message_get_length(message) )
 			{
 				break;
 			}
 
-			array_take( &session->outmsglist, 0 );
+			arraylist_take( &session->outmsglist, 0 );
 
 			offsets -= message_get_length(message);
 			++message->nsuccess;
@@ -103,9 +103,9 @@ int32_t _transmit( struct session * session )
 		session->msgoffsets = offsets;
 	}
 
-	if ( writen > 0 && array_count( &session->outmsglist ) > 0 )
+	if ( writen > 0 && arraylist_count( &session->outmsglist ) > 0 )
 	{
-		int32_t againlen = channel_transmit( session );
+		int32_t againlen = _transmit( session );
 		if ( againlen > 0 )
 		{
 			writen += againlen;
@@ -164,10 +164,53 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 	}
 }
 
+void channel_on_write( int32_t fd, int16_t ev, void * arg )
+{
 
+}
 
+void channel_on_accept( int32_t fd, int16_t ev, void * arg )
+{
+	struct acceptor * acceptor = (struct acceptor *)arg;
+	struct server * server = (struct server *)(acceptor->parent);
 
+	if ( ev & EV_READ )
+	{
+		int32_t cfd = -1;
+		struct stask_assign task;
 
+		cfd = tcp_accept( fd, task.host, &(task.port) );
+		if ( cfd > 0 )
+		{
+			uint8_t index = 0;
+
+#if !defined(__FreeBSD__)
+			// FreeBSD会继承listenfd的NON Block属性
+			set_fd_nonblock( cfd );
+#endif
+
+			task.fd = cfd;
+			task.cb = acceptor->cb;
+			task.context = acceptor->context;
+
+			// TODO: 分发策略
+
+			//
+			// ................
+			//
+
+			// 把这个会话分发给指定的网络线程
+			server_assign_session( server, index, &(task) );
+		}
+	}
+
+	return;
+}
+
+int32_t channel_start( struct session * session )
+{
+	
+}
 
 int32_t channel_shutdown( struct session * session )
 {

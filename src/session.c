@@ -1,4 +1,7 @@
 
+#include "server.h"
+#include "channel.h"
+
 #include "session.h"
 
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )

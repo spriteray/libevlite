@@ -8,10 +8,17 @@
  */
 
 #include <stdint.h>
+#include <netinet/in.h>
 
 #define SESSION_READING		0x01
 #define SESSION_WRITING		0x02
 #define SESSION_EXITING		0x10
+
+enum SessionType
+{
+	eSessionType_Once 		= 1,	// 临时
+	eSessionType_Persist	= 2,	// 永久, 有断线重连的功能
+};
 
 struct session_setting
 {
@@ -39,10 +46,10 @@ struct session
 
 	// 事件集
 	evsets_t	evsets;
-
+	void *		manager;
 	void *		context;
 	ioservice_t service;
-
+	
 	// 接收缓冲区
 	struct buffer		inbuffer;
 
@@ -54,21 +61,20 @@ struct session
 	struct session_setting setting;
 };
 
-
-
+// 会话开始
+int32_t session_start( struct session * self );
 
 // 向session发送数据
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
 
-// 向session的发送队列中添加一条消息到
+// 向session的发送队列中添加一条消息
 int32_t session_append( struct session * self, struct message * message );
-
 
 // 会话添加读写事件
 void session_add_event( struct session * self, int16_t ev );
 
 // 会话结束
-int32_t session_send( struct session * self );
+int32_t session_end( struct session * self );
 
 // 会话开始连接远程服务器
 
@@ -78,6 +84,7 @@ struct session_manager
 
 };
 
+struct session * session_manager_alloc( struct session_manager * self, int8_t type, evsets_t sets );
 struct session * session_manager_get( struct session_manager * self, sid_t id );
 
 #endif

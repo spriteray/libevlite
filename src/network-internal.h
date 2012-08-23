@@ -12,14 +12,13 @@ enum
 {
 	eIOTaskType_Invalid		= 0,
 	eIOTaskType_Listen		= 1,
-	eIOTaskType_Connect		= 2,
-	eIOTaskType_Send		= 3,
-	eIOTaskType_Broadcast	= 4,
-	eIOTaskType_Shutdown	= 5,
-	eIOTaskType_Shutdowns	= 6,	
+	eIOTaskType_Assign		= 2,
+	eIOTaskType_Connect		= 3,
+	eIOTaskType_Send		= 4,
+	eIOTaskType_Broadcast	= 5,
+	eIOTaskType_Shutdown	= 6,
+	eIOTaskType_Shutdowns	= 7,	
 };
-
-#define INET_ADDRSTR_LEN	16
 
 
 #endif
