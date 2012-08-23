@@ -10,9 +10,12 @@
 #include <stdint.h>
 #include <netinet/in.h>
 
-#define SESSION_READING		0x01
-#define SESSION_WRITING		0x02
-#define SESSION_EXITING		0x10
+#include "event.h"
+
+#define SESSION_READING			0x01	// 等待读事件, 读很忙
+#define SESSION_WRITING			0x02	// 等待写事件, 写很忙
+#define SESSION_KEEPALIVING		0x04	// 等待保活事件
+#define SESSION_EXITING			0x10
 
 enum SessionType
 {
@@ -61,8 +64,21 @@ struct session
 	struct session_setting setting;
 };
 
+// 64位SID的构成
+// |XX	|XX		|XXXXXXXX	|XXXX	|
+// |RES	|INDEX	|FD			|SEQ	|
+// |8	|8		|32			|16		|
+
+#define KEY_MASK	0x0000ffffffff0000
+#define SEQ_MASK	0x000000000000ffff
+#define INDEX_MASK	0x00ff000000000000
+
+#define SID_SEQ(sid)	( sid&SEQ_MASK )
+#define SID_KEY(sid)	( (sid&FD_MASK) >> 16 )
+#define SID_INDEX(sid)	( ( (sid&INDEX_MASK) >> 48 ) - 1 )
+
 // 会话开始
-int32_t session_start( struct session * self );
+int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
 
 // 向session发送数据
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
@@ -78,14 +94,38 @@ int32_t session_end( struct session * self );
 
 // 会话开始连接远程服务器
 
-struct session_manager
+struct session_entry
 {
-
-
+	int32_t		key;
+	uint16_t	seq;
+	
+	struct session data;
 };
 
-struct session * session_manager_alloc( struct session_manager * self, int8_t type, evsets_t sets );
+struct session_manager
+{
+	uint8_t		index;
+	
+	uint32_t	size;
+	uint32_t	count;
+
+	struct arraylist * entries;
+};
+
+// 创建会话管理器
+// index	- 会话管理器索引号
+// count	- 会话管理器中管理多少个会话
+struct session_manager * session_manager_create( uint8_t index, uint32_t count );
+
+// 分配一个会话
+// fd		- 会话的描述符
+struct session * session_manager_alloc( struct session_manager * self, int32_t fd );
+
+// 从会话管理器中取出一个会话
 struct session * session_manager_get( struct session_manager * self, sid_t id );
+
+// 从会话管理器中移出会话
+int32_t session_manager_remove( struct session_manager * self, struct session * session );
 
 #endif
 

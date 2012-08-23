@@ -33,6 +33,9 @@ else
 	OBJS += kqueue.o
 endif
 
+# Release, open it
+# CFLAGS += DNDEBUG
+
 # -----------------------------------------------------------
 
 install : all

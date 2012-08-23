@@ -99,9 +99,9 @@ int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, 
 	}
 	acceptor->cb = cb;
 	acceptor->context = context;
+	acceptor->parent = server;
 	acceptor->evaccept = event;
 
-	acceptor->parent = server;
 	server->acceptor = acceptor;
 	
 	// 线程组开始运行
@@ -310,9 +310,10 @@ int32_t _start_direct( evsets_t sets, struct acceptor * acceptor )
 int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 {
 	int32_t rc = 0;
+	int32_t key = task->fd;
 	struct session_manager * manager = task->manager;
 
-	struct session * session = session_manager_alloc( manager, eSessionType_Once, sets );
+	struct session * session = session_manager_alloc( manager, key );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, 
@@ -328,7 +329,7 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 		return 1;
 	}
 
-	session_start( session );
+	session_start( session, eSessionType_Once, task->fd, sets );
 	return 0;
 }
 

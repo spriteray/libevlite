@@ -193,11 +193,8 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 			task.cb = acceptor->cb;
 			task.context = acceptor->context;
 
-			// TODO: 分发策略
-
-			//
-			// ................
-			//
+			// 分发策略
+			index = cfd % (server->nthreads);
 
 			// 把这个会话分发给指定的网络线程
 			server_assign_session( server, index, &(task) );
