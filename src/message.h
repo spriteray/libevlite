@@ -59,7 +59,7 @@ struct message
     sidlist_t tolist;
     sidlist_t failurelist;
     
-    struct buffer * buffer;
+    struct buffer 	buffer;
 };
 
 // 创建/销毁 消息
@@ -75,16 +75,16 @@ int32_t message_set_receivers( struct message * self, sidlist_t ids );
 int32_t message_add_failure( struct message * self, sid_t id );
 
 // 添加/设置 消息的数据
-int32_t message_add_buffer( struct message * self, char * buf, uint32_t nbytes );
-int32_t message_set_buffer( struct message * self, char * buf, uint32_t nbytes );
+#define message_set_buffer( self, buf, nbytes ) 	buffer_set( &((self)->buffer), (buf), (nbytes) )
+#define message_add_buffer( self, buf, nbytes ) 	buffer_append( &((self)->buffer), (buf), (nbytes) )
 
 // 消息是否完全发送
 int32_t message_left_count( struct message * self );
-#define message_is_complete( self ) message_left_count( (self) )
+#define message_is_complete( self ) 				message_left_count( (self) )
 
-// 获取消息数据的长度以及内容
-uint32_t message_get_length( struct message * self );
-char * message_get_buffer( struct message * self );
+// 获取消息数据的长度以及内
+#define message_get_buffer( self )					buffer_data( &((self)->buffer) )
+#define message_get_length( self ) 					buffer_length( &((self)->buffer) )
 
 #endif
 

@@ -231,11 +231,7 @@ void message_destroy( struct message * self )
 		self->failurelist = NULL;
 	}
 
-	if ( self->buffer )
-	{
-		buffer_destroy( self->buffer );
-		self->buffer = NULL;
-	}
+	buffer_destroy( &self->buffer );
 
 	free( self );
 	return;
@@ -281,34 +277,6 @@ int32_t message_add_failure( struct message * self, sid_t id )
 	return sidlist_add( self->failurelist, id );
 }
 
-int32_t message_add_buffer( struct message * self, char * buf, uint32_t nbytes )
-{
-	if ( self->buffer == NULL )
-	{
-		self->buffer = buffer_create();
-		if ( self->buffer == NULL )
-		{
-			return -1;
-		}
-	}
-
-	return buffer_append( self->buffer, buf, nbytes );
-}
-
-int32_t message_set_buffer( struct message * self, char * buf, uint32_t nbytes )
-{
-	if ( self->buffer == NULL )
-	{
-		self->buffer = buffer_create();
-		if ( self->buffer == NULL )
-		{
-			return -1;
-		}
-	}
-
-	return buffer_set( self->buffer, buf, nbytes );
-}
-
 int32_t message_left_count( struct message * self )
 {
 	int32_t totalcount = 0;
@@ -327,24 +295,5 @@ int32_t message_left_count( struct message * self )
 	return totalcount-self->nsuccess-failurecount;
 }
 
-uint32_t message_get_length( struct message * self )
-{
-	if ( self->buffer )
-	{
-		return buffer_length( self->buffer );
-	}
-
-	return 0;
-}
-
-char * message_get_buffer( struct message * self )
-{
-	if ( self->buffer )
-	{
-		return buffer_data( self->buffer );
-	}
-
-	return NULL;
-}
 
 
