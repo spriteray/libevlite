@@ -300,11 +300,16 @@ struct session_manager * _get_manager( struct server * self, uint8_t index )
 
 void _socket_option( int32_t fd )
 {
-
+	// IPPROTO_TCP， TCP_NODELAY
+	// SO_REUSEADDR
+	// SO_RCVBUF
+	// SO_LINGER
 }
 
 int32_t _start_direct( evsets_t sets, struct acceptor * acceptor )
 {
+	// 开始关注accept事件
+	
 	event_set( acceptor->evaccept, acceptor->fd, EV_READ|EV_PERSIST );
 	event_set_callback( acceptor->evaccept, channel_on_accept, acceptor );
 	evsets_add( sets, acceptor->evaccept, 0 );
@@ -334,7 +339,9 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 		return 1;
 	}
 
+	session_set_endpoint( session, task->host, task->port );
 	session_start( session, eSessionType_Once, task->fd, sets );
+	
 	return 0;
 }
 

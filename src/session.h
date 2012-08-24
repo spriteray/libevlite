@@ -15,7 +15,7 @@
 #define SESSION_READING			0x01	// 等待读事件, 读很忙
 #define SESSION_WRITING			0x02	// 等待写事件, 写很忙
 #define SESSION_KEEPALIVING		0x04	// 等待保活事件
-#define SESSION_EXITING			0x10
+#define SESSION_EXITING			0x10	// 等待退出, 数据全部发送完毕后, 即可关闭
 
 enum SessionType
 {
@@ -80,6 +80,9 @@ struct session
 
 // 会话开始
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
+
+// 
+void session_set_endpoint( struct session * self, char * host, uint16_t port );
 
 // 向session发送数据
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );

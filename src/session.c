@@ -17,7 +17,18 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	self->type		= type;
 	self->evsets	= sets;
 
+	// 最大接收缓冲区
+	self->setting.max_inbuffer_len = INBUFFER_DEFAULT_SIZE;
+	
 
+	session_add_event( self, EV_READ|EV_ET );
+	session_start_keepalive( self );
+}
+
+void session_set_endpoint( struct session * self, char * host, uint16_t port )
+{
+	self->port = port;
+	strcpy( self->host, host, INET_ADDRSTRLEN );
 }
 
 //
@@ -65,6 +76,11 @@ void session_add_event( struct session * self, int16_t ev )
 	}
 
 	return;
+}
+
+int32_t session_start_keepalive( struct session * self )
+{
+
 }
 
 int32_t session_end( struct session * self )
@@ -155,6 +171,8 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 	{
 		return NULL;
 	}
+
+	size = nextpow2( size );
 
 	self->count = 0;
 	self->size = size;

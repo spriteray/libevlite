@@ -20,6 +20,8 @@ enum
 	eIOTaskType_Shutdowns	= 7,	
 };
 
+#define INBUFFER_DEFAULT_SIZE		4096
+
 
 #endif
 
