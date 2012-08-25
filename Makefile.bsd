@@ -1,0 +1,83 @@
+
+# -----------------------------------------------------------
+
+CC	= gcc
+CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
+LFLAGS	= -ggdb -lthr
+SOFLAGS	= -shared -Wl,-soname,$(SONAME)
+
+LIBNAME	= libevlite.so
+SONAME	= $(LIBNAME).1
+REALNAME= $(LIBNAME).1.0.1
+
+#
+# 利用git tag发布软件版本
+#
+#APPNAME=`git describe | awk -F- '{print $$1}'`
+#VERSION=`git describe | awk -F- '{print $$2}'`
+#MAJORVER=`git describe | awk -F- '{print $$2}' | awk -F. '{print $$1}'`
+#
+#LIBNAME=$(APPNAME).so
+#SONAME=$(APPNAME).so.$(MAJORVER)
+#REALNAME=$(APPNAME).so.$(VERSION)
+#
+
+OBJS 	= utils.o timer.o kqueue.o event.o
+
+# -----------------------------------------------------------
+
+install : all
+
+all : $(REALNAME)
+
+$(REALNAME) : $(OBJS)
+
+	$(CC) $(SOFLAGS) $(LFLAGS) $(.ALLSRC) -o $(.TARGET)
+	rm -rf $(SONAME); ln -s $(.TARGET) $(SONAME)
+	rm -rf $(LIBNAME); ln -s $(.TARGET) $(LIBNAME)
+
+test : test_events test_addtimer
+
+test_events : test_events.o $(OBJS)
+
+	$(CC) $(LFLAGS) $(.ALLSRC) -o $(.TARGET)
+
+test_addtimer : test_addtimer.o $(OBJS)
+
+	$(CC) $(LFLAGS) $(.ALLSRC) -o $(.TARGET)
+
+echoserver : accept-lock-echoserver.o $(OBJS)
+
+	$(CC) $(LFLAGS) $(.ALLSRC) -o $(.TARGET)
+
+echostress :
+
+	$(CC) -I/usr/local/include -L/usr/local/lib -levent test/echostress.c -o $(.TARGET)
+
+clean :
+
+	rm -rf *.o
+	rm -rf *.log
+	rm -rf *.core
+
+	rm -rf $(SONAME)
+	rm -rf $(LIBNAME)
+	rm -rf $(REALNAME)
+
+	rm -rf test_events event.fifo
+	rm -rf test_addtimer echostress echoserver echoserver-libevent
+
+# -----------------------------------------------------------
+#
+# pmake的规则
+#
+
+.SUFFIXES: .c .cpp .o
+.c.o:
+	$(CC) $(CFLAGS) -c $(.IMPSRC) -o $(.TARGET)
+.cpp.o:
+	$(CC) $(CFLAGS) -c $(.IMPSRC) -o $(.TARGET)
+	
+.PATH.c : include src test
+.PATH.h : include src test
+	

@@ -1,0 +1,7 @@
+
+linux :
+    make os=linux install
+
+freebsd :
+    gmake os=bsd install(如果你安装了gmake)
+    或者直接make install -f Makefile.bsd
