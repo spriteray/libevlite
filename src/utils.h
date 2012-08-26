@@ -55,6 +55,17 @@ void * arraylist_get( struct arraylist * self, int32_t index );
 void * arraylist_take( struct arraylist * self, int32_t index );
 int32_t arraylist_destroy( struct arraylist * self );
 
+/*
+ * sidlist 
+ */
+struct sidlist
+{
+	uint32_t	size;
+	uint32_t	count;
+
+	sid_t *		entries;
+};
+
 
 // 任务类型
 enum

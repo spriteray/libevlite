@@ -295,5 +295,3 @@ int32_t message_left_count( struct message * self )
 	return totalcount-self->nsuccess-failurecount;
 }
 
-
-

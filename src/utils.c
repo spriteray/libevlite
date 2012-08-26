@@ -292,6 +292,109 @@ int32_t arraylist_destroy( struct arraylist * self )
     return 0;
 }
 
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+
+struct sidlist * sidlist_create( uint32_t size )
+{
+	struct sidlist * self = NULL;
+
+	size = size ? size : 8;
+	size = nextpow2( size );
+
+	self = (struct sidlist *)malloc( sizeof(struct sidlist) );
+	if ( self )
+	{
+		self->count = 0;
+		self->size = size;
+		self->entries = (sid_t *)calloc( self->size, sizeof(sid_t) );
+		if ( self->entries == NULL )
+		{
+			free( self );
+			self = NULL;
+		}
+	}
+
+	return (struct sidlist *)self;
+}
+
+uint32_t sidlist_count( struct sidlist * self )
+{
+    return ( (struct sidlist *)self )->count;
+}
+
+sid_t sidlist_get( struct sidlist * self, int32_t index )
+{
+	sid_t sid = 0;
+	uint32_t id = 0;
+
+	struct sidlist * list = (struct sidlist *)self;
+
+	id = index == -1 ? list->count-1 : index;
+	if ( id < list->count )
+	{
+		sid = list->entries[id];
+	}
+
+	return sid;
+}
+
+int32_t sidlist_add( struct sidlist * self, sid_t id )
+{
+	struct sidlist * list = ( struct sidlist * )self;
+
+	if ( list->count >= list->size )
+	{
+		list->size <<= 1;
+		list->entries = (sid_t *)realloc( list->entries, sizeof(sid_t)*list->size );
+
+		assert( list->entries != NULL );
+		memset( list->entries+list->count, 0, (list->size-list->count)*sizeof(sid_t) );
+	}
+
+	list->entries[list->count++] = id;
+
+	return 0;
+}
+
+sid_t sidlist_del( struct sidlist * self, int32_t index )
+{
+	sid_t rc = 0;
+
+	uint32_t id = 0;
+	struct sidlist * list = (struct sidlist *)self;
+
+	id = index == -1 ? list->count-1 : index;
+	if ( id < list->count )
+	{
+		rc = list->entries[id];
+		--list->count;
+
+		if ( id != list->count )
+		{
+			list->entries[id] = list->entries[list->count];
+		}
+
+		list->entries[list->count] = 0;
+	}
+
+	return rc;
+}
+
+void sidlist_destroy( struct sidlist * self )
+{
+	struct sidlist * list = (struct sidlist *)self;
+
+	if ( list->entries )
+	{
+		free( list->entries );
+		list->entries = NULL;
+	}
+
+	free(list);
+	return;
+}
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
