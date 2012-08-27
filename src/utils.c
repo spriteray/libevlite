@@ -316,12 +316,7 @@ struct sidlist * sidlist_create( uint32_t size )
 		}
 	}
 
-	return (struct sidlist *)self;
-}
-
-uint32_t sidlist_count( struct sidlist * self )
-{
-    return ( (struct sidlist *)self )->count;
+	return self;
 }
 
 sid_t sidlist_get( struct sidlist * self, int32_t index )
@@ -329,12 +324,10 @@ sid_t sidlist_get( struct sidlist * self, int32_t index )
 	sid_t sid = 0;
 	uint32_t id = 0;
 
-	struct sidlist * list = (struct sidlist *)self;
-
-	id = index == -1 ? list->count-1 : index;
-	if ( id < list->count )
+	id = index == -1 ? self->count-1 : index;
+	if ( id < self->count )
 	{
-		sid = list->entries[id];
+		sid = self->entries[id];
 	}
 
 	return sid;
@@ -342,18 +335,16 @@ sid_t sidlist_get( struct sidlist * self, int32_t index )
 
 int32_t sidlist_add( struct sidlist * self, sid_t id )
 {
-	struct sidlist * list = ( struct sidlist * )self;
-
-	if ( list->count >= list->size )
+	if ( self->count >= self->size )
 	{
-		list->size <<= 1;
-		list->entries = (sid_t *)realloc( list->entries, sizeof(sid_t)*list->size );
+		self->size <<= 1;
+		self->entries = (sid_t *)realloc( self->entries, sizeof(sid_t)*self->size );
 
-		assert( list->entries != NULL );
-		memset( list->entries+list->count, 0, (list->size-list->count)*sizeof(sid_t) );
+		assert( self->entries != NULL );
+		memset( self->entries+self->count, 0, (self->size-self->count)*sizeof(sid_t) );
 	}
 
-	list->entries[list->count++] = id;
+	self->entries[self->count++] = id;
 
 	return 0;
 }
@@ -361,22 +352,20 @@ int32_t sidlist_add( struct sidlist * self, sid_t id )
 sid_t sidlist_del( struct sidlist * self, int32_t index )
 {
 	sid_t rc = 0;
-
 	uint32_t id = 0;
-	struct sidlist * list = (struct sidlist *)self;
 
-	id = index == -1 ? list->count-1 : index;
-	if ( id < list->count )
+	id = index == -1 ? self->count-1 : index;
+	if ( id < self->count )
 	{
-		rc = list->entries[id];
-		--list->count;
+		rc = self->entries[id];
+		--self->count;
 
-		if ( id != list->count )
+		if ( id != self->count )
 		{
-			list->entries[id] = list->entries[list->count];
+			self->entries[id] = self->entries[self->count];
 		}
 
-		list->entries[list->count] = 0;
+		self->entries[self->count] = 0;
 	}
 
 	return rc;
@@ -384,15 +373,13 @@ sid_t sidlist_del( struct sidlist * self, int32_t index )
 
 void sidlist_destroy( struct sidlist * self )
 {
-	struct sidlist * list = (struct sidlist *)self;
-
-	if ( list->entries )
+	if ( self->entries )
 	{
-		free( list->entries );
-		list->entries = NULL;
+		free( self->entries );
+		self->entries = NULL;
 	}
 
-	free(list);
+	free(self);
 	return;
 }
 

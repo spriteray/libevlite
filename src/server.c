@@ -16,6 +16,7 @@ static int32_t _send_direct( struct stask_send * task );
 static int32_t _shutdown_direct( struct stask_shutdown * task );
 
 static inline struct session_manager * _get_manager( struct server * self, uint8_t index );
+static inline void _dispatch_sidlist( struct server * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -154,13 +155,25 @@ int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds )
 	// NOT Thread-Safe
 	uint8_t index = SID_INDEX(id);
 	struct server * server = (struct server *)self;
-	struct session_manager * manager = _get_manager( server, index );
 
-	struct session * session = session_manager_get( manager, task->id );
+	if ( index >= server->nthreads )
+	{
+		syslog(LOG_WARNING, "server_set_timeout() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		return -1;
+	}
+
+	struct session_manager * manager = _get_manager( server, index );
+	if ( manager == NULL )
+	{
+		syslog(LOG_WARNING, "server_set_timeout() failed, the Session[%lld]'s manager[%u] is invalid", id, index );
+		return -2;
+	}
+
+	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "server_set_timeout() failed, session[%ld] is invalid", id );
-		return -1;
+		return -3;
 	}
 
 	session->setting.timeout_secs = seconds;
@@ -173,13 +186,25 @@ int32_t server_set_keepalive( server_t self, sid_t id, int32_t seconds )
 	// NOT Thread-Safe
 	uint8_t index = SID_INDEX(id);
 	struct server * server = (struct server *)self;
-	struct session_manager * manager = _get_manager( server, index );
 
-	struct session * session = session_manager_get( manager, task->id );
+	if ( index >= server->nthreads )
+	{
+		syslog(LOG_WARNING, "server_set_keepalive() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		return -1;
+	}
+
+	struct session_manager * manager = _get_manager( server, index );
+	if ( manager == NULL )
+	{
+		syslog(LOG_WARNING, "server_set_keepalive() failed, the Session[%lld]'s manager[%u] is invalid", id, index );
+		return -2;
+	}
+
+	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "server_set_keepalive() failed, session[%ld] is invalid", id );
-		return -1;
+		return -3;
 	}
 
 	session->setting.keepalive_secs = seconds;
@@ -192,13 +217,25 @@ int32_t server_set_service( server_t self, sid_t id, ioservice_t * service, void
 	// NOT Thread-Safe
 	uint8_t index = SID_INDEX(id);
 	struct server * server = (struct server *)self;
-	struct session_manager * manager = _get_manager( server, index );
 
-	struct session * session = session_manager_get( manager, task->id );
+	if ( index >= server->nthreads )
+	{
+		syslog(LOG_WARNING, "server_set_service() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		return -1;
+	}
+
+	struct session_manager * manager = _get_manager( server, index );
+	if ( manager == NULL )
+	{
+		syslog(LOG_WARNING, "server_set_service() failed, the Session[%lld]'s manager[%u] is invalid", id, index );
+		return -2;
+	}
+
+	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "server_set_service() failed, session[%ld] is invalid", id );
-		return -1;
+		return -3;
 	}
 
 	session->context = context;
@@ -212,6 +249,12 @@ int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes,
 	uint8_t index = SID_INDEX(id);
 	struct server * server = (struct server *)self;
 	
+	if ( index >= server->nthreads )
+	{
+		syslog(LOG_WARNING, "server_send() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		return -1;
+	}
+
 	struct stask_send task;
 	task.id		= id;
 	task.buf	= buf;
@@ -231,6 +274,90 @@ int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes,
 int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes, int32_t iscopy )
 {
 	// 需要遍历ids
+	uint8_t i = 0;
+	int32_t rc = 0;
+	pthread_t threadid = pthread_self();
+
+	struct sidlist * listgroup[ 256 ] = {NULL};
+	struct server * server = (struct server *)self;
+
+	_dispatch_sidlist( server, listgroup, ids, count );
+
+	for ( i = 0; i < server->nthreads; ++i )
+	{
+		if ( listgroup[i] == NULL )
+		{
+			continue;
+		}
+
+		if ( sidlist_count( listgroup[i] ) > 1 )
+		{
+			struct stask_broadcast task;
+
+			task.msg = message_create();
+			task.manager = _get_manager( server, i );
+
+			if ( task.msg == NULL )
+			{
+				continue;
+			}
+
+			message_add_buffer( task.msg, buf, nbytes );
+			message_set_receivers( task.msg, listgroup[i] );
+
+			if ( threadid == iothreads_get_id( server->group, i ) )
+			{
+				// 本线程内直接广播
+				_broadcast_direct( &task );
+			}
+			else
+			{
+				// 跨线程提交广播任务
+				iothreads_post( server->group, i, eIOTaskType_Broadcast, (void *)&task, sizeof(task) );
+			}
+
+			rc += sidlist_count( listgroup[i] );
+			// listgroup[i] 会在message中销毁
+		}
+		else
+		{
+			struct stask_send task;
+
+			if ( iscopy )
+			{
+				char * buf2 = (char *)malloc( nbytes );
+				if ( buf2 == NULL )
+				{
+					continue;
+				}
+
+				memcpy( buf2, buf, nbytes );
+				buf = buf2;
+			}
+
+			task.id 	= sidlist_get( listgroup[i], 0 );
+			task.buf 	= buf;
+			task.nbytes = nbytes;
+			task.manager= _get_manager( server, i );
+
+			if ( threadid == iothreads_get_id( server->group, i ) )
+			{
+				// 本线程内直接发送
+				_send_direct( &task );
+			}
+			else
+			{
+				// 跨线程提交发送任务
+				iothreads_post( server->group, i, eIOTaskType_Send, (void *)&task, sizeof(task) );
+			}
+
+			rc += 1;
+			// 销毁listgroup[i]
+			sidlist_destroy( listgroup[i] );
+		}
+	}
+
+	return rc;
 }
 
 int32_t server_shutdown( server_t self, sid_t id )
@@ -238,10 +365,16 @@ int32_t server_shutdown( server_t self, sid_t id )
 	uint8_t index = SID_INDEX(id);
 	struct server * server = (struct server *)self;
 
+	if ( index >= server->nthreads )
+	{
+		syslog(LOG_WARNING, "server_send() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		return -1;
+	}
+
 	struct stask_shutdown task;
 	task.id		= id;
 	task.manager= _get_manager( server, index );
-	
+
 #if 0
 	if ( pthread_self() == iothreads_get_id( server->group, index ) )
 	{
@@ -250,7 +383,7 @@ int32_t server_shutdown( server_t self, sid_t id )
 	}
 #endif
 
-	// 跨线程提交发送任务
+	// 跨线程提交关闭任务
 	return iothreads_post( server->group, index, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
 
 }
@@ -258,6 +391,47 @@ int32_t server_shutdown( server_t self, sid_t id )
 int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 {
 	// 需要遍历ids
+	uint8_t i = 0;
+	int32_t rc = 0;
+	pthread_t threadid = pthread_self();
+
+	struct sidlist * listgroup[ 256 ] = {NULL};
+	struct server * server = (struct server *)self;
+
+	_dispatch_sidlist( server, listgroup, ids, count );
+
+	for ( i = 0; i < server->nthreads; ++i )
+	{
+		if ( listgroup[i] == NULL )
+		{
+			continue;
+		}
+
+		if ( sidlist_count( listgroup[i] ) > 1 )
+		{
+			struct stask_shutdowns task;
+
+			task.ids = listgroup[i];
+			task.manager = _get_manager( server, i );
+
+			// 跨线程提交批量关闭任务
+			rc += sidlist_count( listgroup[i] );
+			iothreads_post( server->group, i, eIOTaskType_Shutdowns, (void *)&task, sizeof(task) );
+		}
+		else
+		{
+			struct stask_shutdown task;
+
+			task.id 	= sidlist_get( listgroup[i], 0 );
+			task.manager= _get_manager( server, i );
+
+			// 跨线程提交关闭任务
+			rc += 1;
+			iothreads_post( server->group, i, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
+		}
+	}
+
+	return rc;
 }
 
 
@@ -296,6 +470,36 @@ struct session_manager * _get_manager( struct server * self, uint8_t index )
 	}
 
 	return (struct session_manager *)( self->managers[index<<3] );
+}
+
+void _dispatch_sidlist( struct server * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count )
+{
+	uint32_t i = 0;
+
+	for ( i = 0; i < count; ++i )
+	{
+		uint8_t index = SID_INDEX( ids[i] );
+
+		// index非法
+		if ( index >= self->nthreads )
+		{
+			continue;
+		}
+
+		// list未创建
+		if ( listgroup[index] == NULL )
+		{
+			listgroup[index] = sidlist_create( count );
+		}
+
+		// 添加到list中
+		if ( listgroup[index] )
+		{
+			sidlist_add( listgroup[index], ids[i] );
+		}
+	}
+
+	return;
 }
 
 void _socket_option( int32_t fd )

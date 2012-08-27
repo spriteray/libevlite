@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#include "network.h"
+#include "utils.h"
 
 //
 // 缓冲区
@@ -56,8 +56,8 @@ struct message
 {
     int32_t nsuccess;
 
-    sidlist_t tolist;
-    sidlist_t failurelist;
+    struct sidlist * tolist;
+    struct sidlist * failurelist;
     
     struct buffer 	buffer;
 };
@@ -69,7 +69,7 @@ void message_destroy( struct message * self );
 // 增加消息的接收者
 // 设置消息的接收列表
 int32_t message_add_receiver( struct message * self, sid_t id );
-int32_t message_set_receivers( struct message * self, sidlist_t ids );
+int32_t message_set_receivers( struct message * self, struct sidlist * ids );
 
 //
 int32_t message_add_failure( struct message * self, sid_t id );

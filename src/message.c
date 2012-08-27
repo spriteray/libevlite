@@ -5,7 +5,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 
-#include "udk-internal.h"
+#include "network-internal.h"
 
 #include "message.h"
 
@@ -251,7 +251,7 @@ int32_t message_add_receiver( struct message * self, sid_t id )
 	return sidlist_add( self->tolist, id );
 }
 
-int32_t message_set_receivers( struct message * self, sidlist_t ids )
+int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 {
 	if ( self->tolist )
 	{

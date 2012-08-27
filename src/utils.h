@@ -15,6 +15,8 @@
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 
+#include "network.h"
+
 //
 // 系统相关的操作
 //
@@ -65,6 +67,13 @@ struct sidlist
 
 	sid_t *		entries;
 };
+
+struct sidlist * sidlist_create( uint32_t size );
+#define sidlist_count( self )	( (self)->count )
+sid_t sidlist_get( struct sidlist * self, int32_t index );
+int32_t sidlist_add( struct sidlist * self, sid_t id );
+sid_t sidlist_del( struct sidlist * self, int32_t index );
+void sidlist_destroy( struct sidlist * self );
 
 
 // 任务类型
