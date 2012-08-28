@@ -15,6 +15,7 @@ static int32_t _assign_direct( evsets_t sets, struct stask_assign * task );
 static int32_t _send_direct( struct stask_send * task );
 static int32_t _broadcast_direct( struct stask_broadcast * task );
 static int32_t _shutdown_direct( struct stask_shutdown * task );
+static int32_t _shutdowns_direct( struct stask_shutdowns * task );
 
 static inline struct session_manager * _get_manager( struct server * self, uint8_t index );
 static inline void _dispatch_sidlist( struct server * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
@@ -390,15 +391,13 @@ int32_t server_shutdown( server_t self, sid_t id )
 	task.id		= id;
 	task.manager= _get_manager( server, index );
 
-#if 0
 	if ( pthread_self() == iothreads_get_id( server->group, index ) )
 	{
-		// 本线程内直接关闭
+		// 本线程内直接终止
 		return _shutdown_direct( &task );
 	}
-#endif
 
-	// 跨线程提交关闭任务
+	// 跨线程提交终止任务
 	return iothreads_post( server->group, index, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
 
 }
@@ -429,9 +428,18 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 			task.ids = listgroup[i];
 			task.manager = _get_manager( server, i );
 
-			// 跨线程提交批量关闭任务
+			if ( threadid == iothreads_get_id( server->group, i ) )
+			{
+				// 本线程内直接批量终止
+				_shutdowns_direct( &task );
+			}
+			else
+			{
+				// 跨线程提交批量终止任务
+				iothreads_post( server->group, i, eIOTaskType_Shutdowns, (void *)&task, sizeof(task) );
+			}
+
 			rc += sidlist_count( listgroup[i] );
-			iothreads_post( server->group, i, eIOTaskType_Shutdowns, (void *)&task, sizeof(task) );
 		}
 		else
 		{
@@ -440,9 +448,18 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 			task.id 	= sidlist_get( listgroup[i], 0 );
 			task.manager= _get_manager( server, i );
 
-			// 跨线程提交关闭任务
+			if ( threadid == iothreads_get_id( server->group, i ) )
+			{
+				// 本线程内直接终止
+				_shutdown_direct( &task );
+			}
+			else
+			{
+				// 跨线程提交直接终止任务
+				iothreads_post( server->group, i, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
+			}
+
 			rc += 1;
-			iothreads_post( server->group, i, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
 		}
 	}
 
@@ -646,6 +663,32 @@ int32_t _shutdown_direct( struct stask_shutdown * task )
 	return channel_try_shutdown( session );
 }
 
+int32_t _shutdowns_direct( struct stask_shutdowns * task )
+{
+	uint32_t i = 0;
+	int32_t rc = 0;
+	struct session_manager * manager = task->manager;
+
+	for ( i = 0; i < sidlist_count(task->ids); ++i )
+	{
+		sid_t id = sidlist_get(task->ids, i);
+		struct session * session = session_manager_get( manager, id );
+
+		if ( session == NULL )
+		{
+			continue;
+		}
+
+		// 直接终止
+		++rc;
+		channel_try_shutdown( session );
+	}
+
+	sidlist_destroy( task->ids );
+
+	return rc;
+}
+
 void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 {
 	switch ( type )
@@ -681,14 +724,15 @@ void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 
 	case eIOTaskType_Shutdown :
 		{
-			// 关闭一个连接
+			// 终止一个会话
 			_shutdown_direct( (struct stask_shutdown *)task );
 		}
 		break;
 
 	case eIOTaskType_Shutdowns :
 		{
-			// 批量关闭多个连接
+			// 批量终止多个会话
+			_shutdowns_direct( (struct stask_shutdowns *)task );
 		}
 		break;
 	

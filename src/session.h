@@ -15,7 +15,7 @@
 #define SESSION_READING			0x01	// 等待读事件, 读很忙
 #define SESSION_WRITING			0x02	// 等待写事件, 写很忙
 #define SESSION_KEEPALIVING		0x04	// 等待保活事件
-#define SESSION_EXITING			0x10	// 等待退出, 数据全部发送完毕后, 即可关闭
+#define SESSION_EXITING			0x10	// 等待退出, 数据全部发送完毕后, 即可终止
 
 enum SessionType
 {
@@ -90,8 +90,9 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
 // 向session的发送队列中添加一条消息
 int32_t session_append( struct session * self, struct message * message );
 
-// 会话添加读写事件
+// 会话添加/删除读写事件
 void session_add_event( struct session * self, int16_t ev );
+void session_del_event( struct session * self, int16_t ev );
 
 // 重连远程服务器
 int32_t session_start_reconnect( struct session * self );

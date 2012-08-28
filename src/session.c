@@ -70,8 +70,12 @@ void session_add_event( struct session * self, int16_t ev )
 {
 	int8_t status = self->status;
 	evsets_t sets = self->evsets;
-	
-	if ( (ev&EV_READ) && !(status&SESSION_READING) ) 
+
+	// 注册读事件
+	// 会话不在等待读事件, 也没有等待退出的情况下
+	if ( (ev&EV_READ)
+		&& !(status&SESSION_READING)
+		&& !(status&SESSION_EXITING) )
 	{
 		int32_t nsecs = self->setting.timeout_secs * 1000;
 		
@@ -81,7 +85,8 @@ void session_add_event( struct session * self, int16_t ev )
 
 		self->status |= SESSION_READING;
 	}
-	
+
+	// 注册写事件
 	if ( (ev&EV_WRITE) && !(status&SESSION_WRITING) )
 	{
 		event_set( self->evwrite, self->fd, ev );
@@ -89,6 +94,26 @@ void session_add_event( struct session * self, int16_t ev )
 		evsets_add( sets, self->evwrite, 0 );
 
 		self->status |= SESSION_WRITING;
+	}
+
+	return;
+}
+
+void session_del_event( struct session * self, int16_t ev )
+{
+	int8_t status = self->status;
+	evsets_t sets = self->evsets;
+
+	if ( (ev&EV_READ) && (status&SESSION_READING) )
+	{
+		evsets_del( sets, self->evread );
+		self->status &= ~SESSION_READING;
+	}
+
+	if ( (ev&EV_WRITE) && (status&SESSION_WRITING) )
+	{
+		evsets_del( sets, self->evread );
+		self->status &= ~SESSION_WRITING;
 	}
 
 	return;
@@ -103,39 +128,39 @@ int32_t session_start_reconnect( struct session * self )
 {
 	evsets_t sets = self->evsets;
 
-	if ( (self->status)&SESSION_EXITING )
+	if ( self->status&SESSION_EXITING )
 	{
 		// 会话等待退出,
 		return -1;
 	}
 
-	if ( (self->status)&SESSION_WRITING )
+	if ( self->status&SESSION_WRITING )
 	{
 		// 正在等待写事件的情况下
 		return 2;
 	}
 
-	// 关闭描述符
-	if ( self->fd > 0 )
-	{
-		close( self->fd );
-	}
-
 	// 删除网络事件
-	if ( (self->status)&SESSION_READING )
+	if ( self->status&SESSION_READING )
 	{
 		evsets_del( sets, self->evread );
 		self->status &= ~SESSION_READING;
 	}
-	if ( (self->status)&SESSION_WRITING )
+	if ( self->status&SESSION_WRITING )
 	{
 		evsets_del( sets, self->evwrite );
 		self->status &= ~SESSION_WRITING;
 	}
-	if ( (self->status)&SESSION_KEEPALIVING )
+	if ( self->status&SESSION_KEEPALIVING )
 	{
 		evsets_del( sets, self->evkeepalive );
 		self->status &= ~SESSION_KEEPALIVING;
+	}
+
+	// 终止描述符
+	if ( self->fd > 0 )
+	{
+		close( self->fd );
 	}
 
 	// 连接远程服务器
@@ -197,7 +222,7 @@ int32_t session_end( struct session * self )
 	self->type = 0;
 	self->evsets = NULL;
 
-	// NOTICE: 最后一步关闭描述符
+	// NOTICE: 最后一步终止描述符
 	// 系统会回收描述符, libevlite会重用以描述符为key的会话
 	if ( self->fd )
 	{

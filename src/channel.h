@@ -8,6 +8,7 @@
  */
 
 #include <stdint.h>
+#include "session.h"
 
 void channel_on_read( int32_t fd, int16_t ev, void * arg );
 void channel_on_write( int32_t fd, int16_t ev, void * arg );

@@ -149,7 +149,7 @@ int32_t _shutdown( struct session * session )
 	if ( manager != NULL
 			&& session->type == eSessionType_Once )
 	{
-		// 一次性会话, 需要从manager中移除会话
+		// 临时会话, 需要从manager中移除会话
 		session_manager_remove( manager, session );
 	}
 
@@ -165,8 +165,8 @@ int32_t _shutdown( struct session * session )
 int32_t _timeout( struct session * session )
 {
 	/*
-	 * 超时
-	 * 根据逻辑层的返回值确定是否关闭会话
+	 * 超时, 会尝试安全的终止会话
+	 * 根据逻辑层的返回值确定是否终止会话
 	 */
 	int32_t rc = 0;
 	ioservice_t * service = &session->service;
@@ -176,8 +176,8 @@ int32_t _timeout( struct session * session )
 	if ( rc != 0
 		|| ( session->status&SESSION_EXITING ) )
 	{
-		// 等待关闭的会话
-		// 逻辑层需要关闭的会话
+		// 等待终止的会话
+		// 逻辑层需要终止的会话
 		return channel_try_shutdown( session );
 	}
 
@@ -188,7 +188,7 @@ int32_t _timeout( struct session * session )
 	}
 	else
 	{
-		// 一次性会话, 添加读事件
+		// 临时会话, 添加读事件
 		session_add_event( session, EV_READ|EV_ET );
 	}
 
@@ -219,7 +219,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
 			if ( nprocess < 0 )
 			{
-				// 处理出错
+				// 处理出错, 安全的终止会话
 				channel_try_shutdown( session );
 				break;
 			}
@@ -255,6 +255,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 	}
 	else
 	{
+		// 超时
 		_timeout( session );
 	}
 
@@ -290,7 +291,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 				if ( arraylist_count(&session->outmsglist) > 0 )
 				{
 					// 还有数据需要发送
-					// NOTICE: 为什么不判断会话是否正在关闭呢?
+					// NOTICE: 为什么不判断会话是否正在终止呢?
 					// 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
 					// 直到发送队列为空
 					session_add_event( session, EV_WRITE|EV_ET );
@@ -301,10 +302,6 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 		{
 			// TODO: 队列为空的情况
 		}
-	}
-	else
-	{
-		_timeout( session );
 	}
 
 	return;
@@ -356,8 +353,8 @@ int32_t channel_error( struct session * session, int32_t result )
 	 * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据 
 	 *
 	 * 根据会话的类型
-	 *		1. 一次性会话, 直接关闭会话
-	 *		2. 永久会话, 关闭socket, 尝试重新连接
+	 *		1. 临时会话, 直接终止会话
+	 *		2. 永久会话, 终止socket, 尝试重新连接
 	 */
 	int32_t rc = 0;
 	ioservice_t * service = &session->service;
@@ -368,9 +365,9 @@ int32_t channel_error( struct session * session, int32_t result )
 			|| ( session->status&SESSION_EXITING )
 			|| ( session->type == eSessionType_Persist && rc != 0 ) )
 	{
-		// 一次性会话
-		// 等待关闭的会话
-		// 逻辑层需要关闭的永久会话
+		// 临时会话
+		// 等待终止的会话
+		// 逻辑层需要终止的永久会话
 		// 直接终止会话, 导致发送队列中的数据丢失
 		return _shutdown( session );
 	}
@@ -387,18 +384,14 @@ int32_t channel_try_shutdown( struct session * session )
 		&& arraylist_count(&session->outmsglist) > 0 )
 	{
 		// 会话状态正常, 并且发送队列不为空
-		// 尝试继续把未发送的数据发送出去, 在关闭会话
-		
-		// 删除读事件, 关闭读端	
-		if ( session->status&SESSION_READING )
-		{
-			evsets_del( session->evsets, session->evread );
-			session->status &= ~SESSION_READING;
-		}
-		shutdown( session->fd, SHUT_RD );
-		
+		// 尝试继续把未发送的数据发送出去, 在终止会话
 		session->status |= SESSION_EXITING;
+
+		// 删除读事件
+		session_del_event( session, EV_READ );
+		// 注册写事件
 		session_add_event( session, EV_WRITE|EV_ET );
+
 		return 1;
 	}
 
