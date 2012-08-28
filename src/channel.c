@@ -7,18 +7,12 @@ static int32_t _transmit( struct session * session );
 
 // 
 static int32_t _process( struct session * session );
+static int32_t _timeout( struct session * session );
+static int32_t _shutdown( struct session * session );
 
 int32_t _receive( struct session * session )
 {
-	int32_t nleft = session->setting.max_inbuffer_len;
-
-	nleft -= buffer_length( &session->inbuffer );
-	if ( nleft <= 0 )
-	{
-		return -3;
-	}
-
-	return buffer_read( &session->inbuffer, session->fd, nleft );
+	return buffer_read( &session->inbuffer, session->fd, -1 );
 }
 
 int32_t _transmit( struct session * session )
@@ -136,37 +130,163 @@ int32_t _process( struct session * session )
 	return nprocess;
 }
 
+int32_t _shutdown( struct session * session )
+{
+	ioservice_t * service = &session->service;
+	struct session_manager * manager = session->manager;
+
+	if ( manager != NULL
+			&& session->type == eSessionType_Once )
+	{
+		// 一次性会话, 需要从manager中移除会话
+		session_manager_remove( manager, session );
+	}
+
+	// 会话终止
+	session_end( session );
+
+	// 回调逻辑层
+	service->shutdown( session->context );
+
+	return 0;
+}
+
+int32_t _timeout( struct session * session )
+{
+	/*
+	 * 超时
+	 * 根据逻辑层的返回值确定是否关闭会话
+	 */
+	int32_t rc = 0;
+	ioservice_t * service = &session->service;
+
+	rc = service->timeout( session->context );
+
+	if ( rc != 0
+		|| ( (session->status)&SESSION_EXITING ) )
+	{
+		// 等待关闭的会话
+		// 逻辑层需要关闭的会话
+		return channel_shutdown( session );
+	}
+
+	if ( session->type == eSessionType_Persist )
+	{
+		// 尝试重连的永久会话
+		session_start_reconnect( session );
+	}
+	else
+	{
+		// 一次性会话, 添加读事件
+		session_add_event( session, EV_READ|EV_ET );
+	}
+
+	return 0;
+}
+
 void channel_on_read( int32_t fd, int16_t ev, void * arg )
 {
 	struct session * session = (struct session *)arg;
 
 	if ( ev & EV_READ )
 	{
-		uint8_t done = 0;
-
-		while ( done )
+		while ( 1 )
 		{
 			int32_t nread = 0;
 			int32_t nprocess = 0;
 
+			/* >0	- ok
+			 *  0	- peer shutdown
+			 * -1	- read() failure
+			 * -2	- expand() failure
+			 */
 			nread = _receive( session );
-			if ( nread > 0 )
+			nprocess = _process( session );
+
+			if ( nprocess < 0 )
 			{
-				continue;
+				// 处理出错
+				channel_shutdown( session );
+				break;
 			}
 
-			nprocess = _process( session );
-			if ( nprocess > 0 && nread == -3 )
+			if ( nread < 0)
 			{
-				continue;
+				if ( errno == EAGAIN )
+				{
+					// 正常,socket中无数据可读
+					session_add_event( session, EV_READ|EV_ET );
+				}
+				else
+				{
+					// 出错, 
+					channel_error( session, eIOError_ReadFailure );
+				}
+				break;
+			}
+			else if ( nread == 0 )
+			{
+				// 对端关闭连接
+				channel_error( session, eIOError_PeerShutdown );
+				break;
 			}
 		}
 	}
+	else
+	{
+		_timeout( session );
+	}
+
+	return;
 }
 
 void channel_on_write( int32_t fd, int16_t ev, void * arg )
 {
+	struct session * session = (struct session *)arg;
 
+	session->status &= ~SESSION_WRITING;
+
+	if ( ev & EV_WRITE )
+	{
+		int32_t writen = 0;
+
+		if ( arraylist_count(&session->outmsglist) > 0 )
+		{
+			// 发送数据
+			writen = _transmit( session );
+
+			// 处理结果
+			if ( writen < 0 && errno != EAGAIN )
+			{
+				// 出错了
+				channel_error( session, eIOError_WriteFailure );
+			}
+			else
+			{
+				// 正常发送
+				// socket缓冲区已满
+
+				if ( arraylist_count(&session->outmsglist) > 0 )
+				{
+					// 还有数据需要发送
+					// NOTICE: 为什么不判断会话是否正在关闭呢?
+					// 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
+					// 知道发送队列为空
+					session_add_event( session, EV_WRITE|EV_ET );
+				}
+			}
+		}
+		else
+		{
+			// TODO: 队列为空的情况
+		}
+	}
+	else
+	{
+		_timeout( session );
+	}
+
+	return;
 }
 
 void channel_on_accept( int32_t fd, int16_t ev, void * arg )
@@ -209,6 +329,34 @@ int32_t channel_start( struct session * session )
 	
 }
 
+int32_t channel_error( struct session * session, int32_t result )
+{
+	/* 出错
+	 * 根据会话的类型
+	 *		1. 一次性会话, 直接关闭会话
+	 *		2. 永久会话, 关闭socket, 尝试重新连接
+	 */
+	int32_t rc = 0;
+	ioservice_t * service = &session->service;
+
+	rc = service->error( session->context, result );
+
+	if ( session->type == eSessionType_Once
+			|| ( (session->status)&SESSION_EXITING )
+			|| ( session->type == eSessionType_Persist && rc != 0 ) )
+	{
+		// 一次性会话
+		// 等待关闭的会话
+		// 逻辑层需要关闭的永久会话
+		return _shutdown( session );
+	}
+
+	// 尝试重连的永久会话
+	session_start_reconnect( session );
+
+	return 0;
+}
+
 int32_t channel_shutdown( struct session * session )
 {
 	if ( !(session->status&SESSION_EXITING)
@@ -221,19 +369,7 @@ int32_t channel_shutdown( struct session * session )
 		return 1;
 	}
 
-	evsets_t sets = session->evsets;
-	void * context = session->context;
-	ioservice_t * service = &session->service;
-	struct session_manager * manager = session->manager;
-
-	// 从会话管理器中移除
-	session_manager_remove( manager, session );
-
-	// 会话终止
-	session_end( session );
-
-	// 回调逻辑层
-	service->shutdown( context );
+	return _shutdown( session );
 }
 
 

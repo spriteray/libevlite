@@ -49,6 +49,22 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 	return channel_send( self, sets, buf, nbytes ); 
 }
 
+//
+int32_t session_append( struct session * self, struct message * message )
+{
+	int32_t rc = 0;
+
+	// 添加到会话的发送列表中
+	rc = arraylist_append( &self->outmsglist, message );
+	if ( rc == 0 )
+	{
+		// 注册写事件, 处理发送队列
+		session_add_event( self, EV_WRITE|EV_ET );
+	}
+
+	return rc;
+}
+
 // 
 void session_add_event( struct session * self, int16_t ev )
 {
@@ -81,6 +97,60 @@ void session_add_event( struct session * self, int16_t ev )
 int32_t session_start_keepalive( struct session * self )
 {
 
+}
+
+int32_t session_start_reconnect( struct session * self )
+{
+	evsets_t sets = self->evsets;
+
+	if ( (self->status)&SESSION_EXITING )
+	{
+		// 会话等待退出,
+		return -1;
+	}
+
+	if ( (self->status)&SESSION_WRITING )
+	{
+		// 正在等待写事件的情况下
+		return 2;
+	}
+
+	// 关闭描述符
+	if ( self->fd > 0 )
+	{
+		close( self->fd );
+	}
+
+	// 删除网络事件
+	if ( (self->status)&SESSION_READING )
+	{
+		evsets_del( sets, self->evread );
+		self->status &= ~SESSION_READING;
+	}
+	if ( (self->status)&SESSION_WRITING )
+	{
+		evsets_del( sets, self->evwrite );
+		self->status &= ~SESSION_WRITING;
+	}
+	if ( (self->status)&SESSION_KEEPALIVING )
+	{
+		evsets_del( sets, self->evkeepalive );
+		self->status &= ~SESSION_KEEPALIVING;
+	}
+
+	// 连接远程服务器
+	self->fd = tcp_connect( self->host, self->port ); 
+	if ( self->fd < 0 )
+	{
+		return channel_error( session, eIOError_ConnectFailure );
+	}
+
+	event_set( self->evwrite, self->fd, EV_WRITE|EV_ET );
+	event_set_callback( self->evwrite, channel_on_reconnect, self );
+	evsets_add( sets, self->evwrite, 0 );
+	self->status |= SESSION_WRITING;
+
+	return 0;
 }
 
 int32_t session_end( struct session * self )

@@ -13,6 +13,7 @@ static void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task 
 static int32_t _start_direct( uint8_t index, evsets_t sets, struct acceptor * acceptor );
 static int32_t _assign_direct( evsets_t sets, struct stask_assign * task );
 static int32_t _send_direct( struct stask_send * task );
+static int32_t _broadcast_direct( struct stask_broadcast * task );
 static int32_t _shutdown_direct( struct stask_shutdown * task );
 
 static inline struct session_manager * _get_manager( struct server * self, uint8_t index );
@@ -158,21 +159,21 @@ int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds )
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_set_timeout() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( server, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_timeout() failed, the Session[%lld]'s manager[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session's manager[%u] is invalid", id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_timeout() failed, session[%ld] is invalid", id );
+		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session is invalid", id );
 		return -3;
 	}
 
@@ -189,21 +190,21 @@ int32_t server_set_keepalive( server_t self, sid_t id, int32_t seconds )
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_set_keepalive() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( server, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_keepalive() failed, the Session[%lld]'s manager[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session's manager[%u] is invalid", id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_keepalive() failed, session[%ld] is invalid", id );
+		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session is invalid", id );
 		return -3;
 	}
 
@@ -220,21 +221,21 @@ int32_t server_set_service( server_t self, sid_t id, ioservice_t * service, void
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_set_service() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( server, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_service() failed, the Session[%lld]'s manager[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session's manager[%u] is invalid", id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_service() failed, session[%ld] is invalid", id );
+		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session is invalid", id );
 		return -3;
 	}
 
@@ -251,8 +252,21 @@ int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes,
 	
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_send() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_send(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
 		return -1;
+	}
+
+	if ( iscopy )
+	{
+		char * buf2 = (char *)malloc( nbytes );
+		if ( buf2 == NULL )
+		{
+			syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id, index );
+			return -2;
+		}
+
+		memcpy( buf2, buf, nbytes );
+		buf = buf2;
 	}
 
 	struct stask_send task;
@@ -328,6 +342,7 @@ int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char
 				char * buf2 = (char *)malloc( nbytes );
 				if ( buf2 == NULL )
 				{
+					syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id, index );
 					continue;
 				}
 
@@ -367,7 +382,7 @@ int32_t server_shutdown( server_t self, sid_t id )
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_send() failed, the Session[%lld]'s index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_send(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
 		return -1;
 	}
 
@@ -508,6 +523,24 @@ void _socket_option( int32_t fd )
 	// SO_REUSEADDR
 	// SO_RCVBUF
 	// SO_LINGER
+
+	int32_t flag = 0;
+
+	flag = 1;
+	setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
+
+	flag = 1;
+	setsockopt( fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&flag, sizeof(flag) );
+
+	flag = 1;
+	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
+
+	struct linger ling = { 1, 0 };
+	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+
+	set_non_block( fd );
+
+	return;
 }
 
 int32_t _start_direct( evsets_t sets, struct acceptor * acceptor )
@@ -556,11 +589,47 @@ int32_t _send_direct( struct stask_send * task )
 	struct session * session = session_manager_get( manager, task->id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_send_direct() failed, session[%ld] is invalid", id );
+		syslog(LOG_WARNING, "server_send_direct(SID=%ld) failed, the Session is invalid", task->id );
 		return -1;
 	}
 
 	return session_send( session, task->buf, task->nbytes );
+}
+
+int32_t _broadcast_direct( struct stask_broadcast * task )
+{
+	uint32_t i = 0;
+	int32_t rc = 0;
+	struct message * msg = task->msg;
+	struct session_manager * manager = task->manager;
+
+	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
+	{
+		sid_t id = sidlist_get(msg->tolist, i);
+		struct session * session = session_manager_get( manager, id );
+
+		if ( session == NULL )
+		{
+			continue;
+		}
+
+		// 直接添加到会话的发送列表中
+		if ( session_append(session, msg) != 0 )
+		{
+			message_add_failure( msg, id );
+			continue;
+		}
+
+		++rc;
+	}
+
+	// 消息发送失败, 直接销毁
+	if ( message_is_complete(msg) == 0 )
+	{
+		message_destroy( msg );
+	}
+
+	return rc;
 }
 
 int32_t _shutdown_direct( struct stask_shutdown * task )
@@ -570,7 +639,7 @@ int32_t _shutdown_direct( struct stask_shutdown * task )
 	struct session * session = session_manager_get( manager, task->id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_shutdown_direct() failed, session[%ld] is invalid", id );
+		syslog(LOG_WARNING, "server_shutdown_direct(SID=%ld) failed, the Session is invalid", task->id );
 		return -1;
 	}
 
@@ -606,6 +675,7 @@ void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 	case eIOTaskType_Broadcast :
 		{
 			// 广播数据
+			_broadcast_direct( (struct stask_broadcast *)task );
 		}
 		break;
 

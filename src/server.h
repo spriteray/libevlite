@@ -46,7 +46,7 @@ struct stask_assign
 	uint16_t	port;						// 2bytes
 	char 		host[INET_ADDRSTR_LEN];		// 16bytes + 2bytes
 
-	void *		context;						// 8bytes
+	void *		context;					// 8bytes
 	void 		(*cb)(void *, sid_t, const char *, uint16_t);	// 8bytes
 
 	struct session_manager * manager;		// 8bytes
