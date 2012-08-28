@@ -643,7 +643,7 @@ int32_t _shutdown_direct( struct stask_shutdown * task )
 		return -1;
 	}
 
-	return channel_shutdown( session );
+	return channel_try_shutdown( session );
 }
 
 void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
