@@ -2,6 +2,12 @@
 #ifndef SRC_SERVER_H
 #define SRC_SERVER_H
 
+#include <stdint.h>
+
+#include "event.h"
+#include "threads.h"
+#include "network.h"
+
 #include "session.h"
 
 struct server
@@ -12,8 +18,10 @@ struct server
 	char *		host;
 	uint16_t	port;
 
+	int32_t		listenfd;
+
 	iothreads_t group;
-	void **		manager;
+	void **		managers;
 	
 	void * 		acceptor;
 };
@@ -24,7 +32,7 @@ struct acceptor
 
 	// Âß¼­
 	void * 		context;
-	void 		(*cb)(void *, sid_t, const char *, uint16_t);
+	int32_t 	(*cb)(void *, sid_t, const char *, uint16_t);
 
 	// ÊÂ¼þ¿â
 	event_t		evaccept;
@@ -44,10 +52,10 @@ struct stask_assign
 	int32_t		fd;							// 4bytes
 
 	uint16_t	port;						// 2bytes
-	char 		host[INET_ADDRSTR_LEN];		// 16bytes + 2bytes
+	char 		host[INET_ADDRSTRLEN];		// 16bytes + 2bytes
 
 	void *		context;					// 8bytes
-	void 		(*cb)(void *, sid_t, const char *, uint16_t);	// 8bytes
+	int32_t		(*cb)(void *, sid_t, const char *, uint16_t);	// 8bytes
 
 	struct session_manager * manager;		// 8bytes
 };

@@ -27,7 +27,7 @@ typedef struct
 typedef uint64_t sid_t;
 typedef void * server_t;
 
-server_t server_create( const char * host, uint16_t port, uint32_t nthreads, uint32_t nclients );
+server_t server_create( const char * host, uint16_t port, uint8_t nthreads, uint32_t nclients );
 void server_destroy( server_t self );
 
 int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );

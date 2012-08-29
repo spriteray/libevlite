@@ -11,6 +11,10 @@
 #include <netinet/in.h>
 
 #include "event.h"
+#include "network.h"
+
+#include "utils.h"
+#include "message.h"
 
 #define SESSION_READING			0x01	// 等待读事件, 读很忙
 #define SESSION_WRITING			0x02	// 等待写事件, 写很忙
@@ -40,7 +44,7 @@ struct session
 	int8_t 		status;
 	
 	uint16_t	port;
-	char 		host[INET_ADDRSTR_LEN];
+	char 		host[INET_ADDRSTRLEN];
 
 	// 读写以及超时事件
 	event_t 	evread;
@@ -95,7 +99,7 @@ void session_add_event( struct session * self, int16_t ev );
 void session_del_event( struct session * self, int16_t ev );
 
 // 开始发送心跳
-int32_t session_start_keepalive( struct session * self )
+int32_t session_start_keepalive( struct session * self );
 
 // 重连远程服务器
 int32_t session_start_reconnect( struct session * self );

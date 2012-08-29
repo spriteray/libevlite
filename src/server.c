@@ -2,6 +2,9 @@
 #include <stdio.h>
 #include <syslog.h>
 #include <stdarg.h>
+#include <unistd.h>
+#include <string.h>
+#include <stdlib.h>
 
 #include "network.h"
 
@@ -18,7 +21,7 @@
 static void _socket_option( int32_t fd );
 static void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task );
 
-static int32_t _start_direct( uint8_t index, evsets_t sets, struct acceptor * acceptor );
+static int32_t _start_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _assign_direct( evsets_t sets, struct stask_assign * task );
 static int32_t _send_direct( struct stask_send * task );
 static int32_t _broadcast_direct( struct stask_broadcast * task );
@@ -114,6 +117,7 @@ int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, 
 	acceptor->parent = server;
 	acceptor->evaccept = event;
 
+	server->listenfd = fd;
 	server->acceptor = acceptor;
 	
 	// 线程组开始运行
@@ -123,7 +127,7 @@ int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, 
 	index = time(NULL) % server->nthreads;
 	iothreads_post( server->group, index, eIOTaskType_Listen, acceptor, 0 );
 
-	return fd;
+	return 0;
 }
 
 int32_t server_stop( server_t self )
@@ -151,10 +155,10 @@ int32_t server_stop( server_t self )
 	}
 
 	// 关闭listenfd
-	if ( server->fd > 0 )
+	if ( server->listenfd > 0 )
 	{
-		close( server->fd );
-		server->fd = 0;
+		close( server->listenfd );
+		server->listenfd = 0;
 	}
 
 	return 0;
@@ -270,7 +274,7 @@ int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes,
 		char * buf2 = (char *)malloc( nbytes );
 		if ( buf2 == NULL )
 		{
-			syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id, index );
+			syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id );
 			return -2;
 		}
 
@@ -280,7 +284,7 @@ int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes,
 
 	struct stask_send task;
 	task.id		= id;
-	task.buf	= buf;
+	task.buf	= (char *)buf;
 	task.nbytes	= nbytes;
 	task.manager= _get_manager( server, index );
 
@@ -325,7 +329,7 @@ int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char
 				continue;
 			}
 
-			message_add_buffer( task.msg, buf, nbytes );
+			message_add_buffer( task.msg, (char *)buf, nbytes );
 			message_set_receivers( task.msg, listgroup[i] );
 
 			if ( threadid == iothreads_get_id( server->group, i ) )
@@ -345,13 +349,14 @@ int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char
 		else
 		{
 			struct stask_send task;
+			sid_t id = sidlist_get( listgroup[i], 0 );
 
 			if ( iscopy )
 			{
 				char * buf2 = (char *)malloc( nbytes );
 				if ( buf2 == NULL )
 				{
-					syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id, index );
+					syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id );
 					continue;
 				}
 
@@ -359,8 +364,8 @@ int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char
 				buf = buf2;
 			}
 
-			task.id 	= sidlist_get( listgroup[i], 0 );
-			task.buf 	= buf;
+			task.id 	= id; 
+			task.buf 	= (char *)buf;
 			task.nbytes = nbytes;
 			task.manager= _get_manager( server, i );
 

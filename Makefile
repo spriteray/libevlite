@@ -24,7 +24,9 @@ OS		= $(shell uname)
 #REALNAME=$(APPNAME).so.$(VERSION)
 #
 
-OBJS 	= utils.o timer.o event.o threads.o
+OBJS 	= utils.o timer.o event.o \
+			threads.o \
+			message.o channel.o session.o server.o
 
 ifeq ($(OS),Linux)
 	LFLAGS += -lrt

@@ -10,6 +10,9 @@
 #include <stdint.h>
 #include "session.h"
 
+//
+int32_t channel_send( struct session * session, char * buf, uint32_t nbytes );
+
 // 会话出错
 // 丢弃发送队列中的数据
 int32_t channel_error( struct session * session, int32_t result );
@@ -24,6 +27,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg );
 void channel_on_accept( int32_t fd, int16_t ev, void * arg );
 void channel_on_connect( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg );
+void channel_on_keepalive( int32_t fd, int16_t ev, void * arg );
 
 #endif
 

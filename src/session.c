@@ -1,8 +1,14 @@
 
 #include <assert.h>
+#include <syslog.h>
+#include <stdarg.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdlib.h>
 
 #include "server.h"
 #include "channel.h"
+#include "network-internal.h"
 
 #include "session.h"
 
@@ -76,7 +82,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	if ( _init(self) != 0 )
 	{
 		syslog( LOG_WARNING, "session_start(SID=%ld) failed, _init(fd:%d, host:'%s', port:%d) out of memory",
-			 self->sid, self->fd, self->host, self->port );
+			 self->id, self->fd, self->host, self->port );
 		_final( self );
 		return -1;
 	}	
@@ -90,25 +96,23 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 void session_set_endpoint( struct session * self, char * host, uint16_t port )
 {
 	self->port = port;
-	strcpy( self->host, host, INET_ADDRSTRLEN );
+	strncpy( self->host, host, INET_ADDRSTRLEN );
 }
 
 //
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
-	evsets_t sets = self->evsets;
-	
 	// 判断session是否繁忙
-	if ( self->writing == 1 
+	if ( (self->status&SESSION_WRITING) 
 		|| arraylist_count(&self->outmsglist) > 0 )
 	{
-		// 创建message, 添加到发送队列中
+		// TODO: 创建message, 添加到发送队列中
 
 		return 0;
 	}
 
 	// 直接发送
-	return channel_send( self, sets, buf, nbytes ); 
+	return channel_send( self, buf, nbytes ); 
 }
 
 //
@@ -234,10 +238,10 @@ int32_t session_start_reconnect( struct session * self )
 	}
 
 	// 连接远程服务器
-	self->fd = tcp_connect( self->host, self->port ); 
+	self->fd = tcp_connect( self->host, self->port, 0 ); 
 	if ( self->fd < 0 )
 	{
-		return channel_error( session, eIOError_ConnectFailure );
+		return channel_error( self, eIOError_ConnectFailure );
 	}
 
 	event_set( self->evwrite, self->fd, EV_WRITE|EV_ET );
@@ -258,9 +262,9 @@ int32_t session_shutdown( struct session * self )
 		self->status |= SESSION_EXITING;
 
 		// 删除读事件
-		self_del_event( self, EV_READ );
+		session_del_event( self, EV_READ );
 		// 注册写事件
-		self_add_event( self, EV_WRITE|EV_ET );
+		session_add_event( self, EV_WRITE|EV_ET );
 
 		return 1;
 	}
@@ -426,7 +430,7 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 		if ( entry->key == key )
 		{
 			// 会话冲突了, 很严重的错误
-			assert( entry->data.sid == 0 );
+			assert( entry->data.id == 0 );
 			break;
 		}
 	}

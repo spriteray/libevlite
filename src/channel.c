@@ -1,5 +1,12 @@
 
+#include <stdio.h>
+#include <errno.h>
+#include <unistd.h>
+#include <string.h>
+
 #include "server.h"
+#include "network-internal.h"
+
 #include "channel.h"
 
 // 发送接收数据
@@ -112,6 +119,12 @@ int32_t _transmit( struct session * session )
 	}
 
 	return writen;
+}
+
+int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
+{
+	// TODO: 
+	return 0;
 }
 
 // -----------------------------------------------------------------------------
@@ -379,11 +392,27 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 {
+	struct session * session = (struct session *)arg;
 
+	session->status &= ~SESSION_WRITING;
+
+	if ( ev & EV_WRITE )
+	{
+		// TODO: 
+	}
+	else
+	{
+		// TODO:
+	}
 }
 
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 {
+	// TODO: 
+}
 
+void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
+{
+	// TODO: 
 }
 
