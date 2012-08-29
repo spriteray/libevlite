@@ -5,7 +5,15 @@
 
 #include "network.h"
 
+#include "channel.h"
+#include "session.h"
+#include "network-internal.h"
+
 #include "server.h"
+
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 static void _socket_option( int32_t fd );
 static void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task );
@@ -590,11 +598,21 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 	{
 		// 逻辑层不接受这个连接
 		session_manager_remove( manager, session );
+		close( task->fd );
 		return 1;
 	}
-
+	
+	// 设置对端信息
 	session_set_endpoint( session, task->host, task->port );
-	session_start( session, eSessionType_Once, task->fd, sets );
+	
+	// 会话开始
+	rc = session_start( session, eSessionType_Once, task->fd, sets );
+	if ( rc != 0 )
+	{
+		// 会话初始化失败
+		session_manager_remove( manager, session );
+		close( task->fd );		
+	}
 	
 	return 0;
 }
@@ -660,7 +678,7 @@ int32_t _shutdown_direct( struct stask_shutdown * task )
 		return -1;
 	}
 
-	return channel_try_shutdown( session );
+	return session_shutdown( session );
 }
 
 int32_t _shutdowns_direct( struct stask_shutdowns * task )
@@ -681,7 +699,7 @@ int32_t _shutdowns_direct( struct stask_shutdowns * task )
 
 		// 直接终止
 		++rc;
-		channel_try_shutdown( session );
+		session_shutdown( session );
 	}
 
 	sidlist_destroy( task->ids );

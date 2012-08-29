@@ -6,6 +6,59 @@
 
 #include "session.h"
 
+static int32_t _init( struct session * self );
+static int32_t _final( struct session * self );
+
+int32_t _init( struct session * self )
+{
+	if ( self->evread == NULL )
+	{
+		self->evread = event_create();
+		if ( self->evread == NULL )
+		{
+			return -1;
+		}
+	}
+	if ( self->evwrite == NULL )
+	{
+		self->evwrite = event_create();
+		if ( self->evwrite == NULL )
+		{
+			return -2;
+		}
+	}
+	if ( self->evkeepalive == NULL )
+	{
+		self->evkeepalive = event_create();
+		if ( self->evkeepalive == NULL )
+		{
+			return -3;
+		}
+	}
+
+	return 0;
+}
+
+int32_t _final( struct session * self )
+{
+	if ( self->evread )
+	{
+		event_destroy( self->evread );
+		self->evread = NULL;
+	}
+	if ( self->evwrite )
+	{
+		event_destroy( self->evwrite );
+		self->evwrite = NULL;
+	}
+	if ( self->evkeepalive )
+	{
+		event_destroy( self->evkeepalive );
+		self->evkeepalive = NULL;
+	}
+
+	return 0;
+}
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -17,12 +70,21 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	self->type		= type;
 	self->evsets	= sets;
 
-	// 最大接收缓冲区
-	self->setting.max_inbuffer_len = INBUFFER_DEFAULT_SIZE;
+	// TODO: 设置默认的最大接收缓冲区
 	
+	// 初始化会话
+	if ( _init(self) != 0 )
+	{
+		syslog( LOG_WARNING, "session_start(SID=%ld) failed, _init(fd:%d, host:'%s', port:%d) out of memory",
+			 self->sid, self->fd, self->host, self->port );
+		_final( self );
+		return -1;
+	}	
 
 	session_add_event( self, EV_READ|EV_ET );
 	session_start_keepalive( self );
+
+	return 0;
 }
 
 void session_set_endpoint( struct session * self, char * host, uint16_t port )
@@ -186,6 +248,26 @@ int32_t session_start_reconnect( struct session * self )
 	return 0;
 }
 
+int32_t session_shutdown( struct session * self )
+{
+	if ( !(self->status&SESSION_EXITING)
+		&& arraylist_count(&self->outmsglist) > 0 )
+	{
+		// 会话状态正常, 并且发送队列不为空
+		// 尝试继续把未发送的数据发送出去, 在终止会话
+		self->status |= SESSION_EXITING;
+
+		// 删除读事件
+		self_del_event( self, EV_READ );
+		// 注册写事件
+		self_add_event( self, EV_WRITE|EV_ET );
+
+		return 1;
+	}
+
+	return channel_shutdown( self );
+}
+
 int32_t session_end( struct session * self )
 {
 	// 清空发送队列
@@ -193,7 +275,7 @@ int32_t session_end( struct session * self )
 	if ( count > 0 )
 	{
 		// 会话终止时发送队列不为空
-		syslog(LOG_WARNING, "session_end(%ld)'s Out-Message-List (%d) is not empty", self->id, count );
+		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty", self->id, count );
 	}
 	for ( ; count > 0; --count )
 	{
@@ -211,6 +293,9 @@ int32_t session_end( struct session * self )
 		}
 	}
 
+	// 清空接收缓冲区
+	buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
+
 	// 删除事件
 	if ( self->evread )
 	{
@@ -225,10 +310,26 @@ int32_t session_end( struct session * self )
 	if ( self->evkeepalive )
 	{
 		evsets_del( self->evsets, self->evkeepalive );
+		self->status &= ~SESSION_KEEPALIVING;
 	}
-
+	
+	// 重置部分数据
+	self->id = 0;
 	self->type = 0;
+	self->status = 0;
+	self->port = 0;
+	self->host[0] = 0;
 	self->evsets = NULL;
+	self->context = NULL;
+	self->service.error = NULL;
+	self->service.timeout = NULL;
+	self->service.process = NULL;
+	self->service.shutdown = NULL;
+	self->service.keepalive = NULL;
+	self->msgoffsets = 0;
+	self->setting.timeout_msecs = 0;
+	self->setting.keepalive_msecs = 0;
+	self->setting.max_inbuffer_len = 0;
 
 	// NOTICE: 最后一步终止描述符
 	// 系统会回收描述符, libevlite会重用以描述符为key的会话
@@ -237,6 +338,8 @@ int32_t session_end( struct session * self )
 		close( self->fd );
 		self->fd = 0;
 	}
+
+	return 0;
 }
 
 
@@ -395,6 +498,6 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 
 void session_manager_destroy( struct session_manager * self )
 {
-
+	// TODO: 需要调用_final()
 }
 

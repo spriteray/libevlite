@@ -1,4 +1,5 @@
 
+#include "server.h"
 #include "channel.h"
 
 // 发送接收数据
@@ -8,7 +9,6 @@ static int32_t _transmit( struct session * session );
 // 逻辑操作  
 static int32_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
-static int32_t _shutdown( struct session * session );
 
 
 // -----------------------------------------------------------------------------
@@ -139,7 +139,73 @@ int32_t _process( struct session * session )
 	return nprocess;
 }
 
-int32_t _shutdown( struct session * session )
+int32_t _timeout( struct session * session )
+{
+	/*
+	 * 超时, 会尝试安全的终止会话
+	 * 根据逻辑层的返回值确定是否终止会话
+	 */
+	int32_t rc = 0;
+	ioservice_t * service = &session->service;
+
+	rc = service->timeout( session->context );
+
+	if ( rc != 0
+		|| ( session->status&SESSION_EXITING ) )
+	{
+		// 等待终止的会话
+		// 逻辑层需要终止的会话
+		// NOTICE: 此处会尝试终止会话
+		return session_shutdown( session );
+	}
+
+	if ( session->type == eSessionType_Persist )
+	{
+		// 尝试重连的永久会话
+		session_start_reconnect( session );
+	}
+	else
+	{
+		// 临时会话, 添加读事件
+		session_add_event( session, EV_READ|EV_ET );
+		session_start_keepalive( session );
+	}
+
+	return 0;
+}
+
+int32_t channel_error( struct session * session, int32_t result )
+{
+	/* 出错
+	 * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据 
+	 *
+	 * 根据会话的类型
+	 *		1. 临时会话, 直接终止会话
+	 *		2. 永久会话, 终止socket, 尝试重新连接
+	 */
+	int32_t rc = 0;
+	ioservice_t * service = &session->service;
+
+	rc = service->error( session->context, result );
+
+	if ( session->type == eSessionType_Once
+			|| ( session->status&SESSION_EXITING )
+			|| ( session->type == eSessionType_Persist && rc != 0 ) )
+	{
+		// 临时会话
+		// 等待终止的会话
+		// 逻辑层需要终止的永久会话
+		// 直接终止会话, 导致发送队列中的数据丢失
+		return channel_shutdown( session );
+	}
+
+	// 尝试重连的永久会话
+	session_start_reconnect( session );
+
+	return 0;
+}
+
+int32_t channel_shutdown( struct session * session )
 {
 	void * context = session->context;
 	ioservice_t * service = &session->service;
@@ -158,40 +224,6 @@ int32_t _shutdown( struct session * session )
 
 	// 回调逻辑层
 	service->shutdown( context );
-
-	return 0;
-}
-
-int32_t _timeout( struct session * session )
-{
-	/*
-	 * 超时, 会尝试安全的终止会话
-	 * 根据逻辑层的返回值确定是否终止会话
-	 */
-	int32_t rc = 0;
-	ioservice_t * service = &session->service;
-
-	rc = service->timeout( session->context );
-
-	if ( rc != 0
-		|| ( session->status&SESSION_EXITING ) )
-	{
-		// 等待终止的会话
-		// 逻辑层需要终止的会话
-		return channel_try_shutdown( session );
-	}
-
-	if ( session->type == eSessionType_Persist )
-	{
-		// 尝试重连的永久会话
-		session_start_reconnect( session );
-	}
-	else
-	{
-		// 临时会话, 添加读事件
-		session_add_event( session, EV_READ|EV_ET );
-		session_start_keepalive( session );
-	}
 
 	return 0;
 }
@@ -221,7 +253,8 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 			if ( nprocess < 0 )
 			{
 				// 处理出错, 安全的终止会话
-				channel_try_shutdown( session );
+				// NOTICE: 此处会尝试终止会话
+				session_shutdown( session );
 				break;
 			}
 			
@@ -344,60 +377,13 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 	return;
 }
 
-int32_t channel_start( struct session * session )
+void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 {
-	
+
 }
 
-int32_t channel_error( struct session * session, int32_t result )
+void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 {
-	/* 出错
-	 * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据 
-	 *
-	 * 根据会话的类型
-	 *		1. 临时会话, 直接终止会话
-	 *		2. 永久会话, 终止socket, 尝试重新连接
-	 */
-	int32_t rc = 0;
-	ioservice_t * service = &session->service;
 
-	rc = service->error( session->context, result );
-
-	if ( session->type == eSessionType_Once
-			|| ( session->status&SESSION_EXITING )
-			|| ( session->type == eSessionType_Persist && rc != 0 ) )
-	{
-		// 临时会话
-		// 等待终止的会话
-		// 逻辑层需要终止的永久会话
-		// 直接终止会话, 导致发送队列中的数据丢失
-		return _shutdown( session );
-	}
-
-	// 尝试重连的永久会话
-	session_start_reconnect( session );
-
-	return 0;
 }
-
-int32_t channel_try_shutdown( struct session * session )
-{
-	if ( !(session->status&SESSION_EXITING)
-		&& arraylist_count(&session->outmsglist) > 0 )
-	{
-		// 会话状态正常, 并且发送队列不为空
-		// 尝试继续把未发送的数据发送出去, 在终止会话
-		session->status |= SESSION_EXITING;
-
-		// 删除读事件
-		session_del_event( session, EV_READ );
-		// 注册写事件
-		session_add_event( session, EV_WRITE|EV_ET );
-
-		return 1;
-	}
-
-	return _shutdown( session );
-}
-
 
