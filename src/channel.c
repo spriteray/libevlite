@@ -190,6 +190,7 @@ int32_t _timeout( struct session * session )
 	{
 		// 临时会话, 添加读事件
 		session_add_event( session, EV_READ|EV_ET );
+		session_start_keepalive( session );
 	}
 
 	return 0;
@@ -236,6 +237,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 				{
 					// 正常,socket中无数据可读
 					session_add_event( session, EV_READ|EV_ET );
+					session_start_keepalive( session );
 				}
 				else
 				{

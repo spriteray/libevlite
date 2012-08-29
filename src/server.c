@@ -178,7 +178,7 @@ int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds )
 		return -3;
 	}
 
-	session->setting.timeout_secs = seconds;
+	session->setting.timeout_msecs = seconds*1000;
 
 	return 0;
 }
@@ -209,7 +209,7 @@ int32_t server_set_keepalive( server_t self, sid_t id, int32_t seconds )
 		return -3;
 	}
 
-	session->setting.keepalive_secs = seconds;
+	session->setting.keepalive_msecs = seconds*1000;
 
 	return 0;
 }

@@ -25,8 +25,8 @@ enum SessionType
 
 struct session_setting
 {
-	int32_t timeout_secs;
-	int32_t keepalive_secs;
+	int32_t timeout_msecs;
+	int32_t keepalive_msecs;
 	int32_t max_inbuffer_len;
 };
 
@@ -93,6 +93,9 @@ int32_t session_append( struct session * self, struct message * message );
 // 会话添加/删除读写事件
 void session_add_event( struct session * self, int16_t ev );
 void session_del_event( struct session * self, int16_t ev );
+
+// 开始发送心跳
+int32_t session_start_keepalive( struct session * self )
 
 // 重连远程服务器
 int32_t session_start_reconnect( struct session * self );

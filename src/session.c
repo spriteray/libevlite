@@ -77,11 +77,9 @@ void session_add_event( struct session * self, int16_t ev )
 		&& !(status&SESSION_READING)
 		&& !(status&SESSION_EXITING) )
 	{
-		int32_t nsecs = self->setting.timeout_secs * 1000;
-		
 		event_set( self->evread, self->fd, ev );
 		event_set_callback( self->evread, channel_on_read, self );
-		evsets_add( sets, self->evread, 0 );
+		evsets_add( sets, self->evread, self->setting.timeout_msecs );
 
 		self->status |= SESSION_READING;
 	}
@@ -121,7 +119,17 @@ void session_del_event( struct session * self, int16_t ev )
 
 int32_t session_start_keepalive( struct session * self )
 {
+	int8_t status = self->status;
+	evsets_t sets = self->evsets;
 
+	if ( self->setting.keepalive_msecs > 0 && !(status&SESSION_KEEPALIVING) )
+	{
+		event_set( self->evkeepalive, -1, 0 );
+		event_set_callback( self->evkeepalive, channel_on_keepalive, self );
+		evsets_add( sets, self->evkeepalive, self->setting.keepalive_msecs );
+	}	
+
+	return 0;
 }
 
 int32_t session_start_reconnect( struct session * self )
