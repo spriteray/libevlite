@@ -14,15 +14,12 @@ struct server
 {
 	uint8_t		nthreads;
 	uint32_t	nclients;
-
-	char *		host;
-	uint16_t	port;
-
-	int32_t		listenfd;
-
+	
+	// 网络线程组
 	iothreads_t group;
 	void **		managers;
 	
+	// 会话接收器
 	void * 		acceptor;
 };
 
@@ -30,12 +27,15 @@ struct acceptor
 {
 	int32_t 	fd;
 
+	char		host[INET_ADDRSTRLEN];
+	uint16_t	port;
+
 	// 逻辑
 	void * 		context;
 	int32_t 	(*cb)(void *, sid_t, const char *, uint16_t);
 
-	// 事件库
-	event_t		evaccept;
+	// 接收事件
+	event_t		event;
 
 	// 服务器句柄
 	struct server * parent;

@@ -27,20 +27,40 @@ typedef struct
 typedef uint64_t sid_t;
 typedef void * server_t;
 
-server_t server_create( const char * host, uint16_t port, uint8_t nthreads, uint32_t nclients );
-void server_destroy( server_t self );
+// 服务器开启
+//		host		- 绑定的地址
+//		port		- 监听的端口号
+//		nthreads	- 开启多少个线程
+//		nclients	- 最大支持多少个客户端
+//		cb			- 新会话创建成功后的回调, 
+//							参数1: 上下文参数; 
+//							参数2: 新会话ID; 
+//							参数3: 会话的IP地址; 
+//							参数4: 会话的端口号
+//		context		- 上下文参数
+server_t server_start( const char * host, uint16_t port,
+							uint8_t nthreads, uint32_t nclients, 
+							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );
 
-int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );
-int32_t server_stop( server_t self );
-
+// 会话参数的设置
 int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds );
 int32_t server_set_keepalive( server_t self, sid_t id, int32_t seconds );
 int32_t server_set_service( server_t self, sid_t id, ioservice_t * service, void * context );
 
+// 服务器发送数据到会话
 int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy );
-int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes, int32_t iscopy );
+
+// 服务器广播数据到指定的会话
+int32_t server_broadcast( server_t self, 
+							sid_t * ids, uint32_t count, 
+							const char * buf, uint32_t nbytes, int32_t iscopy );
+
+// 服务器终止指定的会话
 int32_t server_shutdown( server_t self, sid_t id );
 int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count );
+
+// 服务器停止
+void server_stop( server_t self );
 
 //
 // 客户端

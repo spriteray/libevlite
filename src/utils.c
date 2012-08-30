@@ -227,6 +227,16 @@ void arraylist_reset( struct arraylist * self )
     return;
 }
 
+void arraylist_final( struct arraylist * self )
+{
+	if ( self->entries )
+	{
+		free( self->entries );
+		self->entries = NULL;
+	}
+	return;
+}
+
 int32_t arraylist_append( struct arraylist * self, void * data )
 {
     if ( self->count >= self->size )

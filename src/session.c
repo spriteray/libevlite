@@ -106,8 +106,18 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 	if ( (self->status&SESSION_WRITING) 
 		|| arraylist_count(&self->outmsglist) > 0 )
 	{
-		// TODO: 创建message, 添加到发送队列中
+		// 创建message, 添加到发送队列中
+		struct message * message = message_create();
+		if ( message == NULL )
+		{
+			free( buf );
+			return -1;
+		}
 
+		message_add_receiver( message, self->id );
+		message_set_buffer( message,  buf, nbytes );
+		arraylist_append( &self->outmsglist, message );
+		session_add_event( self, EV_WRITE|EV_ET );
 		return 0;
 	}
 
@@ -211,7 +221,7 @@ int32_t session_start_reconnect( struct session * self )
 	if ( self->status&SESSION_WRITING )
 	{
 		// 正在等待写事件的情况下
-		return 2;
+		return -2;
 	}
 
 	// 删除网络事件
@@ -356,7 +366,7 @@ static struct session_entry * _get_entry( struct session_manager * self, sid_t i
 struct session_entry * _get_entry( struct session_manager * self, sid_t id )
 {
 	uint32_t i = 0;
-	int32_t key = SID_KEY( id );
+	int32_t key = SID_KEY( id );	// TODO: integer constant is too large for 'long' type
 	
 	struct arraylist * bucket = self->entries + ( key&(self->size-1) );
 	for ( i = 0; i < arraylist_count(bucket); ++i )
@@ -454,7 +464,7 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 	id |= entry->key;
 	id <<= 16;
 	id |= entry->seq;
-	id &= SID_MASK;
+	id &= SID_MASK;			// TODO: integer constant is too large for 'long' type
 
 	session = &(entry->data);
 
@@ -473,7 +483,7 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
 		return NULL;
 	}
 
-	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );
+	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	// TODO: integer constant is too large for 'long' type
 
 	return &( entry->data );
 }
@@ -488,7 +498,7 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 		return -1;
 	}
 
-	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );
+	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	// TODO: integer constant is too large for 'long' type
 
 	// 序号自增
 	++entry->seq;
@@ -503,5 +513,38 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 void session_manager_destroy( struct session_manager * self )
 {
 	// TODO: 需要调用_final()
+	
+	int32_t i = 0;
+	int32_t nalive = 0;
+
+	for ( i = 0; i < self->size; ++i )
+	{
+		struct arraylist * bucket = self->entries+i;
+		
+		while ( arraylist_count(bucket) > 0 )
+		{
+			struct session_entry * entry = arraylist_take( bucket, -1 );
+
+			if ( entry )
+			{
+				if ( SID_KEY(entry->data.id) == entry->key
+						&& SID_SEQ(entry->data.id) == entry->seq )
+				{
+					// 会话处于激活状态
+					session_end( &entry->data );
+					++nalive;
+				}
+				
+				// 销毁	
+				_final( &entry->data );
+				free( entry );
+			}
+		}
+
+		arraylist_final( bucket );
+	}
+
+	free( self );
+	return;
 }
 

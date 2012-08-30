@@ -53,6 +53,7 @@ struct arraylist * arraylist_create( uint32_t size );
 int32_t arraylist_init( struct arraylist * self, uint32_t size );
 uint32_t arraylist_count( struct arraylist * self );
 void arraylist_reset( struct arraylist * self );
+void arraylist_final( struct arraylist * self );
 int32_t arraylist_append( struct arraylist * self, void * data );
 void * arraylist_get( struct arraylist * self, int32_t index );
 void * arraylist_take( struct arraylist * self, int32_t index );

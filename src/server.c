@@ -18,6 +18,11 @@
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+static int32_t _init_managers( struct server * self );
+static int32_t _init_acceptor( struct server * self, 
+							const char * host, uint16_t port, 
+							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );
+
 static void _socket_option( int32_t fd );
 static void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task );
 
@@ -35,102 +40,117 @@ static inline void _dispatch_sidlist( struct server * self, struct sidlist ** li
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-server_t server_create( const char * host, uint16_t port, uint8_t nthreads, uint32_t nclients )
+int32_t _init_managers( struct server * self )
 {
 	uint8_t i = 0;
-	struct server * self = NULL;
+	uint32_t count = self->nclients/self->nthreads; 
 
-	self = (struct server *)calloc( 1, sizeof(struct server) );
+	// 会话管理器, 
+	// 采用cacheline对齐以提高访问速度
+	self->managers = calloc( (self->nthreads)<<3, sizeof(void *) );
+	if ( self->managers == NULL )
+	{
+		return -1;
+	}
+	for ( i = 0; i < self->nthreads; ++i )
+	{
+		uint32_t index = i<<3;
+
+		self->managers[index] = session_manager_create( i, count );
+		if ( self->managers[index] == NULL )
+		{
+			return -2;
+		}
+	}
+
+	return 0;
+}
+
+int32_t _init_acceptor( struct server * self, 
+							const char * host, uint16_t port, 
+							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context )
+{
+	struct acceptor * acceptor = (struct acceptor *)self->acceptor;
+
+	// 创建接收事件
+	acceptor->event = event_create();
+	if ( acceptor->event  == NULL )
+	{
+		return -1;
+	}
+
+	// 接收器初始化
+	acceptor->cb = cb;
+	acceptor->context = context;
+	acceptor->parent = self;
+	acceptor->port = port;
+	strncpy( acceptor->host, host, INET_ADDRSTRLEN );
+
+	// 创建listenfd
+	acceptor->fd = tcp_listen( (char *)host, port, _socket_option );
+	if ( acceptor->fd <= 0 )
+	{
+		return -2;
+	}
+
+	return 0;
+}
+
+// 服务器开启
+server_t server_start( const char * host, uint16_t port,
+							uint8_t nthreads, uint32_t nclients, 
+							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context )
+{
+	int32_t rc = 0;
+	uint8_t index = 0;
+	struct server * self = NULL;
+	size_t size = sizeof(struct server) + sizeof(struct acceptor);
+
+	self = (struct server *)calloc( 1, size );
 	if ( self == NULL )
 	{
 		return NULL;
 	}
 
-	self->port = port;
 	self->nthreads = nthreads;
 	self->nclients = nclients;
+	self->acceptor = (void *)(self + 1);
 
-	if ( host )
+	// 初始化会话管理器
+	rc = _init_managers( self );
+	if ( rc != 0 )
 	{
-		self->host = strdup(host);
-	}
-
-	// 会话管理器, 
-	// 采用cacheline对齐以提高访问速度
-	self->managers = calloc( nthreads<<3, sizeof(void *) );
-	if ( self->managers == NULL )
-	{
-		server_destroy( self );
+		server_stop( self );
 		return NULL;
-	}
-	for ( i = 0; i < nthreads; ++i )
-	{
-		uint32_t index = i<<3;
-
-		self->managers[index] = session_manager_create( index, nclients/nthreads );
-		if ( self->managers[index] == NULL )
-		{
-			server_destroy( self );
-			return NULL;
-		}
 	}
 
 	// 创建网络线程组
-	self->group = iothreads_create( nthreads, _io_method );
+	self->group = iothreads_create( self->nthreads, _io_method );
 	if ( self->group == NULL )
 	{
-		server_destroy( self );
+		server_stop( self );
 		return NULL;
 	}
+
+	// 创建会话接收器
+	rc = _init_acceptor( self, host, port, cb, context );
+	if ( rc != 0 )
+	{
+		server_stop( self );
+		return NULL;
+	}
+
+	// 服务器开启
+	iothreads_start( self->group );
+
+	// 随机提交一个网络线程负责接收
+	index = time(NULL) % (self->nthreads);
+	iothreads_post( self->group, index, eIOTaskType_Listen, self->acceptor, 0 );
 
 	return self;
 }
 
-void server_destroy( server_t self )
-{
-
-}
-
-int32_t server_start( server_t self, int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context )
-{
-	int32_t fd = -1;
-	uint8_t index = 0;
-	struct server * server = (struct server *)self;
-
-	// 创建listenfd
-	fd = tcp_listen( server->host, server->port, _socket_option );
-	if ( fd <= 0 )
-	{
-		return -1;
-	}
-	
-	// 创建服务器接收器
-	event_t event = event_create();
-	struct acceptor * acceptor = malloc( sizeof(struct acceptor) );
-	if ( event == NULL || acceptor == NULL )
-	{
-		server_stop( self );
-		return -2;
-	}
-	acceptor->cb = cb;
-	acceptor->context = context;
-	acceptor->parent = server;
-	acceptor->evaccept = event;
-
-	server->listenfd = fd;
-	server->acceptor = acceptor;
-	
-	// 线程组开始运行
-	iothreads_start( server->group );
-
-	// 随机提交一个网络线程负责接收
-	index = time(NULL) % server->nthreads;
-	iothreads_post( server->group, index, eIOTaskType_Listen, acceptor, 0 );
-
-	return 0;
-}
-
-int32_t server_stop( server_t self )
+void server_stop( server_t self )
 {
 	struct server * server = (struct server *)self;
 	struct acceptor * acceptor = (struct acceptor *)server->acceptor;
@@ -144,24 +164,52 @@ int32_t server_stop( server_t self )
 	// 销毁服务器接收器
 	if ( acceptor )
 	{
-		if ( acceptor->evaccept )
+		// 删除并销毁接收事件
+		if ( acceptor->event )
 		{
-			event_destroy( acceptor->evaccept );
-			acceptor->evaccept = NULL;
+			evsets_t sets = event_get_sets( acceptor->event );
+				
+			evsets_del( sets, acceptor->event );
+			event_destroy( acceptor->event );
+			acceptor->event = NULL;
+		}
+		
+		// 关闭描述符
+		if ( acceptor->fd > 0 )
+		{
+			close( acceptor->fd );
+			acceptor->fd = 0;
+		}
+	}
+
+	// 销毁网络线程组
+	if ( server->group )
+	{
+		iothreads_destroy( server->group );
+		server->group = NULL;
+	}
+
+	// 销毁管理器
+	if ( server->managers )
+	{
+		uint8_t i = 0;
+
+		for ( i = 0; i < server->nthreads; ++i )
+		{
+			struct session_manager * manager = server->managers[i<<3];	
+			if ( manager )
+			{
+				session_manager_destroy( manager );
+			}
 		}
 
-		free( acceptor );
-		server->acceptor = NULL;
+		free( server->managers );
+		server->managers = NULL;
 	}
+	
+	free( server );
 
-	// 关闭listenfd
-	if ( server->listenfd > 0 )
-	{
-		close( server->listenfd );
-		server->listenfd = 0;
-	}
-
-	return 0;
+	return; 
 }
 
 int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds )
@@ -577,9 +625,9 @@ int32_t _start_direct( evsets_t sets, struct acceptor * acceptor )
 {
 	// 开始关注accept事件
 	
-	event_set( acceptor->evaccept, acceptor->fd, EV_READ|EV_PERSIST );
-	event_set_callback( acceptor->evaccept, channel_on_accept, acceptor );
-	evsets_add( sets, acceptor->evaccept, 0 );
+	event_set( acceptor->event, acceptor->fd, EV_READ|EV_PERSIST );
+	event_set_callback( acceptor->event, channel_on_accept, acceptor );
+	evsets_add( sets, acceptor->event, 0 );
 
 	return 0;
 }
