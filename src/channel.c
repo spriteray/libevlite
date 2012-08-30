@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "server.h"
 #include "network-internal.h"
@@ -123,8 +124,44 @@ int32_t _transmit( struct session * session )
 
 int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 {
-	// TODO: 
-	return 0;
+	int32_t writen = -1;
+
+	writen = write( session->fd, buf, nbytes );
+	if ( writen < 0 )
+	{
+		if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
+		{
+			writen = 0;
+		}
+	}
+
+	if ( writen < 0 )
+	{
+		// 出错了
+		return channel_error( session, eIOError_WriteFailure );	
+	}
+
+	// 正常发送
+	
+	if ( writen < nbytes )
+	{
+		struct message * message = message_create();
+		if ( message )
+		{
+			message_add_receiver( message, session->id );
+			message_set_buffer( message,  buf, nbytes );
+			buffer_erase( &message->buffer, writen );
+
+			arraylist_append( &session->outmsglist, message );
+			session_add_event( session, EV_WRITE|EV_ET );
+
+			return writen;
+		}
+	}
+
+	// 全部发送完毕了
+	free ( buf );
+	return writen;
 }
 
 // -----------------------------------------------------------------------------
@@ -181,6 +218,7 @@ int32_t _timeout( struct session * session )
 	{
 		// 临时会话, 添加读事件
 		session_add_event( session, EV_READ|EV_ET );
+		// TODO: 是否需要打开keepalive
 		session_start_keepalive( session );
 	}
 
@@ -283,7 +321,6 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 				{
 					// 正常,socket中无数据可读
 					session_add_event( session, EV_READ|EV_ET );
-					session_start_keepalive( session );
 				}
 				else
 				{
@@ -392,27 +429,84 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 {
+	// TODO: 连接建立中, 会话还没有通知逻辑层
+	
+	if ( ev & EV_WRITE )
+	{
+#if defined (linux)
+		// linux需要进一步检查连接是否成功
+		if ( is_connected( fd ) != 0 )
+		{
+			// 连接失败
+			return;
+		}
+#endif
+
+		// 连接成功
+
+	}
+	else
+	{
+		// 连接超时了
+	}
+
+	return;
+}
+
+void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
+{
 	struct session * session = (struct session *)arg;
 
 	session->status &= ~SESSION_WRITING;
 
 	if ( ev & EV_WRITE )
 	{
-		// TODO: 
+#if defined (linux)
+		if ( is_connected(fd) != 0 )
+		{
+			// 重连失败
+			channel_error( session, eIOError_ConnectStatus );
+			return;
+		}
+#endif
+		// 总算是连接上了
+
+		// 重连需要重置描述符吗? 
+		//session->fd = fd;
+
+		// 注册读写事件
+		// 把积累下来的数据全部发送出去
+		session_add_event( session, EV_READ|EV_ET );
+		session_add_event( session, EV_WRITE|EV_ET );
+
+		// 启动keepalive服务
+		session_start_keepalive( session );
 	}
 	else
 	{
-		// TODO:
+		// 超时
+		_timeout( session );
 	}
-}
-
-void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
-{
-	// TODO: 
+	
+	return;
 }
 
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
 {
-	// TODO: 
+	struct session * session = (struct session *)arg;
+
+	int32_t rc = -1;
+	ioservice_t * service = &session->service;
+
+	session->status &= ~SESSION_KEEPALIVING;
+	
+	rc = service->keepalive( session->context );
+	if ( rc == 0 )
+	{
+		// 逻辑层需要继续发送保活包
+		session_start_keepalive( session );
+	}	
+
+	return;
 }
 
