@@ -179,7 +179,7 @@ int32_t _process( struct session * session )
 		uint32_t nbytes = buffer_length( &session->inbuffer );
 
 		nprocess = service->process(
-						session->context, buffer, nbytes);
+						session->context, buffer, nbytes );
 		if ( nprocess > 0 )
 		{
 			buffer_erase( &session->inbuffer, nprocess );

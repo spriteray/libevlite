@@ -78,6 +78,9 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 
 	// TODO: 设置默认的最大接收缓冲区
 	
+	// 不需要每次开始会话的时候初始化
+	// 只需要在manager创建会话的时候初始化一次，即可	
+#if 0
 	// 初始化会话
 	if ( _init(self) != 0 )
 	{
@@ -86,7 +89,9 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 		_final( self );
 		return -1;
 	}	
+#endif	
 
+	// 关注读事件, 按需开启保活心跳
 	session_add_event( self, EV_READ|EV_ET );
 	session_start_keepalive( self );
 
@@ -447,9 +452,17 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 
 	if ( entry == NULL )
 	{
+		// 分配会话入口
 		entry = malloc( sizeof(struct session_entry) );
 		if ( entry == NULL )
 		{
+			return NULL;
+		}
+		// 初始化会话
+		if ( _init( &entry->data ) != 0 )
+		{
+			// 初始化出错了
+			free( entry );
 			return NULL;
 		}
 

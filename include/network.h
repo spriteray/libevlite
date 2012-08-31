@@ -67,16 +67,25 @@ void server_stop( server_t self );
 //
 typedef void * client_t;
 
-client_t client_create(	const char * host, uint16_t port );
-void client_destroy( client_t self );
-
-int32_t client_start( client_t self, int32_t seconds, int32_t (*cb)(void *, int32_t), void * context );
+// 客户端开启
+//		host		- 远程服务器
+//		port		- 远程端口号
+//		seconds		- 连接远程服务器超时时间
+//		cb			- 连接成功后的回调
+//							参数1: 上下文参数
+//							参数2: 连接结果, 0: 成功, !=0: 失败
+//		context		- 上下文参数
+client_t client_start( const char * host, uint16_t port, 
+						int32_t seconds, int32_t (*cb)(void *, int32_t), void * context );
+// 向服务器发送数据
 int32_t client_send( client_t self, const char * buf, uint32_t nbytes, int32_t iscopy );
-int32_t client_stop( client_t self );
 
+// 客户端参数的设置
 int32_t client_set_keepalive( client_t self, int32_t seconds );
 int32_t client_set_service( client_t self, ioservice_t * service, void * context );
 
+// 客户端停止
+int32_t client_stop( client_t self );
 
 #ifdef __cplusplus
 }

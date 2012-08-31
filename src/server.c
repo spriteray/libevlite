@@ -18,8 +18,8 @@
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-static int32_t _init_managers( struct server * self );
-static int32_t _init_acceptor( struct server * self, 
+static int32_t _new_managers( struct server * self );
+static int32_t _new_acceptor( struct server * self, 
 							const char * host, uint16_t port, 
 							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );
 
@@ -40,7 +40,7 @@ static inline void _dispatch_sidlist( struct server * self, struct sidlist ** li
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _init_managers( struct server * self )
+int32_t _new_managers( struct server * self )
 {
 	uint8_t i = 0;
 	uint32_t count = self->nclients/self->nthreads; 
@@ -66,7 +66,7 @@ int32_t _init_managers( struct server * self )
 	return 0;
 }
 
-int32_t _init_acceptor( struct server * self, 
+int32_t _new_acceptor( struct server * self, 
 							const char * host, uint16_t port, 
 							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context )
 {
@@ -103,6 +103,7 @@ server_t server_start( const char * host, uint16_t port,
 {
 	int32_t rc = 0;
 	uint8_t index = 0;
+
 	struct server * self = NULL;
 	size_t size = sizeof(struct server) + sizeof(struct acceptor);
 
@@ -117,7 +118,7 @@ server_t server_start( const char * host, uint16_t port,
 	self->acceptor = (void *)(self + 1);
 
 	// 初始化会话管理器
-	rc = _init_managers( self );
+	rc = _new_managers( self );
 	if ( rc != 0 )
 	{
 		server_stop( self );
@@ -133,7 +134,7 @@ server_t server_start( const char * host, uint16_t port,
 	}
 
 	// 创建会话接收器
-	rc = _init_acceptor( self, host, port, cb, context );
+	rc = _new_acceptor( self, host, port, cb, context );
 	if ( rc != 0 )
 	{
 		server_stop( self );
@@ -637,7 +638,8 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 	int32_t rc = 0;
 	int32_t key = task->fd;
 	struct session_manager * manager = task->manager;
-
+	
+	// 会话管理器分配会话
 	struct session * session = session_manager_alloc( manager, key );
 	if ( session == NULL )
 	{
@@ -645,11 +647,12 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 			"session_manager_alloc(fd:%d, host:'%s', port:%d) failed", task->fd, task->host, task->port );
 		return -1;
 	}
-
+	
+	// 回调逻辑层, 确定是否接收这个会话
 	rc = task->cb( task->context, session->id, task->host, task->port );
 	if ( rc != 0 )
 	{
-		// 逻辑层不接受这个连接
+		// 逻辑层不接受这个会话
 		session_manager_remove( manager, session );
 		close( task->fd );
 		return 1;
