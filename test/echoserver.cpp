@@ -1,23 +1,31 @@
 
+#include <signal.h>
+
 #include "echoserver.h"
 
 int32_t CEchoSession::onProcess( void * context, const char * buf, uint32_t nbytes )
 {
 	CEchoSession * session = static_cast<CEchoSession*>(context);
 
-	if ( session == NULL )
+	if ( session )
 	{
-		return -1;
+		session->send( buf, nbytes );
+		return nbytes;
 	}
 
-	session->send( buf, nbytes );
-
-	return nbytes;
+	return -1;
 }
 
 int32_t CEchoSession::onTimeout( void * context )
 {
-	return -1;
+	CEchoSession * session = static_cast<CEchoSession*>(context);
+
+	if ( session )
+	{
+		printf("the Session (sid=%ld) timeout\n", session->getSid() );
+	}
+
+	return -1; 
 }
 
 int32_t CEchoSession::onKeepalive( void * context )
@@ -37,6 +45,7 @@ int32_t CEchoSession::onShutdown( void * context )
 
 	if ( session )
 	{
+		printf("the Session (sid=%ld) shutdown\n", session->getSid() );
 		delete session;
 	}
 
@@ -123,10 +132,20 @@ int32_t CEchoService::broadcast( sidlist_t & sidlist, const char * buf, uint32_t
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
+bool g_Running;
+
+void signal_handle( int signo )
+{
+	g_Running = false;
+}
+
 int32_t main( int32_t argc, char ** argv )
 {
-	CEchoService * service = new CEchoService;
+	signal( SIGINT, signal_handle );
 
+	g_Running = true;
+
+	CEchoService * service = new CEchoService;
 	if ( service == NULL )
 	{
 		return -1;
@@ -143,11 +162,12 @@ int32_t main( int32_t argc, char ** argv )
 		return -2;
 	}
 	
-	while ( true )
+	while ( g_Running )
 	{
-		pause();
+		sleep(1);
 	}
 
+	printf("EchoServer stoping ...\n");
 	service->stop();
 	delete service;
 

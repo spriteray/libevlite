@@ -88,7 +88,7 @@ clean :
 	rm -rf $(REALNAME)
 
 	rm -rf test_events event.fifo
-	rm -rf test_addtimer echostress echoserver echoserver-libevent iothreads_dispatcher
+	rm -rf test_addtimer echostress echoserver echoserver-lock iothreads_dispatcher
 	
 # --------------------------------------------------------
 #
