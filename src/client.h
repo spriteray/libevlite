@@ -13,7 +13,7 @@ struct client
 	//
 	//
 	
-	iothreads_t layer;
+	iothreads_t group;
 
 	
 };
@@ -24,10 +24,9 @@ struct client
 
 struct ctask_send
 {
-	sid_t				id;			// 8bytes
 	char *				buf;		// 8bytes
 	uint32_t			nbytes;		// 4bytes+4bytes
-	struct session *	manager;	// 8bytes
+	struct session *	session;	// 8bytes
 };
 
 // 看样子内存对齐不需要使用了
