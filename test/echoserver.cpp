@@ -111,8 +111,10 @@ void CEchoService::stop()
 
 int32_t CEchoService::broadcast( sidlist_t & sidlist, const char * buf, uint16_t nbytes, bool iscopy )
 {
-	uint32_t count = (uint32_t)sidlist.count();
-	sid_t * _sidlist = static_cast<sid_t *>( sidlist.begin() );
+	sidlist::iterator start = sidlist.begin();
+
+	uint32_t count = (uint32_t)sidlist.size();
+	sid_t * _sidlist = static_cast<sid_t *>&(*start);
 
 	return server_broadcast( m_Server, _sidlist, count, buf, nbytes, static_cast<int32_t>iscopy );
 }
