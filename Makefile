@@ -1,7 +1,8 @@
 
 # -----------------------------------------------------------
 
-CC	= gcc
+CC		= gcc
+CC++		= g++
 CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared -Wl
@@ -50,7 +51,7 @@ $(REALNAME) : $(OBJS)
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : test_events test_addtimer echoserver iothreads_dispatcher
+test : test_events test_addtimer echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 
@@ -60,9 +61,13 @@ test_addtimer : test_addtimer.o $(OBJS)
 
 	$(CC) $(LFLAGS) $^ -o $@
 
-echoserver : accept-lock-echoserver.o $(OBJS)
+echoserver-lock : accept-lock-echoserver.o $(OBJS)
 
 	$(CC) $(LFLAGS) $^ -o $@
+
+echoserver : echoserver.o $(OBJS)
+
+	$(CC++) $(LFLAGS) $^ -o $@
 
 echostress :
 
@@ -93,7 +98,7 @@ clean :
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 %.o : %.cpp
-	$(CC) $(CFLAGS) -c $^ -o $@
+	$(CC++) $(CFLAGS) -c $^ -o $@
 
 VPATH = src:include:test
 	

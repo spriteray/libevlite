@@ -3,7 +3,7 @@
 
 int32_t CEchoSession::onProcess( void * context, const char * buf, uint32_t nbytes )
 {
-	CEchoSession * session = static_cast<CEchoSession*>context;
+	CEchoSession * session = static_cast<CEchoSession*>(context);
 
 	if ( session == NULL )
 	{
@@ -33,7 +33,7 @@ int32_t CEchoSession::onError( void * context, int32_t result )
 
 int32_t CEchoSession::onShutdown( void * context )
 {
-	CEchoSession * session = static_cast<CEchoSession*>context;
+	CEchoSession * session = static_cast<CEchoSession*>(context);
 
 	if ( session )
 	{
@@ -45,7 +45,7 @@ int32_t CEchoSession::onShutdown( void * context )
 
 int32_t CEchoSession::send( const char * buf, uint32_t nbytes, bool iscopy /*= true*/ )
 {
-	return server_send( m_Server, m_Sid, buf, nbytes, static_cast<int32_t>iscopy );
+	return server_send( m_Server, m_Sid, buf, nbytes, static_cast<int32_t>(iscopy) );
 }
 
 // ----------------------------------------------------------------------------
@@ -68,7 +68,7 @@ CEchoService::~CEchoService()
 
 int32_t CEchoService::onAcceptSession( void * context, sid_t id, const char * host, uint16_t port )
 {
-	CEchoService * service = static_cast<CEchoService*>context;
+	CEchoService * service = static_cast<CEchoService*>(context);
 
 	CEchoSession * session = new CEchoSession( id, service->getCoreServer() );
 	if ( session == NULL )
@@ -76,7 +76,7 @@ int32_t CEchoService::onAcceptSession( void * context, sid_t id, const char * ho
 		return -1;
 	}
 
-	ioioservice_t ioservice;
+	ioservice_t ioservice;
 	ioservice.process	= CEchoSession::onProcess;
 	ioservice.timeout	= CEchoSession::onTimeout;
 	ioservice.keepalive	= CEchoSession::onKeepalive;
@@ -84,19 +84,19 @@ int32_t CEchoService::onAcceptSession( void * context, sid_t id, const char * ho
 	ioservice.shutdown	= CEchoSession::onShutdown;
 
 	server_set_service( service->getCoreServer(), id, &ioservice, session );
-	server_set_timeout( service->getCoreServer(), service->getTimeoutSeconds() );
+	server_set_timeout( service->getCoreServer(), id, service->getTimeoutSeconds() );
 
 	return 0;
 }
 
 bool CEchoService::start()
 {
-	m_Server = server_start(
-				const_cast<const char *>m_BindHost, m_ListenPort,
+	m_CoreServer = server_start(
+				const_cast<const char *>(m_BindHost), m_ListenPort,
 				m_ThreadsCount, m_SessionsCount,
 				onAcceptSession, this );
 
-	if ( m_Server == NULL )
+	if ( m_CoreServer == NULL )
 	{
 		return false;
 	}
@@ -106,17 +106,17 @@ bool CEchoService::start()
 
 void CEchoService::stop()
 {
-	server_stop( m_Server );
+	server_stop( m_CoreServer );
 }
 
-int32_t CEchoService::broadcast( sidlist_t & sidlist, const char * buf, uint16_t nbytes, bool iscopy )
+int32_t CEchoService::broadcast( sidlist_t & sidlist, const char * buf, uint32_t nbytes, bool iscopy )
 {
-	sidlist::iterator start = sidlist.begin();
+	sidlist_t::iterator start = sidlist.begin();
 
 	uint32_t count = (uint32_t)sidlist.size();
-	sid_t * _sidlist = static_cast<sid_t *>&(*start);
+	sid_t * _sidlist = static_cast<sid_t *>( &(*start) );
 
-	return server_broadcast( m_Server, _sidlist, count, buf, nbytes, static_cast<int32_t>iscopy );
+	return server_broadcast( m_CoreServer, _sidlist, count, buf, nbytes, static_cast<int32_t>(iscopy) );
 }
 
 // ----------------------------------------------------------------------------
@@ -153,5 +153,4 @@ int32_t main( int32_t argc, char ** argv )
 
 	return 0;
 }
-
 

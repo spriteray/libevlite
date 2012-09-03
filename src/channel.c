@@ -260,9 +260,12 @@ int32_t channel_shutdown( struct session * session )
 {
 	void * context = session->context;
 	ioservice_t * service = &session->service;
-
 	struct session_manager * manager = session->manager;
 
+	// 回调逻辑层
+	service->shutdown( context );
+	
+	// 从会话管理器中移除会话
 	if ( manager != NULL
 			&& session->type == eSessionType_Once )
 	{
@@ -272,9 +275,6 @@ int32_t channel_shutdown( struct session * session )
 
 	// 会话终止
 	session_end( session );
-
-	// 回调逻辑层
-	service->shutdown( context );
 
 	return 0;
 }

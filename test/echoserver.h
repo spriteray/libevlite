@@ -2,6 +2,8 @@
 #ifndef ECHOSERVER_H
 #define ECHOSERVER_H
 
+#include <vector>
+
 #include "network.h"
 
 typedef std::vector<sid_t> sidlist_t;
@@ -96,7 +98,7 @@ public :
 		if ( m_BindHost )
 		{
 			free( m_BindHost );
-			m_BindHost = NULL:
+			m_BindHost = NULL;
 		}
 
 		if ( host )
