@@ -258,12 +258,11 @@ int32_t channel_error( struct session * session, int32_t result )
 
 int32_t channel_shutdown( struct session * session )
 {
-	void * context = session->context;
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
 
 	// 回调逻辑层
-	service->shutdown( context );
+	service->shutdown( session->context );
 	
 	// 从会话管理器中移除会话
 	if ( manager != NULL

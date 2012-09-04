@@ -3,6 +3,8 @@
 
 #include "echoserver.h"
 
+#define BIG_PACKET	32
+
 int32_t CEchoSession::onProcess( void * context, const char * buf, uint32_t nbytes )
 {
 	CEchoSession * session = static_cast<CEchoSession*>(context);
@@ -10,6 +12,13 @@ int32_t CEchoSession::onProcess( void * context, const char * buf, uint32_t nbyt
 	if ( session )
 	{
 		session->send( buf, nbytes );
+
+		if ( nbytes >= BIG_PACKET )
+		{
+			session->shutdown();
+			return -1;
+		}
+
 		return nbytes;
 	}
 
@@ -50,6 +59,11 @@ int32_t CEchoSession::onShutdown( void * context )
 	}
 
 	return 0;
+}
+
+int32_t CEchoSession::shutdown()
+{
+	return server_shutdown( m_Server, m_Sid );
 }
 
 int32_t CEchoSession::send( const char * buf, uint32_t nbytes, bool iscopy /*= true*/ )

@@ -452,12 +452,16 @@ int32_t server_shutdown( server_t self, sid_t id )
 	struct stask_shutdown task;
 	task.id		= id;
 	task.manager= _get_manager( server, index );
-
+	
+	// 避免在回调函数中直接终止会话
+	// 这样会引发后续对会话的操作都非法了
+#if 0
 	if ( pthread_self() == iothreads_get_id( server->group, index ) )
 	{
 		// 本线程内直接终止
 		return _shutdown_direct( &task );
 	}
+#endif
 
 	// 跨线程提交终止任务
 	return iothreads_post( server->group, index, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
@@ -490,6 +494,8 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 			task.ids = listgroup[i];
 			task.manager = _get_manager( server, i );
 
+			// 参照server_shutdown()
+#if 0
 			if ( threadid == iothreads_get_id( server->group, i ) )
 			{
 				// 本线程内直接批量终止
@@ -500,8 +506,11 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 				// 跨线程提交批量终止任务
 				iothreads_post( server->group, i, eIOTaskType_Shutdowns, (void *)&task, sizeof(task) );
 			}
+#endif
 
+			// 跨线程提交批量终止任务
 			rc += sidlist_count( listgroup[i] );
+			iothreads_post( server->group, i, eIOTaskType_Shutdowns, (void *)&task, sizeof(task) );
 		}
 		else
 		{
@@ -509,7 +518,9 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 
 			task.id 	= sidlist_get( listgroup[i], 0 );
 			task.manager= _get_manager( server, i );
-
+			
+			// 参战server_shutdown()
+#if 0
 			if ( threadid == iothreads_get_id( server->group, i ) )
 			{
 				// 本线程内直接终止
@@ -520,8 +531,10 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 				// 跨线程提交直接终止任务
 				iothreads_post( server->group, i, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
 			}
-
+#endif
+			// 跨线程提交直接终止任务
 			rc += 1;
+			iothreads_post( server->group, i, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
 		}
 	}
 
@@ -726,8 +739,8 @@ int32_t _broadcast_direct( struct stask_broadcast * task )
 int32_t _shutdown_direct( struct stask_shutdown * task )
 {
 	struct session_manager * manager = task->manager;
-
 	struct session * session = session_manager_get( manager, task->id );
+
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "server_shutdown_direct(SID=%ld) failed, the Session is invalid", task->id );

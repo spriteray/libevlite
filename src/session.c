@@ -379,6 +379,10 @@ struct session_entry * _get_entry( struct session_manager * self, sid_t id )
 		struct session_entry * entry = arraylist_get( bucket, i );
 		if ( entry->data.id == id )
 		{
+			// 会话id合法但与entry中记录的key和seq不相符
+			// 这种错误对于libevlite来说是相当致命的
+			assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	
+
 			return entry;
 		}
 	}
@@ -496,8 +500,6 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
 		return NULL;
 	}
 
-	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	
-
 	return &( entry->data );
 }
 
@@ -511,8 +513,6 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 		return -1;
 	}
 
-	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );
-
 	// 序号自增
 	++entry->seq;
 	
@@ -525,8 +525,6 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 
 void session_manager_destroy( struct session_manager * self )
 {
-	// TODO: 需要调用_final()
-	
 	int32_t i = 0;
 	int32_t nalive = 0;
 

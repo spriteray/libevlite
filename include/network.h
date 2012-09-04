@@ -12,6 +12,15 @@ extern "C"
 //
 // IO服务
 //
+//		process()	- 收到数据包的回调
+//						返回值为处理掉的数据包, <0: 处理出错
+//
+//		timeout()	- 超时的回调
+//		keepalive()	- 保活定时器超时的回调
+//		error()		- 出错的回调
+//		shutdown()	- 会话终止时的回调
+//						返回非0, libevlite会终止会话
+//
 typedef struct
 {
 	int32_t (*process)( void * context, const char * buf, uint32_t nbytes );

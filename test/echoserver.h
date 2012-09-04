@@ -42,6 +42,7 @@ public :
 		return m_Server;
 	}
 
+	int32_t shutdown();
 	int32_t send( const char * buf, uint32_t nbytes, bool iscopy = true );
 
 private :
