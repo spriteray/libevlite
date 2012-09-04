@@ -73,10 +73,10 @@ struct session
 // |RES	|INDEX	|FD			|SEQ	|
 // |8	|8		|32			|16		|
 
-#define SID_MASK	0x00ffffffffffffff
-#define KEY_MASK	0x0000ffffffff0000
-#define SEQ_MASK	0x000000000000ffff
-#define INDEX_MASK	0x00ff000000000000
+#define SID_MASK	0x00ffffffffffffffULL
+#define KEY_MASK	0x0000ffffffff0000ULL
+#define SEQ_MASK	0x000000000000ffffULL
+#define INDEX_MASK	0x00ff000000000000ULL
 
 #define SID_SEQ(sid)	( (sid)&SEQ_MASK )
 #define SID_KEY(sid)	( ((sid)&KEY_MASK) >> 16 )

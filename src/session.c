@@ -371,7 +371,7 @@ static struct session_entry * _get_entry( struct session_manager * self, sid_t i
 struct session_entry * _get_entry( struct session_manager * self, sid_t id )
 {
 	uint32_t i = 0;
-	int32_t key = SID_KEY( id );	// TODO: integer constant is too large for 'long' type
+	int32_t key = SID_KEY( id );
 	
 	struct arraylist * bucket = self->entries + ( key&(self->size-1) );
 	for ( i = 0; i < arraylist_count(bucket); ++i )
@@ -477,7 +477,7 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 	id |= entry->key;
 	id <<= 16;
 	id |= entry->seq;
-	id &= SID_MASK;			// TODO: integer constant is too large for 'long' type
+	id &= SID_MASK;
 
 	session = &(entry->data);
 
@@ -496,7 +496,7 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
 		return NULL;
 	}
 
-	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	// TODO: integer constant is too large for 'long' type
+	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	
 
 	return &( entry->data );
 }
@@ -511,7 +511,7 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 		return -1;
 	}
 
-	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	// TODO: integer constant is too large for 'long' type
+	assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );
 
 	// ÐòºÅ×ÔÔö
 	++entry->seq;

@@ -2,7 +2,7 @@
 # -----------------------------------------------------------
 
 CC		= gcc
-CC++		= g++
+CC++	= g++
 CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared -Wl
