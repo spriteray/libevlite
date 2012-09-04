@@ -473,7 +473,9 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
+#if 0
 	pthread_t threadid = pthread_self();
+#endif
 
 	struct sidlist * listgroup[ 256 ] = {NULL};
 	struct server * server = (struct server *)self;
@@ -671,17 +673,9 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 		return 1;
 	}
 	
-	// 设置对端信息
-	session_set_endpoint( session, task->host, task->port );
-	
 	// 会话开始
-	rc = session_start( session, eSessionType_Once, task->fd, sets );
-	if ( rc != 0 )
-	{
-		// 会话初始化失败
-		session_manager_remove( manager, session );
-		close( task->fd );		
-	}
+	session_set_endpoint( session, task->host, task->port );
+	session_start( session, eSessionType_Once, task->fd, sets );
 	
 	return 0;
 }

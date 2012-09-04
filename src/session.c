@@ -17,29 +17,27 @@ static int32_t _final( struct session * self );
 
 int32_t _init( struct session * self )
 {
+	// 初始化网络事件
+	self->evread = event_create();
 	if ( self->evread == NULL )
 	{
-		self->evread = event_create();
-		if ( self->evread == NULL )
-		{
-			return -1;
-		}
+		return -1;
 	}
+	self->evwrite = event_create();
 	if ( self->evwrite == NULL )
 	{
-		self->evwrite = event_create();
-		if ( self->evwrite == NULL )
-		{
-			return -2;
-		}
+		return -2;
 	}
+	self->evkeepalive = event_create();
 	if ( self->evkeepalive == NULL )
 	{
-		self->evkeepalive = event_create();
-		if ( self->evkeepalive == NULL )
-		{
-			return -3;
-		}
+		return -3;
+	}
+	
+	// 初始化发送队列	
+	if ( arraylist_init(&self->outmsglist, OUTMSGLIST_DEFAULT_SIZE) != 0 )
+	{
+		return -4;
 	}
 
 	return 0;
@@ -62,6 +60,9 @@ int32_t _final( struct session * self )
 		event_destroy( self->evkeepalive );
 		self->evkeepalive = NULL;
 	}
+	
+	// 销毁发送队列
+	arraylist_final( &self->outmsglist );
 
 	return 0;
 }
@@ -80,16 +81,6 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	
 	// 不需要每次开始会话的时候初始化
 	// 只需要在manager创建会话的时候初始化一次，即可	
-#if 0
-	// 初始化会话
-	if ( _init(self) != 0 )
-	{
-		syslog( LOG_WARNING, "session_start(SID=%ld) failed, _init(fd:%d, host:'%s', port:%d) out of memory",
-			 self->id, self->fd, self->host, self->port );
-		_final( self );
-		return -1;
-	}	
-#endif	
 
 	// 关注读事件, 按需开启保活心跳
 	session_add_event( self, EV_READ|EV_ET );
@@ -208,6 +199,8 @@ int32_t session_start_keepalive( struct session * self )
 		event_set( self->evkeepalive, -1, 0 );
 		event_set_callback( self->evkeepalive, channel_on_keepalive, self );
 		evsets_add( sets, self->evkeepalive, self->setting.keepalive_msecs );
+
+		self->status |= SESSION_KEEPALIVING;
 	}	
 
 	return 0;
@@ -381,8 +374,8 @@ struct session_entry * _get_entry( struct session_manager * self, sid_t id )
 		{
 			// 会话id合法但与entry中记录的key和seq不相符
 			// 这种错误对于libevlite来说是相当致命的
-			assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	
 
+			assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	
 			return entry;
 		}
 	}
@@ -457,7 +450,7 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 	if ( entry == NULL )
 	{
 		// 分配会话入口
-		entry = malloc( sizeof(struct session_entry) );
+		entry = calloc( 1, sizeof(struct session_entry) );
 		if ( entry == NULL )
 		{
 			return NULL;
@@ -466,6 +459,8 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 		if ( _init( &entry->data ) != 0 )
 		{
 			// 初始化出错了
+			_final( &entry->data );
+
 			free( entry );
 			return NULL;
 		}

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 
+#include "utils.h"
 #include "server.h"
 #include "network-internal.h"
 
@@ -408,7 +409,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 #if !defined(__FreeBSD__)
 			// FreeBSD会继承listenfd的NON Block属性
-			set_fd_nonblock( cfd );
+			set_non_block( cfd );
 #endif
 
 			task.fd = cfd;
@@ -493,14 +494,11 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
 {
 	struct session * session = (struct session *)arg;
-
-	int32_t rc = -1;
 	ioservice_t * service = &session->service;
 
 	session->status &= ~SESSION_KEEPALIVING;
 	
-	rc = service->keepalive( session->context );
-	if ( rc == 0 )
+	if ( service->keepalive( session->context ) == 0 )
 	{
 		// 逻辑层需要继续发送保活包
 		session_start_keepalive( session );

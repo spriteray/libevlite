@@ -20,6 +20,7 @@ enum
 	eIOTaskType_Shutdowns	= 7,	
 };
 
+#define OUTMSGLIST_DEFAULT_SIZE		8			// 发送队列的默认大小
 #define INBUFFER_DEFAULT_SIZE		4096
 
 

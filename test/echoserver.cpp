@@ -31,7 +31,7 @@ int32_t CEchoSession::onTimeout( void * context )
 
 	if ( session )
 	{
-		printf("the Session (sid=%ld) timeout\n", session->getSid() );
+		printf("the Session (sid=%ld) timeout .\n", session->getSid() );
 	}
 
 	return -1; 
@@ -45,6 +45,13 @@ int32_t CEchoSession::onKeepalive( void * context )
 
 int32_t CEchoSession::onError( void * context, int32_t result )
 {
+	CEchoSession * session = static_cast<CEchoSession*>(context);
+
+	if ( session )
+	{
+		printf("the Session (sid=%ld) error (result=0x%08x) .\n", session->getSid(), result );
+	}
+
 	return -1;
 }
 
@@ -54,7 +61,7 @@ int32_t CEchoSession::onShutdown( void * context )
 
 	if ( session )
 	{
-		printf("the Session (sid=%ld) shutdown\n", session->getSid() );
+		printf("the Session (sid=%ld) shutdown .\n", session->getSid() );
 		delete session;
 	}
 
@@ -98,6 +105,8 @@ int32_t CEchoService::onAcceptSession( void * context, sid_t id, const char * ho
 	{
 		return -1;
 	}
+
+	printf("CEchoService::onAcceptSession(SID=%ld) .\n", id);
 
 	ioservice_t ioservice;
 	ioservice.process	= CEchoSession::onProcess;
