@@ -381,12 +381,31 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 					// 直到发送队列为空
 					session_add_event( session, EV_WRITE|EV_ET );
 				}
+				else
+				{
+					// 数据全部发送出去了
+					if ( session->status&SESSION_EXITING )
+					{
+						// 等待关闭的会话, 直接终止会话
+						// 后续的行为由SO_LINGER决定
+						channel_shutdown( session );
+					}
+				}
 			}
 		}
 		else
 		{
 			// TODO: 队列为空的情况
 		}
+	}
+	else
+	{
+		// 等待关闭的会话写事件超时的情况下
+		// 不管发送队列如何, 直接终止会话
+		
+		assert( session->status&SESSION_EXITING );
+		
+		channel_shutdown( session );
 	}
 
 	return;

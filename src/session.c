@@ -159,9 +159,18 @@ void session_add_event( struct session * self, int16_t ev )
 	// 注册写事件
 	if ( (ev&EV_WRITE) && !(status&SESSION_WRITING) )
 	{
+		int32_t wait_for_shutdown = 0;
+		
+		// 当对端主机崩溃后SocketBuffer满的情况下
+		// 一直等不到EV_WRITE发生时, 会出现会话泄漏
+		if ( status&SESSION_EXITING )
+		{
+			wait_for_shutdown = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
+		}
+
 		event_set( self->evwrite, self->fd, ev );
 		event_set_callback( self->evwrite, channel_on_write, self );
-		evsets_add( sets, self->evwrite, 0 );
+		evsets_add( sets, self->evwrite, wait_for_shutdown );
 
 		self->status |= SESSION_WRITING;
 	}
