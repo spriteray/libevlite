@@ -287,7 +287,7 @@ int32_t session_end( struct session * self )
 	if ( count > 0 )
 	{
 		// 会话终止时发送队列不为空
-		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty", self->id, count );
+		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty .", self->id, count );
 	}
 	for ( ; count > 0; --count )
 	{
@@ -415,7 +415,7 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 			uint32_t j = 0;
 			for ( j = 0; j < i; ++j )
 			{
-				arraylist_reset( self->entries+j );
+				arraylist_final( self->entries+j );
 			}
 
 			free( self->entries );
@@ -441,20 +441,23 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 		entry = arraylist_get( bucket, i );
 		if ( entry->key == key )
 		{
-			// 会话冲突了, 很严重的错误
+			// 相同描述符,这种错误是致命的
 			assert( entry->data.id == 0 );
 			break;
 		}
 	}
 
-	if ( entry == NULL )
+	if ( i == arraylist_count(bucket) )
 	{
+		// 没有找到合适的槽位
+
 		// 分配会话入口
 		entry = calloc( 1, sizeof(struct session_entry) );
 		if ( entry == NULL )
 		{
 			return NULL;
 		}
+
 		// 初始化会话
 		if ( _init( &entry->data ) != 0 )
 		{
@@ -464,9 +467,10 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 			free( entry );
 			return NULL;
 		}
-
 		entry->seq = 0;
 		entry->key = key;
+
+		// 添加到列表中
 		arraylist_append( bucket, entry );
 	}
 
@@ -478,9 +482,8 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 	id |= entry->seq;
 	id &= SID_MASK;
 
-	session = &(entry->data);
-
 	// 会话初始化操作
+	session = &(entry->data);
 	session->id = id;
 	session->manager = self;
 
@@ -548,6 +551,11 @@ void session_manager_destroy( struct session_manager * self )
 		}
 
 		arraylist_final( bucket );
+	}
+
+	if ( nalive > 0 )
+	{
+		syslog(LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, nalive );
 	}
 
 	free( self );

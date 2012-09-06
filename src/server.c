@@ -23,9 +23,6 @@ static int32_t _new_acceptor( struct server * self,
 							const char * host, uint16_t port, 
 							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );
 
-static void _socket_option( int32_t fd );
-static void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task );
-
 static int32_t _start_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _assign_direct( evsets_t sets, struct stask_assign * task );
 static int32_t _send_direct( struct stask_send * task );
@@ -33,8 +30,12 @@ static int32_t _broadcast_direct( struct stask_broadcast * task );
 static int32_t _shutdown_direct( struct stask_shutdown * task );
 static int32_t _shutdowns_direct( struct stask_shutdowns * task );
 
+static void _socket_option( int32_t fd );
+static void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task );
+
 static inline struct session_manager * _get_manager( struct server * self, uint8_t index );
 static inline void _dispatch_sidlist( struct server * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
+static inline int32_t _send_buffer( struct server * self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -43,7 +44,7 @@ static inline void _dispatch_sidlist( struct server * self, struct sidlist ** li
 int32_t _new_managers( struct server * self )
 {
 	uint8_t i = 0;
-	uint32_t count = self->nclients/self->nthreads; 
+	uint32_t sessions_per_thread = self->nclients/self->nthreads; 
 
 	// 会话管理器, 
 	// 采用cacheline对齐以提高访问速度
@@ -56,7 +57,7 @@ int32_t _new_managers( struct server * self )
 	{
 		uint32_t index = i<<3;
 
-		self->managers[index] = session_manager_create( i, count );
+		self->managers[index] = session_manager_create( i, sessions_per_thread );
 		if ( self->managers[index] == NULL )
 		{
 			return -2;
@@ -74,9 +75,16 @@ int32_t _new_acceptor( struct server * self,
 
 	// 创建接收事件
 	acceptor->event = event_create();
-	if ( acceptor->event  == NULL )
+	if ( acceptor->event == NULL )
 	{
 		return -1;
+	}
+
+	// 创建listenfd
+	acceptor->fd = tcp_listen( (char *)host, port, _socket_option );
+	if ( acceptor->fd <= 0 )
+	{
+		return -2;
 	}
 
 	// 接收器初始化
@@ -85,13 +93,6 @@ int32_t _new_acceptor( struct server * self,
 	acceptor->parent = self;
 	acceptor->port = port;
 	strncpy( acceptor->host, host, INET_ADDRSTRLEN );
-
-	// 创建listenfd
-	acceptor->fd = tcp_listen( (char *)host, port, _socket_option );
-	if ( acceptor->fd <= 0 )
-	{
-		return -2;
-	}
 
 	return 0;
 }
@@ -126,7 +127,7 @@ server_t server_start( const char * host, uint16_t port,
 	}
 
 	// 创建网络线程组
-	self->group = iothreads_create( self->nthreads, _io_method );
+	self->group = iothreads_create( self->nthreads, _io_methods );
 	if ( self->group == NULL )
 	{
 		server_stop( self );
@@ -165,12 +166,10 @@ void server_stop( server_t self )
 	// 销毁服务器接收器
 	if ( acceptor )
 	{
-		// 删除并销毁接收事件
+		// 销毁接收事件
+		// 网络线程组停止时事件集就已经销毁了
 		if ( acceptor->event )
 		{
-			evsets_t sets = event_get_sets( acceptor->event );
-				
-			evsets_del( sets, acceptor->event );
 			event_destroy( acceptor->event );
 			acceptor->event = NULL;
 		}
@@ -221,21 +220,21 @@ int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds )
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( server, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session's manager[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session's manager[%u] is invalid .", id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session is invalid", id );
+		syslog(LOG_WARNING, "server_set_timeout(SID=%ld) failed, the Session is invalid .", id );
 		return -3;
 	}
 
@@ -252,21 +251,21 @@ int32_t server_set_keepalive( server_t self, sid_t id, int32_t seconds )
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( server, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session's manager[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session's manager[%u] is invalid .", id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session is invalid", id );
+		syslog(LOG_WARNING, "server_set_keepalive(SID=%ld) failed, the Session is invalid .", id );
 		return -3;
 	}
 
@@ -283,21 +282,21 @@ int32_t server_set_service( server_t self, sid_t id, ioservice_t * service, void
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( server, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session's manager[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session's manager[%u] is invalid .", id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session is invalid", id );
+		syslog(LOG_WARNING, "server_set_service(SID=%ld) failed, the Session is invalid .", id );
 		return -3;
 	}
 
@@ -309,42 +308,7 @@ int32_t server_set_service( server_t self, sid_t id, ioservice_t * service, void
 
 int32_t server_send( server_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy )
 {
-	uint8_t index = SID_INDEX(id);
-	struct server * server = (struct server *)self;
-	
-	if ( index >= server->nthreads )
-	{
-		syslog(LOG_WARNING, "server_send(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
-		return -1;
-	}
-
-	if ( iscopy )
-	{
-		char * buf2 = (char *)malloc( nbytes );
-		if ( buf2 == NULL )
-		{
-			syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id );
-			return -2;
-		}
-
-		memcpy( buf2, buf, nbytes );
-		buf = buf2;
-	}
-
-	struct stask_send task;
-	task.id		= id;
-	task.buf	= (char *)buf;
-	task.nbytes	= nbytes;
-	task.manager= _get_manager( server, index );
-
-	if ( pthread_self() == iothreads_get_id( server->group, index ) )
-	{
-		// 本线程内直接发送
-		return _send_direct( &task );
-	}
-
-	// 跨线程提交发送任务
-	return iothreads_post( server->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+	return _send_buffer( (struct server *)self, id, buf, nbytes, iscopy );
 }
 
 int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes, int32_t iscopy )
@@ -397,39 +361,14 @@ int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char
 		}
 		else
 		{
-			struct stask_send task;
 			sid_t id = sidlist_get( listgroup[i], 0 );
 
-			if ( iscopy )
+			if ( _send_buffer( server, id, buf, nbytes, iscopy ) == 0 )
 			{
-				char * buf2 = (char *)malloc( nbytes );
-				if ( buf2 == NULL )
-				{
-					syslog(LOG_WARNING, "server_send(SID=%ld) failed, can't allocate the memory for 'buf2'", id );
-					continue;
-				}
-
-				memcpy( buf2, buf, nbytes );
-				buf = buf2;
+				// 发送成功
+				rc += 1;
 			}
 
-			task.id 	= id; 
-			task.buf 	= (char *)buf;
-			task.nbytes = nbytes;
-			task.manager= _get_manager( server, i );
-
-			if ( threadid == iothreads_get_id( server->group, i ) )
-			{
-				// 本线程内直接发送
-				_send_direct( &task );
-			}
-			else
-			{
-				// 跨线程提交发送任务
-				iothreads_post( server->group, i, eIOTaskType_Send, (void *)&task, sizeof(task) );
-			}
-
-			rc += 1;
 			// 销毁listgroup[i]
 			sidlist_destroy( listgroup[i] );
 		}
@@ -445,7 +384,7 @@ int32_t server_shutdown( server_t self, sid_t id )
 
 	if ( index >= server->nthreads )
 	{
-		syslog(LOG_WARNING, "server_send(SID=%ld) failed, the Session's index[%u] is invalid", id, index );
+		syslog(LOG_WARNING, "server_shutdown(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
 		return -1;
 	}
 
@@ -611,6 +550,45 @@ void _dispatch_sidlist( struct server * self, struct sidlist ** listgroup, sid_t
 	return;
 }
 
+int32_t _send_buffer( struct server * self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy )
+{
+	uint8_t index = SID_INDEX(id);
+
+	if ( index >= self->nthreads )
+	{
+		syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
+		return -1;
+	}
+
+	if ( iscopy )
+	{
+		char * buf2 = (char *)malloc( nbytes );
+		if ( buf2 == NULL )
+		{
+			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for 'buf2' .", id );
+			return -2;
+		}
+
+		memcpy( buf2, buf, nbytes );
+		buf = buf2;
+	}
+
+	struct stask_send task;
+	task.id		= id;
+	task.buf	= (char *)buf;
+	task.nbytes	= nbytes;
+	task.manager= _get_manager( self, index );
+
+	if ( pthread_self() == iothreads_get_id( self->group, index ) )
+	{
+		// 本线程内直接发送
+		return _send_direct( &task );
+	}
+
+	// 跨线程提交发送任务
+	return iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+}
+
 void _socket_option( int32_t fd )
 {
 	// IPPROTO_TCP， TCP_NODELAY
@@ -659,7 +637,7 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, 
-			"session_manager_alloc(fd:%d, host:'%s', port:%d) failed", task->fd, task->host, task->port );
+			"_assign_direct(fd:%d, host:'%s', port:%d) failed .", task->fd, task->host, task->port );
 		return -1;
 	}
 	
@@ -687,7 +665,7 @@ int32_t _send_direct( struct stask_send * task )
 	struct session * session = session_manager_get( manager, task->id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_send_direct(SID=%ld) failed, the Session is invalid", task->id );
+		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
 		return -1;
 	}
 
@@ -704,8 +682,8 @@ int32_t _broadcast_direct( struct stask_broadcast * task )
 	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
 	{
 		sid_t id = sidlist_get(msg->tolist, i);
-		struct session * session = session_manager_get( manager, id );
 
+		struct session * session = session_manager_get( manager, id );
 		if ( session == NULL )
 		{
 			continue;
@@ -737,7 +715,7 @@ int32_t _shutdown_direct( struct stask_shutdown * task )
 
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "server_shutdown_direct(SID=%ld) failed, the Session is invalid", task->id );
+		syslog(LOG_WARNING, "_shutdown_direct(SID=%ld) failed, the Session is invalid .", task->id );
 		return -1;
 	}
 
@@ -770,7 +748,7 @@ int32_t _shutdowns_direct( struct stask_shutdowns * task )
 	return rc;
 }
 
-void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
+void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task )
 {
 	switch ( type )
 	{
@@ -821,5 +799,4 @@ void _io_method( uint8_t index, evsets_t sets, int16_t type, void * task )
 
 	return;
 }
-
 

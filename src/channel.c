@@ -138,7 +138,7 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 
 	if ( writen < 0 )
 	{
-		// 出错了
+		// 出错
 		return channel_error( session, eIOError_WriteFailure );	
 	}
 
@@ -160,7 +160,7 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 		}
 	}
 
-	// 全部发送完毕了
+	// 全部发送完毕
 	free ( buf );
 	return writen;
 }

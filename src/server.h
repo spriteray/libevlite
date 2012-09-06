@@ -12,30 +12,35 @@
 
 struct server
 {
+	// 基础配置
 	uint8_t		nthreads;
 	uint32_t	nclients;
 	
 	// 网络线程组
 	iothreads_t group;
+
+	// 会话管理器
 	void **		managers;
 	
 	// 会话接收器
 	void * 		acceptor;
 };
 
+// 会话接收器
 struct acceptor
 {
 	int32_t 	fd;
 
+	// 接收事件
+	event_t		event;
+	
+	// 绑定的地址以及监听的端口号
 	char		host[INET_ADDRSTRLEN];
 	uint16_t	port;
 
 	// 逻辑
 	void * 		context;
 	int32_t 	(*cb)(void *, sid_t, const char *, uint16_t);
-
-	// 接收事件
-	event_t		event;
 
 	// 服务器句柄
 	struct server * parent;
