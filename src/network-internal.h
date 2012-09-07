@@ -20,8 +20,13 @@ enum
 	eIOTaskType_Shutdowns	= 7,	
 };
 
-#define OUTMSGLIST_DEFAULT_SIZE			8			// 发送队列的默认大小
-#define MAX_SECONDS_WAIT_FOR_SHUTDOWN	10			// 关闭前最大等待时间,默认10s
+// 发送队列的默认大小
+#define OUTMSGLIST_DEFAULT_SIZE			8			
+
+// 关闭前最大等待时间,默认10s
+#define MAX_SECONDS_WAIT_FOR_SHUTDOWN	10			
+
+// 
 #define INBUFFER_DEFAULT_SIZE			4096
 
 

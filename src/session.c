@@ -45,6 +45,7 @@ int32_t _init( struct session * self )
 
 int32_t _final( struct session * self )
 {
+	// 销毁网络事件
 	if ( self->evread )
 	{
 		event_destroy( self->evread );
@@ -137,17 +138,16 @@ int32_t session_append( struct session * self, struct message * message )
 	return rc;
 }
 
-// 
+// 注册网络事件 
 void session_add_event( struct session * self, int16_t ev )
 {
 	int8_t status = self->status;
 	evsets_t sets = self->evsets;
 
 	// 注册读事件
-	// 会话不在等待读事件, 也没有等待退出的情况下
-	if ( (ev&EV_READ)
-		&& !(status&SESSION_READING)
-		&& !(status&SESSION_EXITING) )
+	// 不在等待读事件的正常会话
+	if ( !(status&SESSION_EXITING)
+		&& (ev&EV_READ) && !(status&SESSION_READING) )
 	{
 		event_set( self->evread, self->fd, ev );
 		event_set_callback( self->evread, channel_on_read, self );
@@ -161,10 +161,11 @@ void session_add_event( struct session * self, int16_t ev )
 	{
 		int32_t wait_for_shutdown = 0;
 		
-		// 当对端主机崩溃后SocketBuffer满的情况下
-		// 一直等不到EV_WRITE发生时, 会出现会话泄漏
+		// 在等待退出的会话上总是会添加10s的定时器
 		if ( status&SESSION_EXITING )
 		{
+			// 对端主机崩溃 + Socket缓冲区满的情况下
+			// 会一直等不到EV_WRITE发生, 这时libevlite就出现了会话泄漏
 			wait_for_shutdown = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
 		}
 
@@ -178,6 +179,7 @@ void session_add_event( struct session * self, int16_t ev )
 	return;
 }
 
+// 反注册网络事件
 void session_del_event( struct session * self, int16_t ev )
 {
 	int8_t status = self->status;

@@ -4,6 +4,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "utils.h"
 #include "server.h"
@@ -383,7 +384,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 				}
 				else
 				{
-					// 数据全部发送出去了
+					// 数据已经全部发送
 					if ( session->status&SESSION_EXITING )
 					{
 						// 等待关闭的会话, 直接终止会话

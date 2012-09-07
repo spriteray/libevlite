@@ -15,7 +15,7 @@ int32_t CEchoSession::onProcess( void * context, const char * buf, uint32_t nbyt
 
 		if ( nbytes >= BIG_PACKET )
 		{
-			session->shutdown();
+//			session->shutdown();
 			return -1;
 		}
 
@@ -39,7 +39,7 @@ int32_t CEchoSession::onTimeout( void * context )
 
 int32_t CEchoSession::onKeepalive( void * context )
 {
-	// ²»ĞèÒª·şÎñÆ÷¸ø¿Í»§¶Ë·¢ÏûÏ¢
+	// ä¸éœ€è¦æœåŠ¡å™¨ç»™å®¢æˆ·ç«¯å‘æ¶ˆæ¯
 	return 0;
 }
 

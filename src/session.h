@@ -94,7 +94,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
 // 向session的发送队列中添加一条消息
 int32_t session_append( struct session * self, struct message * message );
 
-// 会话添加/删除读写事件
+// 会话注册/反注册网络事件
 void session_add_event( struct session * self, int16_t ev );
 void session_del_event( struct session * self, int16_t ev );
 
