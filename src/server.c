@@ -591,26 +591,26 @@ int32_t _send_buffer( struct server * self, sid_t id, const char * buf, uint32_t
 
 void _socket_option( int32_t fd )
 {
-	// IPPROTO_TCP£¬ TCP_NODELAY
-	// SO_REUSEADDR
-	// SO_RCVBUF
-	// SO_LINGER
-
 	int32_t flag = 0;
-
+	struct linger ling;
+	
+	// Socket·Ç×èÈû
+	set_non_block( fd );
+	
 	flag = 1;
 	setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
-
-	flag = 1;
-	setsockopt( fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&flag, sizeof(flag) );
-
+	
 	flag = 1;
 	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
-	struct linger ling = { 1, 0 };
+#if SAFE_SHUTDOWN
+	ling.l_onoff = 1;
+	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN };
+#else
+	ling.l_onoff = 1;
+	ling.l_linger = 0; 
+#endif
 	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
-
-	set_non_block( fd );
 
 	return;
 }

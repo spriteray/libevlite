@@ -485,18 +485,12 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 		arraylist_append( bucket, entry );
 	}
 
-	uint64_t key1 = entry->key;
-	uint64_t seq1 = entry->seq;
-
-	key1 &= 0x00000000ffffffffULL;
-	seq1 &= 0x00000000ffffffffULL;
-
 	// 生成sid
 	id = self->index+1;
 	id <<= 32;
-	id |= key1;
+	id |= (uint32_t)key;
 	id <<= 16;
-	id |= seq1;
+	id |= entry->seq;
 	id &= SID_MASK;
 
 	// 会话初始化操作
