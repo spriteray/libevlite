@@ -2,20 +2,37 @@
 #ifndef SRC_CLIENT_H
 #define SRC_CLIENT_H
 
+#include "threads.h"
 #include "session.h"
 
 struct client
 {
-	char *		host;
+	// 网络线程组, 只有1个线程
+	iothreads_t		group;
+
+	struct session	session;
+	
+	// 连接器
+	void *			connector;	
+};
+
+// 连接器
+struct connector
+{
+	int32_t		fd;
+
+	// 连接事件
+	event_t		event;
+	evsets_t	sets;
+
+	// 连接服务器的地址和端口号
+	char		host[INET_ADDRSTRLEN];
 	uint16_t	port;
 
-	//
-	//
-	//
-	
-	iothreads_t group;
-
-	
+	// 逻辑
+	int32_t		seconds;
+	void *		context;
+	int32_t		(*cb)( void *, int32_t );
 };
 
 //
@@ -32,6 +49,8 @@ struct ctask_send
 // 看样子内存对齐不需要使用了
 #pragma pack(1)
 #pragma pack()
+
+int32_t client_connect_direct( evsets_t sets, struct connector * connector );
 
 #endif
 

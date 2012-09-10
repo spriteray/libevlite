@@ -82,6 +82,9 @@ struct session
 #define SID_KEY(sid)	( ((sid)&KEY_MASK) >> 16 )
 #define SID_INDEX(sid)	( ( ((sid)&INDEX_MASK) >> 48 ) - 1 )
 
+// 会话初始化
+int32_t session_init( struct session * self );
+
 // 会话开始
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
 
@@ -111,6 +114,9 @@ int32_t session_shutdown( struct session * self );
 
 // 会话结束
 int32_t session_end( struct session * self );
+
+// 销毁会话
+int32_t session_final( struct session * self );
 
 // 会话开始连接远程服务器
 

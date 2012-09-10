@@ -27,7 +27,8 @@ OS		= $(shell uname)
 
 OBJS 	= utils.o timer.o event.o \
 			threads.o \
-			message.o channel.o session.o server.o
+			message.o channel.o session.o \
+			client.o server.o
 
 ifeq ($(OS),Linux)
 	LFLAGS += -lrt

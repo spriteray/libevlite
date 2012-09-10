@@ -7,6 +7,7 @@
 #include <assert.h>
 
 #include "utils.h"
+#include "client.h"
 #include "server.h"
 #include "network-internal.h"
 
@@ -450,8 +451,10 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 {
-	// TODO: 连接建立中, 会话还没有通知逻辑层
-	
+	int32_t rc = 0;
+	int32_t result = 0;
+	struct connector * connector = (struct connector *)arg;
+
 	if ( ev & EV_WRITE )
 	{
 #if defined (linux)
@@ -459,16 +462,31 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		if ( is_connected( fd ) != 0 )
 		{
 			// 连接失败
-			return;
+			result = eIOError_ConnectStatus;
 		}
 #endif
-
-		// 连接成功
-
 	}
 	else
 	{
 		// 连接超时了
+		result = eIOError_Timeout;
+	}
+	
+	// 把连接结果回调给逻辑层
+	rc = connector->cb( connector->context, result );
+
+	if ( rc == 0 )
+	{
+		if ( result != 0 )
+		{
+			// 逻辑层需要继续连接
+			client_connect_direct( connector->sets, connector );
+		}
+		else
+		{
+			// 连接成功
+			// TODO: 添加
+		}
 	}
 
 	return;

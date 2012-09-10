@@ -106,9 +106,7 @@ server_t server_start( const char * host, uint16_t port,
 	uint8_t index = 0;
 
 	struct server * self = NULL;
-	size_t size = sizeof(struct server) + sizeof(struct acceptor);
-
-	self = (struct server *)calloc( 1, size );
+	self = (struct server *)calloc( 1, sizeof(struct server)+sizeof(struct acceptor) );
 	if ( self == NULL )
 	{
 		return NULL;

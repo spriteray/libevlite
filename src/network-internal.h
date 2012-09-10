@@ -48,6 +48,7 @@ enum
 	eIOError_PeerShutdown		= 0x00010006,	// 对端关闭了连接
 	eIOError_WriteFailure		= 0x00010007, 	// write()失败
 	eIOError_ConnectFailure		= 0x00010008,	// 连接失败
+	eIOError_Timeout			= 0x00010009,	// 连接超时了
 };
 
 
