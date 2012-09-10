@@ -611,6 +611,16 @@ void _socket_option( int32_t fd )
 	ling.l_linger = 0; 
 #endif
 	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+	
+	// 发送接收缓冲区
+#if SEND_BUFFER_SIZE > 0
+	int32_t sendbuf_size = SEND_BUFFER_SIZE;
+	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+#endif
+#if RECV_BUFFER_SIZE > 0
+	int32_t recvbuf_size = RECV_BUFFER_SIZE;
+	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+#endif
 
 	return;
 }

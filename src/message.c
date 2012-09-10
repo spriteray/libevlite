@@ -186,7 +186,7 @@ int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )
 		int32_t rc = ioctl( fd, FIONREAD, &nread );
 		if ( rc == -1 || nread == 0 )
 		{
-			nbytes = INBUFFER_DEFAULT_SIZE;
+			nbytes = RECV_BUFFER_SIZE;
 		}
 		else
 		{

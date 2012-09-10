@@ -31,7 +31,7 @@ int32_t CEchoSession::onTimeout( void * context )
 
 	if ( session )
 	{
-		printf("the Session (sid=%ld) timeout .\n", session->getSid() );
+		printf("the Session (SID=%ld) timeout .\n", session->getSid() );
 	}
 
 	return -1; 
@@ -39,7 +39,7 @@ int32_t CEchoSession::onTimeout( void * context )
 
 int32_t CEchoSession::onKeepalive( void * context )
 {
-	// ä¸éœ€è¦æœåŠ¡å™¨ç»™å®¢æˆ·ç«¯å‘æ¶ˆæ¯
+	// ²»ĞèÒª·şÎñÆ÷¸ø¿Í»§¶Ë·¢ÏûÏ¢
 	return 0;
 }
 
@@ -49,7 +49,7 @@ int32_t CEchoSession::onError( void * context, int32_t result )
 
 	if ( session )
 	{
-		printf("the Session (sid=%ld) error (result=0x%08x) .\n", session->getSid(), result );
+		printf("the Session (SID=%ld) error (result=0x%08x) .\n", session->getSid(), result );
 	}
 
 	return -1;

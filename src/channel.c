@@ -49,12 +49,11 @@ int32_t _transmit( struct session * session )
 
 	uint32_t i = 0;
 	int32_t writen = 0;
+	int32_t offsets = session->msgoffsets;
 
 	int32_t iov_size = 0;
 	struct iovec iov_array[iov_max];
 	memset( iov_array, 0, sizeof(iov_array) );
-
-	int32_t offsets = session->msgoffsets;
 
 	for ( i = 0; i < arraylist_count( &session->outmsglist ); ++i )
 	{
@@ -179,7 +178,8 @@ int32_t _process( struct session * session )
 	{
 		char * buffer = buffer_data( &session->inbuffer );
 		uint32_t nbytes = buffer_length( &session->inbuffer );
-
+		
+		// 回调逻辑层
 		nprocess = service->process(
 						session->context, buffer, nbytes );
 		if ( nprocess > 0 )
@@ -385,6 +385,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 				else
 				{
 					// 数据已经全部发送
+
 					if ( session->status&SESSION_EXITING )
 					{
 						// 等待关闭的会话, 直接终止会话
