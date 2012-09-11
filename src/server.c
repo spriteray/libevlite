@@ -24,14 +24,14 @@ static int32_t _new_acceptor( struct server * self,
 							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );
 
 static int32_t _start_direct( evsets_t sets, struct acceptor * acceptor );
-static int32_t _assign_direct( evsets_t sets, struct stask_assign * task );
-static int32_t _send_direct( struct stask_send * task );
-static int32_t _broadcast_direct( struct stask_broadcast * task );
-static int32_t _shutdown_direct( struct stask_shutdown * task );
-static int32_t _shutdowns_direct( struct stask_shutdowns * task );
+static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct stask_assign * task );
+static int32_t _send_direct( struct session_manager * manager, struct stask_send * task );
+static int32_t _broadcast_direct( struct session_manager * manager, struct message * msg );
+static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
+static int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids );
 
 static void _socket_option( int32_t fd );
-static void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task );
+static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 
 static inline struct session_manager * _get_manager( struct server * self, uint8_t index );
 static inline void _dispatch_sidlist( struct server * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
@@ -125,7 +125,7 @@ server_t server_start( const char * host, uint16_t port,
 	}
 
 	// 创建网络线程组
-	self->group = iothreads_create( self->nthreads, _io_methods );
+	self->group = iothreads_create( self->nthreads, _io_methods, self );
 	if ( self->group == NULL )
 	{
 		server_stop( self );
@@ -330,28 +330,24 @@ int32_t server_broadcast( server_t self, sid_t * ids, uint32_t count, const char
 
 		if ( sidlist_count( listgroup[i] ) > 1 )
 		{
-			struct stask_broadcast task;
-
-			task.msg = message_create();
-			task.manager = _get_manager( server, i );
-
-			if ( task.msg == NULL )
+			struct message * msg = message_create();
+			if ( msg == NULL )
 			{
 				continue;
 			}
 
-			message_add_buffer( task.msg, (char *)buf, nbytes );
-			message_set_receivers( task.msg, listgroup[i] );
+			message_add_buffer( msg, (char *)buf, nbytes );
+			message_set_receivers( msg, listgroup[i] );
 
 			if ( threadid == iothreads_get_id( server->group, i ) )
 			{
 				// 本线程内直接广播
-				_broadcast_direct( &task );
+				_broadcast_direct( _get_manager(server, i), msg );
 			}
 			else
 			{
 				// 跨线程提交广播任务
-				iothreads_post( server->group, i, eIOTaskType_Broadcast, (void *)&task, sizeof(task) );
+				iothreads_post( server->group, i, eIOTaskType_Broadcast, msg, 0 );
 			}
 
 			rc += sidlist_count( listgroup[i] );
@@ -385,10 +381,6 @@ int32_t server_shutdown( server_t self, sid_t id )
 		syslog(LOG_WARNING, "server_shutdown(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
 		return -1;
 	}
-
-	struct stask_shutdown task;
-	task.id		= id;
-	task.manager= _get_manager( server, index );
 	
 	// 避免在回调函数中直接终止会话
 	// 这样会引发后续对会话的操作都非法了
@@ -396,12 +388,12 @@ int32_t server_shutdown( server_t self, sid_t id )
 	if ( pthread_self() == iothreads_get_id( server->group, index ) )
 	{
 		// 本线程内直接终止
-		return _shutdown_direct( &task );
+		return _shutdown_direct( _get_manager(server, index), &task );
 	}
 #endif
 
 	// 跨线程提交终止任务
-	return iothreads_post( server->group, index, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
+	return iothreads_post( server->group, index, eIOTaskType_Shutdown, (void *)&id, sizeof(id) );
 
 }
 
@@ -410,9 +402,6 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
-#if 0
-	pthread_t threadid = pthread_self();
-#endif
 
 	struct sidlist * listgroup[ 256 ] = {NULL};
 	struct server * server = (struct server *)self;
@@ -426,55 +415,11 @@ int32_t server_shutdowns( server_t self, sid_t * ids, uint32_t count )
 			continue;
 		}
 
-		if ( sidlist_count( listgroup[i] ) > 1 )
-		{
-			struct stask_shutdowns task;
+		// 参照server_shutdown()
 
-			task.ids = listgroup[i];
-			task.manager = _get_manager( server, i );
-
-			// 参照server_shutdown()
-#if 0
-			if ( threadid == iothreads_get_id( server->group, i ) )
-			{
-				// 本线程内直接批量终止
-				_shutdowns_direct( &task );
-			}
-			else
-			{
-				// 跨线程提交批量终止任务
-				iothreads_post( server->group, i, eIOTaskType_Shutdowns, (void *)&task, sizeof(task) );
-			}
-#endif
-
-			// 跨线程提交批量终止任务
-			rc += sidlist_count( listgroup[i] );
-			iothreads_post( server->group, i, eIOTaskType_Shutdowns, (void *)&task, sizeof(task) );
-		}
-		else
-		{
-			struct stask_shutdown task;
-
-			task.id 	= sidlist_get( listgroup[i], 0 );
-			task.manager= _get_manager( server, i );
-			
-			// 参战server_shutdown()
-#if 0
-			if ( threadid == iothreads_get_id( server->group, i ) )
-			{
-				// 本线程内直接终止
-				_shutdown_direct( &task );
-			}
-			else
-			{
-				// 跨线程提交直接终止任务
-				iothreads_post( server->group, i, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
-			}
-#endif
-			// 跨线程提交直接终止任务
-			rc += 1;
-			iothreads_post( server->group, i, eIOTaskType_Shutdown, (void *)&task, sizeof(task) );
-		}
+		// 跨线程提交批量终止任务
+		rc += sidlist_count( listgroup[i] );
+		iothreads_post( server->group, i, eIOTaskType_Shutdowns, listgroup[i], 0 );
 	}
 
 	return rc;
@@ -490,13 +435,10 @@ int32_t server_assign_session( struct server * self, uint8_t index, struct stask
 	evsets_t sets = iothreads_get_sets( self->group, index );
 	pthread_t threadid = iothreads_get_id( self->group, index );
 
-	// 取会话管理器
-	task->manager = _get_manager( self, index );
-
 	if ( pthread_self() == threadid )
 	{
 		// 该会话分发到本线程内了
-		return _assign_direct( sets, task );
+		return _assign_direct( _get_manager(self, index), sets, task );
 	}
 
 	// 跨线程提交发送任务
@@ -575,12 +517,11 @@ int32_t _send_buffer( struct server * self, sid_t id, const char * buf, uint32_t
 	task.id		= id;
 	task.buf	= (char *)buf;
 	task.nbytes	= nbytes;
-	task.manager= _get_manager( self, index );
 
 	if ( pthread_self() == iothreads_get_id( self->group, index ) )
 	{
 		// 本线程内直接发送
-		return _send_direct( &task );
+		return _send_direct( _get_manager(self, index), &task );
 	}
 
 	// 跨线程提交发送任务
@@ -634,11 +575,10 @@ int32_t _start_direct( evsets_t sets, struct acceptor * acceptor )
 	return 0;
 }
 
-int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
+int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct stask_assign * task )
 {
 	int32_t rc = 0;
 	int32_t key = task->fd;
-	struct session_manager * manager = task->manager;
 	
 	// 会话管理器分配会话
 	struct session * session = session_manager_alloc( manager, key );
@@ -666,10 +606,8 @@ int32_t _assign_direct( evsets_t sets, struct stask_assign * task )
 	return 0;
 }
 
-int32_t _send_direct( struct stask_send * task )
+int32_t _send_direct( struct session_manager * manager, struct stask_send * task )
 {
-	struct session_manager * manager = task->manager;
-	
 	struct session * session = session_manager_get( manager, task->id );
 	if ( session == NULL )
 	{
@@ -680,12 +618,10 @@ int32_t _send_direct( struct stask_send * task )
 	return session_send( session, task->buf, task->nbytes );
 }
 
-int32_t _broadcast_direct( struct stask_broadcast * task )
+int32_t _broadcast_direct( struct session_manager * manager, struct message * msg )
 {
 	uint32_t i = 0;
 	int32_t rc = 0;
-	struct message * msg = task->msg;
-	struct session_manager * manager = task->manager;
 
 	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
 	{
@@ -716,29 +652,27 @@ int32_t _broadcast_direct( struct stask_broadcast * task )
 	return rc;
 }
 
-int32_t _shutdown_direct( struct stask_shutdown * task )
+int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 {
-	struct session_manager * manager = task->manager;
-	struct session * session = session_manager_get( manager, task->id );
+	struct session * session = session_manager_get( manager, id );
 
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "_shutdown_direct(SID=%ld) failed, the Session is invalid .", task->id );
+		syslog(LOG_WARNING, "_shutdown_direct(SID=%ld) failed, the Session is invalid .", id );
 		return -1;
 	}
 
 	return session_shutdown( session );
 }
 
-int32_t _shutdowns_direct( struct stask_shutdowns * task )
+int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids )
 {
 	uint32_t i = 0;
 	int32_t rc = 0;
-	struct session_manager * manager = task->manager;
 
-	for ( i = 0; i < sidlist_count(task->ids); ++i )
+	for ( i = 0; i < sidlist_count(ids); ++i )
 	{
-		sid_t id = sidlist_get(task->ids, i);
+		sid_t id = sidlist_get(ids, i);
 		struct session * session = session_manager_get( manager, id );
 
 		if ( session == NULL )
@@ -751,13 +685,19 @@ int32_t _shutdowns_direct( struct stask_shutdowns * task )
 		session_shutdown( session );
 	}
 
-	sidlist_destroy( task->ids );
+	sidlist_destroy( ids );
 
 	return rc;
 }
 
-void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task )
+void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 {
+	struct server * server = (struct server *)context;
+
+	// 获取事件集以及会话管理器
+	evsets_t sets = iothreads_get_sets( server->group, index );
+	struct session_manager * manager = _get_manager( server, index );
+	
 	switch ( type )
 	{
 	
@@ -771,35 +711,35 @@ void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task )
 	case eIOTaskType_Assign :
 		{
 			// 分配一个描述符
-			_assign_direct( sets, (struct stask_assign *)task );
+			_assign_direct( manager, sets, (struct stask_assign *)task );
 		}
 		break;
 
 	case eIOTaskType_Send :
 		{
 			// 发送数据
-			_send_direct( (struct stask_send *)task );
+			_send_direct( manager, (struct stask_send *)task );
 		}
 		break;
 
 	case eIOTaskType_Broadcast :
 		{
 			// 广播数据
-			_broadcast_direct( (struct stask_broadcast *)task );
+			_broadcast_direct( manager, (struct message *)task );
 		}
 		break;
 
 	case eIOTaskType_Shutdown :
 		{
 			// 终止一个会话
-			_shutdown_direct( (struct stask_shutdown *)task );
+			_shutdown_direct( manager, *( (sid_t *)task ) );
 		}
 		break;
 
 	case eIOTaskType_Shutdowns :
 		{
 			// 批量终止多个会话
-			_shutdowns_direct( (struct stask_shutdowns *)task );
+			_shutdowns_direct( manager, (struct sidlist *)task );
 		}
 		break;
 	

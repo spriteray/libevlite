@@ -16,7 +16,7 @@ struct iothread_args
 	uint64_t 	padding[7];
 };
 
-void task_method( uint8_t index, evsets_t sets, int16_t type, void * task )
+void task_method( void * context, uint8_t index, int16_t type, void * task )
 {
 	struct iothread_args * arg = (struct iothread_args *)task;
 
@@ -55,7 +55,7 @@ int32_t main()
 	signal( SIGINT, signal_handler );
 
 	//
-	threadgroup = iothreads_create( nthreads, task_method );
+	threadgroup = iothreads_create( nthreads, task_method, NULL );
 	if ( threadgroup == NULL )
 	{
 		printf("iothreads_create() failed \n");

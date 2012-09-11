@@ -61,8 +61,6 @@ struct stask_assign
 
 	void *		context;					// 8bytes
 	int32_t		(*cb)(void *, sid_t, const char *, uint16_t);	// 8bytes
-
-	struct session_manager * manager;		// 8bytes
 };
 
 struct stask_send
@@ -70,25 +68,6 @@ struct stask_send
 	sid_t						id;			// 8bytes
 	char *						buf;		// 8bytes
 	uint32_t					nbytes;		// 4bytes+4bytes
-	struct session_manager *	manager;	// 8bytes
-};
-
-struct stask_broadcast
-{
-	struct message *			msg;		// 8bytes
-	struct session_manager *	manager;	// 8bytes	
-};
-
-struct stask_shutdown
-{
-	sid_t						id;			// 8bytes
-	struct session_manager *	manager;	// 8bytes
-};
-
-struct stask_shutdowns
-{
-	struct sidlist *			ids;		// 8bytes
-	struct session_manager *	manager;	// 8bytes	
 };
 
 // 看样子内存对齐不需要使用了
