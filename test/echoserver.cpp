@@ -61,7 +61,7 @@ int32_t CEchoSession::onShutdown( void * context )
 
 	if ( session )
 	{
-		printf("the Session (sid=%ld) shutdown .\n", session->getSid() );
+		printf("the Session (SID=%ld) shutdown .\n", session->getSid() );
 		delete session;
 	}
 

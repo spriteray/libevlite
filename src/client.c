@@ -15,19 +15,43 @@
 
 static int32_t _send_direct( struct ctask_send * task );
 static void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task );
-static int32_t _new_connector( struct connector * self, 
+static int32_t _new_connector( struct client * self, 
 				const char * host, uint16_t port, 
-				int32_t seconds, int32_t (*cb)(void *, int32_t), void * context )
+				int32_t seconds, int32_t (*cb)(void *, int32_t), void * context );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _new_connector( struct connector * self, 
+int32_t _new_connector( struct client * self, 
 								const char * host, uint16_t port, 
 								int32_t seconds, int32_t (*cb)(void *, int32_t), void * context )
 {
-	// TODO: 
+	struct connector * connector = (struct connector *)self->connector;
+
+	// 创建连接事件
+	connector->event = event_create();
+	if ( connector->event == NULL )
+	{
+		return -1;
+	}
+
+	// 连接远程服务器
+	connector->fd = tcp_connect( (char *)host, port, 0 );
+	if ( connector->fd <= 0 )
+	{
+		return -2;
+	}
+
+	// 连接器初始化
+	connector->cb = cb;
+	connector->context = context;
+	connector->seconds = seconds;
+	connector->sets = NULL;
+	connector->port = port;
+	connector->session = &self->session;
+	strncpy( connector->host, host, INET_ADDRSTRLEN );
+
 	return 0;
 }
 
@@ -45,7 +69,7 @@ client_t client_start( const char * host, uint16_t port,
 	self->connector = (struct connector *)( self+1 );
 	
 	// 初始化会话
-	if ( session_init( &self->session ) != 0 )
+	if ( session_init( &self->session, OUTMSGLIST_DEFAULT_SIZE*8  ) != 0 )
 	{
 		client_stop( self );
 		return NULL;
@@ -60,7 +84,7 @@ client_t client_start( const char * host, uint16_t port,
 	}
 	
 	// 创建连接器
-	if ( _new_connector( self->connector, 
+	if ( _new_connector( self, 
 				host, port, seconds, cb, context ) == 0 )
 	{
 		client_stop( self );
@@ -147,11 +171,19 @@ int32_t client_stop( client_t self )
 	{
 		// 销毁连接事件
 		// 网络线程组停止时事件集就已经销毁了
+
 		if ( connector->event )
 		{
 			event_destroy( connector->event );
 			connector->event = NULL;
 		}
+
+		if ( connector->fd > 0 )
+		{
+			close( connector->fd );
+			connector->fd = -1;
+		}
+
 	}
 
 	// 销毁网络线程组

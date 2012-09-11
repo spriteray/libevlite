@@ -485,7 +485,13 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		else
 		{
 			// 连接成功
-			// TODO: 添加
+			struct session * session = connector->session;
+
+			session_set_endpoint( session, connector->host, connector->port );
+			session_start( session, 
+					eSessionType_Persist, connector->fd, connector->sets );
+			
+			connector->fd = -1;
 		}
 	}
 

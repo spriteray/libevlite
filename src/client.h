@@ -23,7 +23,10 @@ struct connector
 
 	// 连接事件
 	event_t		event;
-	evsets_t	sets;
+
+	//
+	evsets_t			sets;
+	struct session *	session;
 
 	// 连接服务器的地址和端口号
 	char		host[INET_ADDRSTRLEN];

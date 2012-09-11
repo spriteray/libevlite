@@ -23,8 +23,8 @@
 
 enum SessionType
 {
-	eSessionType_Once 		= 1,	// 临时
-	eSessionType_Persist	= 2,	// 永久, 有断线重连的功能
+	eSessionType_Once 		= 1,	// 临时会话
+	eSessionType_Persist	= 2,	// 永久会话, 有断线重连的功能
 };
 
 struct session_setting
@@ -39,7 +39,6 @@ struct session
 	sid_t		id;
 
 	int32_t 	fd;
-	
 	int8_t 		type;
 	int8_t 		status;
 	
@@ -51,9 +50,11 @@ struct session
 	event_t 	evwrite;
 	event_t		evkeepalive;
 
-	// 事件集
+	// 事件集和管理器
 	evsets_t	evsets;
 	void *		manager;
+
+	// 逻辑
 	void *		context;
 	ioservice_t service;
 	
@@ -83,7 +84,7 @@ struct session
 #define SID_INDEX(sid)	( ( ((sid)&INDEX_MASK) >> 48 ) - 1 )
 
 // 会话初始化
-int32_t session_init( struct session * self );
+int32_t session_init( struct session * self, uint32_t size );
 
 // 会话开始
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
@@ -118,7 +119,9 @@ int32_t session_end( struct session * self );
 // 销毁会话
 int32_t session_final( struct session * self );
 
-// 会话开始连接远程服务器
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
 
 struct session_entry
 {
@@ -134,7 +137,9 @@ struct session_manager
 	
 	uint32_t	size;
 	uint32_t	count;
-
+	
+	// 避免cache-missing引发的性能问题
+	// 性能可以达到开放地址法的hashtable
 	struct arraylist * entries;
 };
 

@@ -12,7 +12,7 @@
 
 #include "session.h"
 
-int32_t session_init( struct session * self )
+int32_t session_init( struct session * self, uint32_t size )
 {
 	// 初始化网络事件
 	self->evread = event_create();
@@ -32,7 +32,7 @@ int32_t session_init( struct session * self )
 	}
 	
 	// 初始化发送队列	
-	if ( arraylist_init(&self->outmsglist, OUTMSGLIST_DEFAULT_SIZE) != 0 )
+	if ( arraylist_init(&self->outmsglist, size) != 0 )
 	{
 		return -4;
 	}
@@ -462,7 +462,7 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 		}
 
 		// 初始化会话
-		if ( session_init( &entry->data ) != 0 )
+		if ( session_init( &entry->data, OUTMSGLIST_DEFAULT_SIZE ) != 0 )
 		{
 			// 初始化出错了
 			session_final( &entry->data );
