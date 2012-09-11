@@ -14,7 +14,7 @@
 // -----------------------------------------------------------------------------
 
 static int32_t _send_direct( struct ctask_send * task );
-static void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task );
+static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 static int32_t _new_connector( struct client * self, 
 				const char * host, uint16_t port, 
 				int32_t seconds, int32_t (*cb)(void *, int32_t), void * context );
@@ -76,7 +76,7 @@ client_t client_start( const char * host, uint16_t port,
 	}
 	
 	// 创建网络线程组
-	self->group = iothreads_create( 1, _io_methods );
+	self->group = iothreads_create( 1, _io_methods, self );
 	if ( self->group == NULL )
 	{
 		client_stop( self );
@@ -218,8 +218,12 @@ int32_t client_connect_direct( evsets_t sets, struct connector * connector )
 	return 0;
 }
 
-void _io_methods( uint8_t index, evsets_t sets, int16_t type, void * task )
+void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 {
+	struct client * client = (struct client *)context;
+
+	evsets_t sets = iothreads_get_sets( client->group, index );
+
 	switch ( type )
 	{
 	
