@@ -15,14 +15,16 @@
 // 创建网络线程组
 // nthreads		- 网络线程组中的线程数
 // method		- 任务处理函数
-iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t, int16_t, void *) )
+iothreads_t iothreads_create( uint8_t nthreads, 
+					void (*method)(void *, uint8_t, int16_t, void *), void * context )
 {
 	struct iothreads * iothreads = NULL;
 
 	iothreads = calloc( 1, sizeof(struct iothreads) );
 	if ( iothreads )
 	{
-		iothreads->method = method;
+		iothreads->method 	= method;
+		iothreads->context	= context;
 		iothreads->nrunthreads = 0;
 		iothreads->nthreads = nthreads;
 
@@ -306,7 +308,7 @@ void * iothread_main( void * arg )
 				}
 
 				// 回调
-				parent->method( thread->index, thread->sets, tasks[i].utype, data );
+				parent->method( parent->context, thread->index, tasks[i].utype, data );
 			}
 		}
 		while ( ntasks == POP_TASKS_COUNT );

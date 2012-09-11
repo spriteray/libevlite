@@ -18,7 +18,8 @@ typedef void * iothreads_t;
 // 创建网络线程组
 // nthreads		- 网络线程组中的线程数
 // method		- 任务处理函数
-iothreads_t iothreads_create( uint8_t nthreads, void (*method)(uint8_t, evsets_t, int16_t, void *) );
+iothreads_t iothreads_create( uint8_t nthreads, 
+					void (*method)(void *, uint8_t, int16_t, void *), void * context );
 
 // 网络线程组开始运行
 int32_t iothreads_start( iothreads_t self );
