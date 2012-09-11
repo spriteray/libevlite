@@ -3,8 +3,8 @@
 
 CC		= gcc
 CC++	= g++
-CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
-LFLAGS	= -ggdb -lpthread
+CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
+LFLAGS	= -ggdb -lpthread 
 SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
@@ -31,7 +31,7 @@ OBJS 	= utils.o timer.o event.o \
 			client.o server.o
 
 ifeq ($(OS),Linux)
-	LFLAGS += -lrt
+	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
 	OBJS += epoll.o
 else
 	OBJS += kqueue.o

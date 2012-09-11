@@ -3,6 +3,7 @@
 
 #include "echoserver.h"
 
+#define DEBUG		0
 #define BIG_PACKET	32
 
 int32_t CEchoSession::onProcess( void * context, const char * buf, uint32_t nbytes )
@@ -12,13 +13,12 @@ int32_t CEchoSession::onProcess( void * context, const char * buf, uint32_t nbyt
 	if ( session )
 	{
 		session->send( buf, nbytes );
-
+#if DEBUG
 		if ( nbytes >= BIG_PACKET )
 		{
-//			session->shutdown();
 			return -1;
 		}
-
+#endif
 		return nbytes;
 	}
 
@@ -31,7 +31,9 @@ int32_t CEchoSession::onTimeout( void * context )
 
 	if ( session )
 	{
+#if DEBUG
 		printf("the Session (SID=%ld) timeout .\n", session->getSid() );
+#endif
 	}
 
 	return -1; 
@@ -49,7 +51,9 @@ int32_t CEchoSession::onError( void * context, int32_t result )
 
 	if ( session )
 	{
+#if DEBUG
 		printf("the Session (SID=%ld) error (result=0x%08x) .\n", session->getSid(), result );
+#endif
 	}
 
 	return -1;
@@ -61,7 +65,9 @@ int32_t CEchoSession::onShutdown( void * context )
 
 	if ( session )
 	{
+#if DEBUG
 		printf("the Session (SID=%ld) shutdown .\n", session->getSid() );
+#endif
 		delete session;
 	}
 
@@ -105,9 +111,9 @@ int32_t CEchoService::onAcceptSession( void * context, sid_t id, const char * ho
 	{
 		return -1;
 	}
-
+#if DEBUG
 	printf("CEchoService::onAcceptSession(SID=%ld) .\n", id);
-
+#endif
 	ioservice_t ioservice;
 	ioservice.process	= CEchoSession::onProcess;
 	ioservice.timeout	= CEchoSession::onTimeout;
