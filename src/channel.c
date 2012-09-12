@@ -137,28 +137,27 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 		}
 	}
 
-	// 正常发送
-	if ( writen < nbytes && writen >= 0 )
+	if ( writen < nbytes )
 	{
+		// 没有完全发送或者发送错误
+		// 为什么发送错误没有直接终止会话呢？
+		// 该接口有可能在ioservice_t中调用, 直接终止会话后, 还会有其他对会话的后续操作
 		struct message * message = message_create();
 		if ( message )
 		{
 			message_add_receiver( message, session->id );
 			message_set_buffer( message,  buf, nbytes );
-			buffer_erase( &message->buffer, writen );
+
+			if ( writen > 0 )
+			{
+				buffer_erase( &message->buffer, writen );
+			}
 
 			arraylist_append( &session->outmsglist, message );
 			session_add_event( session, EV_WRITE|EV_ET );
 
 			return writen;
 		}
-	}
-
-	if ( writen == -1 )
-	{
-		// 出错, 增加读事件
-		// libevlite() read()出错
-		session_add_event( session, EV_READ|EV_ET );
 	}
 
 	// 全部发送完毕
