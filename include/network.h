@@ -41,7 +41,7 @@ typedef void * server_t;
 //		port		- 监听的端口号
 //		nthreads	- 开启多少个线程
 //		nclients	- 最大支持多少个客户端
-//		cb			- 新会话创建成功后的回调, 
+//		cb			- 新会话创建成功后的回调,会被多个网络线程调用 
 //							参数1: 上下文参数; 
 //							参数2: 新会话ID; 
 //							参数3: 会话的IP地址; 
@@ -51,7 +51,7 @@ server_t server_start( const char * host, uint16_t port,
 							uint8_t nthreads, uint32_t nclients, 
 							int32_t (*cb)(void *, sid_t, const char *, uint16_t), void * context );
 
-// 会话参数的设置
+// 会话参数的设置, 只能在ioservice_t中使用
 int32_t server_set_timeout( server_t self, sid_t id, int32_t seconds );
 int32_t server_set_keepalive( server_t self, sid_t id, int32_t seconds );
 int32_t server_set_service( server_t self, sid_t id, ioservice_t * service, void * context );
@@ -86,6 +86,7 @@ typedef void * client_t;
 //		context		- 上下文参数
 client_t client_start( const char * host, uint16_t port, 
 						int32_t seconds, int32_t (*cb)(void *, int32_t), void * context );
+
 // 向服务器发送数据
 int32_t client_send( client_t self, const char * buf, uint32_t nbytes, int32_t iscopy );
 

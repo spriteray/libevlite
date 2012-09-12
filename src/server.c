@@ -124,17 +124,17 @@ server_t server_start( const char * host, uint16_t port,
 		return NULL;
 	}
 
-	// 创建网络线程组
-	self->group = iothreads_create( self->nthreads, _io_methods, self );
-	if ( self->group == NULL )
+	// 创建会话接收器
+	rc = _new_acceptor( self, host, port, cb, context );
+	if ( rc != 0 )
 	{
 		server_stop( self );
 		return NULL;
 	}
 
-	// 创建会话接收器
-	rc = _new_acceptor( self, host, port, cb, context );
-	if ( rc != 0 )
+	// 创建网络线程组
+	self->group = iothreads_create( self->nthreads, _io_methods, self );
+	if ( self->group == NULL )
 	{
 		server_stop( self );
 		return NULL;
@@ -180,18 +180,10 @@ void server_stop( server_t self )
 		}
 	}
 
-	// 销毁网络线程组
-	if ( server->group )
-	{
-		iothreads_destroy( server->group );
-		server->group = NULL;
-	}
-
 	// 销毁管理器
 	if ( server->managers )
 	{
 		uint8_t i = 0;
-
 		for ( i = 0; i < server->nthreads; ++i )
 		{
 			struct session_manager * manager = server->managers[i<<3];	
@@ -200,11 +192,17 @@ void server_stop( server_t self )
 				session_manager_destroy( manager );
 			}
 		}
-
 		free( server->managers );
 		server->managers = NULL;
 	}
-	
+
+	// 销毁网络线程组
+	if ( server->group )
+	{
+		iothreads_destroy( server->group );
+		server->group = NULL;
+	}
+
 	free( server );
 
 	return; 
@@ -586,6 +584,7 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 	{
 		syslog(LOG_WARNING, 
 			"_assign_direct(fd:%d, host:'%s', port:%d) failed .", task->fd, task->host, task->port );
+		close( task->fd );
 		return -1;
 	}
 	
@@ -609,6 +608,7 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 int32_t _send_direct( struct session_manager * manager, struct stask_send * task )
 {
 	struct session * session = session_manager_get( manager, task->id );
+
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
@@ -626,16 +626,19 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
 	{
 		sid_t id = sidlist_get(msg->tolist, i);
-
 		struct session * session = session_manager_get( manager, id );
+
 		if ( session == NULL )
 		{
+			// 会话非法
+			message_add_failure( msg, id );
 			continue;
 		}
 
 		// 直接添加到会话的发送列表中
 		if ( session_append(session, msg) != 0 )
 		{
+			// 添加失败
 			message_add_failure( msg, id );
 			continue;
 		}
