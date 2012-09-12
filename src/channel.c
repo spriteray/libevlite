@@ -137,15 +137,8 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 		}
 	}
 
-	if ( writen < 0 )
-	{
-		// 出错
-		return channel_error( session, eIOError_WriteFailure );	
-	}
-
 	// 正常发送
-	
-	if ( writen < nbytes )
+	if ( writen < nbytes && writen >= 0 )
 	{
 		struct message * message = message_create();
 		if ( message )
@@ -159,6 +152,13 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 
 			return writen;
 		}
+	}
+
+	if ( writen == -1 )
+	{
+		// 出错, 增加读事件
+		// libevlite() read()出错
+		session_add_event( session, EV_READ|EV_ET );
 	}
 
 	// 全部发送完毕
@@ -310,7 +310,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 				session_shutdown( session );
 				break;
 			}
-			
+
 			if ( nread == -2 )
 			{
 				// InBuffer 扩展失败 

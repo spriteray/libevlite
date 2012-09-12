@@ -170,6 +170,7 @@ void signal_handle( int signo )
 
 int32_t main( int32_t argc, char ** argv )
 {
+	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
 	g_Running = true;

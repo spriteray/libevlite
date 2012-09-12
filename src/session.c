@@ -67,6 +67,13 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port )
 //
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
+	// µÈ´ı¹Ø±ÕµÄÁ¬½Ó
+
+	if ( self->status&SESSION_EXITING )
+	{
+		return -3;
+	}
+
 	// ÅĞ¶ÏsessionÊÇ·ñ·±Ã¦
 	if ( (self->status&SESSION_WRITING) 
 		|| arraylist_count(&self->outmsglist) > 0 )
@@ -76,7 +83,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 		if ( message == NULL )
 		{
 			free( buf );
-			return -1;
+			return -2;
 		}
 
 		message_add_receiver( message, self->id );
@@ -288,17 +295,17 @@ int32_t session_end( struct session * self )
 	buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
 
 	// É¾³ıÊÂ¼ş
-	if ( self->evread )
+	if ( self->evread && (self->status&SESSION_READING) )
 	{
 		evsets_del( self->evsets, self->evread );
 		self->status &= ~SESSION_READING;
 	}
-	if ( self->evwrite )
+	if ( self->evwrite && (self->status&SESSION_WRITING) )
 	{
 		evsets_del( self->evsets, self->evwrite );
 		self->status &= ~SESSION_WRITING;
 	}
-	if ( self->evkeepalive )
+	if ( self->evkeepalive && (self->status&SESSION_KEEPALIVING) )
 	{
 		evsets_del( self->evsets, self->evkeepalive );
 		self->status &= ~SESSION_KEEPALIVING;
@@ -327,7 +334,7 @@ int32_t session_end( struct session * self )
 	if ( self->fd )
 	{
 		close( self->fd );
-		self->fd = 0;
+		self->fd = -1;
 	}
 
 	return 0;
