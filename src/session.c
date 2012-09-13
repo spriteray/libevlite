@@ -362,6 +362,9 @@ int32_t session_final( struct session * self )
 	// 销毁发送队列
 	arraylist_final( &self->outmsglist );
 
+	// 销毁接收缓冲区
+	buffer_set( &self->inbuffer, NULL, 0 );
+
 	return 0;
 }
 
@@ -566,6 +569,12 @@ void session_manager_destroy( struct session_manager * self )
 	if ( nalive > 0 )
 	{
 		syslog(LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, nalive );
+	}
+
+	if ( self->entries )
+	{
+		free( self->entries );
+		self->entries = NULL;
 	}
 
 	free( self );

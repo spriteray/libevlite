@@ -670,6 +670,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 	}
 	
 	pthread_spin_destroy( &self->lock );
+	free( self );
 	
 	return 0;
 }

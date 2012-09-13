@@ -141,7 +141,7 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 	{
 		// 没有完全发送或者发送错误
 		// 为什么发送错误没有直接终止会话呢？
-		// 该接口有可能在ioservice_t中调用, 直接终止会话后, 还会有其他对会话的后续操作
+		// 该接口有可能在ioservice_t中调用, 直接终止会话后, 会引发后续对会话的操作崩溃
 		struct message * message = message_create();
 		if ( message )
 		{

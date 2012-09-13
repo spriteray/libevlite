@@ -100,6 +100,11 @@ CEchoService::CEchoService()
 
 CEchoService::~CEchoService()
 {
+	if ( m_BindHost )
+	{
+		free( m_BindHost );
+		m_BindHost = NULL;
+	}
 }
 
 int32_t CEchoService::onAcceptSession( void * context, sid_t id, const char * host, uint16_t port )

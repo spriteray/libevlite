@@ -248,6 +248,7 @@ int32_t iothread_stop( struct iothread * self )
 
 	if ( self->cmdevent )
 	{
+		evsets_del( self->sets, self->cmdevent );
 		event_destroy( self->cmdevent );
 		self->cmdevent = NULL;
 	}

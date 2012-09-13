@@ -32,6 +32,7 @@ OBJS 	= utils.o timer.o event.o \
 
 ifeq ($(OS),Linux)
 	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
+#	LFLAGS += -lrt
 	OBJS += epoll.o
 else
 	OBJS += kqueue.o
@@ -83,6 +84,8 @@ clean :
 	rm -rf *.o
 	rm -rf *.log
 	rm -rf *.core
+	rm -rf core.*
+	rm -rf vgcore.*
 
 	rm -rf $(SONAME)
 	rm -rf $(LIBNAME)
