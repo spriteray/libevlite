@@ -200,7 +200,6 @@ struct arraylist * arraylist_create( uint32_t size )
 int32_t arraylist_init( struct arraylist * self, uint32_t size )
 {
 	size = size ? size : 8;
-    size = nextpow2( size );
 
     self->count = 0;
     self->size = size;
@@ -234,6 +233,9 @@ void arraylist_final( struct arraylist * self )
 		free( self->entries );
 		self->entries = NULL;
 	}
+
+	self->size = 0;
+	self->count = 0;
 	return;
 }
 
@@ -311,8 +313,6 @@ struct sidlist * sidlist_create( uint32_t size )
 	struct sidlist * self = NULL;
 
 	size = size ? size : 8;
-	size = nextpow2( size );
-
 	self = (struct sidlist *)malloc( sizeof(struct sidlist) );
 	if ( self )
 	{
