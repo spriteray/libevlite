@@ -2,11 +2,6 @@
 #ifndef EVENT_INTERNAL_H
 #define EVENT_INTERNAL_H
 
-#ifdef __cplusplus
-extern "C"
-{
-#endif
-
 #include "queue.h"
 #include "event.h"
 
@@ -89,7 +84,7 @@ inline int32_t event_active( struct event * self, int16_t res );
 // event定时器模块
 //
 
-#define TIMER_MAX_PRECISION 100			// 定时器最大精度为100ms
+#define TIMER_MAX_PRECISION 10			// 定时器最大精度为10ms
 #define TIMER_BUCKET_COUNT  4096		// 必须是2的N次方 
 
 struct evtimer
@@ -129,10 +124,6 @@ struct eventset
     struct event_list eventlist;
     struct event_list activelist;
 };
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif
 
