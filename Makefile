@@ -2,7 +2,7 @@
 # -----------------------------------------------------------
 
 CC		= gcc
-CC++	= g++
+CXX		= g++
 CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread 
 SOFLAGS	= -shared -Wl
@@ -69,7 +69,7 @@ echoserver-lock : accept-lock-echoserver.o $(OBJS)
 
 echoserver : echoserver.o $(OBJS)
 
-	$(CC++) $(LFLAGS) $^ -o $@
+	$(CXX) $(LFLAGS) $^ -o $@
 
 echostress :
 
@@ -102,7 +102,7 @@ clean :
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 %.o : %.cpp
-	$(CC++) $(CFLAGS) -c $^ -o $@
+	$(CXX) $(CFLAGS) -c $^ -o $@
 
 VPATH = src:include:test
 	
