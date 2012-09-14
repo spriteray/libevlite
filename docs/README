@@ -54,11 +54,3 @@ Makefile.*	- Makefile文件
         
 五、同样的开发环境中，centos6.0比freebsd8.2快了近30%。
 
-六、总结 ：
-
-1. SystemCall引起的模式切换，也会被vmstat统计在context switch中, 需要注意的是模式切换比传统意义上的进程上下问切换带来的
-    系统开销要小很多，但都会引起CPU的context switch(只要是阻塞操作, 内核都会把阻塞的进程切换出去。)
-	
-2. read(), write() 这些SystemCall都会引起从 内核线程到用户线程的一次切换，称为模式切换。
-
-   

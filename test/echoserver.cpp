@@ -188,7 +188,7 @@ int32_t main( int32_t argc, char ** argv )
 
 	service->setThreadsCount(4);
 	service->setSessionsCount(200000);
-	service->setTimeoutSeconds(10);
+	service->setTimeoutSeconds(60);
 	service->setEndPoint( "127.0.0.1", 9029 );
 
 	if ( !service->start() )
