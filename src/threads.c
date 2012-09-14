@@ -235,7 +235,7 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
 	}
 
 	// 默认: 提交任务不提醒消费者
-	return msgqueue_push( self->queue, &intask, 0 );
+	return msgqueue_push( self->queue, &intask, POST_IOTASK_AND_NOTIFY );
 }
 
 int32_t iothread_stop( struct iothread * self )

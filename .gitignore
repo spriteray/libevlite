@@ -2,3 +2,5 @@
 *.opannotate
 *.opreport
 tags
+*.o
+*.swp

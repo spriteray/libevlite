@@ -7,18 +7,76 @@
  */
 
 #include <stdint.h>
+#include <unistd.h>
 #include <pthread.h>
+#include <sys/socket.h>
+#include <sys/types.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h>
+#include <sys/uio.h>
+
+#include "network.h"
 
 //
-// 
+// 系统相关的操作
 //
+
+// 时间函数, 返回毫秒数
 inline int64_t mtime();
+
+// socket基本操作
+int32_t is_connected( int32_t fd );
+int32_t set_non_block( int32_t fd );
+int32_t tcp_connect( char * host, uint16_t port, int8_t issync );
+int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport );
+int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) );
 
 //
 // 基础算法类
 //
 uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
+
+/*
+ *
+ */ 
+struct arraylist
+{
+    uint32_t size;
+    uint32_t count;
+
+    void ** entries;
+};
+
+struct arraylist * arraylist_create( uint32_t size );
+int32_t arraylist_init( struct arraylist * self, uint32_t size );
+uint32_t arraylist_count( struct arraylist * self );
+void arraylist_reset( struct arraylist * self );
+void arraylist_final( struct arraylist * self );
+int32_t arraylist_append( struct arraylist * self, void * data );
+void * arraylist_get( struct arraylist * self, int32_t index );
+void * arraylist_take( struct arraylist * self, int32_t index );
+int32_t arraylist_destroy( struct arraylist * self );
+
+/*
+ * sidlist 
+ */
+struct sidlist
+{
+	uint32_t	size;
+	uint32_t	count;
+
+	sid_t *		entries;
+};
+
+struct sidlist * sidlist_create( uint32_t size );
+#define sidlist_count( self )	( (self)->count )
+sid_t sidlist_get( struct sidlist * self, int32_t index );
+int32_t sidlist_add( struct sidlist * self, sid_t id );
+sid_t sidlist_del( struct sidlist * self, int32_t index );
+void sidlist_destroy( struct sidlist * self );
+
 
 // 任务类型
 enum

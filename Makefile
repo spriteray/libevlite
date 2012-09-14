@@ -1,9 +1,10 @@
 
 # -----------------------------------------------------------
 
-CC	= gcc
+CC		= gcc
+CC++	= g++
 CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
-LFLAGS	= -ggdb -lpthread
+LFLAGS	= -ggdb -lpthread 
 SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
@@ -24,14 +25,21 @@ OS		= $(shell uname)
 #REALNAME=$(APPNAME).so.$(VERSION)
 #
 
-OBJS 	= utils.o timer.o event.o threads.o
+OBJS 	= utils.o timer.o event.o \
+			threads.o \
+			message.o channel.o session.o \
+			client.o server.o
 
 ifeq ($(OS),Linux)
-	LFLAGS += -lrt
+	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
+#	LFLAGS += -lrt
 	OBJS += epoll.o
 else
 	OBJS += kqueue.o
 endif
+
+# Release, open it
+# CFLAGS += DNDEBUG
 
 # -----------------------------------------------------------
 
@@ -45,7 +53,7 @@ $(REALNAME) : $(OBJS)
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : test_events test_addtimer echoserver iothreads_dispatcher
+test : test_events test_addtimer echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 
@@ -55,9 +63,13 @@ test_addtimer : test_addtimer.o $(OBJS)
 
 	$(CC) $(LFLAGS) $^ -o $@
 
-echoserver : accept-lock-echoserver.o $(OBJS)
+echoserver-lock : accept-lock-echoserver.o $(OBJS)
 
 	$(CC) $(LFLAGS) $^ -o $@
+
+echoserver : echoserver.o $(OBJS)
+
+	$(CC++) $(LFLAGS) $^ -o $@
 
 echostress :
 
@@ -72,13 +84,15 @@ clean :
 	rm -rf *.o
 	rm -rf *.log
 	rm -rf *.core
+	rm -rf core.*
+	rm -rf vgcore.*
 
 	rm -rf $(SONAME)
 	rm -rf $(LIBNAME)
 	rm -rf $(REALNAME)
 
 	rm -rf test_events event.fifo
-	rm -rf test_addtimer echostress echoserver echoserver-libevent iothreads_dispatcher
+	rm -rf test_addtimer echostress echoserver echoserver-lock iothreads_dispatcher
 	
 # --------------------------------------------------------
 #
@@ -88,7 +102,7 @@ clean :
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 %.o : %.cpp
-	$(CC) $(CFLAGS) -c $^ -o $@
+	$(CC++) $(CFLAGS) -c $^ -o $@
 
 VPATH = src:include:test
 	
