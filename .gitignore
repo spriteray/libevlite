@@ -1,6 +1,6 @@
 .DS_Store
 *.opannotate
 *.opreport
-*.o
 tags
+*.o
 *.swp
