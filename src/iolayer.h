@@ -1,6 +1,6 @@
 
-#ifndef SRC_LAYER_H
-#define SRC_LAYER_H
+#ifndef SRC_IOLAYER_H
+#define SRC_IOLAYER_H
 
 #include <stdint.h>
 
@@ -92,7 +92,7 @@ struct task_send
 #pragma pack()
 
 // 重新连接远程服务器
-int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
+int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector );
 
 // 给当前线程分发一个会话
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );

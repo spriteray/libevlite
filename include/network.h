@@ -65,7 +65,7 @@ int32_t iolayer_listen( iolayer_t self,
 //		context		- 上下文参数
 int32_t iolayer_connect( iolayer_t self, 
 		const char * host, uint16_t port, int32_t seconds, 
-		int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context	)
+		int32_t (*cb)( void *, int32_t, const char *, uint16_t, sid_t), void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );

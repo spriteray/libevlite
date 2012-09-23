@@ -28,7 +28,7 @@ OS		= $(shell uname)
 OBJS 	= utils.o timer.o event.o \
 			threads.o \
 			message.o channel.o session.o \
-			layer.o
+			iolayer.o
 
 ifeq ($(OS),Linux)
 	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal

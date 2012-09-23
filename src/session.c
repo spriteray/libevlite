@@ -6,7 +6,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "server.h"
+#include "iolayer.h"
 #include "channel.h"
 #include "network-internal.h"
 

@@ -7,7 +7,7 @@
 #include <assert.h>
 
 #include "utils.h"
-#include "layer.h"
+#include "iolayer.h"
 #include "network-internal.h"
 
 #include "channel.h"
@@ -492,9 +492,10 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		else
 		{
 			// 连接成功
+			evsets_t sets = event_get_sets( connector->event );
+
 			session_set_endpoint( session, connector->host, connector->port );
-			session_start( session, 
-					eSessionType_Persist, connector->fd, connector->sets );
+			session_start( session, eSessionType_Persist, connector->fd, sets );
 			
 			// TODO: 是否需要释放 connector	
 		}

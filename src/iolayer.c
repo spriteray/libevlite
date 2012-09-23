@@ -12,7 +12,7 @@
 #include "session.h"
 #include "network-internal.h"
 
-#include "layer.h"
+#include "iolayer.h"
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -22,8 +22,8 @@ static int32_t _new_managers( struct iolayer * self );
 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
-static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct stask_assign * task );
-static int32_t _send_direct( struct session_manager * manager, struct stask_send * task );
+static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
+static int32_t _send_direct( struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids );
@@ -68,8 +68,6 @@ int32_t _new_managers( struct iolayer * self )
 // 创建网络通信层
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 {
-	int32_t rc = 0;
-
 	struct iolayer * self = (struct iolayer *)calloc( 1, sizeof(struct iolayer) );
 	if ( self == NULL )
 	{
@@ -82,7 +80,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 	// 初始化会话管理器
 	if ( _new_managers( self ) != 0 )
 	{
-		layer_stop( self );
+		iolayer_destroy( self );
 		return NULL;
 	}
 
@@ -90,7 +88,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 	self->group = iothreads_create( self->nthreads, _io_methods, self );
 	if ( self->group == NULL )
 	{
-		layer_stop( self );
+		iolayer_destroy( self );
 		return NULL;
 	}
 
@@ -244,7 +242,7 @@ int32_t iolayer_connect( iolayer_t self,
 	strncpy( connector->host, host, INET_ADDRSTRLEN );
 
 	// 分发连接任务
-	index = acceptor->fd % layer->nthreads;
+	index = connector->fd % layer->nthreads;
 	iothreads_post( layer->group, index, eIOTaskType_Connect, connector, 0 );	
 
 	return 0;
@@ -485,7 +483,7 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	connector->fd = tcp_connect( connector->host, connector->port, 0 );
 	if ( connector->fd < 0 )
 	{
-		syslog(LOG_WARNING, "iolayer_reconnect(host:'%s', port:%d) failed, tcp_connect() failure .", host, port);
+		syslog(LOG_WARNING, "iolayer_reconnect(host:'%s', port:%d) failed, tcp_connect() failure .", connector->host, connector->port);
 
 		_connect_direct( event_get_sets(connector->event), connector );
 		return 0;
@@ -496,7 +494,7 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 
 	if ( pthread_self() == threadid )
 	{
-		return _connector_direct( iothreads_get_sets(self->group, index), connector );
+		return _connect_direct( iothreads_get_sets(self->group, index), connector );
 	}
 
 	return iothreads_post( self->group, index, eIOTaskType_Connect, connector, 0 );
@@ -651,7 +649,7 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 	// 开始关注连接事件
 	
 	event_set( connector->event, connector->fd, EV_WRITE|EV_PERSIST );
-	event_set_callback( connector->event, channel_on_connector, connector );
+	event_set_callback( connector->event, channel_on_connect, connector );
 	evsets_add( sets, connector->event, connector->seconds );
 
 	return 0;
