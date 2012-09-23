@@ -101,19 +101,14 @@ int32_t IIOSession::onShutdownSession( void * context )
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-void IIOService::setThreadsCount( uint8_t count )
-{
-	m_ThreadsCount = count;
-}
-
-void IIOService::setSessionsCount( uint32_t count )
-{
-	m_SessionsCount = count;
-}
-
 void IIOService::setTimeoutSeconds( int32_t seconds )
 {
 	m_TimeoutSeconds = seconds;
+}
+
+void IIOService::setKeepaliveSeconds( uint32_t seconds )
+{
+	m_KeepaliveSeconds = seconds;
 }
 
 bool IIOService::start()
@@ -154,7 +149,7 @@ int32_t IIOService::broadcast( std::vector<sid_t> & ids, const char * buffer, ui
 	return server_broadcast( m_Server, idlist, count, buffer, nbytes, static_cast<int32_t>(iscopy) );
 }
 
-void IIOService::attach( sid_t id, IIOSession * session )
+void IIOService::attach( sid_t id, IIOSession * session, bool iskeepalive )
 {
 	ioservice_t ioservice;
 	ioservice.process	= IIOSession::onProcessSession;
@@ -169,6 +164,10 @@ void IIOService::attach( sid_t id, IIOSession * session )
 
 	server_set_service( m_Server, id, &ioservice, session );
 	server_set_timeout( m_Server, id, m_TimeoutSeconds );
+	if ( iskeepalive )
+	{
+		iolayer_set_keepalive( m_IOLayer, id, m_KeepaliveSeconds );
+	}
 }
 
 int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host, uint16_t port )
@@ -176,10 +175,30 @@ int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host
 	IIOSession * session = NULL;
 	IIOService * service = static_cast<IIOService*>( context );
 	
-	session = service->onAccept( host, port );
+	session = service->onAccept( id, host, port );
 	if ( session )
 	{
-		service->attach( id, session );
+		service->attach( id, session, false );
+		return 0;
+	}
+
+	return -1;
+}
+
+int32_t IIOService::onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id )
+{
+	if ( result != 0 )
+	{
+		return 0;
+	}
+
+	IIOSession * session = NULL;
+	IIOService * service = static_cast<IIOService *>( context );
+
+	session = service->onConnect( id, host, port );
+	if ( session )
+	{
+		service->attach( id, session, true );
 		return 0;
 	}
 

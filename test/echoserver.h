@@ -76,39 +76,49 @@ class IIOService
 
 public :
 
-	IIOService( const char * host, uint16_t port )
-		: m_Host( host ),
-		  m_Port( port ),
+	IIOService( uint8_t nthreads, uint32_t nclients )
+		: m_IOLayer(NULL),
 		  m_ThreadsCount( 0 ),
 		  m_SessionsCount( 0 ),
 		  m_TimeoutSeconds( 0 ),
-		  m_Server( NULL )
+		  m_KeepaliveSeconds( 0 )
 	{
 	}
 
 	virtual ~IIOService()
 	{
 	}
-	
+
+public :
+
 	// 创建服务器
-	static IIOService * create( const char * host, uint16_t port );
+	static IIOService * create( uint8_t nthreads, uint32_t nclients );
+	
+	// 接受/连接事件
+	// 需要调用者自己实现
+	
+	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port ) = 0;
+	virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port ) = 0;
 
 public :
 	
-	// 接受事件
-	// 需要调用者自己实现
-	virtual IIOSession * onAccept( const char * host, uint16_t port ) = 0;
-	
-	// 设置服务器属性
-	void setThreadsCount( uint8_t count );
-	void setSessionsCount( uint32_t count );
-	void setTimeoutSeconds( int32_t seconds );
-
 	// 开启服务
 	bool start();
 
 	// 停止服务
 	void stop();
+	
+	// 设置超时/心跳时间
+	void setTimeoutSeconds( int32_t seconds );
+	void setKeepaliveSeconds( int32_t seconds );
+
+	// 连接/监听
+	bool listen( const char * host, uint16_t port );
+	bool connect( const char * host, uint16_t port, int32_t seconds );
+
+	// 发送数据
+	int32_t send( sid_t id, std::string & buffer );
+	int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool iscopy = true );
 
 	// 广播数据	
 	int32_t broadcast( std::vector<sid_t> & ids, std::string & buffer );
@@ -116,28 +126,24 @@ public :
 
 public :
 
-	void attach( sid_t id, IIOSession * session );
+	void attach( sid_t id, IIOSession * session, bool iskeepalive );
 	
 private :
 	
 	// 内部函数
 	static int32_t onAcceptSession( void * context, sid_t id, const char * host, uint16_t port );
+	static int32_t onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id );
 
 private :
 
-	std::string	m_Host;
-	uint16_t	m_Port;
+	iolayer_t	m_IOLayer;
 
 	uint8_t		m_ThreadsCount;
 	uint32_t	m_SessionsCount;
+
 	int32_t		m_TimeoutSeconds;
-
-	server_t	m_Server;
+	int32_t		m_KeepaliveSeconds;
 };
-
-//
-// 客户端
-//
 
 }
 
