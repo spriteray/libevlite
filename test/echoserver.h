@@ -11,7 +11,7 @@ namespace Utils
 {
 
 //
-// 服务器
+// 会话, 非线程安全的 
 //
 
 class IIOService;
@@ -25,13 +25,17 @@ public :
 	{
 	}
 	virtual ~IIOSession() {}
-	
+
+public :
+
 	// 创建会话
 	static IIOSession * create();
 
-public :
-	
+	//	
+	// 网络事件	
+	// 多个网络线程中被触发
 	//
+
 	virtual int32_t onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
 	virtual int32_t onTimeout() { return 0; }
 	virtual int32_t onKeepalive() { return 0; }
@@ -40,8 +44,12 @@ public :
 
 public :
 	
+	//	
+	// 在网络线程中对会话的操作
+	//
+	
 	// 获取会话ID	
-	sid_t getSid() const;
+	sid_t id() const;
 	
 	// 关闭会话	
 	int32_t shutdown();
@@ -56,7 +64,7 @@ private :
 
 	// 设置会话ID, 以及服务器句柄
 	void setSid( sid_t id );
-	void setServer( server_t server );
+	void setLayer( iolayer_t layer );
 	
 	// 内部回调函数
 	static int32_t onProcessSession( void * context, const char * buf, uint32_t nbytes ); 
@@ -68,18 +76,21 @@ private :
 private :
 
 	sid_t		m_Sid;
-	server_t	m_Server;
+	iolayer_t	m_Layer;
 };
+
+//
+// 网络通信层
+//
 
 class IIOService
 {
-
 public :
 
 	IIOService( uint8_t nthreads, uint32_t nclients )
 		: m_IOLayer(NULL),
-		  m_ThreadsCount( 0 ),
-		  m_SessionsCount( 0 ),
+		  m_ThreadsCount( nthreads ),
+		  m_SessionsCount( nclients ),
 		  m_TimeoutSeconds( 0 ),
 		  m_KeepaliveSeconds( 0 )
 	{
@@ -96,11 +107,16 @@ public :
 	
 	// 接受/连接事件
 	// 需要调用者自己实现
+	// 有可能在IIOService的多个网络线程中被触发
 	
 	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port ) = 0;
 	virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port ) = 0;
 
 public :
+
+	//
+	// 线程安全的API
+	//
 	
 	// 开启服务
 	bool start();
@@ -115,6 +131,10 @@ public :
 	// 连接/监听
 	bool listen( const char * host, uint16_t port );
 	bool connect( const char * host, uint16_t port, int32_t seconds );
+
+	// 终止会话
+	int32_t shutdown( sid_t id );
+	int32_t shutdown( std::vector<sid_t> & ids );
 
 	// 发送数据
 	int32_t send( sid_t id, std::string & buffer );

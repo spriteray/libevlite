@@ -7,7 +7,7 @@
 namespace Utils
 {
 
-sid_t IIOSession::getSid() const
+sid_t IIOSession::id() const
 {
 	return m_Sid;
 }
@@ -17,14 +17,14 @@ void IIOSession::setSid( sid_t id )
 	m_Sid = id;
 }
 
-void IIOSession::setServer( server_t server )
+void IIOSession::setLayer( iolayer_t layer )
 {
-	m_Server = server;
+	m_Layer = layer;
 }
 
 int32_t IIOSession::shutdown()
 {
-	return server_shutdown( m_Server, m_Sid );
+	return iolayer_shutdown( m_Layer, m_Sid );
 }
 
 int32_t IIOSession::send( std::string & buffer )
@@ -34,7 +34,7 @@ int32_t IIOSession::send( std::string & buffer )
 
 int32_t IIOSession::send( const char * buffer, uint32_t nbytes, bool iscopy )
 {
-	return server_send( m_Server, m_Sid, buffer, nbytes, static_cast<int32_t>(iscopy) );
+	return iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(iscopy) );
 }
 
 int32_t IIOSession::onProcessSession( void * context, const char * buf, uint32_t nbytes ) 
@@ -101,6 +101,17 @@ int32_t IIOSession::onShutdownSession( void * context )
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
+bool IIOService::start()
+{
+	m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount );
+	return ( m_IOLayer != NULL );
+}
+
+void IIOService::stop()
+{
+	return iolayer_destroy();
+}
+
 void IIOService::setTimeoutSeconds( int32_t seconds )
 {
 	m_TimeoutSeconds = seconds;
@@ -111,27 +122,14 @@ void IIOService::setKeepaliveSeconds( uint32_t seconds )
 	m_KeepaliveSeconds = seconds;
 }
 
-bool IIOService::start()
+bool IIOService::listen( const char * host, uint16_t port )
 {
-	m_Server = server_start(
-			m_Host.c_str(),		/* bind host */
-			m_Port,				/* listen port */
-			m_ThreadsCount,		/* iothreads count */
-			m_SessionsCount,	/* sessions count limits */
-			onAcceptSession,	/* on Accept Events Handler */
-			this				/* handler */ 
-			);
-	if ( m_Server == NULL )
-	{
-		return false;
-	}
 
-	return true;
 }
 
-void IIOService::stop()
+bool IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 {
-	return server_stop( m_Server );
+	iolayer_connect( m_IOLayer, host, port,  );
 }
 
 int32_t IIOService::broadcast( std::vector<sid_t> & ids, std::string & buffer )
@@ -146,7 +144,7 @@ int32_t IIOService::broadcast( std::vector<sid_t> & ids, const char * buffer, ui
 	uint32_t count = (uint32_t)ids.size();
 	sid_t * idlist = static_cast<sid_t *>( &(*start) );
 
-	return server_broadcast( m_Server, idlist, count, buffer, nbytes, static_cast<int32_t>(iscopy) );
+	return iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes, static_cast<int32_t>(iscopy) );
 }
 
 void IIOService::attach( sid_t id, IIOSession * session, bool iskeepalive )
