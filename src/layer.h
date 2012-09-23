@@ -1,6 +1,6 @@
 
-#ifndef SRC_SERVER_H
-#define SRC_SERVER_H
+#ifndef SRC_LAYER_H
+#define SRC_LAYER_H
 
 #include <stdint.h>
 
@@ -10,7 +10,7 @@
 
 #include "session.h"
 
-struct server
+struct iolayer
 {
 	// 基础配置
 	uint8_t		nthreads;
@@ -21,12 +21,9 @@ struct server
 
 	// 会话管理器
 	void **		managers;
-	
-	// 会话接收器
-	void * 		acceptor;
 };
 
-// 会话接收器
+// 接收器
 struct acceptor
 {
 	int32_t 	fd;
@@ -42,17 +39,37 @@ struct acceptor
 	void * 		context;
 	int32_t 	(*cb)(void *, sid_t, const char *, uint16_t);
 
-	// 服务器句柄
-	struct server * parent;
+	// 通信层句柄
+	struct iolayer * parent;
 };
 
+// 连接器
+struct connector
+{
+	int32_t		fd;
+
+	// 连接事件
+	event_t		event;
+
+	// 连接服务器的地址和端口号
+	char		host[INET_ADDRSTRLEN];
+	uint16_t	port;
+
+	// 逻辑
+	int32_t		seconds;
+	void *		context;
+	int32_t		(*cb)( void *, int32_t, const char *, uint16_t, sid_t);
+
+	// 通信层句柄
+	struct iolayer * parent;
+};
 
 //
 // NOTICE: 网络任务的最大长度不超过56
 //
 
-// NOTICE: stask_assign长度已经达到48bytes
-struct stask_assign
+// NOTICE: task_assign长度已经达到48bytes
+struct task_assign
 {
 	int32_t		fd;							// 4bytes
 
@@ -63,7 +80,7 @@ struct stask_assign
 	int32_t		(*cb)(void *, sid_t, const char *, uint16_t);	// 8bytes
 };
 
-struct stask_send
+struct task_send
 {
 	sid_t						id;			// 8bytes
 	char *						buf;		// 8bytes
@@ -74,9 +91,11 @@ struct stask_send
 #pragma pack(1)
 #pragma pack()
 
-// 给当前线程分发一个会话
-int32_t server_assign_session( struct server * self, uint8_t index, struct stask_assign * task );
+// 重新连接远程服务器
+int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 
+// 给当前线程分发一个会话
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );
 
 #endif
 

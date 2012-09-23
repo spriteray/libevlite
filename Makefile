@@ -8,8 +8,8 @@ LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
-SONAME	= $(LIBNAME).1
-REALNAME= $(LIBNAME).1.0.1
+SONAME	= $(LIBNAME).3
+REALNAME= $(LIBNAME).3.0.0
 
 OS		= $(shell uname)
 
@@ -28,7 +28,7 @@ OS		= $(shell uname)
 OBJS 	= utils.o timer.o event.o \
 			threads.o \
 			message.o channel.o session.o \
-			client.o server.o
+			layer.o
 
 ifeq ($(OS),Linux)
 	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal

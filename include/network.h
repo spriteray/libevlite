@@ -10,6 +10,12 @@ extern "C"
 #include <stdint.h>
 
 //
+// 网络层 
+//
+typedef uint64_t	sid_t;
+typedef void *		iolayer_t;
+
+//
 // IO服务
 //
 //		process()	- 收到数据包的回调
@@ -30,12 +36,6 @@ typedef struct
 	int32_t (*shutdown)( void * context );
 }ioservice_t;
 
-//
-// 网络层 
-//
-typedef uint64_t sid_t;
-typedef void * iolayer_t;
-
 // 创建网络层 
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
 
@@ -48,7 +48,8 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
 //							参数3: 会话的IP地址; 
 //							参数4: 会话的端口号
 //		context		- 上下文参数
-int32_t iolayer_listen( const char * host, uint16_t port, 
+int32_t iolayer_listen( iolayer_t self,
+		const char * host, uint16_t port, 
 		int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context );
 
 // 客户端开启
@@ -58,12 +59,13 @@ int32_t iolayer_listen( const char * host, uint16_t port,
 //		cb			- 连接结果的回调
 //							参数1: 上下文参数
 //							参数2: 连接结果
-//							参数3: 连接成功后返回的会话ID
-//							参数4: 连接的远程服务器的地址
-//							参数5: 连接的远程服务器的端口
+//							参数3: 连接的远程服务器的地址
+//							参数4: 连接的远程服务器的端口
+//							参数5: 连接成功后返回的会话ID
 //		context		- 上下文参数
-int32_t iolayer_connect( const char * host, uint16_t port, int32_t seconds, 
-		int32_t (*cb)( void *, int32_t, sid_t, const char *, uint16_t ), void * context	);
+int32_t iolayer_connect( iolayer_t self, 
+		const char * host, uint16_t port, int32_t seconds, 
+		int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context	)
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
