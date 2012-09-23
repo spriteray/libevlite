@@ -479,15 +479,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		if ( result != 0 )
 		{
 			// 逻辑层需要继续连接
-			if ( connector->fd > 0 )
-			{
-				close( connector->fd );
-			}
-			
-			// 重新连接
-			// 不管是否连接上, 都定时监听写事件
-			connector->fd = tcp_connect( connector->host, connector->port, 0 );
-			client_connect_direct( connector->sets, connector );
+			client_reconnect( connector );	
 		}
 		else
 		{

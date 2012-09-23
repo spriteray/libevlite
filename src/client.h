@@ -53,7 +53,7 @@ struct ctask_send
 #pragma pack(1)
 #pragma pack()
 
-int32_t client_connect_direct( evsets_t sets, struct connector * connector );
+int32_t client_reconnect( struct connector * connector );
 
 #endif
 

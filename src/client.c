@@ -14,6 +14,7 @@
 // -----------------------------------------------------------------------------
 
 static int32_t _send_direct( struct ctask_send * task );
+static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 static int32_t _new_connector( struct client * self, 
 				const char * host, uint16_t port, 
@@ -200,12 +201,28 @@ int32_t client_stop( client_t self )
 	return 0;
 }
 
+int32_t client_reconnect( struct connector * connector )
+{
+	// 关闭描述符
+	if ( connector->fd > 0 )
+	{
+		close( connector->fd );
+	}
+	
+	// 重新连接
+	// 不管是否连接上, 都定时监听写事件
+	connector->fd = tcp_connect( connector->host, connector->port, 0 );
+	_connect_direct( connector->sets, connector );
+
+	return 0;
+}
+
 int32_t _send_direct( struct ctask_send * task )
 {
 	return session_send( task->session, task->buf, task->nbytes );
 }
 
-int32_t client_connect_direct( evsets_t sets, struct connector * connector )
+int32_t _connect_direct( evsets_t sets, struct connector * connector )
 {
 	// 开始关注connector事件
 	
@@ -230,7 +247,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 	case eIOTaskType_Connect:
 		{
 			//
-			client_connect_direct( sets, (struct connector *)task );
+			_connect_direct( sets, (struct connector *)task );
 		}
 		break;
 
