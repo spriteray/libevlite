@@ -8,8 +8,8 @@ LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
-SONAME	= $(LIBNAME).1
-REALNAME= $(LIBNAME).1.0.1
+SONAME	= $(LIBNAME).2
+REALNAME= $(LIBNAME).2.1.0
 
 OS		= $(shell uname)
 
