@@ -12,19 +12,14 @@ sid_t IIOSession::id() const
 	return m_Sid;
 }
 
-void IIOSession::setSid( sid_t id )
+void IIOSession::setTimeout( int32_t seconds )
 {
-	m_Sid = id;
+	m_TimeoutSeconds = seconds;
 }
 
-void IIOSession::setLayer( iolayer_t layer )
+void IIOSession::setKeepalive( int32_t seconds )
 {
-	m_Layer = layer;
-}
-
-int32_t IIOSession::shutdown()
-{
-	return iolayer_shutdown( m_Layer, m_Sid );
+	m_KeepaliveSeconds = seconds;
 }
 
 int32_t IIOSession::send( std::string & buffer )
@@ -35,6 +30,26 @@ int32_t IIOSession::send( std::string & buffer )
 int32_t IIOSession::send( const char * buffer, uint32_t nbytes, bool iscopy )
 {
 	return iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(iscopy) );
+}
+
+int32_t IIOSession::shutdown()
+{
+	return iolayer_shutdown( m_Layer, m_Sid );
+}
+
+void IIOSession::init( sid_t id, iolayer_t layer )
+{
+	m_Sid = id;
+	m_Layer = layer;
+
+	if ( m_TimeoutSeconds > 0 )
+	{
+		iolayer_set_timeout( m_Layer, m_Sid, m_TimeoutSeconds );
+	}
+	if ( m_KeepaliveSeconds > 0 )
+	{
+		iolayer_set_keepalive( m_Layer, m_Sid, m_KeepaliveSeconds );
+	}
 }
 
 int32_t IIOSession::onProcessSession( void * context, const char * buf, uint32_t nbytes ) 
@@ -109,27 +124,27 @@ bool IIOService::start()
 
 void IIOService::stop()
 {
-	return iolayer_destroy();
-}
-
-void IIOService::setTimeoutSeconds( int32_t seconds )
-{
-	m_TimeoutSeconds = seconds;
-}
-
-void IIOService::setKeepaliveSeconds( uint32_t seconds )
-{
-	m_KeepaliveSeconds = seconds;
+	return iolayer_destroy( m_IOLayer );
 }
 
 bool IIOService::listen( const char * host, uint16_t port )
 {
-
+	return ( iolayer_listen( m_IOLayer, host, port, onAcceptSession, this ) == 0 );
 }
 
 bool IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 {
-	iolayer_connect( m_IOLayer, host, port,  );
+	return ( iolayer_connect( m_IOLayer, host, port, seconds, onConnectSession, this ) == 0 );
+}
+
+int32_t IIOService::send( sid_t id, std::string & buffer )
+{
+	return send( id, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
+}
+
+int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool iscopy )
+{
+	return iolayer_send( m_IOLayer, id, buffer, nbytes, iscopy );
 }
 
 int32_t IIOService::broadcast( std::vector<sid_t> & ids, std::string & buffer )
@@ -147,40 +162,47 @@ int32_t IIOService::broadcast( std::vector<sid_t> & ids, const char * buffer, ui
 	return iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes, static_cast<int32_t>(iscopy) );
 }
 
-void IIOService::attach( sid_t id, IIOSession * session, bool iskeepalive )
+int32_t IIOService::shutdown( sid_t id )
 {
+	return iolayer_shutdown( m_IOLayer, id );
+}
+
+int32_t IIOService::shutdown( std::vector<sid_t> & ids )
+{
+	std::vector<sid_t>::iterator start = ids.begin();
+
+	uint32_t count = (uint32_t)ids.size();
+	sid_t * idlist = static_cast<sid_t *>( &(*start) );
+
+	return iolayer_shutdowns( m_IOLayer, idlist, count );
+}
+
+void IIOService::attach( sid_t id, IIOSession * session )
+{
+	session->init( id, m_IOLayer );
+
 	ioservice_t ioservice;
 	ioservice.process	= IIOSession::onProcessSession;
 	ioservice.timeout	= IIOSession::onTimeoutSession;
 	ioservice.keepalive	= IIOSession::onKeepaliveSession;
 	ioservice.error		= IIOSession::onErrorSession;
 	ioservice.shutdown	= IIOSession::onShutdownSession;
-	
-	// 初始化会话
-	session->setSid( id );
-	session->setServer( m_Server );
-
-	server_set_service( m_Server, id, &ioservice, session );
-	server_set_timeout( m_Server, id, m_TimeoutSeconds );
-	if ( iskeepalive )
-	{
-		iolayer_set_keepalive( m_IOLayer, id, m_KeepaliveSeconds );
-	}
+	iolayer_set_service( m_IOLayer, id, &ioservice, session );
 }
 
 int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host, uint16_t port )
 {
 	IIOSession * session = NULL;
 	IIOService * service = static_cast<IIOService*>( context );
-	
+
 	session = service->onAccept( id, host, port );
-	if ( session )
+	if ( session == NULL )
 	{
-		service->attach( id, session, false );
-		return 0;
+		return -1;
 	}
 
-	return -1;
+	service->attach( id, session );
+	return 0;
 }
 
 int32_t IIOService::onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id )
@@ -189,18 +211,18 @@ int32_t IIOService::onConnectSession( void * context, int32_t result, const char
 	{
 		return 0;
 	}
-
+	
 	IIOSession * session = NULL;
 	IIOService * service = static_cast<IIOService *>( context );
 
 	session = service->onConnect( id, host, port );
-	if ( session )
+	if ( session == NULL )
 	{
-		service->attach( id, session, true );
-		return 0;
+		return -1;
 	}
 
-	return -1;
+	service->attach( id, session );
+	return 0;
 }
 
 }
@@ -213,7 +235,7 @@ int32_t CEchoSession::onProcess( const char * buf, uint32_t nbytes )
 
 int32_t CEchoSession::onTimeout()
 {
-	printf("the Session (SID=%ld) : timeout \n", getSid() );
+	printf("the Session (SID=%ld) : timeout \n", id() );
 	return -1;
 }
 
@@ -224,7 +246,7 @@ int32_t CEchoSession::onKeepalive()
 
 int32_t CEchoSession::onError( int32_t result )
 {
-	printf("the Session (SID=%ld) : error, code=0x%08x \n", getSid(), result );
+	printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
 	return -1;
 }
 
@@ -236,17 +258,22 @@ int32_t CEchoSession::onShutdown()
 
 Utils::IIOSession * Utils::IIOSession::create()
 {
-	return new CEchoSession;
+	return new CEchoSession();
 }
 
-Utils::IIOSession * CEchoService::onAccept( const char * host, uint16_t port )
+Utils::IIOSession * CEchoService::onAccept( sid_t id, const char * host, uint16_t port )
 {
-	return Utils::IIOSession::create();
+	Utils::IIOSession * session = Utils::IIOSession::create();
+	if ( session )
+	{
+		session->setTimeout( 60 );
+	}
+	return session;
 }
 
-Utils::IIOService * Utils::IIOService::create( const char * host, uint16_t port )
+Utils::IIOService * Utils::IIOService::create( uint8_t nthreads, uint32_t nclients )
 {
-	return new CEchoService( host, port );
+	return new CEchoService( nthreads, nclients );
 }
 
 bool g_Running;
@@ -263,17 +290,15 @@ int main()
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	service = static_cast<CEchoService *>( Utils::IIOService::create( "127.0.0.1", 9029 ) );
+	service = static_cast<CEchoService *>( Utils::IIOService::create( 4, 200000 ) );
 	if ( service == NULL )
 	{
 		return -1;
 	}
-	
-	service->setThreadsCount( 4 );
-	service->setSessionsCount( 200000 );
-	service->setTimeoutSeconds( 30 );
 
-	if ( !service->start() )
+	service->start();
+
+	if ( !service->listen( "127.0.0.1", 9029 ) )
 	{
 		printf("service start failed \n");
 		delete service;
@@ -290,6 +315,7 @@ int main()
 
 	printf("EchoServer stoping ...\n");
 	service->stop();
+
 	delete service;
 
 	return 0;
