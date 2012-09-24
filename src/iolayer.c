@@ -468,6 +468,25 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
+{
+	uint8_t index = key & self->nthreads;
+
+	struct session * session = NULL;
+	struct session_manager * manager = _get_manager( self, index );
+
+	if ( manager )
+	{
+		session = session_manager_alloc( manager, key );
+	}
+	else
+	{
+		syslog(LOG_WARNING, "iolayer_alloc_session(fd=%d) failed, the SessionManager's index[%d] is invalid .", key, index );
+	}
+
+	return session;
+}
+
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 {
 	uint8_t index = 0;
@@ -498,6 +517,27 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	}
 
 	return iothreads_post( self->group, index, eIOTaskType_Connect, connector, 0 );
+}
+
+int32_t iolayer_disconnect( struct iolayer * self, struct connector * connector )
+{
+	if ( connector->event )
+	{
+		evsets_t sets = event_get_sets( connector->event );
+
+		evsets_del( sets, connector->event );
+		event_destroy( connector->event );
+		connector->event = NULL;
+	}
+
+	if ( connector->fd > 0 )
+	{
+		close( connector->fd );
+		connector->fd = -1;
+	}
+
+	free( connector );
+	return 0;
 }
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task )

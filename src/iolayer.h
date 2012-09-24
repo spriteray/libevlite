@@ -91,8 +91,14 @@ struct task_send
 #pragma pack(1)
 #pragma pack()
 
+// 分配一个会话
+struct session * iolayer_alloc_session( struct iolayer * self, int32_t key );
+
 // 重新连接远程服务器
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector );
+
+// 断开连接
+int32_t iolayer_disconnect( struct iolayer * self, struct connector * connector );
 
 // 给当前线程分发一个会话
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );

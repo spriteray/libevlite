@@ -331,7 +331,7 @@ int32_t session_end( struct session * self )
 
 	// NOTICE: 最后一步终止描述符
 	// 系统会回收描述符, libevlite会重用以描述符为key的会话
-	if ( self->fd )
+	if ( self->fd > 0 )
 	{
 		close( self->fd );
 		self->fd = -1;

@@ -476,7 +476,11 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	
 	if ( result == 0 )
 	{
-		// TODO: 
+		session = iolayer_alloc_session( layer, connector->fd );
+		if ( session == NULL )
+		{
+			result = eIOError_OutMemory;
+		}
 	}
 
 	// 把连接结果回调给逻辑层
@@ -497,8 +501,21 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 			session_set_endpoint( session, connector->host, connector->port );
 			session_start( session, eSessionType_Persist, connector->fd, sets );
 			
-			// TODO: 是否需要释放 connector	
+			// 需要释放 connector	
+			connector->fd = -1;
+			iolayer_disconnect( layer, connector );
 		}
+	}
+	else
+	{
+		if ( session )
+		{
+			// 从会话管理器中移除会话
+			session_manager_remove( session->manager, session );
+			session_end( session );
+		}
+		// 需要释放 connector
+		iolayer_disconnect( layer, connector );
 	}
 
 	return;
