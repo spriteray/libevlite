@@ -476,10 +476,15 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	
 	if ( result == 0 )
 	{
+		// 连接成功的情况下, 需要去分配一个会话
 		session = iolayer_alloc_session( layer, connector->fd );
 		if ( session == NULL )
 		{
 			result = eIOError_OutMemory;
+		}
+		else
+		{
+			id = session->id;
 		}
 	}
 
