@@ -260,6 +260,7 @@ int32_t channel_error( struct session * session, int32_t result )
 
 int32_t channel_shutdown( struct session * session )
 {
+	sid_t id = session->id;
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
 
@@ -275,7 +276,7 @@ int32_t channel_shutdown( struct session * session )
 	}
 
 	// ª·ª∞÷’÷π
-	session_end( session );
+	session_end( session, id );
 
 	return 0;
 }

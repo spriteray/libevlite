@@ -165,7 +165,7 @@ int32_t client_stop( client_t self )
 	}
 
 	// 终止会话
-	session_end( &client->session );
+	session_end( &client->session, client->session.id );
 
 	// 销毁连接器
 	if ( connector )

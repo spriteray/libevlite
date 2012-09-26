@@ -266,14 +266,17 @@ int32_t session_shutdown( struct session * self )
 	return channel_shutdown( self );
 }
 
-int32_t session_end( struct session * self )
+int32_t session_end( struct session * self, sid_t id )
 {
+	// 由于会话已经从管理器中删除了
+	// 会话中的ID已经非法
+
 	// 清空发送队列
 	int32_t count = arraylist_count( &self->outmsglist );
 	if ( count > 0 )
 	{
 		// 会话终止时发送队列不为空
-		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty .", self->id, count );
+		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty .", id, count );
 	}
 	for ( ; count > 0; --count )
 	{
@@ -553,7 +556,7 @@ void session_manager_destroy( struct session_manager * self )
 						&& SID_SEQ(entry->data.id) == entry->seq )
 				{
 					// 会话处于激活状态
-					session_end( &entry->data );
+					session_end( &entry->data, entry->data.id );
 					++nalive;
 				}
 				
