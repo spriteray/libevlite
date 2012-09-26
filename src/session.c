@@ -87,7 +87,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 		}
 
 		message_add_receiver( message, self->id );
-		message_set_buffer( message,  buf, nbytes );
+		message_set_buffer( message, buf, nbytes );
 		arraylist_append( &self->outmsglist, message );
 		session_add_event( self, EV_WRITE|EV_ET );
 		return 0;
