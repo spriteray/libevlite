@@ -227,6 +227,8 @@ int32_t IIOService::onConnectSession( void * context, int32_t result, const char
 
 }
 
+#define DEBUG_OUTPUT	0
+
 int32_t CEchoSession::onProcess( const char * buf, uint32_t nbytes )
 {
 	send( buf, nbytes );
@@ -235,7 +237,9 @@ int32_t CEchoSession::onProcess( const char * buf, uint32_t nbytes )
 
 int32_t CEchoSession::onTimeout()
 {
+#if DEBUG_OUTPUT
 	printf("the Session (SID=%ld) : timeout \n", id() );
+#endif
 	return -1;
 }
 
@@ -246,7 +250,9 @@ int32_t CEchoSession::onKeepalive()
 
 int32_t CEchoSession::onError( int32_t result )
 {
+#if DEBUG_OUTPUT
 	printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
+#endif
 	return -1;
 }
 

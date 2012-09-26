@@ -259,6 +259,7 @@ int32_t channel_error( struct session * session, int32_t result )
 
 int32_t channel_shutdown( struct session * session )
 {
+	sid_t id = session->id;
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
 
@@ -274,7 +275,7 @@ int32_t channel_shutdown( struct session * session )
 	}
 
 	// 会话终止
-	session_end( session );
+	session_end( session, id );
 
 	return 0;
 }
@@ -517,7 +518,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		{
 			// 从会话管理器中移除会话
 			session_manager_remove( session->manager, session );
-			session_end( session );
+			session_end( session, id );
 		}
 		// 需要释放 connector
 		iolayer_disconnect( layer, connector );

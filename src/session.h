@@ -114,7 +114,7 @@ int32_t session_start_reconnect( struct session * self );
 int32_t session_shutdown( struct session * self );
 
 // 会话结束
-int32_t session_end( struct session * self );
+int32_t session_end( struct session * self, sid_t id );
 
 // 销毁会话
 int32_t session_final( struct session * self );
