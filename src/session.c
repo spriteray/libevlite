@@ -268,9 +268,9 @@ int32_t session_shutdown( struct session * self )
 
 int32_t session_end( struct session * self, sid_t id )
 {
-	// 由于session已经从manager中移除
-	// 所以self->id == 0
-	
+	// 由于会话已经从管理器中删除了
+	// 会话中的ID已经非法
+
 	// 清空发送队列
 	int32_t count = arraylist_count( &self->outmsglist );
 	if ( count > 0 )
