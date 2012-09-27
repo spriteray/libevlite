@@ -7,8 +7,7 @@
 #include <assert.h>
 
 #include "utils.h"
-#include "client.h"
-#include "server.h"
+#include "iolayer.h"
 #include "network-internal.h"
 
 #include "channel.h"
@@ -417,12 +416,12 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 {
 	struct acceptor * acceptor = (struct acceptor *)arg;
-	struct server * server = (struct server *)(acceptor->parent);
+	struct iolayer * layer = (struct iolayer *)(acceptor->parent);
 
 	if ( ev & EV_READ )
 	{
 		int32_t cfd = -1;
-		struct stask_assign task;
+		struct task_assign task;
 
 		cfd = tcp_accept( fd, task.host, &(task.port) );
 		if ( cfd > 0 )
@@ -439,10 +438,10 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 			task.context = acceptor->context;
 
 			// 分发策略
-			index = cfd % (server->nthreads);
+			index = cfd % (layer->nthreads);
 
 			// 把这个会话分发给指定的网络线程
-			server_assign_session( server, index, &(task) );
+			iolayer_assign_session( layer, index, &(task) );
 		}
 	}
 
@@ -454,6 +453,10 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	int32_t rc = 0;
 	int32_t result = 0;
 	struct connector * connector = (struct connector *)arg;
+
+	sid_t id = 0;
+	struct session * session = NULL;
+	struct iolayer * layer = (struct iolayer *)( connector->parent );
 
 	if ( ev & EV_WRITE )
 	{
@@ -472,27 +475,53 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		result = eIOError_Timeout;
 	}
 	
+	if ( result == 0 )
+	{
+		// 连接成功的情况下, 需要去分配一个会话
+		session = iolayer_alloc_session( layer, connector->fd );
+		if ( session == NULL )
+		{
+			result = eIOError_OutMemory;
+		}
+		else
+		{
+			id = session->id;
+		}
+	}
+
 	// 把连接结果回调给逻辑层
-	rc = connector->cb( connector->context, result );
+	rc = connector->cb( connector->context, result, connector->host, connector->port, id );
 
 	if ( rc == 0 )
 	{
 		if ( result != 0 )
 		{
 			// 逻辑层需要继续连接
-			client_reconnect( connector );	
+			iolayer_reconnect( layer, connector );
 		}
 		else
 		{
 			// 连接成功
-			struct session * session = connector->session;
+			evsets_t sets = event_get_sets( connector->event );
 
 			session_set_endpoint( session, connector->host, connector->port );
-			session_start( session, 
-					eSessionType_Persist, connector->fd, connector->sets );
+			session_start( session, eSessionType_Persist, connector->fd, sets );
 			
+			// 需要释放 connector	
 			connector->fd = -1;
+			iolayer_disconnect( layer, connector );
 		}
+	}
+	else
+	{
+		if ( session )
+		{
+			// 从会话管理器中移除会话
+			session_manager_remove( session->manager, session );
+			session_end( session, id );
+		}
+		// 需要释放 connector
+		iolayer_disconnect( layer, connector );
 	}
 
 	return;

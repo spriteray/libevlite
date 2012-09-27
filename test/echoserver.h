@@ -1,133 +1,211 @@
 
-#ifndef ECHOSERVER_H
+#ifndef ECHOSERVER_H 
 #define ECHOSERVER_H
 
 #include <vector>
+#include <string>
 
 #include "network.h"
 
-typedef std::vector<sid_t> sidlist_t;
-
-class CEchoService;
-class CEchoSession
+namespace Utils
 {
 
+//
+// 会话, 非线程安全的 
+//
+
+class IIOService;
+class IIOSession
+{
 public :
 
-	CEchoSession(sid_t id, server_t server) 
-		: m_Sid(id), 
-		  m_Server(server)
+	IIOSession() 
+		: m_Sid( 0 ),
+		  m_Layer( NULL ),
+		  m_TimeoutSeconds( 0 ),
+		  m_KeepaliveSeconds( 0 )
 	{}
 
-	~CEchoSession()
+	virtual ~IIOSession() 
 	{}
 
 public :
 
-	static int32_t onProcess( void * context, const char * buf, uint32_t nbytes );
-	static int32_t onTimeout( void * context );
-	static int32_t onKeepalive( void * context );
-	static int32_t onError( void * context, int32_t result );
-	static int32_t onShutdown( void * context );
+	// 创建会话
+	static IIOSession * create();
+
+	//	
+	// 网络事件	
+	// 多个网络线程中被触发
+	//
+
+	virtual int32_t onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
+	virtual int32_t onTimeout() { return 0; }
+	virtual int32_t onKeepalive() { return 0; }
+	virtual int32_t onError( int32_t result ) { return 0; }
+	virtual int32_t onShutdown() { return 0; }
 
 public :
 	
-	sid_t getSid() const
-	{
-		return m_Sid;
-	}
+	//	
+	// 在网络线程中对会话的操作
+	//
+	
+	// 获取会话ID	
+	sid_t id() const;
 
-	server_t getServer() const
-	{
-		return m_Server;
-	}
+	// 设置超时/保活时间
+	void setTimeout( int32_t seconds );
+	void setKeepalive( int32_t seconds );
 
+	// 发送数据
+	int32_t send( std::string & buffer );
+	int32_t send( const char * buffer, uint32_t nbytes, bool iscopy = true );
+
+	// 关闭会话	
 	int32_t shutdown();
-	int32_t send( const char * buf, uint32_t nbytes, bool iscopy = true );
 
 private :
 
-	sid_t			m_Sid;
-	server_t		m_Server;
+	friend class IIOService;
+
+	// 初始化会话
+	void init( sid_t id, iolayer_t layer );
+
+	// 内部回调函数
+	static int32_t onProcessSession( void * context, const char * buf, uint32_t nbytes ); 
+	static int32_t onTimeoutSession( void * context ); 
+	static int32_t onKeepaliveSession( void * context ); 
+	static int32_t onErrorSession( void * context, int32_t result ); 
+	static int32_t onShutdownSession( void * context ); 
+
+private :
+
+	sid_t		m_Sid;
+	iolayer_t	m_Layer;
+
+	int32_t		m_TimeoutSeconds;
+	int32_t		m_KeepaliveSeconds;
 };
 
-class CEchoService
+//
+// 网络通信层
+//
+
+class IIOService
 {
+public :
+
+	IIOService( uint8_t nthreads, uint32_t nclients )
+		: m_IOLayer(NULL),
+		  m_ThreadsCount( nthreads ),
+		  m_SessionsCount( nclients ) 
+	{}
+
+	virtual ~IIOService() 
+	{}
 
 public :
 
-	CEchoService();
-	~CEchoService();
-
-public :
+	// 创建服务器
+	static IIOService * create( uint8_t nthreads, uint32_t nclients );
 	
-	// 接收新的会话
-	static int32_t onAcceptSession( void * context, sid_t id, 
-										const char * host, uint16_t port );
+	// 接受/连接事件
+	// 需要调用者自己实现
+	// 有可能在IIOService的多个网络线程中被触发
+	
+	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port ) { return NULL; }
+	virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port ) { return NULL; } 
 
 public :
 
+	//
+	// 线程安全的API
+	//
+	
+	// 开启服务
 	bool start();
-	void stop();
 
-	int32_t broadcast( sidlist_t & sidlist, const char * buf, uint32_t nbytes, bool iscopy = true );
+	// 停止服务
+	void stop();
+	
+	// 连接/监听
+	bool listen( const char * host, uint16_t port );
+	bool connect( const char * host, uint16_t port, int32_t seconds );
+
+	// 发送数据
+	int32_t send( sid_t id, std::string & buffer );
+	int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool iscopy = true );
+
+	// 广播数据	
+	int32_t broadcast( std::vector<sid_t> & ids, std::string & buffer );
+	int32_t broadcast( std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes, bool iscopy = true );	
+
+	// 终止会话
+	int32_t shutdown( sid_t id );
+	int32_t shutdown( std::vector<sid_t> & ids );
 
 public :
 
-	int32_t getTimeoutSeconds() const
-	{
-		return m_TimeoutSeconds;
-	}
-
-	void setTimeoutSeconds( int32_t seconds )
-	{
-		m_TimeoutSeconds = seconds;
-	}
-
-	void setThreadsCount( uint8_t count )
-	{
-		m_ThreadsCount = count;
-	}
-
-	void setSessionsCount( uint32_t count )
-	{
-		m_SessionsCount = count;
-	}
-
-	void setEndPoint( const char * host, uint16_t port )
-	{
-		if ( m_BindHost )
-		{
-			free( m_BindHost );
-			m_BindHost = NULL;
-		}
-
-		if ( host )
-		{
-			m_BindHost = ::strdup( host );
-		}
-
-		m_ListenPort = port;
-	}
-
-	server_t getCoreServer() const
-	{
-		return m_CoreServer;
-	}
+	void attach( sid_t id, IIOSession * session );
+	
+private :
+	
+	// 内部函数
+	static int32_t onAcceptSession( void * context, sid_t id, const char * host, uint16_t port );
+	static int32_t onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id );
 
 private :
+
+	iolayer_t	m_IOLayer;
 
 	uint8_t		m_ThreadsCount;
 	uint32_t	m_SessionsCount;
-	int32_t		m_TimeoutSeconds;
-
-	char *		m_BindHost;
-	uint16_t	m_ListenPort;
-
-	server_t	m_CoreServer;
 };
 
+}
 
+//
+// 回显服务实例
+//
+
+class CEchoSession : public Utils::IIOSession
+{
+public :
+	CEchoSession()
+	{
+	}
+
+	virtual ~CEchoSession()
+	{
+	}
+
+public :
+
+	virtual int32_t onProcess( const char * buf, uint32_t nbytes ); 
+	virtual int32_t onTimeout(); 
+	virtual int32_t onKeepalive(); 
+	virtual int32_t onError( int32_t result ); 
+	virtual int32_t onShutdown(); 
+};
+
+class CEchoService : public Utils::IIOService
+{
+public :
+
+	CEchoService( uint8_t nthreads, uint32_t nclients )
+		: Utils::IIOService( nthreads, nclients )
+	{
+	}
+
+	virtual ~CEchoService()
+	{
+	}
+
+public :
+
+	Utils::IIOSession * onAccept( sid_t id, const char * host, uint16_t port );
+};
 
 #endif
 
