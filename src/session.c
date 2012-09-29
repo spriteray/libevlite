@@ -71,7 +71,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 
 	if ( self->status&SESSION_EXITING )
 	{
-		return -3;
+		return -1;
 	}
 
 	// ≈–∂œsession «∑Ò∑±√¶
