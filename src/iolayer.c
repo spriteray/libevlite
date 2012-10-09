@@ -85,15 +85,12 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 	}
 
 	// 创建网络线程组
-	self->group = iothreads_create( self->nthreads, _io_methods, self );
+	self->group = iothreads_start( self->nthreads, _io_methods, self );
 	if ( self->group == NULL )
 	{
 		iolayer_destroy( self );
 		return NULL;
 	}
-
-	// 服务器开启
-	iothreads_start( self->group );
 
 	return self;
 }
@@ -123,13 +120,6 @@ void iolayer_destroy( iolayer_t self )
 		}
 		free( layer->managers );
 		layer->managers = NULL;
-	}
-
-	// 销毁网络线程组
-	if ( layer->group )
-	{
-		iothreads_destroy( layer->group );
-		layer->group = NULL;
 	}
 
 	free( layer );

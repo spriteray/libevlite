@@ -55,10 +55,10 @@ int32_t main()
 	signal( SIGINT, signal_handler );
 
 	//
-	threadgroup = iothreads_create( nthreads, task_method, NULL );
+	threadgroup = iothreads_start( nthreads, task_method, NULL );
 	if ( threadgroup == NULL )
 	{
-		printf("iothreads_create() failed \n");
+		printf("iothreads_start() failed \n");
 		return -1;
 	}
 
@@ -71,7 +71,6 @@ int32_t main()
 	
 	//	
 	runflags = 1;
-	iothreads_start( threadgroup );
 	
 	//
 	start_time = mtime();
@@ -87,7 +86,6 @@ int32_t main()
 
 	//
 	iothreads_stop( threadgroup );
-	iothreads_destroy( threadgroup );
 	
 	//
 	for ( i = 0; i < nthreads; ++i )
