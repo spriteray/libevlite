@@ -51,7 +51,7 @@ int32_t set_non_block( int32_t fd )
 	return rc;
 }
 
-int32_t tcp_connect( char * host, uint16_t port, int8_t issync )
+int32_t tcp_connect( char * host, uint16_t port, int8_t isasyn )
 {
 	int32_t fd = -1;
 	int32_t rc = -1;
@@ -64,7 +64,7 @@ int32_t tcp_connect( char * host, uint16_t port, int8_t issync )
 		return -1;
 	}
 
-	if ( issync != 0 )
+	if ( isasyn != 0 )
 	{
 		// 指定了异步连接
 		set_non_block( fd );

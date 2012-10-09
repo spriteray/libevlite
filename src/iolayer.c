@@ -223,7 +223,7 @@ int32_t iolayer_connect( iolayer_t self,
 	}
 
 	// 连接远程服务器
-	connector->fd = tcp_connect( (char *)host, port, 0 );
+	connector->fd = tcp_connect( (char *)host, port, 1 );
 	if ( connector->fd <= 0 )
 	{
 		syslog(LOG_WARNING, "iolayer_connect(host:'%s', port:%d) failed, tcp_connect() failure .", host, port);
@@ -495,7 +495,7 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	}
 
 	// 尝试重新连接
-	connector->fd = tcp_connect( connector->host, connector->port, 0 );
+	connector->fd = tcp_connect( connector->host, connector->port, 1 );
 	if ( connector->fd < 0 )
 	{
 		syslog(LOG_WARNING, "iolayer_reconnect(host:'%s', port:%d) failed, tcp_connect() failure .", connector->host, connector->port);

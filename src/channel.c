@@ -504,6 +504,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 			// 连接成功
 			evsets_t sets = event_get_sets( connector->event );
 
+			set_non_block( connector->fd );
 			session_set_endpoint( session, connector->host, connector->port );
 			session_start( session, eSessionType_Persist, connector->fd, sets );
 			
@@ -550,6 +551,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 
 		// 注册读写事件
 		// 把积累下来的数据全部发送出去
+		set_non_block( fd );
 		session_add_event( session, EV_READ|EV_ET );
 		session_add_event( session, EV_WRITE|EV_ET );
 

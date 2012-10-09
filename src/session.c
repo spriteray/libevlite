@@ -232,7 +232,7 @@ int32_t session_start_reconnect( struct session * self )
 	}
 
 	// 连接远程服务器
-	self->fd = tcp_connect( self->host, self->port, 0 ); 
+	self->fd = tcp_connect( self->host, self->port, 1 ); 
 	if ( self->fd < 0 )
 	{
 		return channel_error( self, eIOError_ConnectFailure );
