@@ -147,10 +147,9 @@ void iolayer_destroy( iolayer_t self )
 //							参数4: 会话的端口号
 //		context		- 上下文参数
 int32_t iolayer_listen( iolayer_t self, 
-		const char * host, uint16_t port, 
-		int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context )
+						const char * host, uint16_t port, 
+						int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context )
 {
-	uint8_t index = 0;
 	struct iolayer * layer = (struct iolayer *)self;
 
 	// 创建接收器
@@ -185,8 +184,7 @@ int32_t iolayer_listen( iolayer_t self,
 	strncpy( acceptor->host, host, INET_ADDRSTRLEN );
 	
 	// 分发监听任务
-	index = acceptor->fd % layer->nthreads;
-	iothreads_post( layer->group, index, eIOTaskType_Listen, acceptor, 0 );	
+	iothreads_post( layer->group, (acceptor->fd%layer->nthreads), eIOTaskType_Listen, acceptor, 0 );	
 
 	return 0;
 }
@@ -203,10 +201,9 @@ int32_t iolayer_listen( iolayer_t self,
 //							参数5: 连接成功后返回的会话ID
 //		context		- 上下文参数
 int32_t iolayer_connect( iolayer_t self,
-		const char * host, uint16_t port, int32_t seconds, 
-		int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context	)
+						const char * host, uint16_t port, int32_t seconds, 
+						int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context	)
 {
-	uint8_t index = 0;
 	struct iolayer * layer = (struct iolayer *)self;
 
 	// 创建连接器
@@ -226,7 +223,7 @@ int32_t iolayer_connect( iolayer_t self,
 	}
 
 	// 连接远程服务器
-	connector->fd = tcp_connect( (char *)host, port, 0 );
+	connector->fd = tcp_connect( (char *)host, port, 1 );
 	if ( connector->fd <= 0 )
 	{
 		syslog(LOG_WARNING, "iolayer_connect(host:'%s', port:%d) failed, tcp_connect() failure .", host, port);
@@ -242,8 +239,7 @@ int32_t iolayer_connect( iolayer_t self,
 	strncpy( connector->host, host, INET_ADDRSTRLEN );
 
 	// 分发连接任务
-	index = connector->fd % layer->nthreads;
-	iothreads_post( layer->group, index, eIOTaskType_Connect, connector, 0 );	
+	iothreads_post( layer->group, (connector->fd%layer->nthreads), eIOTaskType_Connect, connector, 0 );	
 
 	return 0;
 }
@@ -499,7 +495,7 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	}
 
 	// 尝试重新连接
-	connector->fd = tcp_connect( connector->host, connector->port, 0 );
+	connector->fd = tcp_connect( connector->host, connector->port, 1 );
 	if ( connector->fd < 0 )
 	{
 		syslog(LOG_WARNING, "iolayer_reconnect(host:'%s', port:%d) failed, tcp_connect() failure .", connector->host, connector->port);

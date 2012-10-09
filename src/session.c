@@ -71,7 +71,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 
 	if ( self->status&SESSION_EXITING )
 	{
-		return -3;
+		return -1;
 	}
 
 	// ÅĞ¶ÏsessionÊÇ·ñ·±Ã¦
@@ -232,7 +232,7 @@ int32_t session_start_reconnect( struct session * self )
 	}
 
 	// Á¬½ÓÔ¶³Ì·şÎñÆ÷
-	self->fd = tcp_connect( self->host, self->port, 0 ); 
+	self->fd = tcp_connect( self->host, self->port, 1 ); 
 	if ( self->fd < 0 )
 	{
 		return channel_error( self, eIOError_ConnectFailure );
