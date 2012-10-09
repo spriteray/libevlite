@@ -42,8 +42,8 @@ iothreads_t iothreads_start( uint8_t nthreads,
 
 	// ¿ªÆôÍøÂçÏß³Ì
 	iothreads->runflags = 1;
-	iothreads->nrunthreads = iothreads->nthreads;
-	for ( i = 0; i < iothreads->nthreads; ++i )
+	iothreads->nrunthreads = nthreads;
+	for ( i = 0; i < nthreads; ++i )
 	{
 		iothread_start( iothreads->threadgroup+i, i, iothreads );
 	}
