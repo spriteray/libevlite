@@ -12,7 +12,10 @@
 
 #include "session.h"
 
-int32_t session_init( struct session * self, uint32_t size )
+static int32_t _init_session( struct session * self, uint32_t size );
+static int32_t _final_session( struct session * self );
+
+int32_t _init_session( struct session * self, uint32_t size )
 {
 	// 初始化网络事件
 	self->evread = event_create();
@@ -36,6 +39,34 @@ int32_t session_init( struct session * self, uint32_t size )
 	{
 		return -4;
 	}
+
+	return 0;
+}
+
+int32_t _final_session( struct session * self )
+{
+	// 销毁网络事件
+	if ( self->evread )
+	{
+		event_destroy( self->evread );
+		self->evread = NULL;
+	}
+	if ( self->evwrite )
+	{
+		event_destroy( self->evwrite );
+		self->evwrite = NULL;
+	}
+	if ( self->evkeepalive )
+	{
+		event_destroy( self->evkeepalive );
+		self->evkeepalive = NULL;
+	}
+	
+	// 销毁发送队列
+	arraylist_final( &self->outmsglist );
+
+	// 销毁接收缓冲区
+	buffer_set( &self->inbuffer, NULL, 0 );
 
 	return 0;
 }
@@ -343,34 +374,6 @@ int32_t session_end( struct session * self, sid_t id )
 	return 0;
 }
 
-int32_t session_final( struct session * self )
-{
-	// 销毁网络事件
-	if ( self->evread )
-	{
-		event_destroy( self->evread );
-		self->evread = NULL;
-	}
-	if ( self->evwrite )
-	{
-		event_destroy( self->evwrite );
-		self->evwrite = NULL;
-	}
-	if ( self->evkeepalive )
-	{
-		event_destroy( self->evkeepalive );
-		self->evkeepalive = NULL;
-	}
-	
-	// 销毁发送队列
-	arraylist_final( &self->outmsglist );
-
-	// 销毁接收缓冲区
-	buffer_set( &self->inbuffer, NULL, 0 );
-
-	return 0;
-}
-
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -475,10 +478,10 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 		}
 
 		// 初始化会话
-		if ( session_init( &entry->data, OUTMSGLIST_DEFAULT_SIZE ) != 0 )
+		if ( _init_session( &entry->data, OUTMSGLIST_DEFAULT_SIZE ) != 0 )
 		{
 			// 初始化出错了
-			session_final( &entry->data );
+			_final_session( &entry->data );
 
 			free( entry );
 			return NULL;
@@ -561,7 +564,7 @@ void session_manager_destroy( struct session_manager * self )
 				}
 				
 				// 销毁	
-				session_final( &entry->data );
+				_final_session( &entry->data );
 				free( entry );
 			}
 		}
