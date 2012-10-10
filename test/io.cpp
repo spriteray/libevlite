@@ -19,7 +19,7 @@ void IIOSession::setKeepalive( int32_t seconds )
 	m_KeepaliveSeconds = seconds;
 }
 
-int32_t IIOSession::send( std::string & buffer )
+int32_t IIOSession::send( const std::string & buffer )
 {
 	return send( buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
@@ -134,7 +134,7 @@ bool IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 	return ( iolayer_connect( m_IOLayer, host, port, seconds, onConnectSession, this ) == 0 );
 }
 
-int32_t IIOService::send( sid_t id, std::string & buffer )
+int32_t IIOService::send( sid_t id, const std::string & buffer )
 {
 	return send( id, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
@@ -144,17 +144,17 @@ int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool i
 	return iolayer_send( m_IOLayer, id, buffer, nbytes, iscopy );
 }
 
-int32_t IIOService::broadcast( std::vector<sid_t> & ids, std::string & buffer )
+int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string & buffer )
 {
 	return broadcast( ids, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
 
-int32_t IIOService::broadcast( std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes, bool iscopy )
+int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes, bool iscopy )
 {
-	std::vector<sid_t>::iterator start = ids.begin();	
+	std::vector<sid_t>::const_iterator start = ids.begin();	
 
 	uint32_t count = (uint32_t)ids.size();
-	sid_t * idlist = static_cast<sid_t *>( &(*start) );
+	sid_t * idlist = const_cast<sid_t *>( &(*start) );
 
 	return iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes, static_cast<int32_t>(iscopy) );
 }
@@ -164,12 +164,12 @@ int32_t IIOService::shutdown( sid_t id )
 	return iolayer_shutdown( m_IOLayer, id );
 }
 
-int32_t IIOService::shutdown( std::vector<sid_t> & ids )
+int32_t IIOService::shutdown( const std::vector<sid_t> & ids )
 {
-	std::vector<sid_t>::iterator start = ids.begin();
+	std::vector<sid_t>::const_iterator start = ids.begin();
 
 	uint32_t count = (uint32_t)ids.size();
-	sid_t * idlist = static_cast<sid_t *>( &(*start) );
+	sid_t * idlist = const_cast<sid_t *>( &(*start) );
 
 	return iolayer_shutdowns( m_IOLayer, idlist, count );
 }
