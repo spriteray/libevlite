@@ -1,0 +1,139 @@
+
+#include <stdio.h>
+#include <signal.h>
+
+#include "io.h"
+
+//
+// 回显服务实例
+//
+
+sid_t g_ClientSid;
+
+class CEchoSession : public Utils::IIOSession
+{
+public :
+	CEchoSession()
+	{}
+
+	virtual ~CEchoSession()
+	{}
+
+public :
+
+	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
+	{
+		printf("%s", buf);
+		fflush(NULL);
+		return nbytes;
+	}
+	
+	virtual int32_t onError( int32_t result ) 
+	{
+		printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
+		return -1;
+	}
+
+	virtual int32_t onShutdown()
+	{
+		delete this;
+		return 0;
+	}
+};
+
+class CEchoService : public Utils::IIOService
+{
+public :
+
+	CEchoService( uint8_t nthreads, uint32_t nclients )
+		: Utils::IIOService( nthreads, nclients )
+	{
+	}
+
+	virtual ~CEchoService()
+	{
+	}
+
+public :
+
+	Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
+	{
+		g_ClientSid = id;
+		return Utils::IIOSession::create();
+	}
+};
+
+Utils::IIOSession * Utils::IIOSession::create()
+{
+	return new CEchoSession();
+}
+
+Utils::IIOService * Utils::IIOService::create( uint8_t nthreads, uint32_t nclients )
+{
+	return new CEchoService( nthreads, nclients );
+}
+
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+
+bool g_Running;
+
+void signal_handle( int32_t signo )
+{
+	g_Running = false;
+}
+
+int main( int argc, char ** argv )
+{
+	CEchoService * service = NULL;
+
+	if ( argc != 3 )
+	{
+		printf("Usage: echoclient [host] [port] \n");
+		return -1;
+	}
+	
+	signal( SIGPIPE, SIG_IGN );
+	signal( SIGINT, signal_handle );
+
+	service = static_cast<CEchoService *>( Utils::IIOService::create(1, 200) );
+	if ( service == NULL )
+	{
+		return -1;
+	}
+
+	service->start();
+
+	if ( !service->connect( argv[1], atoi(argv[2]), 10 ) )
+	{
+		printf("service start failed \n");
+		delete service;
+
+		return -2;
+	}
+
+	g_Running = true;
+
+	while ( g_Running )
+	{
+		size_t len = 0;
+		ssize_t nline = 0;
+		char * line = NULL;
+
+		while ( (nline = getline( &line, &len, stdin)) != -1 )  
+		{
+			service->send( g_ClientSid, line, nline );
+			free( line );
+		}
+	}
+
+	printf("EchoServer stoping ...\n");
+	service->stop();
+
+	delete service;
+
+	return 0;
+
+}
+

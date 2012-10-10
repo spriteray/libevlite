@@ -9,7 +9,7 @@ SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).4
-REALNAME= $(LIBNAME).4.3.1
+REALNAME= $(LIBNAME).4.3.3
 
 OS		= $(shell uname)
 
@@ -67,6 +67,10 @@ echoserver-lock : accept-lock-echoserver.o $(OBJS)
 
 	$(CC) $(LFLAGS) $^ -o $@
 
+echoclient : io.o echoclient.o $(OBJS)
+
+	$(CXX) $(LFLAGS) $^ -o $@
+
 echoserver : io.o echoserver.o $(OBJS)
 
 	$(CXX) $(LFLAGS) $^ -o $@
@@ -92,7 +96,7 @@ clean :
 	rm -rf $(REALNAME)
 
 	rm -rf test_events event.fifo
-	rm -rf test_addtimer echostress echoserver echoserver-lock iothreads_dispatcher
+	rm -rf test_addtimer echoclient echostress echoserver echoserver-lock iothreads_dispatcher
 	
 # --------------------------------------------------------
 #

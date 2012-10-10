@@ -1,58 +1,84 @@
 
 #include <signal.h>
 
-#include "echoserver.h"
+#include "io.h"
 
 #define DEBUG_OUTPUT	0
 
-bool g_Running;
 
-int32_t CEchoSession::onProcess( const char * buf, uint32_t nbytes )
-{
-	send( buf, nbytes );
-	return nbytes;
-}
+//
+// 回显服务实例
+//
 
-int32_t CEchoSession::onTimeout()
+class CEchoSession : public Utils::IIOSession
 {
-#if DEBUG_OUTPUT
-	printf("the Session (SID=%ld) : timeout \n", id() );
-#endif
-	return -1;
-}
+public :
+	CEchoSession()
+	{}
 
-int32_t CEchoSession::onKeepalive()
-{
-	return 0;
-}
+	virtual ~CEchoSession()
+	{}
 
-int32_t CEchoSession::onError( int32_t result )
-{
-#if DEBUG_OUTPUT
-	printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
-#endif
-	return -1;
-}
+public :
 
-int32_t CEchoSession::onShutdown()
+	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
+	{
+		send( buf, nbytes );
+		return nbytes;
+	}
+	
+	virtual int32_t onTimeout()
+	{
+	#if DEBUG_OUTPUT
+		printf("the Session (SID=%ld) : timeout \n", id() );
+	#endif
+		return -1;
+	}
+	
+	virtual int32_t onError( int32_t result ) 
+	{
+	#if DEBUG_OUTPUT
+		printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
+	#endif
+		return -1;
+	}
+
+	virtual int32_t onShutdown()
+	{
+		delete this;
+		return 0;
+	}
+};
+
+class CEchoService : public Utils::IIOService
 {
-	delete this;
-	return 0;
-}
+public :
+
+	CEchoService( uint8_t nthreads, uint32_t nclients )
+		: Utils::IIOService( nthreads, nclients )
+	{
+	}
+
+	virtual ~CEchoService()
+	{
+	}
+
+public :
+
+	Utils::IIOSession * onAccept( sid_t id, const char * host, uint16_t port )
+	{
+		Utils::IIOSession * session = Utils::IIOSession::create();
+		if ( session )
+		{
+			session->setTimeout( 60 );
+		}
+		return session;
+	}
+};
 
 Utils::IIOSession * Utils::IIOSession::create()
 {
 	return new CEchoSession();
-}
-
-Utils::IIOSession * CEchoService::onAccept( sid_t id, const char * host, uint16_t port )
-{
-	Utils::IIOSession * session = Utils::IIOSession::create();
-	if ( session )
-	{
-		session->setTimeout( 60 );
-	}
-	return session;
 }
 
 Utils::IIOService * Utils::IIOService::create( uint8_t nthreads, uint32_t nclients )
@@ -60,6 +86,11 @@ Utils::IIOService * Utils::IIOService::create( uint8_t nthreads, uint32_t nclien
 	return new CEchoService( nthreads, nclients );
 }
 
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+
+bool g_Running;
 
 void signal_handle( int32_t signo )
 {
