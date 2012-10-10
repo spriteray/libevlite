@@ -1,4 +1,8 @@
 
+#if defined(__FREEBSD__)
+#define _WITH_GETLINE
+#endif
+
 #include <stdio.h>
 #include <signal.h>
 
@@ -24,7 +28,6 @@ public :
 	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
 	{
 		printf("%s", buf);
-		fflush(NULL);
 		return nbytes;
 	}
 	
@@ -126,6 +129,8 @@ int main( int argc, char ** argv )
 			service->send( g_ClientSid, line, nline );
 			free( line );
 		}
+
+		fflush(stdin);
 	}
 
 	printf("EchoServer stoping ...\n");

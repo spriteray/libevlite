@@ -241,7 +241,7 @@ int32_t epoll_del( void * arg, struct event * ev )
 			// 并且还需要从写事件中查看是否支持了边缘触发模式
 			delwrite = 0;
 			events = EPOLLOUT;
-			op = EPOLL_CTL_ADD;
+			op = EPOLL_CTL_MOD;
 
 			if ( evwrite->events & EV_ET )
 			{
@@ -256,7 +256,7 @@ int32_t epoll_del( void * arg, struct event * ev )
 			// 并且还需要从读事件中查看是否支持了边缘触发模式
 			delread = 0;
 			events = EPOLLIN;
-			op = EPOLL_CTL_ADD;
+			op = EPOLL_CTL_MOD;
 
 			if ( evread->events & EV_ET )
 			{
