@@ -9,7 +9,7 @@ SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).4
-REALNAME= $(LIBNAME).4.0.1
+REALNAME= $(LIBNAME).4.1.1
 
 OS		= $(shell uname)
 
@@ -67,7 +67,7 @@ echoserver-lock : accept-lock-echoserver.o $(OBJS)
 
 	$(CC) $(LFLAGS) $^ -o $@
 
-echoserver : echoserver.o $(OBJS)
+echoserver : io.o echoserver.o $(OBJS)
 
 	$(CXX) $(LFLAGS) $^ -o $@
 
