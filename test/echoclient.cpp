@@ -1,5 +1,5 @@
 
-#if defined(__FREEBSD__)
+#if defined(__FreeBSD__)
 #define _WITH_GETLINE
 #endif
 
