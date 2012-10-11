@@ -390,10 +390,9 @@ struct session * _get_entry( struct session_manager * self, sid_t id )
 {
 	uint32_t i = 0;
 	uint32_t seq = SID_SEQ( id );
+	struct arraylist * bucket = self->entries + ( seq&(self->size-1) );
 
 	assert( self->index == SID_INDEX(id) );
-	
-	struct arraylist * bucket = self->entries + ( seq&(self->size-1) );
 
 	for ( i = 0; i < arraylist_count(bucket); ++i )
 	{
@@ -476,19 +475,19 @@ struct session * session_manager_alloc( struct session_manager * self )
 		if ( s->id == id )
 		{
 			// 会话ID冲突, 记录日志
-			syslog(LOG_WARNING, "session_manager_alloc(Index=%u): SID (Seq=%u, Sid=%ld) conflict !", self->index, self->seq-1, id );
+			syslog(LOG_WARNING, "session_manager_alloc(Index=%u): the SID (Seq=%u, Sid=%ld) conflict !", self->index, self->seq-1, id );
 			return NULL;
 		}
 		else if ( s->id == 0 )
 		{
+			// 找到可用的会话句柄
 			session = s;
 		}
 	}
 
 	if ( session == NULL )
 	{
-		// 没有找到合适的槽位
-
+		// 没有找到可用的会话句柄
 		session = _new_session( OUTMSGLIST_DEFAULT_SIZE );
 		if ( session == NULL )
 		{
@@ -532,7 +531,11 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 void session_manager_destroy( struct session_manager * self )
 {
 	int32_t i = 0;
-	int32_t nalive = 0;
+
+	if ( self->count > 0 )
+	{
+		syslog(LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, self->count );
+	}
 
 	for ( i = 0; i < self->size; ++i )
 	{
@@ -548,7 +551,6 @@ void session_manager_destroy( struct session_manager * self )
 				{
 					// 会话处于激活状态
 					session_end( session, session->id );
-					++nalive;
 				}
 				
 				// 销毁	
@@ -557,11 +559,6 @@ void session_manager_destroy( struct session_manager * self )
 		}
 
 		arraylist_final( bucket );
-	}
-
-	if ( nalive > 0 )
-	{
-		syslog(LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, nalive );
 	}
 
 	if ( self->entries )
