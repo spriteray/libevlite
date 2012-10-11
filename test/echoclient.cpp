@@ -33,7 +33,7 @@ public :
 	virtual int32_t onError( int32_t result ) 
 	{
 		printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
-		return -1;
+		return 0;
 	}
 
 	virtual int32_t onShutdown()

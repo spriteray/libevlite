@@ -463,7 +463,7 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 
 	if ( manager )
 	{
-		session = session_manager_alloc( manager, key );
+		session = session_manager_alloc( manager );
 	}
 	else
 	{
@@ -475,9 +475,6 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 {
-	uint8_t index = 0;
-	pthread_t threadid;
-
 	// 首先必须先关闭以前的描述符
 	if ( connector->fd > 0 )
 	{
@@ -489,23 +486,12 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	if ( connector->fd < 0 )
 	{
 		syslog(LOG_WARNING, "iolayer_reconnect(host:'%s', port:%d) failed, tcp_connect() failure .", connector->host, connector->port);
-
-		_connect_direct( event_get_sets(connector->event), connector );
-		return 0;
 	}
 	
-	index = connector->fd % self->nthreads;
-	threadid = iothreads_get_id( self->group, index );
-
-	if ( pthread_self() == threadid )
-	{
-		return _connect_direct( iothreads_get_sets(self->group, index), connector );
-	}
-
-	return iothreads_post( self->group, index, eIOTaskType_Connect, connector, 0 );
+	return _connect_direct( event_get_sets(connector->event), connector );
 }
 
-int32_t iolayer_disconnect( struct iolayer * self, struct connector * connector )
+int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector )
 {
 	if ( connector->event )
 	{
@@ -684,10 +670,9 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task )
 {
 	int32_t rc = 0;
-	int32_t key = task->fd;
 	
 	// 会话管理器分配会话
-	struct session * session = session_manager_alloc( manager, key );
+	struct session * session = session_manager_alloc( manager );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, 
