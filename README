@@ -1,14 +1,16 @@
 
-libevliteç½‘ç»œé€šä¿¡åº“
+libevliteÍøÂçÍ¨ÐÅ¿â
 
-1. åŸºç¡€äº‹ä»¶æ¨¡å—( include/event.h )
+1. »ù´¡ÊÂ¼þÄ£¿é( include/event.h )
 
  
-2. ç½‘ç»œçº¿ç¨‹æ¨¡å—( include/threads.h )
+2. ÍøÂçÏß³ÌÄ£¿é( include/threads.h )
 
 
-3. é€šä¿¡æ¨¡å—( include/networks.h	)
- 
-ç½‘å…³åº”ç”¨( iolayer_create( nthreads>1, nclients>100000 ) )
-å…¶ä»–åº”ç”¨( iolayer_create( nthreads==1, nclients>100 ) )
+3. Í¨ÐÅÄ£¿é( include/networks.h	)
+	
+	1) ´´½¨ÍøÂçÍ¨ÐÅ²ã iolayer_create()
+		Íø¹ØÓ¦ÓÃ: ÍøÂçÏß³Ì¸öÊý>1, ¿Í»§¶Ë¸öÊý>10000;
+		ÆäËûÓ¦ÓÃ: ÍøÂçÏß³Ì¸öÊý==1, ¿Í»§¶Ë¸öÊý<=1000;
+	2)  
  
