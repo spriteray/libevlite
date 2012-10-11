@@ -466,7 +466,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 {
-	uint8_t index = key & self->nthreads;
+	uint8_t index = key % self->nthreads;
 
 	struct session * session = NULL;
 	struct session_manager * manager = _get_manager( self, index );

@@ -137,7 +137,7 @@ int32_t epoll_insert( struct epoller * self, int32_t max )
 
 int32_t epoll_add( void * arg, struct event * ev )
 {
-	int32_t fd = 0, rc = 0;
+	int32_t fd = 0;
 	int32_t op = 0, events = 0;
 
 	struct epoll_event epollevent;
@@ -160,10 +160,12 @@ int32_t epoll_add( void * arg, struct event * ev )
 	if ( eventpair->evread != NULL )
 	{
 		events |= EPOLLIN;
+		op = EPOLL_CTL_MOD;
 	}
 	if ( eventpair->evwrite != NULL )
 	{
 		events |= EPOLLOUT;
+		op = EPOLL_CTL_MOD;
 	}
 
 	if ( ev->events & EV_READ )
@@ -181,8 +183,8 @@ int32_t epoll_add( void * arg, struct event * ev )
 
 	epollevent.data.fd = fd;
 	epollevent.events = events;
-	rc = epoll_ctl( poller->epollfd, op, fd, &epollevent );
-	if ( rc == -1 && errno != EEXIST )
+	
+	if ( epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 )
 	{
 		return -2;
 	}
@@ -201,7 +203,7 @@ int32_t epoll_add( void * arg, struct event * ev )
 
 int32_t epoll_del( void * arg, struct event * ev )
 {
-	int32_t fd = 0, rc = 0;
+	int32_t fd = 0;
 	int32_t op = 0, events = 0;
 	int32_t delwrite = 1, delread = 1;
 
@@ -241,7 +243,7 @@ int32_t epoll_del( void * arg, struct event * ev )
 			// 并且还需要从写事件中查看是否支持了边缘触发模式
 			delwrite = 0;
 			events = EPOLLOUT;
-			op = EPOLL_CTL_ADD;
+			op = EPOLL_CTL_MOD;
 
 			if ( evwrite->events & EV_ET )
 			{
@@ -256,7 +258,7 @@ int32_t epoll_del( void * arg, struct event * ev )
 			// 并且还需要从读事件中查看是否支持了边缘触发模式
 			delread = 0;
 			events = EPOLLIN;
-			op = EPOLL_CTL_ADD;
+			op = EPOLL_CTL_MOD;
 
 			if ( evread->events & EV_ET )
 			{
@@ -277,8 +279,7 @@ int32_t epoll_del( void * arg, struct event * ev )
 		eventpair->evwrite = NULL;
 	}
 
-	rc = epoll_ctl( poller->epollfd, op, fd, &epollevent );
-	if ( rc == -1 && errno != EEXIST )
+	if ( epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 )
 	{
 		return -2;
 	}
