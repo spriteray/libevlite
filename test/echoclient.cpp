@@ -8,8 +8,6 @@
 // 回显服务实例
 //
 
-sid_t g_ClientSid;
-
 class CEchoSession : public Utils::IIOSession
 {
 public :
@@ -60,9 +58,20 @@ public :
 
 	Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
 	{
-		g_ClientSid = id;
+		m_ClientSid = id;
 		return Utils::IIOSession::create();
 	}
+
+public :
+
+	int32_t send2( const std::string & buffer )
+	{
+		return send( m_ClientSid, buffer );
+	}
+
+private :
+
+	sid_t	m_ClientSid;
 };
 
 Utils::IIOSession * Utils::IIOSession::create()
@@ -130,7 +139,8 @@ int main( int argc, char ** argv )
 				g_Running = false;
 				continue;
 			}
-			service->send( g_ClientSid, line );
+
+			service->send2( line );
 			line.clear();
 		}
 		fflush(stdin);
