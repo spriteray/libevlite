@@ -1,0 +1,14 @@
+
+libevlite网络通信库
+
+1. 基础事件模块( include/event.h )
+
+ 
+2. 网络线程模块( include/threads.h )
+
+
+3. 通信模块( include/networks.h	)
+ 
+网关应用( iolayer_create( nthreads>1, nclients>100000 ) )
+其他应用( iolayer_create( nthreads==1, nclients>100 ) )
+ 
