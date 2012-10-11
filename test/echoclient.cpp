@@ -1,8 +1,4 @@
 
-#if defined(__FreeBSD__)
-#define _WITH_GETLINE
-#endif
-
 #include <stdio.h>
 #include <signal.h>
 
@@ -27,7 +23,10 @@ public :
 
 	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
 	{
-		printf("%s", buf);
+		std::string line( buf, buf+nbytes );
+		printf("%s", line.c_str() );
+		fflush(stdout);
+
 		return nbytes;
 	}
 	
@@ -89,6 +88,7 @@ void signal_handle( int32_t signo )
 
 int main( int argc, char ** argv )
 {
+	std::string line;
 	CEchoService * service = NULL;
 
 	if ( argc != 3 )
@@ -118,22 +118,25 @@ int main( int argc, char ** argv )
 
 	g_Running = true;
 
-	while ( g_Running )
+	while ( g_Running ) 
 	{
-		size_t len = 0;
-		ssize_t nline = 0;
-		char * line = NULL;
-
-		while ( (nline = getline( &line, &len, stdin)) != -1 )  
+		int ch = getc(stdin);
+		line.push_back( (char)ch );
+		
+		if ( ch == '\n' )
 		{
-			service->send( g_ClientSid, line, nline );
-			free( line );
+			if ( strcmp( line.c_str(), "quit\n" ) == 0 )
+			{
+				g_Running = false;
+				continue;
+			}
+			service->send( g_ClientSid, line );
+			line.clear();
 		}
-
 		fflush(stdin);
 	}
 
-	printf("EchoServer stoping ...\n");
+	printf("EchoClient stoping ...\n");
 	service->stop();
 
 	delete service;
