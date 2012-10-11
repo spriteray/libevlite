@@ -31,9 +31,6 @@ public :
 
 public :
 
-	// 创建会话
-	static IIOSession * create();
-
 	//	
 	// 网络事件	
 	// 多个网络线程中被触发
@@ -107,9 +104,6 @@ public :
 
 public :
 
-	// 创建服务器
-	static IIOService * create( uint8_t nthreads, uint32_t nclients );
-	
 	// 接受/连接事件
 	// 需要调用者自己实现
 	// 有可能在IIOService的多个网络线程中被触发

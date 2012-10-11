@@ -59,7 +59,7 @@ public :
 	Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
 	{
 		m_ClientSid = id;
-		return Utils::IIOSession::create();
+		return new CEchoSession(); 
 	}
 
 public :
@@ -73,16 +73,6 @@ private :
 
 	sid_t	m_ClientSid;
 };
-
-Utils::IIOSession * Utils::IIOSession::create()
-{
-	return new CEchoSession();
-}
-
-Utils::IIOService * Utils::IIOService::create( uint8_t nthreads, uint32_t nclients )
-{
-	return new CEchoService( nthreads, nclients );
-}
 
 // -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
@@ -109,7 +99,7 @@ int main( int argc, char ** argv )
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	service = static_cast<CEchoService *>( Utils::IIOService::create(1, 200) );
+	service = new CEchoService( 1, 200 ); 
 	if ( service == NULL )
 	{
 		return -1;

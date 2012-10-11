@@ -67,7 +67,7 @@ public :
 
 	Utils::IIOSession * onAccept( sid_t id, const char * host, uint16_t port )
 	{
-		Utils::IIOSession * session = Utils::IIOSession::create();
+		Utils::IIOSession * session = new CEchoSession(); 
 		if ( session )
 		{
 			session->setTimeout( 60 );
@@ -75,16 +75,6 @@ public :
 		return session;
 	}
 };
-
-Utils::IIOSession * Utils::IIOSession::create()
-{
-	return new CEchoSession();
-}
-
-Utils::IIOService * Utils::IIOService::create( uint8_t nthreads, uint32_t nclients )
-{
-	return new CEchoService( nthreads, nclients );
-}
 
 // -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
@@ -104,7 +94,7 @@ int main()
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	service = static_cast<CEchoService *>( Utils::IIOService::create(4, 200000) );
+	service = new CEchoService( 4, 200000 ); 
 	if ( service == NULL )
 	{
 		return -1;
