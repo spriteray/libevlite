@@ -615,7 +615,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 	if ( pthread_self() == iothreads_get_id( self->group, index ) )
 	{
 		// 本线程内直接发送
-//		return _send_direct( _get_manager(self, index), &task );
+		return _send_direct( _get_manager(self, index), &task );
 	}
 
 	// 跨线程提交发送任务
