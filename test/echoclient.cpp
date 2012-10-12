@@ -1,10 +1,8 @@
 
+#include <stdio.h>
 #include <signal.h>
 
 #include "io.h"
-
-#define DEBUG_OUTPUT	0
-
 
 //
 // 回显服务实例
@@ -23,24 +21,17 @@ public :
 
 	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
 	{
-		send( buf, nbytes );
+		std::string line( buf, buf+nbytes );
+		printf("%s", line.c_str() );
+		fflush(stdout);
+
 		return nbytes;
-	}
-	
-	virtual int32_t onTimeout()
-	{
-	#if DEBUG_OUTPUT
-		printf("the Session (SID=%ld) : timeout \n", id() );
-	#endif
-		return -1;
 	}
 	
 	virtual int32_t onError( int32_t result ) 
 	{
-	#if DEBUG_OUTPUT
 		printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
-	#endif
-		return -1;
+		return 0;
 	}
 
 	virtual int32_t onShutdown()
@@ -65,15 +56,22 @@ public :
 
 public :
 
-	Utils::IIOSession * onAccept( sid_t id, const char * host, uint16_t port )
+	Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
 	{
-		Utils::IIOSession * session = new CEchoSession(); 
-		if ( session )
-		{
-			session->setTimeout( 60 );
-		}
-		return session;
+		m_ClientSid = id;
+		return new CEchoSession(); 
 	}
+
+public :
+
+	int32_t send2( const std::string & buffer )
+	{
+		return send( m_ClientSid, buffer );
+	}
+
+private :
+
+	sid_t	m_ClientSid;
 };
 
 // -------------------------------------------------------------------------------
@@ -87,14 +85,21 @@ void signal_handle( int32_t signo )
 	g_Running = false;
 }
 
-int main()
+int main( int argc, char ** argv )
 {
+	std::string line;
 	CEchoService * service = NULL;
+
+	if ( argc != 3 )
+	{
+		printf("Usage: echoclient [host] [port] \n");
+		return -1;
+	}
 	
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	service = new CEchoService( 4, 200000 ); 
+	service = new CEchoService( 1, 200 ); 
 	if ( service == NULL )
 	{
 		return -1;
@@ -102,7 +107,7 @@ int main()
 
 	service->start();
 
-	if ( !service->listen( "127.0.0.1", 9029 ) )
+	if ( !service->connect( argv[1], atoi(argv[2]), 10 ) )
 	{
 		printf("service start failed \n");
 		delete service;
@@ -110,14 +115,28 @@ int main()
 		return -2;
 	}
 
-	g_Running = true;	
+	g_Running = true;
 
-	while ( g_Running )
+	while ( g_Running ) 
 	{
-		sleep(1);
+		int ch = getc(stdin);
+		line.push_back( (char)ch );
+		
+		if ( ch == '\n' )
+		{
+			if ( strcmp( line.c_str(), "quit\n" ) == 0 )
+			{
+				g_Running = false;
+				continue;
+			}
+
+			service->send2( line );
+			line.clear();
+		}
+		fflush(stdin);
 	}
 
-	printf("EchoServer stoping ...\n");
+	printf("EchoClient stoping ...\n");
 	service->stop();
 
 	delete service;

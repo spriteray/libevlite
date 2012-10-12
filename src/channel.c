@@ -99,8 +99,8 @@ int32_t _transmit( struct session * session )
 			}
 
 			arraylist_take( &session->outmsglist, 0 );
-
 			offsets -= message_get_length(message);
+
 			++message->nsuccess;
 			if ( message_is_complete(message) == 0 )
 			{
@@ -510,7 +510,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 			
 			// 需要释放 connector	
 			connector->fd = -1;
-			iolayer_disconnect( layer, connector );
+			iolayer_free_connector( layer, connector );
 		}
 	}
 	else
@@ -522,7 +522,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 			session_end( session, id );
 		}
 		// 需要释放 connector
-		iolayer_disconnect( layer, connector );
+		iolayer_free_connector( layer, connector );
 	}
 
 	return;

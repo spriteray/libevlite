@@ -15,51 +15,40 @@
 // 创建网络线程组
 // nthreads		- 网络线程组中的线程数
 // method		- 任务处理函数
-iothreads_t iothreads_create( uint8_t nthreads, 
+iothreads_t iothreads_start( uint8_t nthreads, 
 					void (*method)(void *, uint8_t, int16_t, void *), void * context )
 {
+	uint8_t i = 0;
 	struct iothreads * iothreads = NULL;
 
 	iothreads = calloc( 1, sizeof(struct iothreads) );
-	if ( iothreads )
+	if ( iothreads == NULL )
 	{
-		iothreads->method 	= method;
-		iothreads->context	= context;
-		iothreads->nrunthreads = 0;
-		iothreads->nthreads = nthreads;
+		return NULL;
+	}
+	
+	iothreads->threadgroup = calloc( nthreads, sizeof(struct iothread) );
+	if ( iothreads->threadgroup == NULL )
+	{
+		free( iothreads );
+		iothreads = NULL;
+	}
 
-		iothreads->threadgroup = calloc( nthreads, sizeof(struct iothread) );
-		if ( iothreads->threadgroup )
-		{
-			pthread_cond_init( &(iothreads->cond), NULL );
-			pthread_mutex_init( &(iothreads->lock), NULL );
-		}
-		else
-		{
-			free( iothreads );
-			iothreads = NULL;
-		}
+	iothreads->method 	= method;
+	iothreads->context	= context;
+	iothreads->nthreads = nthreads;
+	pthread_cond_init( &iothreads->cond, NULL );
+	pthread_mutex_init( &iothreads->lock, NULL );
+
+	// 开启网络线程
+	iothreads->runflags = 1;
+	iothreads->nrunthreads = nthreads;
+	for ( i = 0; i < nthreads; ++i )
+	{
+		iothread_start( iothreads->threadgroup+i, i, iothreads );
 	}
 
 	return iothreads;
-}
-
-// 网络线程组开始运行
-int32_t iothreads_start( iothreads_t self )
-{
-	uint8_t i = 0;
-	struct iothreads * iothreads = (struct iothreads *)(self);
-
-	iothreads->runflags = 1;
-	iothreads->nrunthreads = iothreads->nthreads;
-
-	// 开启网络线程
-	for ( i = 0; i < iothreads->nthreads; ++i )
-	{
-		iothread_start( iothreads->threadgroup+i, i, self );
-	}
-
-	return 0;
 }
 
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
@@ -136,29 +125,21 @@ void iothreads_stop( iothreads_t self )
 	}
 
 	// 等待线程退出
-	pthread_mutex_lock( &(iothreads->lock) );
+	pthread_mutex_lock( &iothreads->lock );
 	while ( iothreads->nrunthreads > 0 )
 	{
-		pthread_cond_wait( &(iothreads->cond), &(iothreads->lock) );
+		pthread_cond_wait( &iothreads->cond, &iothreads->lock );
 	}
-	pthread_mutex_unlock( &(iothreads->lock) );
+	pthread_mutex_unlock( &iothreads->lock );
 
 	// 销毁所有网络线程
 	for ( i = 0; i < iothreads->nthreads; ++i )
 	{
 		iothread_stop( iothreads->threadgroup + i );
 	}
-
-	return;
-}
-
-void iothreads_destroy( iothreads_t self )
-{
-	struct iothreads * iothreads = (struct iothreads *)(self);
-
-	pthread_cond_destroy( &(iothreads->cond) );
-	pthread_mutex_destroy( &(iothreads->lock) );
-
+	
+	pthread_cond_destroy( &iothreads->cond );
+	pthread_mutex_destroy( &iothreads->lock );
 	if ( iothreads->threadgroup )
 	{
 		free( iothreads->threadgroup );
@@ -166,7 +147,8 @@ void iothreads_destroy( iothreads_t self )
 	}
 
 	free ( iothreads );
-	return ;
+
+	return;
 }
 
 // -----------------------------------------------------------------------------
@@ -316,10 +298,10 @@ void * iothread_main( void * arg )
 	}
 
 	// 向主线程发送终止信号
-	pthread_mutex_lock( &(parent->lock) );
+	pthread_mutex_lock( &parent->lock );
 	--parent->nrunthreads;
-	pthread_cond_signal( &(parent->cond) );
-	pthread_mutex_unlock( &(parent->lock) );
+	pthread_cond_signal( &parent->cond );
+	pthread_mutex_unlock( &parent->lock );
 	
 	return NULL;
 }

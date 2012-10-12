@@ -12,30 +12,67 @@
 
 #include "session.h"
 
-int32_t session_init( struct session * self, uint32_t size )
+static struct session * _new_session( uint32_t size );
+static int32_t _del_session( struct session * self );
+
+struct session * _new_session( uint32_t size )
 {
+	struct session * self = NULL;
+
+	self = calloc( 1, sizeof(struct session) );
+	if ( self == NULL )
+	{
+		return NULL;
+	}
+
 	// 初始化网络事件
 	self->evread = event_create();
-	if ( self->evread == NULL )
-	{
-		return -1;
-	}
 	self->evwrite = event_create();
-	if ( self->evwrite == NULL )
-	{
-		return -2;
-	}
 	self->evkeepalive = event_create();
-	if ( self->evkeepalive == NULL )
+	
+	if ( self->evkeepalive == NULL 
+			|| self->evread == NULL || self->evwrite == NULL )
 	{
-		return -3;
+		_del_session( self );
+		return NULL;
 	}
 	
 	// 初始化发送队列	
 	if ( arraylist_init(&self->outmsglist, size) != 0 )
 	{
-		return -4;
+		_del_session( self );
+		return NULL;
 	}
+
+	return self;
+}
+
+int32_t _del_session( struct session * self )
+{
+	// 销毁网络事件
+	if ( self->evread )
+	{
+		event_destroy( self->evread );
+		self->evread = NULL;
+	}
+	if ( self->evwrite )
+	{
+		event_destroy( self->evwrite );
+		self->evwrite = NULL;
+	}
+	if ( self->evkeepalive )
+	{
+		event_destroy( self->evkeepalive );
+		self->evkeepalive = NULL;
+	}
+	
+	// 销毁发送队列
+	arraylist_final( &self->outmsglist );
+
+	// 销毁接收缓冲区
+	buffer_set( &self->inbuffer, NULL, 0 );
+
+	free( self );
 
 	return 0;
 }
@@ -71,6 +108,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 
 	if ( self->status&SESSION_EXITING )
 	{
+		free( buf );
 		return -1;
 	}
 
@@ -87,7 +125,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 		}
 
 		message_add_receiver( message, self->id );
-		message_set_buffer( message,  buf, nbytes );
+		message_set_buffer( message, buf, nbytes );
 		arraylist_append( &self->outmsglist, message );
 		session_add_event( self, EV_WRITE|EV_ET );
 		return 0;
@@ -277,23 +315,24 @@ int32_t session_end( struct session * self, sid_t id )
 	{
 		// 会话终止时发送队列不为空
 		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty .", id, count );
-	}
-	for ( ; count > 0; --count )
-	{
-		struct message * msg = arraylist_take( &self->outmsglist, -1 );
-		if ( msg )
-		{
-			// 消息发送失败一次
-			message_add_failure( msg, self->id );
 
-			// 检查消息是否可以销毁了
-			if ( message_is_complete(msg) == 0 )
+		for ( ; count > 0; --count )
+		{
+			struct message * msg = arraylist_take( &self->outmsglist, -1 );
+			if ( msg )
 			{
-				message_destroy( msg );
+				// 消息发送失败一次
+				message_add_failure( msg, self->id );
+
+				// 检查消息是否可以销毁了
+				if ( message_is_complete(msg) == 0 )
+				{
+					message_destroy( msg );
+				}
 			}
 		}
 	}
-
+	
 	// 清空接收缓冲区
 	buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
 
@@ -343,56 +382,29 @@ int32_t session_end( struct session * self, sid_t id )
 	return 0;
 }
 
-int32_t session_final( struct session * self )
-{
-	// 销毁网络事件
-	if ( self->evread )
-	{
-		event_destroy( self->evread );
-		self->evread = NULL;
-	}
-	if ( self->evwrite )
-	{
-		event_destroy( self->evwrite );
-		self->evwrite = NULL;
-	}
-	if ( self->evkeepalive )
-	{
-		event_destroy( self->evkeepalive );
-		self->evkeepalive = NULL;
-	}
-	
-	// 销毁发送队列
-	arraylist_final( &self->outmsglist );
-
-	// 销毁接收缓冲区
-	buffer_set( &self->inbuffer, NULL, 0 );
-
-	return 0;
-}
-
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-static struct session_entry * _get_entry( struct session_manager * self, sid_t id );
+static struct session * _get_entry( struct session_manager * self, sid_t id );
 
-struct session_entry * _get_entry( struct session_manager * self, sid_t id )
+struct session * _get_entry( struct session_manager * self, sid_t id )
 {
 	uint32_t i = 0;
-	int32_t key = SID_KEY( id );
-	
-	struct arraylist * bucket = self->entries + ( key&(self->size-1) );
+	uint32_t seq = SID_SEQ( id );
+	struct arraylist * bucket = self->entries + ( seq&(self->size-1) );
+
+	assert( self->index == SID_INDEX(id) );
+
 	for ( i = 0; i < arraylist_count(bucket); ++i )
 	{
-		struct session_entry * entry = arraylist_get( bucket, i );
-		if ( entry->data.id == id )
+		struct session * session = arraylist_get( bucket, i );
+		if ( session->id == id )
 		{
 			// 会话id合法但与entry中记录的key和seq不相符
 			// 这种错误对于libevlite来说是相当致命的
 
-			assert( SID_KEY(id) == entry->key && SID_SEQ(id) == entry->seq );	
-			return entry;
+			return session;
 		}
 	}
 
@@ -412,6 +424,7 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 
 	size = nextpow2( size );
 
+	self->seq = 0;
 	self->count = 0;
 	self->size = size;
 	self->index = index;
@@ -443,63 +456,53 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 	return self;
 }
 
-struct session * session_manager_alloc( struct session_manager * self, int32_t key )
+struct session * session_manager_alloc( struct session_manager * self )
 {
 	sid_t id = 0;
 	uint32_t i = 0;
 
 	struct session * session = NULL;
-	struct session_entry * entry = NULL; 
-	struct arraylist * bucket = self->entries + ( key&(self->size-1) );
-
-	for ( i = 0; i < arraylist_count(bucket); ++i )
-	{
-		entry = arraylist_get( bucket, i );
-		if ( entry->key == key )
-		{
-			// 相同描述符,这种错误是致命的
-			assert( entry->data.id == 0 );
-			break;
-		}
-	}
-
-	if ( i == arraylist_count(bucket) )
-	{
-		// 没有找到合适的槽位
-
-		// 分配会话入口
-		entry = calloc( 1, sizeof(struct session_entry) );
-		if ( entry == NULL )
-		{
-			return NULL;
-		}
-
-		// 初始化会话
-		if ( session_init( &entry->data, OUTMSGLIST_DEFAULT_SIZE ) != 0 )
-		{
-			// 初始化出错了
-			session_final( &entry->data );
-
-			free( entry );
-			return NULL;
-		}
-		entry->seq = 0;
-		entry->key = key;
-
-		// 添加到列表中
-		arraylist_append( bucket, entry );
-	}
-
+	struct arraylist * bucket = self->entries + ( (self->seq)&(self->size-1) );
+	
 	// 生成sid
 	id = self->index+1;
 	id <<= 32;
-	id |= (uint32_t)key;
-	id <<= 16;
-	id |= entry->seq;
+	id |= self->seq++;
 	id &= SID_MASK;
 
+	// 查找合适的会话并交验sid是否合法
+	for ( i = 0; i < arraylist_count(bucket); ++i )
+	{
+		struct session * s = arraylist_get( bucket, i );
+		if ( s->id == id )
+		{
+			// 会话ID冲突, 记录日志
+			syslog(LOG_WARNING, "session_manager_alloc(Index=%u): the SID (Seq=%u, Sid=%ld) conflict !", self->index, self->seq-1, id );
+			return NULL;
+		}
+		else if ( s->id == 0 )
+		{
+			// 找到可用的会话句柄
+			session = s;
+		}
+	}
+
+	if ( session == NULL )
+	{
+		// 没有找到可用的会话句柄
+		session = _new_session( OUTMSGLIST_DEFAULT_SIZE );
+		if ( session == NULL )
+		{
+			return NULL;
+		}
+
+		// 添加到列表中
+		arraylist_append( bucket, session );
+	}
+
+	++self->count;
+
 	// 会话初始化操作
-	session = &(entry->data);
 	session->id = id;
 	session->manager = self;
 
@@ -508,31 +511,21 @@ struct session * session_manager_alloc( struct session_manager * self, int32_t k
 
 struct session * session_manager_get( struct session_manager * self, sid_t id )
 {
-	struct session_entry * entry = _get_entry( self, id );
-	if ( entry == NULL )
-	{
-		return NULL;
-	}
-
-	return &( entry->data );
+	return _get_entry( self, id );
 }
 
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
 {
-	sid_t id = session->id;
-	
-	struct session_entry * entry = _get_entry( self, id );	
-	if ( entry == NULL )
+	if ( _get_entry( self, session->id ) == NULL )
 	{
 		return -1;
 	}
 
-	// 序号自增
-	++entry->seq;
-	
 	// 会话数据清空
 	session->id = 0;
 	session->manager = NULL;
+
+	--self->count;
 
 	return 0;
 }
@@ -540,7 +533,11 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 void session_manager_destroy( struct session_manager * self )
 {
 	int32_t i = 0;
-	int32_t nalive = 0;
+
+	if ( self->count > 0 )
+	{
+		syslog(LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, self->count );
+	}
 
 	for ( i = 0; i < self->size; ++i )
 	{
@@ -548,30 +545,22 @@ void session_manager_destroy( struct session_manager * self )
 		
 		while ( arraylist_count(bucket) > 0 )
 		{
-			struct session_entry * entry = arraylist_take( bucket, -1 );
+			struct session * session = arraylist_take( bucket, -1 );
 
-			if ( entry )
+			if ( session )
 			{
-				if ( SID_KEY(entry->data.id) == entry->key
-						&& SID_SEQ(entry->data.id) == entry->seq )
+				if ( session->id != 0 ) 
 				{
 					// 会话处于激活状态
-					session_end( &entry->data, entry->data.id );
-					++nalive;
+					session_end( session, session->id );
 				}
 				
 				// 销毁	
-				session_final( &entry->data );
-				free( entry );
+				_del_session( session );
 			}
 		}
 
 		arraylist_final( bucket );
-	}
-
-	if ( nalive > 0 )
-	{
-		syslog(LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, nalive );
 	}
 
 	if ( self->entries )

@@ -70,21 +70,16 @@ struct session
 };
 
 // 64位SID的构成
-// |XX	|XX		|XXXXXXXX	|XXXX	|
-// |RES	|INDEX	|FD			|SEQ	|
-// |8	|8		|32			|16		|
+// |XXXXXX	|XX		|XXXXXXXX	|
+// |RES		|INDEX	|SEQ		|
+// |24		|8		|32			|
 
-#define SID_MASK	0x00ffffffffffffffULL
-#define KEY_MASK	0x0000ffffffff0000ULL
-#define SEQ_MASK	0x000000000000ffffULL
-#define INDEX_MASK	0x00ff000000000000ULL
+#define SID_MASK	0x000000ffffffffffULL
+#define SEQ_MASK	0x00000000ffffffffULL
+#define INDEX_MASK	0x000000ff00000000ULL
 
 #define SID_SEQ(sid)	( (sid)&SEQ_MASK )
-#define SID_KEY(sid)	( ((sid)&KEY_MASK) >> 16 )
-#define SID_INDEX(sid)	( ( ((sid)&INDEX_MASK) >> 48 ) - 1 )
-
-// 会话初始化
-int32_t session_init( struct session * self, uint32_t size );
+#define SID_INDEX(sid)	( ( ((sid)&INDEX_MASK) >> 32 ) - 1 )
 
 // 会话开始
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
@@ -116,20 +111,9 @@ int32_t session_shutdown( struct session * self );
 // 会话结束
 int32_t session_end( struct session * self, sid_t id );
 
-// 销毁会话
-int32_t session_final( struct session * self );
-
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-
-struct session_entry
-{
-	int32_t		key;
-	uint16_t	seq;
-	
-	struct session data;
-};
 
 struct session_manager
 {
@@ -137,6 +121,8 @@ struct session_manager
 	
 	uint32_t	size;
 	uint32_t	count;
+
+	uint32_t	seq;		// 自增的序号
 	
 	// 避免cache-missing引发的性能问题
 	// 性能可以达到开放地址法的hashtable
@@ -149,8 +135,7 @@ struct session_manager
 struct session_manager * session_manager_create( uint8_t index, uint32_t size );
 
 // 分配一个会话
-// key		- 会话的描述符
-struct session * session_manager_alloc( struct session_manager * self, int32_t key );
+struct session * session_manager_alloc( struct session_manager * self );
 
 // 从会话管理器中取出一个会话
 struct session * session_manager_get( struct session_manager * self, sid_t id );

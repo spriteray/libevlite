@@ -73,6 +73,7 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 
 // 发送数据到会话
+// 指定不需要拷贝buf, 在发送失败的情况下, 需要手动释放buf
 int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy );
 
 // 广播数据到指定的会话

@@ -231,7 +231,6 @@ void message_destroy( struct message * self )
 		self->failurelist = NULL;
 	}
 
-//	buffer_destroy( &self->buffer );
 	buffer_set( &self->buffer, NULL, 0 );
 
 	free( self );

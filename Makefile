@@ -3,13 +3,13 @@
 
 CC		= gcc
 CXX		= g++
-CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
+CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread 
 SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
-SONAME	= $(LIBNAME).3
-REALNAME= $(LIBNAME).3.0.8
+SONAME	= $(LIBNAME).4
+REALNAME= $(LIBNAME).4.6.0
 
 OS		= $(shell uname)
 
@@ -31,8 +31,8 @@ OBJS 	= utils.o timer.o event.o \
 			iolayer.o
 
 ifeq ($(OS),Linux)
-	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
-#	LFLAGS += -lrt
+#	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
+	LFLAGS += -lrt
 	OBJS += epoll.o
 else
 	OBJS += kqueue.o
@@ -67,7 +67,11 @@ echoserver-lock : accept-lock-echoserver.o $(OBJS)
 
 	$(CC) $(LFLAGS) $^ -o $@
 
-echoserver : echoserver.o $(OBJS)
+echoclient : io.o echoclient.o $(OBJS)
+
+	$(CXX) $(LFLAGS) $^ -o $@
+
+echoserver : io.o echoserver.o $(OBJS)
 
 	$(CXX) $(LFLAGS) $^ -o $@
 
@@ -92,7 +96,7 @@ clean :
 	rm -rf $(REALNAME)
 
 	rm -rf test_events event.fifo
-	rm -rf test_addtimer echostress echoserver echoserver-lock iothreads_dispatcher
+	rm -rf test_addtimer echoclient echostress echoserver echoserver-lock iothreads_dispatcher
 	
 # --------------------------------------------------------
 #

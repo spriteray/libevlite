@@ -18,11 +18,8 @@ typedef void * iothreads_t;
 // 创建网络线程组
 // nthreads		- 网络线程组中的线程数
 // method		- 任务处理函数
-iothreads_t iothreads_create( uint8_t nthreads, 
+iothreads_t iothreads_start( uint8_t nthreads, 
 					void (*method)(void *, uint8_t, int16_t, void *), void * context );
-
-// 网络线程组开始运行
-int32_t iothreads_start( iothreads_t self );
 
 // 获取网络线程组中指定线程的ID
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index );
@@ -39,9 +36,6 @@ int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * ta
 
 // 网络线程组停止
 void iothreads_stop( iothreads_t self );
-
-// 销毁网络线程组
-void iothreads_destroy( iothreads_t self );
 
 #ifdef __cplusplus
 }

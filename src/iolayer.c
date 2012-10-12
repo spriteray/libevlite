@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "network.h"
 
@@ -85,15 +86,12 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 	}
 
 	// 创建网络线程组
-	self->group = iothreads_create( self->nthreads, _io_methods, self );
+	self->group = iothreads_start( self->nthreads, _io_methods, self );
 	if ( self->group == NULL )
 	{
 		iolayer_destroy( self );
 		return NULL;
 	}
-
-	// 服务器开启
-	iothreads_start( self->group );
 
 	return self;
 }
@@ -123,13 +121,6 @@ void iolayer_destroy( iolayer_t self )
 		}
 		free( layer->managers );
 		layer->managers = NULL;
-	}
-
-	// 销毁网络线程组
-	if ( layer->group )
-	{
-		iothreads_destroy( layer->group );
-		layer->group = NULL;
 	}
 
 	free( layer );
@@ -381,7 +372,12 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			else
 			{
 				// 跨线程提交广播任务
-				iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
+				int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
+				if ( result != 0 )
+				{
+					message_destroy( msg );
+					continue;
+				}
 			}
 
 			rc += sidlist_count( listgroup[i] );
@@ -452,8 +448,14 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 		// 参照iolayer_shutdown()
 
 		// 跨线程提交批量终止任务
+		int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, listgroup[i], 0 );
+		if ( result != 0 )
+		{
+			sidlist_destroy( listgroup[i] );
+			continue;
+		}
+
 		rc += sidlist_count( listgroup[i] );
-		iothreads_post( layer->group, i, eIOTaskType_Shutdowns, listgroup[i], 0 );
 	}
 
 	return rc;
@@ -473,7 +475,7 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 
 	if ( manager )
 	{
-		session = session_manager_alloc( manager, key );
+		session = session_manager_alloc( manager );
 	}
 	else
 	{
@@ -485,9 +487,6 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 {
-	uint8_t index = 0;
-	pthread_t threadid;
-
 	// 首先必须先关闭以前的描述符
 	if ( connector->fd > 0 )
 	{
@@ -499,23 +498,12 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	if ( connector->fd < 0 )
 	{
 		syslog(LOG_WARNING, "iolayer_reconnect(host:'%s', port:%d) failed, tcp_connect() failure .", connector->host, connector->port);
-
-		_connect_direct( event_get_sets(connector->event), connector );
-		return 0;
 	}
 	
-	index = connector->fd % self->nthreads;
-	threadid = iothreads_get_id( self->group, index );
-
-	if ( pthread_self() == threadid )
-	{
-		return _connect_direct( iothreads_get_sets(self->group, index), connector );
-	}
-
-	return iothreads_post( self->group, index, eIOTaskType_Connect, connector, 0 );
+	return _connect_direct( event_get_sets(connector->event), connector );
 }
 
-int32_t iolayer_disconnect( struct iolayer * self, struct connector * connector )
+int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector )
 {
 	if ( connector->event )
 	{
@@ -597,6 +585,8 @@ void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_
 
 int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy )
 {
+	int32_t result = 0;
+	char * _buf = (char *)buf;
 	uint8_t index = SID_INDEX(id);
 
 	if ( index >= self->nthreads )
@@ -605,22 +595,21 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 		return -1;
 	}
 
-	if ( iscopy )
+	if ( iscopy != 0 )
 	{
-		char * buf2 = (char *)malloc( nbytes );
-		if ( buf2 == NULL )
+		_buf = (char *)malloc( nbytes );
+		if ( _buf == NULL )
 		{
-			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for 'buf2' .", id );
+			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for '_buf' .", id );
 			return -2;
 		}
 
-		memcpy( buf2, buf, nbytes );
-		buf = buf2;
+		memcpy( _buf, buf, nbytes );
 	}
 
 	struct task_send task;
 	task.id		= id;
-	task.buf	= (char *)buf;
+	task.buf	= _buf;
 	task.nbytes	= nbytes;
 
 	if ( pthread_self() == iothreads_get_id( self->group, index ) )
@@ -630,7 +619,13 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 	}
 
 	// 跨线程提交发送任务
-	return iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+	result = iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+	if ( result != 0 && iscopy != 0 )
+	{
+		free( _buf );
+	}
+
+	return result;
 }
 
 void _socket_option( int32_t fd )
@@ -694,10 +689,9 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task )
 {
 	int32_t rc = 0;
-	int32_t key = task->fd;
 	
 	// 会话管理器分配会话
-	struct session * session = session_manager_alloc( manager, key );
+	struct session * session = session_manager_alloc( manager );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, 
