@@ -5,6 +5,7 @@
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "network.h"
 
@@ -371,7 +372,12 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			else
 			{
 				// 跨线程提交广播任务
-				iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
+				int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
+				if ( result != 0 )
+				{
+					message_destroy( msg );
+					continue;
+				}
 			}
 
 			rc += sidlist_count( listgroup[i] );
@@ -442,8 +448,14 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 		// 参照iolayer_shutdown()
 
 		// 跨线程提交批量终止任务
+		int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, listgroup[i], 0 );
+		if ( result != 0 )
+		{
+			sidlist_destroy( listgroup[i] );
+			continue;
+		}
+
 		rc += sidlist_count( listgroup[i] );
-		iothreads_post( layer->group, i, eIOTaskType_Shutdowns, listgroup[i], 0 );
 	}
 
 	return rc;
@@ -573,6 +585,8 @@ void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_
 
 int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy )
 {
+	int32_t result = 0;
+	char * _buf = (char *)buf;
 	uint8_t index = SID_INDEX(id);
 
 	if ( index >= self->nthreads )
@@ -581,32 +595,37 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 		return -1;
 	}
 
-	if ( iscopy )
+	if ( iscopy != 0 )
 	{
-		char * buf2 = (char *)malloc( nbytes );
-		if ( buf2 == NULL )
+		_buf = (char *)malloc( nbytes );
+		if ( _buf == NULL )
 		{
-			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for 'buf2' .", id );
+			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for '_buf' .", id );
 			return -2;
 		}
 
-		memcpy( buf2, buf, nbytes );
-		buf = buf2;
+		memcpy( _buf, buf, nbytes );
 	}
 
 	struct task_send task;
 	task.id		= id;
-	task.buf	= (char *)buf;
+	task.buf	= _buf;
 	task.nbytes	= nbytes;
 
 	if ( pthread_self() == iothreads_get_id( self->group, index ) )
 	{
 		// 本线程内直接发送
-		return _send_direct( _get_manager(self, index), &task );
+//		return _send_direct( _get_manager(self, index), &task );
 	}
 
 	// 跨线程提交发送任务
-	return iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+	result = iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+	if ( result != 0 && iscopy != 0 )
+	{
+		free( _buf );
+	}
+
+	return result;
 }
 
 void _socket_option( int32_t fd )
@@ -705,6 +724,8 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
+
+		free( task->buf );
 		return -1;
 	}
 

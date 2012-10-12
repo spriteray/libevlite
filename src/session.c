@@ -108,6 +108,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 
 	if ( self->status&SESSION_EXITING )
 	{
+		free( buf );
 		return -1;
 	}
 
@@ -124,7 +125,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 		}
 
 		message_add_receiver( message, self->id );
-		message_set_buffer( message,  buf, nbytes );
+		message_set_buffer( message, buf, nbytes );
 		arraylist_append( &self->outmsglist, message );
 		session_add_event( self, EV_WRITE|EV_ET );
 		return 0;
@@ -314,23 +315,24 @@ int32_t session_end( struct session * self, sid_t id )
 	{
 		// 会话终止时发送队列不为空
 		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty .", id, count );
-	}
-	for ( ; count > 0; --count )
-	{
-		struct message * msg = arraylist_take( &self->outmsglist, -1 );
-		if ( msg )
-		{
-			// 消息发送失败一次
-			message_add_failure( msg, self->id );
 
-			// 检查消息是否可以销毁了
-			if ( message_is_complete(msg) == 0 )
+		for ( ; count > 0; --count )
+		{
+			struct message * msg = arraylist_take( &self->outmsglist, -1 );
+			if ( msg )
 			{
-				message_destroy( msg );
+				// 消息发送失败一次
+				message_add_failure( msg, self->id );
+
+				// 检查消息是否可以销毁了
+				if ( message_is_complete(msg) == 0 )
+				{
+					message_destroy( msg );
+				}
 			}
 		}
 	}
-
+	
 	// 清空接收缓冲区
 	buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
 

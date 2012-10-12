@@ -9,7 +9,7 @@ SOFLAGS	= -shared -Wl
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).4
-REALNAME= $(LIBNAME).4.5.1
+REALNAME= $(LIBNAME).4.5.3
 
 OS		= $(shell uname)
 
@@ -31,8 +31,8 @@ OBJS 	= utils.o timer.o event.o \
 			iolayer.o
 
 ifeq ($(OS),Linux)
-	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
-#	LFLAGS += -lrt
+#	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
+	LFLAGS += -lrt
 	OBJS += epoll.o
 else
 	OBJS += kqueue.o

@@ -99,8 +99,8 @@ int32_t _transmit( struct session * session )
 			}
 
 			arraylist_take( &session->outmsglist, 0 );
-
 			offsets -= message_get_length(message);
+
 			++message->nsuccess;
 			if ( message_is_complete(message) == 0 )
 			{
