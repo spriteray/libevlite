@@ -730,6 +730,8 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
+
+		free( task->buf );
 		return -1;
 	}
 
