@@ -149,7 +149,7 @@ struct msgqueue
 	int32_t popfd;
 	int32_t pushfd;
 
-	pthread_spinlock_t lock; 
+	pthread_mutex_t lock; 
 };
 
 // 创建消息队列
