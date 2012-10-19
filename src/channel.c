@@ -55,7 +55,7 @@ int32_t _transmit( struct session * session )
 	struct iovec iov_array[iov_max];
 	memset( iov_array, 0, sizeof(iov_array) );
 
-	for ( i = 0; i < arraylist_count( &session->outmsglist ); ++i )
+	for ( i = 0; i < arraylist_count(&session->outmsglist) && iov_size < iov_max; ++i )
 	{
 		struct message * message = arraylist_get( &session->outmsglist, i );
 
@@ -125,9 +125,8 @@ int32_t _transmit( struct session * session )
 
 int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 {
-	int32_t writen = -1;
+	int32_t writen = write( session->fd, buf, nbytes );
 
-	writen = write( session->fd, buf, nbytes );
 	if ( writen < 0 )
 	{
 		if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
@@ -145,13 +144,9 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 		if ( message )
 		{
 			message_add_receiver( message, session->id );
-			message_set_buffer( message,  buf, nbytes );
-
-			if ( writen > 0 )
-			{
-				buffer_erase( &message->buffer, writen );
-			}
-
+			message_set_buffer( message, buf, nbytes );
+			
+			session->msgoffsets = writen;
 			arraylist_append( &session->outmsglist, message );
 			session_add_event( session, EV_WRITE|EV_ET );
 

@@ -279,13 +279,23 @@ void * arraylist_take( struct arraylist * self, int32_t index )
     {
         data = self->entries[id];
         --self->count;
-
+#if 0
         if ( id != self->count )
         {
             self->entries[id] = self->entries[self->count];
         }
 
         self->entries[self->count] = NULL;
+#endif
+
+		if ( id+1 < self->size )
+		{
+			memmove( self->entries+id, self->entries+id+1, (self->size-id-1)*sizeof(void *) );
+		}
+		else
+		{
+			self->entries[id] = NULL;
+		}
     }
 
     return data;
