@@ -33,6 +33,12 @@ int32_t _receive( struct session * session )
 
 int32_t _transmit( struct session * session )
 {
+	struct slice 
+	{
+		char * buffer;
+		uint32_t length;
+	};
+	
 #if defined (IOV_MAX)
 	const int32_t iov_max = IOV_MAX;
 #elif defined (UIO_MAXIOV)
@@ -48,25 +54,40 @@ int32_t _transmit( struct session * session )
 #endif
 
 	uint32_t i = 0;
+	int32_t result = 0;
 	int32_t writen = 0;
-	int32_t offsets = session->msgoffsets;
 
+	int32_t offsets = session->msgoffsets;
+	ioservice_t * service = &session->service;
+	
 	int32_t iov_size = 0;
 	struct iovec iov_array[iov_max];
-	memset( iov_array, 0, sizeof(iov_array) );
 
-	for ( i = 0; i < arraylist_count( &session->outmsglist ); ++i )
+	uint32_t nslice = 0;
+	struct slice slices[iov_max];
+	
+	for ( i = 0; i < arraylist_count(&session->outmsglist) && iov_size < iov_max ; ++i, ++nslice )
 	{
 		struct message * message = arraylist_get( &session->outmsglist, i );
 
-		if ( offsets >= message_get_length(message) )
+		slices[i].length = message_get_length( message );
+		slices[i].buffer = service->transmit( 
+				session->context, (const char *)message_get_buffer(message), &(slices[i].length) );
+
+		if ( slices[i].buffer == NULL )
 		{
-			offsets -= message_get_length(message);
+			result = 1;
+			break;
+		}
+
+		if ( offsets >= slices[i].length )
+		{
+			offsets -= slices[i].length; 
 		}
 		else
 		{
-			iov_array[iov_size].iov_len = message_get_length(message) - offsets;
-			iov_array[iov_size].iov_base = message_get_buffer(message) + offsets;
+			iov_array[iov_size].iov_len = slices[i].length - offsets;
+			iov_array[iov_size].iov_base = slices[i].buffer + offsets;
 
 			++iov_size;
 			offsets = 0;
@@ -89,18 +110,24 @@ int32_t _transmit( struct session * session )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( ; arraylist_count( &session->outmsglist ); )
+		for ( i = 0; i < nslice; ++i )
 		{
-			struct message * message = arraylist_get( &session->outmsglist, 0 );
-
-			if ( offsets < message_get_length(message) )
+			if ( offsets < slices[i].length )
 			{
 				break;
 			}
-
-			arraylist_take( &session->outmsglist, 0 );
-			offsets -= message_get_length(message);
-
+			
+			// 取出消息
+			struct message * message = arraylist_take( &session->outmsglist, 0 );
+			
+			// 销毁slices
+			if ( slices[i].buffer != message_get_buffer(message) )
+			{
+				free( slices[i].buffer );
+			}
+			offsets -= slices[i].length;
+			
+			// 销毁消息
 			++message->nsuccess;
 			if ( message_is_complete(message) == 0 )
 			{
@@ -109,6 +136,11 @@ int32_t _transmit( struct session * session )
 		}
 
 		session->msgoffsets = offsets;
+	}
+
+	if ( result != 0 )
+	{
+		return -2;
 	}
 
 	if ( writen > 0 && arraylist_count( &session->outmsglist ) > 0 )
@@ -125,18 +157,31 @@ int32_t _transmit( struct session * session )
 
 int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 {
-	int32_t writen = -1;
+	int32_t writen = 0;
+	ioservice_t * service = &session->service;
 
-	writen = write( session->fd, buf, nbytes );
-	if ( writen < 0 )
+	uint32_t length = nbytes;
+	char * buffer = service->transmit( session->context, (const char *)buf, &length );
+
+	if ( buffer != NULL )
 	{
-		if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
+		writen = write( session->fd, buffer, length );
+
+		if ( writen < 0 )
 		{
-			writen = 0;
+			if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
+			{
+				writen = 0;
+			}
+		}
+		
+		if ( buf != buffer )
+		{
+			free( buffer );
 		}
 	}
 
-	if ( writen < nbytes )
+	if ( writen < length )
 	{
 		// 没有完全发送或者发送错误
 		// 为什么发送错误没有直接终止会话呢？
@@ -145,13 +190,9 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 		if ( message )
 		{
 			message_add_receiver( message, session->id );
-			message_set_buffer( message,  buf, nbytes );
+			message_set_buffer( message, buf, nbytes );
 
-			if ( writen > 0 )
-			{
-				buffer_erase( &message->buffer, writen );
-			}
-
+			session->msgoffsets = writen;
 			arraylist_append( &session->outmsglist, message );
 			session_add_event( session, EV_WRITE|EV_ET );
 

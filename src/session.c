@@ -364,6 +364,7 @@ int32_t session_end( struct session * self, sid_t id )
 	self->service.error = NULL;
 	self->service.timeout = NULL;
 	self->service.process = NULL;
+	self->service.transmit = NULL;
 	self->service.shutdown = NULL;
 	self->service.keepalive = NULL;
 	self->msgoffsets = 0;
