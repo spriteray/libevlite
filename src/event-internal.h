@@ -115,6 +115,7 @@ struct eventset
 {
     int32_t timer_precision;
     
+	int64_t cache_now;
     int64_t expire_time;
     struct evtimer * core_timer;
 
@@ -124,6 +125,9 @@ struct eventset
     struct event_list eventlist;
     struct event_list activelist;
 };
+
+inline void evsets_clear_now( struct eventset * self );
+inline int64_t evsets_get_now( struct eventset * self );
 
 #endif
 
