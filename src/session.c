@@ -89,7 +89,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	// 只需要在manager创建会话的时候初始化一次，即可	
 
 	// 关注读事件, 按需开启保活心跳
-	session_add_event( self, EV_READ|EV_ET );
+	session_add_event( self, EV_READ );
 	session_start_keepalive( self );
 
 	return 0;
@@ -127,7 +127,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 		message_add_receiver( message, self->id );
 		message_set_buffer( message, buf, nbytes );
 		arraylist_append( &self->outmsglist, message );
-		session_add_event( self, EV_WRITE|EV_ET );
+		session_add_event( self, EV_WRITE );
 		return 0;
 	}
 
@@ -145,7 +145,7 @@ int32_t session_append( struct session * self, struct message * message )
 	if ( rc == 0 )
 	{
 		// 注册写事件, 处理发送队列
-		session_add_event( self, EV_WRITE|EV_ET );
+		session_add_event( self, EV_WRITE );
 	}
 
 	return rc;
@@ -276,7 +276,7 @@ int32_t session_start_reconnect( struct session * self )
 		return channel_error( self, eIOError_ConnectFailure );
 	}
 
-	event_set( self->evwrite, self->fd, EV_WRITE|EV_ET );
+	event_set( self->evwrite, self->fd, EV_WRITE );
 	event_set_callback( self->evwrite, channel_on_reconnect, self );
 	evsets_add( sets, self->evwrite, 0 );
 	self->status |= SESSION_WRITING;
@@ -296,7 +296,7 @@ int32_t session_shutdown( struct session * self )
 		// 删除读事件
 		session_del_event( self, EV_READ );
 		// 注册写事件
-		session_add_event( self, EV_WRITE|EV_ET );
+		session_add_event( self, EV_WRITE );
 
 		return 1;
 	}
