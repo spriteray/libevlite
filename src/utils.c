@@ -570,7 +570,8 @@ struct msgqueue * msgqueue_create( uint32_t size )
             int32_t rc = -1;
             int32_t fds[2] = { -1, -1 };
 
-            rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
+			rc = pipe( fds );
+            //rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
             if ( rc == -1 )
             {
                 msgqueue_destroy( self );
