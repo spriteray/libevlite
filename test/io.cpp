@@ -69,14 +69,14 @@ int32_t IIOSession::onProcessSession( void * context, const char * buf, uint32_t
 	return -1;
 }
 
-char * IIOSession::onTransmitSession( void * context, const char * buf, uint32_t * nbytes )
+char * IIOSession::onTransformSession( void * context, const char * buf, uint32_t * nbytes )
 {
 	uint32_t & _nbytes = *nbytes;
 	IIOSession * session = static_cast<IIOSession *>( context );
 
 	if ( session )
 	{
-		return session->onTransmit( buf, _nbytes );
+		return session->onTransform( buf, _nbytes );
 	}
 
 	return NULL;
@@ -216,7 +216,7 @@ void IIOService::attach( sid_t id, IIOSession * session )
 
 	ioservice_t ioservice;
 	ioservice.process	= IIOSession::onProcessSession;
-	ioservice.transmit	= IIOSession::onTransmitSession;
+	ioservice.transform = IIOSession::onTransformSession;
 	ioservice.timeout	= IIOSession::onTimeoutSession;
 	ioservice.keepalive	= IIOSession::onKeepaliveSession;
 	ioservice.error		= IIOSession::onErrorSession;

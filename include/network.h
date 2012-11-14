@@ -20,7 +20,7 @@ typedef void *		iolayer_t;
 //
 //		process()	- 收到数据包的回调
 //						返回值为处理掉的数据包, <0: 处理出错
-//		transmit()	- 发送数据包前的回调
+//		transform()	- 发送数据包前的回调
 //						返回需要发送的数据包, 确保数据包是malloc()出来的
 //		timeout()	- 超时的回调
 //		keepalive()	- 保活定时器超时的回调
@@ -31,7 +31,7 @@ typedef void *		iolayer_t;
 typedef struct
 {
 	int32_t (*process)( void * context, const char * buf, uint32_t nbytes );
-	char *	(*transmit)( void * context, const char * buf, uint32_t * nbytes );
+	char *	(*transform)( void * context, const char * buf, uint32_t * nbytes );
 	int32_t (*timeout)( void * context );
 	int32_t (*keepalive)( void * context );
 	int32_t (*error)( void * context, int32_t result );

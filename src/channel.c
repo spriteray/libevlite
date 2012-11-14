@@ -33,12 +33,6 @@ int32_t _receive( struct session * session )
 
 int32_t _transmit( struct session * session )
 {
-	struct slice 
-	{
-		char * buffer;
-		uint32_t length;
-	};
-	
 #if defined (IOV_MAX)
 	const int32_t iov_max = IOV_MAX;
 #elif defined (UIO_MAXIOV)
@@ -54,40 +48,25 @@ int32_t _transmit( struct session * session )
 #endif
 
 	uint32_t i = 0;
-	int32_t result = 0;
 	int32_t writen = 0;
-
 	int32_t offsets = session->msgoffsets;
-	ioservice_t * service = &session->service;
-	
+
 	int32_t iov_size = 0;
 	struct iovec iov_array[iov_max];
+	memset( iov_array, 0, sizeof(iov_array) );
 
-	uint32_t nslice = 0;
-	struct slice slices[iov_max];
-	
-	for ( i = 0; i < arraylist_count(&session->outmsglist) && iov_size < iov_max ; ++i, ++nslice )
+	for ( i = 0; i < arraylist_count(&session->outmsglist) && iov_size < iov_max; ++i )
 	{
 		struct message * message = arraylist_get( &session->outmsglist, i );
 
-		slices[i].length = message_get_length( message );
-		slices[i].buffer = service->transmit( 
-				session->context, (const char *)message_get_buffer(message), &(slices[i].length) );
-
-		if ( slices[i].buffer == NULL )
+		if ( offsets >= message_get_length(message) )
 		{
-			result = 1;
-			break;
-		}
-
-		if ( offsets >= slices[i].length )
-		{
-			offsets -= slices[i].length; 
+			offsets -= message_get_length(message);
 		}
 		else
 		{
-			iov_array[iov_size].iov_len = slices[i].length - offsets;
-			iov_array[iov_size].iov_base = slices[i].buffer + offsets;
+			iov_array[iov_size].iov_len = message_get_length(message) - offsets;
+			iov_array[iov_size].iov_base = message_get_buffer(message) + offsets;
 
 			++iov_size;
 			offsets = 0;
@@ -110,24 +89,18 @@ int32_t _transmit( struct session * session )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( i = 0; i < nslice; ++i )
+		for ( ; arraylist_count( &session->outmsglist ); )
 		{
-			if ( offsets < slices[i].length )
+			struct message * message = arraylist_get( &session->outmsglist, 0 );
+
+			if ( offsets < message_get_length(message) )
 			{
 				break;
 			}
-			
-			// 取出消息
-			struct message * message = arraylist_take( &session->outmsglist, 0 );
-			
-			// 销毁slices
-			if ( slices[i].buffer != message_get_buffer(message) )
-			{
-				free( slices[i].buffer );
-			}
-			offsets -= slices[i].length;
-			
-			// 销毁消息
+
+			arraylist_take( &session->outmsglist, 0 );
+			offsets -= message_get_length(message);
+
 			++message->nsuccess;
 			if ( message_is_complete(message) == 0 )
 			{
@@ -136,11 +109,6 @@ int32_t _transmit( struct session * session )
 		}
 
 		session->msgoffsets = offsets;
-	}
-
-	if ( result != 0 )
-	{
-		return -2;
 	}
 
 	if ( writen > 0 && arraylist_count( &session->outmsglist ) > 0 )
@@ -158,30 +126,17 @@ int32_t _transmit( struct session * session )
 int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 {
 	int32_t writen = 0;
-	ioservice_t * service = &session->service;
 
-	uint32_t length = nbytes;
-	char * buffer = service->transmit( session->context, (const char *)buf, &length );
-
-	if ( buffer != NULL )
+	writen = write( session->fd, buf, nbytes );
+	if ( writen < 0 )
 	{
-		writen = write( session->fd, buffer, length );
-
-		if ( writen < 0 )
+		if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
 		{
-			if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
-			{
-				writen = 0;
-			}
-		}
-		
-		if ( buf != buffer )
-		{
-			free( buffer );
+			writen = 0;
 		}
 	}
 
-	if ( writen < length )
+	if ( writen < nbytes )
 	{
 		// 没有完全发送或者发送错误
 		// 为什么发送错误没有直接终止会话呢？
