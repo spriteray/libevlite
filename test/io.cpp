@@ -178,7 +178,7 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string
 	return broadcast( ids, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
 
-int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes, bool iscopy )
+int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
 {
 	int32_t rc = 0;
 	std::vector<sid_t>::const_iterator start = ids.begin();	
@@ -186,8 +186,8 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buff
 	uint32_t count = (uint32_t)ids.size();
 	sid_t * idlist = const_cast<sid_t *>( &(*start) );
 
-	rc = iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes, static_cast<int32_t>(iscopy) );
-	if ( rc != 0 && !iscopy )
+	rc = iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes );
+	if ( rc != 0 )
 	{
 		free( const_cast<char*>(buffer) );
 	}

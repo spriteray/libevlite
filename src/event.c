@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <sys/time.h>
+#include <sys/ioctl.h>
 
 #include "utils.h"
 #include "event-internal.h"
@@ -240,8 +241,8 @@ evsets_t evsets_create()
             self->core_timer = evtimer_create( TIMER_MAX_PRECISION, TIMER_BUCKET_COUNT );
             if ( self->core_timer )
             {
-                TAILQ_INIT( &(self->eventlist) );
-                TAILQ_INIT( &(self->activelist) );
+                TAILQ_INIT( &self->eventlist );
+                TAILQ_INIT( &self->activelist );
                 
                 self->timer_precision = TIMER_MAX_PRECISION;
                 self->expire_time = mtime() + self->timer_precision;
@@ -282,7 +283,7 @@ int32_t evsets_add(evsets_t self, event_t ev, int32_t tv )
 
     if ( (e->events & (EV_READ|EV_WRITE))
         && !(e->status & (EVSTATUS_ACTIVE|EVSTATUS_INSERTED)) )
-    {
+	{
         rc = sets->evselect->add( sets->evsets, e );
         if ( rc == 0 )
         {
@@ -364,15 +365,19 @@ int32_t evsets_dispatch( evsets_t self )
 	// 清空时间缓存
 	evsets_clear_now( sets );
 	
-	// 根据定时器的超时时间, 确认IO的等待时间
-	seconds4wait = (int32_t)( sets->expire_time - evsets_get_now(sets) );
-	if ( seconds4wait < 0 )
+	// 没有激活事件的情况下等待超时时间	
+	if ( TAILQ_EMPTY(&sets->activelist) )
 	{
-		seconds4wait = 0;
-	}
-	else if ( seconds4wait > sets->timer_precision )
-	{
-		seconds4wait = sets->timer_precision;
+		// 根据定时器的超时时间, 确认IO的等待时间
+		seconds4wait = (int32_t)( sets->expire_time - evsets_get_now(sets) );
+		if ( seconds4wait < 0 )
+		{
+			seconds4wait = 0;
+		}
+		else if ( seconds4wait > sets->timer_precision )
+		{
+			seconds4wait = sets->timer_precision;
+		}
 	}
 	
 	// 处理IO事件

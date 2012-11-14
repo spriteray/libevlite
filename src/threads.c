@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -252,6 +253,10 @@ void * iothread_main( void * arg )
 	int32_t i = 0;
 	int32_t ntasks = 0;
 	struct task tasks[ POP_TASKS_COUNT ];
+
+	sigset_t mask;
+	sigfillset(&mask);
+	pthread_sigmask(SIG_SETMASK, &mask, NULL);
 
 	while ( parent->runflags )
 	{

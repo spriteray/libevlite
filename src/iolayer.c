@@ -334,7 +334,7 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 	return _send_buffer( (struct iolayer *)self, id, buf, nbytes, iscopy );
 }
 
-int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes, int32_t iscopy )
+int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes )
 {
 	// 需要遍历ids
 	uint8_t i = 0;
@@ -387,7 +387,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 		{
 			sid_t id = sidlist_get( listgroup[i], 0 );
 
-			if ( _send_buffer( layer, id, buf, nbytes, iscopy ) == 0 )
+			if ( _send_buffer( layer, id, buf, nbytes, 1 ) == 0 )
 			{
 				// 发送成功
 				rc += 1;

@@ -135,7 +135,7 @@ public :
 
 	// 广播数据	
 	int32_t broadcast( const std::vector<sid_t> & ids, const std::string & buffer );
-	int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes, bool iscopy = true );	
+	int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes );	
 
 	// 终止会话
 	int32_t shutdown( sid_t id );

@@ -79,8 +79,7 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy );
 
 // 广播数据到指定的会话
-int32_t iolayer_broadcast( iolayer_t self, 
-		sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes, int32_t iscopy );
+int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
 
 // 终止指定的会话
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
