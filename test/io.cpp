@@ -26,17 +26,9 @@ int32_t IIOSession::send( const std::string & buffer )
 	return send( buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
 
-int32_t IIOSession::send( const char * buffer, uint32_t nbytes, bool iscopy )
+int32_t IIOSession::send( const char * buffer, uint32_t nbytes, bool isfree )
 {
-	int32_t rc = 0;
-	
-	rc = iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(iscopy) );
-	if ( rc != 0 && !iscopy )
-	{
-		free( const_cast<char *>(buffer) );
-	}
-
-	return rc;
+	return iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(isfree) );
 }
 
 int32_t IIOSession::shutdown()
@@ -162,17 +154,9 @@ int32_t IIOService::send( sid_t id, const std::string & buffer )
 	return send( id, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
 
-int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool iscopy )
+int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree )
 {
-	int32_t rc = 0;
-	
-	rc = iolayer_send( m_IOLayer, id, buffer, nbytes, iscopy );
-	if ( rc != 0 && !iscopy )
-	{
-		free( const_cast<char *>(buffer) );
-	}
-
-	return rc;
+	return iolayer_send( m_IOLayer, id, buffer, nbytes, isfree );
 }
 
 int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string & buffer )

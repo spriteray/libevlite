@@ -81,35 +81,43 @@ int32_t _del_session( struct session * self )
 //
 int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 {
-	// 等待关闭的连接
+	int32_t rc = 0;
 
+	// 等待关闭的连接
 	if ( self->status&SESSION_EXITING )
 	{
-		free( buf );
 		return -1;
 	}
 
 	// 判断session是否繁忙
-	if ( (self->status&SESSION_WRITING) 
-		|| arraylist_count(&self->outmsglist) > 0 )
+	if ( !(self->status&SESSION_WRITING) 
+			&& arraylist_count(&self->outmsglist) == 0 )
 	{
-		// 创建message, 添加到发送队列中
-		struct message * message = message_create();
-		if ( message )
+		// 直接发送
+		rc = channel_send( self, buf, nbytes ); 
+		if ( rc == nbytes )
 		{
-			free( buf );
-			return -1;
+			// 全部发送出去
+			return rc;
 		}
 
-		message_add_receiver( message, self->id );
-		message_set_buffer( message, buf, nbytes );
-		arraylist_append( &self->outmsglist, message );
-		session_add_event( self, EV_WRITE );
-		return 0;
+		// 为什么发送错误没有直接终止会话呢？
+		// 该接口有可能在ioservice_t中调用, 直接终止会话后, 会引发后续对会话的操作崩溃
 	}
 
-	// 直接发送
-	return channel_send( self, buf, nbytes ); 
+	// 创建message, 添加到发送队列中
+	struct message * message = message_create();
+	if ( message == NULL )
+	{
+		return -2;
+	}
+
+	message_add_buffer( message, buf+rc, nbytes-rc );
+	message_add_receiver( message, self->id );
+	arraylist_append( &self->outmsglist, message );
+	session_add_event( self, EV_WRITE );
+
+	return rc;
 }
 
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets )
@@ -138,23 +146,27 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port )
 
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
+	int32_t rc = -1;
 	ioservice_t * service = &self->service;
 	
 	// 数据改造(加密 or 压缩)
 	uint32_t _nbytes = nbytes;
-	char * _buf = service->transform( self->context, (const char *)buf, &_nbytes);
-
-	if ( _buf != buf )
-	{
-		free( buf );
-	}
+	char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
 
 	if ( _buf != NULL )
 	{
-		return _send( self, _buf, _nbytes );
+		// 发送数据
+		// TODO: _send()可以根据具体情况决定是否copy内存
+		rc = _send( self, _buf, _nbytes );
+
+		if ( _buf != buf )
+		{
+			// 消息已经成功改造
+			free( _buf );
+		}
 	}
 
-	return -1;
+	return rc;
 }
 
 //
@@ -169,6 +181,8 @@ int32_t session_append( struct session * self, struct message * message )
 	char * buffer = service->transform( self->context, (const char *)buf, &nbytes );
 	if ( buffer == buf )
 	{
+		// 消息未进行改造
+
 		// 添加到会话的发送列表中
 		rc = arraylist_append( &self->outmsglist, message );
 		if ( rc == 0 )
@@ -181,11 +195,16 @@ int32_t session_append( struct session * self, struct message * message )
 
 	if ( buffer != NULL )
 	{
+		// 消息改造成功
+
 		rc = _send( self, buffer, nbytes );
-		if ( rc == 0 )
+		if ( rc >= 0 )
 		{
+			// 消息发送成功或者已经单独添加到发送队列中
 			++message->nsuccess;
 		}
+
+		free( buffer );
 		return rc;
 	}	
 

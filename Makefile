@@ -5,11 +5,11 @@ CC		= gcc
 CXX		= g++
 CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread 
-SOFLAGS	= -shared -Wl
+SOFLAGS	= -shared 
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).6
-REALNAME= $(LIBNAME).6.1.1
+REALNAME= $(LIBNAME).6.2.1
 
 OS		= $(shell uname)
 
