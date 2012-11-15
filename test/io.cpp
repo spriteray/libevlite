@@ -1,4 +1,6 @@
 
+#include <stdlib.h>
+
 #include "io.h"
 
 namespace Utils

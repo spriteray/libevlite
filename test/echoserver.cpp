@@ -1,4 +1,5 @@
 
+#include <stdio.h>
 #include <signal.h>
 
 #include "io.h"
