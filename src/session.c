@@ -201,6 +201,7 @@ int32_t session_append( struct session * self, struct message * message )
 		if ( rc >= 0 )
 		{
 			// 消息发送成功或者已经单独添加到发送队列中
+			rc = 0;
 			++message->nsuccess;
 		}
 

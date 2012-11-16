@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <unistd.h>
 #include <signal.h>
 
 #include "io.h"
@@ -24,7 +25,7 @@ public :
 
 	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
 	{
-		send( buf, nbytes, false );
+		send( buf, nbytes );
 		return nbytes;
 	}
 	

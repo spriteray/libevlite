@@ -58,7 +58,7 @@ public :
 
 	// 发送数据
 	int32_t send( const std::string & buffer );
-	int32_t send( const char * buffer, uint32_t nbytes, bool isfree = true );
+	int32_t send( const char * buffer, uint32_t nbytes, bool isfree = false );
 
 	// 关闭会话	
 	int32_t shutdown();
@@ -131,7 +131,7 @@ public :
 
 	// 发送数据
 	int32_t send( sid_t id, const std::string & buffer );
-	int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree = true );
+	int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree = false );
 
 	// 广播数据	
 	int32_t broadcast( const std::vector<sid_t> & ids, const std::string & buffer );

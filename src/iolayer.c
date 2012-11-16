@@ -646,7 +646,7 @@ void _socket_option( int32_t fd )
 
 #if SAFE_SHUTDOWN
 	ling.l_onoff = 1;
-	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN };
+	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
 #else
 	ling.l_onoff = 1;
 	ling.l_linger = 0; 
@@ -724,19 +724,18 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 	int32_t rc = -1;
 	struct session * session = session_manager_get( manager, task->id );
 
-	if ( session == NULL )
+	if ( session )
 	{
-		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
+		rc = session_send( session, task->buf, task->nbytes );
 	}
 	else
 	{
-		rc = session_send( session, task->buf, task->nbytes );
+		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
 	}
 
 	if ( task->isfree != 0 ) 
 	{
 		// 指定底层释放
-		// 在发送失败或者全部发送完毕的情况下
 		free( task->buf );
 	}
 

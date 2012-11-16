@@ -321,6 +321,10 @@ void iothread_on_command( int32_t fd, int16_t ev, void * arg )
 		int32_t nread = 0;
 		
 		nread = read( fd, buf, sizeof(buf) );
+		if ( nread == -1 )
+		{
+			//
+		}
 	}
 
 	return;
