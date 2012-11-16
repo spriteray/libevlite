@@ -177,8 +177,10 @@ int32_t session_append( struct session * self, struct message * message )
 
 	char * buf = message_get_buffer( message );
 	uint32_t nbytes = message_get_length( message );
-
+	
+	// 数据改造
 	char * buffer = service->transform( self->context, (const char *)buf, &nbytes );
+
 	if ( buffer == buf )
 	{
 		// 消息未进行改造
@@ -190,25 +192,22 @@ int32_t session_append( struct session * self, struct message * message )
 			// 注册写事件, 处理发送队列
 			session_add_event( self, EV_WRITE );
 		}
-		return rc;
 	}
-
-	if ( buffer != NULL )
+	else if ( buffer != NULL )
 	{
 		// 消息改造成功
 
 		rc = _send( self, buffer, nbytes );
 		if ( rc >= 0 )
 		{
-			// 消息发送成功或者已经单独添加到发送队列中
-			++message->nsuccess;
+			// 改造后的消息已经单独发送
+			rc = 1;
 		}
 
 		free( buffer );
-		return rc;
 	}	
 
-	return -1;
+	return rc;
 }
 
 // 注册网络事件 

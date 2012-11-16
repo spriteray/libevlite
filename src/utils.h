@@ -43,8 +43,8 @@ uint32_t nextpow2( uint32_t size );
  */ 
 struct arraylist
 {
-    uint32_t size;
     uint32_t count;
+    uint32_t size;
 
     void ** entries;
 };
@@ -64,8 +64,8 @@ int32_t arraylist_destroy( struct arraylist * self );
  */
 struct sidlist
 {
-	uint32_t	size;
 	uint32_t	count;
+	uint32_t	size;
 
 	sid_t *		entries;
 };

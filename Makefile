@@ -3,7 +3,7 @@
 
 CC		= gcc
 CXX		= g++
-CFLAGS	= -Wall -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -D__EVENT_VERSION__=\"$(REALNAME)\"
+CFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread 
 SOFLAGS	= -shared 
 
@@ -57,23 +57,27 @@ test : test_events test_addtimer echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 
-	$(CC) $(LFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LFLAGS)
 
 test_addtimer : test_addtimer.o $(OBJS)
 
-	$(CC) $(LFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LFLAGS)
 
 echoserver-lock : accept-lock-echoserver.o $(OBJS)
 
-	$(CC) $(LFLAGS) $^ -o $@
+	$(CC) $^ -o $@ $(LFLAGS)
 
 echoclient : io.o echoclient.o $(OBJS)
 
-	$(CXX) $(LFLAGS) $^ -o $@
+	$(CXX) $^ -o $@ $(LFLAGS)
 
 echoserver : io.o echoserver.o $(OBJS)
 
-	$(CXX) $(LFLAGS) $^ -o $@
+	$(CXX) $^ -o $@ $(LFLAGS)
+
+pingpong : pingpong.o $(OBJS)
+
+	$(CC) $^ -o $@ $(LFLAGS)
 
 echostress :
 
@@ -96,7 +100,7 @@ clean :
 	rm -rf $(REALNAME)
 
 	rm -rf test_events event.fifo
-	rm -rf test_addtimer echoclient echostress echoserver echoserver-lock iothreads_dispatcher
+	rm -rf test_addtimer echoclient echostress echoserver pingpong echoserver-lock iothreads_dispatcher
 	
 # --------------------------------------------------------
 #

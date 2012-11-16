@@ -452,12 +452,10 @@ int32_t _queue_expand( struct queue * self )
 
 struct queue * queue_create( uint32_t size )
 {
-	uint32_t npower = 0;
 	struct queue * self = NULL;
 
 	size = size ? size : 8;
 	size = nextpow2( size );
-	npower = getpower( size );
 
 	self = (struct queue *)malloc( sizeof(struct queue) );
 	if ( self )
@@ -611,7 +609,13 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
     if ( rc == 0 && isbc == 1 )
     {
         char buf[1] = {0};
-        write( self->pushfd, buf, 1 );
+        int32_t nwrite = 0;
+		
+		nwrite = write( self->pushfd, buf, 1 );
+		if ( nwrite != 1 )
+		{
+			// 
+		}
     }
 
     return rc;
