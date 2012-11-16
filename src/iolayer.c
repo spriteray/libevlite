@@ -758,16 +758,31 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 			message_add_failure( msg, id );
 			continue;
 		}
+		
+		/*
+		 * session_append() 返回值
+		 *		< 0		- 出错
+		 *		= 0		- 添加成功
+		 *		= 1		- 尝试单独发送
+		 * */
+		int32_t rc1 = session_append( session, msg );
 
-		// 直接添加到会话的发送列表中
-		if ( session_append(session, msg) != 0 )
+		if ( rc1 < 0 )
 		{
 			// 添加失败
 			message_add_failure( msg, id );
-			continue;
 		}
-
-		++rc;
+		else if ( rc == 0 )
+		{
+			// 添加到发送队列成功
+			++rc;	
+		}
+		else if ( rc == 1 )
+		{
+			// 尝试单独发送
+			++rc;
+			++msg->nsuccess;
+		}
 	}
 
 	// 消息发送失败, 直接销毁
