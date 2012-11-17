@@ -277,8 +277,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
 		if ( nprocess < 0 )
 		{
-			// 处理出错, 安全的终止会话
-			// NOTICE: 此处会尝试终止会话
+			// 处理出错, 尝试终止会话
 			session_shutdown( session );
 			return;
 		}
