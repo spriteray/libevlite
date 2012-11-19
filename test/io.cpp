@@ -1,4 +1,6 @@
 
+#include <stdlib.h>
+
 #include "io.h"
 
 namespace Utils
@@ -24,17 +26,9 @@ int32_t IIOSession::send( const std::string & buffer )
 	return send( buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
 
-int32_t IIOSession::send( const char * buffer, uint32_t nbytes, bool iscopy )
+int32_t IIOSession::send( const char * buffer, uint32_t nbytes, bool isfree )
 {
-	int32_t rc = 0;
-	
-	rc = iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(iscopy) );
-	if ( rc != 0 && !iscopy )
-	{
-		free( const_cast<char *>(buffer) );
-	}
-
-	return rc;
+	return iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(isfree) );
 }
 
 int32_t IIOSession::shutdown()
@@ -67,6 +61,19 @@ int32_t IIOSession::onProcessSession( void * context, const char * buf, uint32_t
 	}
 
 	return -1;
+}
+
+char * IIOSession::onTransformSession( void * context, const char * buf, uint32_t * nbytes )
+{
+	uint32_t & _nbytes = *nbytes;
+	IIOSession * session = static_cast<IIOSession *>( context );
+
+	if ( session )
+	{
+		return session->onTransform( buf, _nbytes );
+	}
+
+	return NULL;
 }
 
 int32_t IIOSession::onTimeoutSession( void * context ) 
@@ -147,17 +154,9 @@ int32_t IIOService::send( sid_t id, const std::string & buffer )
 	return send( id, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
 
-int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool iscopy )
+int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree )
 {
-	int32_t rc = 0;
-	
-	rc = iolayer_send( m_IOLayer, id, buffer, nbytes, iscopy );
-	if ( rc != 0 && !iscopy )
-	{
-		free( const_cast<char *>(buffer) );
-	}
-
-	return rc;
+	return iolayer_send( m_IOLayer, id, buffer, nbytes, isfree );
 }
 
 int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string & buffer )
@@ -165,7 +164,7 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string
 	return broadcast( ids, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
 }
 
-int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes, bool iscopy )
+int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
 {
 	int32_t rc = 0;
 	std::vector<sid_t>::const_iterator start = ids.begin();	
@@ -173,8 +172,8 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buff
 	uint32_t count = (uint32_t)ids.size();
 	sid_t * idlist = const_cast<sid_t *>( &(*start) );
 
-	rc = iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes, static_cast<int32_t>(iscopy) );
-	if ( rc != 0 && !iscopy )
+	rc = iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes );
+	if ( rc != 0 )
 	{
 		free( const_cast<char*>(buffer) );
 	}
@@ -203,6 +202,7 @@ void IIOService::attach( sid_t id, IIOSession * session )
 
 	ioservice_t ioservice;
 	ioservice.process	= IIOSession::onProcessSession;
+	ioservice.transform = IIOSession::onTransformSession;
 	ioservice.timeout	= IIOSession::onTimeoutSession;
 	ioservice.keepalive	= IIOSession::onKeepaliveSession;
 	ioservice.error		= IIOSession::onErrorSession;

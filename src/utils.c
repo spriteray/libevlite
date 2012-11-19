@@ -288,13 +288,13 @@ void * arraylist_take( struct arraylist * self, int32_t index )
         self->entries[self->count] = NULL;
 #endif
 
-		if ( id+1 < self->size )
+		if ( index+1 < self->size )
 		{
 			memmove( self->entries+id, self->entries+id+1, (self->size-id-1)*sizeof(void *) );
 		}
 		else
 		{
-			self->entries[id] = NULL;
+			self->entries[index] = NULL;
 		}
     }
 
@@ -452,12 +452,10 @@ int32_t _queue_expand( struct queue * self )
 
 struct queue * queue_create( uint32_t size )
 {
-	uint32_t npower = 0;
 	struct queue * self = NULL;
 
 	size = size ? size : 8;
 	size = nextpow2( size );
-	npower = getpower( size );
 
 	self = (struct queue *)malloc( sizeof(struct queue) );
 	if ( self )
@@ -557,7 +555,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
     {
         self->popfd = -1;
         self->pushfd = -1;
-        pthread_spin_init( &self->lock, 0 );
+        pthread_mutex_init( &self->lock, 0 );
     
         self->queue = queue_create( size );
         if ( self->queue == NULL )
@@ -570,7 +568,8 @@ struct msgqueue * msgqueue_create( uint32_t size )
             int32_t rc = -1;
             int32_t fds[2] = { -1, -1 };
 
-            rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
+			rc = pipe( fds );
+            //rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
             if ( rc == -1 )
             {
                 msgqueue_destroy( self );
@@ -597,7 +596,7 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
     int32_t rc = -1;
     uint32_t isbc = 0;
 
-    pthread_spin_lock( &self->lock );
+    pthread_mutex_lock( &self->lock );
 
     rc = queue_push( self->queue, task );
     if ( isnotify != 0 )
@@ -605,12 +604,18 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
 		isbc = queue_count( self->queue );
     }
     
-    pthread_spin_unlock( &self->lock );
+    pthread_mutex_unlock( &self->lock );
 
     if ( rc == 0 && isbc == 1 )
     {
         char buf[1] = {0};
-        write( self->pushfd, buf, 1 );
+        int32_t nwrite = 0;
+		
+		nwrite = write( self->pushfd, buf, 1 );
+		if ( nwrite != 1 )
+		{
+			// 
+		}
     }
 
     return rc;
@@ -620,9 +625,9 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
 {
     int32_t rc = -1;
 
-    pthread_spin_lock( &self->lock );
+    pthread_mutex_lock( &self->lock );
     rc = queue_pop( self->queue, task );
-    pthread_spin_unlock( &self->lock );
+    pthread_mutex_unlock( &self->lock );
 
     return rc;
 }
@@ -631,9 +636,9 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
 {
 	int32_t rc = -1;
 
-    pthread_spin_lock( &self->lock );
+    pthread_mutex_lock( &self->lock );
     rc = queue_pops( self->queue, tasks, count );
-    pthread_spin_unlock( &self->lock );
+    pthread_mutex_unlock( &self->lock );
 
     return rc;
 }
@@ -642,9 +647,9 @@ uint32_t msgqueue_count( struct msgqueue * self )
 {
 	uint32_t rc = 0;
 	
-	pthread_spin_lock( &self->lock );
+	pthread_mutex_lock( &self->lock );
 	rc = queue_count( self->queue );
-	pthread_spin_unlock( &self->lock );
+	pthread_mutex_unlock( &self->lock );
 	
 	return rc;
 }
@@ -653,9 +658,9 @@ int32_t msgqueue_popfd( struct msgqueue * self )
 {
 	int32_t rc = 0;
 	
-	pthread_spin_lock( &self->lock );
+	pthread_mutex_lock( &self->lock );
 	rc = self->popfd;
-	pthread_spin_unlock( &self->lock );
+	pthread_mutex_unlock( &self->lock );
 	
 	return rc;
 }
@@ -679,7 +684,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 		self->pushfd = -1;
 	}
 	
-	pthread_spin_destroy( &self->lock );
+	pthread_mutex_destroy( &self->lock );
 	free( self );
 	
 	return 0;

@@ -125,8 +125,9 @@ int32_t _transmit( struct session * session )
 
 int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 {
-	int32_t writen = write( session->fd, buf, nbytes );
+	int32_t writen = 0;
 
+	writen = write( session->fd, buf, nbytes );
 	if ( writen < 0 )
 	{
 		if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
@@ -135,27 +136,6 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 		}
 	}
 
-	if ( writen < nbytes )
-	{
-		// 没有完全发送或者发送错误
-		// 为什么发送错误没有直接终止会话呢？
-		// 该接口有可能在ioservice_t中调用, 直接终止会话后, 会引发后续对会话的操作崩溃
-		struct message * message = message_create();
-		if ( message )
-		{
-			message_add_receiver( message, session->id );
-			message_set_buffer( message, buf, nbytes );
-			
-			session->msgoffsets = writen;
-			arraylist_append( &session->outmsglist, message );
-			session_add_event( session, EV_WRITE|EV_ET );
-
-			return writen;
-		}
-	}
-
-	// 全部发送完毕
-	free ( buf );
 	return writen;
 }
 
@@ -213,7 +193,7 @@ int32_t _timeout( struct session * session )
 	else
 	{
 		// 临时会话, 添加读事件
-		session_add_event( session, EV_READ|EV_ET );
+		session_add_event( session, EV_READ );
 		// TODO: 是否需要打开keepalive
 		session_start_keepalive( session );
 	}
@@ -287,51 +267,49 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_READ )
 	{
-		while ( 1 )
+		/* >0	- ok
+		 *  0	- peer shutdown
+		 * -1	- read() failure
+		 * -2	- expand() failure
+		 */
+		int32_t nread = _receive( session );
+		int32_t nprocess = _process( session );
+
+		if ( nprocess < 0 )
 		{
-			/* >0	- ok
-			 *  0	- peer shutdown
-			 * -1	- read() failure
-			 * -2	- expand() failure
-			 */
-			int32_t nread = _receive( session );
-			int32_t nprocess = _process( session );
+			// 处理出错, 尝试终止会话
+			session_shutdown( session );
+			return;
+		}
 
-			if ( nprocess < 0 )
+		if ( nread == -2 )
+		{
+			// expand() failure
+			channel_error( session, eIOError_OutMemory );
+		}
+		else if ( nread == -1 )
+		{
+			// read() failure
+			if ( nread == -1 && errno == EAGAIN )
 			{
-				// 处理出错, 安全的终止会话
-				// NOTICE: 此处会尝试终止会话
-				session_shutdown( session );
-				break;
+				// 正常,socket中无数据可读
+				session_add_event( session, EV_READ );
 			}
-
-			if ( nread == -2 )
+			else
 			{
-				// InBuffer 扩展失败 
-				channel_error( session, eIOError_OutMemory );
-				break;
+				// 出错, 
+				channel_error( session, eIOError_ReadFailure );
 			}
-			else if ( nread == -1 )
-			{
-				if ( nread == -1 && errno == EAGAIN )
-				{
-					// 正常,socket中无数据可读
-					session_add_event( session, EV_READ|EV_ET );
-				}
-				else
-				{
-					// 出错, 
-					channel_error( session, eIOError_ReadFailure );
-				}
-				
-				break;
-			}
-			else if ( nread == 0 )
-			{
-				// 对端关闭连接
-				channel_error( session, eIOError_PeerShutdown );
-				break;
-			}
+		}
+		else if ( nread == 0 )
+		{
+			// peer shutdown
+			channel_error( session, eIOError_PeerShutdown );
+		}
+		else
+		{
+			// ok 
+			session_add_event( session, EV_READ );
 		}
 	}
 	else
@@ -375,7 +353,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 					// NOTICE: 为什么不判断会话是否正在终止呢?
 					// 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
 					// 直到发送队列为空
-					session_add_event( session, EV_WRITE|EV_ET );
+					session_add_event( session, EV_WRITE );
 				}
 				else
 				{
@@ -547,8 +525,8 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 		// 注册读写事件
 		// 把积累下来的数据全部发送出去
 		set_non_block( fd );
-		session_add_event( session, EV_READ|EV_ET );
-		session_add_event( session, EV_WRITE|EV_ET );
+		session_add_event( session, EV_READ );
+		session_add_event( session, EV_WRITE );
 
 		// 启动keepalive服务
 		session_start_keepalive( session );

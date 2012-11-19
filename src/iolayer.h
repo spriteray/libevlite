@@ -84,7 +84,8 @@ struct task_send
 {
 	sid_t						id;			// 8bytes
 	char *						buf;		// 8bytes
-	uint32_t					nbytes;		// 4bytes+4bytes
+	uint32_t					nbytes;		// 4bytes
+	int32_t						isfree;		// 4bytes
 };
 
 // 看样子内存对齐不需要使用了

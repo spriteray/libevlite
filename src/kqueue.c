@@ -140,10 +140,6 @@ int32_t kqueue_add( void * arg, struct event * ev )
         {
             kev.flags |= EV_ONESHOT;
         }
-        if ( ev->events & EV_ET )
-        {
-            kev.flags |= EV_CLEAR;
-        }
 
         if ( kqueue_insert( poller, &kev ) != 0 )
         {
@@ -162,10 +158,6 @@ int32_t kqueue_add( void * arg, struct event * ev )
         if ( !(ev->events & EV_PERSIST) )
         {
             kev.flags |= EV_ONESHOT;
-        }
-        if ( ev->events & EV_ET )
-        {
-            kev.flags |= EV_CLEAR;
         }
 
         if ( kqueue_insert( poller, &kev ) != 0 )

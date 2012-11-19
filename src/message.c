@@ -172,7 +172,7 @@ void buffer_exchange( struct buffer * buf1, struct buffer * buf2 )
 	
 	memcpy( &tmpbuf, buf1, sizeof(struct buffer) );
 	memcpy( buf1, buf2, sizeof(struct buffer) );
-	memcpy( &buf2, &tmpbuf, sizeof(struct buffer) );
+	memcpy( buf2, &tmpbuf, sizeof(struct buffer) );
 	
 	return;
 }

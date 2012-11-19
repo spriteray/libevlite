@@ -1,4 +1,6 @@
 
+#include <stdio.h>
+#include <unistd.h>
 #include <signal.h>
 
 #include "io.h"
@@ -94,7 +96,7 @@ int main()
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	service = new CEchoService( 4, 200000 ); 
+	service = new CEchoService( 1, 200000 ); 
 	if ( service == NULL )
 	{
 		return -1;

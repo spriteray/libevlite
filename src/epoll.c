@@ -176,10 +176,6 @@ int32_t epoll_add( void * arg, struct event * ev )
 	{
 		events |= EPOLLOUT;
 	}
-	if ( ev->events & EV_ET )
-	{
-		events |= EPOLLET;
-	}
 
 	epollevent.data.fd = fd;
 	epollevent.events = events;
@@ -237,33 +233,19 @@ int32_t epoll_del( void * arg, struct event * ev )
 	{
 		if ( (events & EPOLLIN) && eventpair->evwrite != NULL )
 		{
-			struct event * evwrite = eventpair->evwrite;
-
 			// 删除的是读事件, 写事件仍然要监听
 			// 并且还需要从写事件中查看是否支持了边缘触发模式
 			delwrite = 0;
 			events = EPOLLOUT;
 			op = EPOLL_CTL_MOD;
-
-			if ( evwrite->events & EV_ET )
-			{
-				events |= EPOLLET;
-			}
 		}
 		else if ( (events & EPOLLOUT) && eventpair->evread != NULL )
 		{
-			struct event * evread = eventpair->evread;
-
 			// 删除的是写事件, 读事件仍然要监听
 			// 并且还需要从读事件中查看是否支持了边缘触发模式
 			delread = 0;
 			events = EPOLLIN;
 			op = EPOLL_CTL_MOD;
-
-			if ( evread->events & EV_ET )
-			{
-				events |= EPOLLET;
-			}
 		}
 	}
 

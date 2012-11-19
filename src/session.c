@@ -14,6 +14,7 @@
 
 static struct session * _new_session( uint32_t size );
 static int32_t _del_session( struct session * self );
+static int32_t _send( struct session * self, char * buf, uint32_t nbytes );
 
 struct session * _new_session( uint32_t size )
 {
@@ -77,6 +78,48 @@ int32_t _del_session( struct session * self )
 	return 0;
 }
 
+//
+int32_t _send( struct session * self, char * buf, uint32_t nbytes )
+{
+	int32_t rc = 0;
+
+	// 等待关闭的连接
+	if ( self->status&SESSION_EXITING )
+	{
+		return -1;
+	}
+
+	// 判断session是否繁忙
+	if ( !(self->status&SESSION_WRITING) 
+			&& arraylist_count(&self->outmsglist) == 0 )
+	{
+		// 直接发送
+		rc = channel_send( self, buf, nbytes ); 
+		if ( rc == nbytes )
+		{
+			// 全部发送出去
+			return rc;
+		}
+
+		// 为什么发送错误没有直接终止会话呢？
+		// 该接口有可能在ioservice_t中调用, 直接终止会话后, 会引发后续对会话的操作崩溃
+	}
+
+	// 创建message, 添加到发送队列中
+	struct message * message = message_create();
+	if ( message == NULL )
+	{
+		return -2;
+	}
+
+	message_add_buffer( message, buf+rc, nbytes-rc );
+	message_add_receiver( message, self->id );
+	arraylist_append( &self->outmsglist, message );
+	session_add_event( self, EV_WRITE );
+
+	return rc;
+}
+
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets )
 {
 	self->fd		= fd;
@@ -89,7 +132,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	// 只需要在manager创建会话的时候初始化一次，即可	
 
 	// 关注读事件, 按需开启保活心跳
-	session_add_event( self, EV_READ|EV_ET );
+	session_add_event( self, EV_READ );
 	session_start_keepalive( self );
 
 	return 0;
@@ -101,52 +144,68 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port )
 	strncpy( self->host, host, INET_ADDRSTRLEN );
 }
 
-//
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
-	// 等待关闭的连接
+	int32_t rc = -1;
+	ioservice_t * service = &self->service;
+	
+	// 数据改造(加密 or 压缩)
+	uint32_t _nbytes = nbytes;
+	char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
 
-	if ( self->status&SESSION_EXITING )
+	if ( _buf != NULL )
 	{
-		free( buf );
-		return -1;
-	}
+		// 发送数据
+		// TODO: _send()可以根据具体情况决定是否copy内存
+		rc = _send( self, _buf, _nbytes );
 
-	// 判断session是否繁忙
-	if ( (self->status&SESSION_WRITING) 
-		|| arraylist_count(&self->outmsglist) > 0 )
-	{
-		// 创建message, 添加到发送队列中
-		struct message * message = message_create();
-		if ( message == NULL )
+		if ( _buf != buf )
 		{
-			free( buf );
-			return -2;
+			// 消息已经成功改造
+			free( _buf );
 		}
-
-		message_add_receiver( message, self->id );
-		message_set_buffer( message, buf, nbytes );
-		arraylist_append( &self->outmsglist, message );
-		session_add_event( self, EV_WRITE|EV_ET );
-		return 0;
 	}
 
-	// 直接发送
-	return channel_send( self, buf, nbytes ); 
+	return rc;
 }
 
 //
 int32_t session_append( struct session * self, struct message * message )
 {
-	int32_t rc = 0;
+	int32_t rc = -1;
+	ioservice_t * service = &self->service;
 
-	// 添加到会话的发送列表中
-	rc = arraylist_append( &self->outmsglist, message );
-	if ( rc == 0 )
+	char * buf = message_get_buffer( message );
+	uint32_t nbytes = message_get_length( message );
+	
+	// 数据改造
+	char * buffer = service->transform( self->context, (const char *)buf, &nbytes );
+
+	if ( buffer == buf )
 	{
-		// 注册写事件, 处理发送队列
-		session_add_event( self, EV_WRITE|EV_ET );
+		// 消息未进行改造
+
+		// 添加到会话的发送列表中
+		rc = arraylist_append( &self->outmsglist, message );
+		if ( rc == 0 )
+		{
+			// 注册写事件, 处理发送队列
+			session_add_event( self, EV_WRITE );
+		}
 	}
+	else if ( buffer != NULL )
+	{
+		// 消息改造成功
+
+		rc = _send( self, buffer, nbytes );
+		if ( rc >= 0 )
+		{
+			// 改造后的消息已经单独发送
+			rc = 1;
+		}
+
+		free( buffer );
+	}	
 
 	return rc;
 }
@@ -276,7 +335,7 @@ int32_t session_start_reconnect( struct session * self )
 		return channel_error( self, eIOError_ConnectFailure );
 	}
 
-	event_set( self->evwrite, self->fd, EV_WRITE|EV_ET );
+	event_set( self->evwrite, self->fd, EV_WRITE );
 	event_set_callback( self->evwrite, channel_on_reconnect, self );
 	evsets_add( sets, self->evwrite, 0 );
 	self->status |= SESSION_WRITING;
@@ -296,7 +355,7 @@ int32_t session_shutdown( struct session * self )
 		// 删除读事件
 		session_del_event( self, EV_READ );
 		// 注册写事件
-		session_add_event( self, EV_WRITE|EV_ET );
+		session_add_event( self, EV_WRITE );
 
 		return 1;
 	}
@@ -364,6 +423,7 @@ int32_t session_end( struct session * self, sid_t id )
 	self->service.error = NULL;
 	self->service.timeout = NULL;
 	self->service.process = NULL;
+	self->service.transform = NULL;
 	self->service.shutdown = NULL;
 	self->service.keepalive = NULL;
 	self->msgoffsets = 0;

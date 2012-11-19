@@ -20,7 +20,8 @@ typedef void *		iolayer_t;
 //
 //		process()	- 收到数据包的回调
 //						返回值为处理掉的数据包, <0: 处理出错
-//
+//		transform()	- 发送数据包前的回调
+//						返回需要发送的数据包, 确保数据包是malloc()出来的
 //		timeout()	- 超时的回调
 //		keepalive()	- 保活定时器超时的回调
 //		error()		- 出错的回调
@@ -30,6 +31,7 @@ typedef void *		iolayer_t;
 typedef struct
 {
 	int32_t (*process)( void * context, const char * buf, uint32_t nbytes );
+	char *	(*transform)( void * context, const char * buf, uint32_t * nbytes );
 	int32_t (*timeout)( void * context );
 	int32_t (*keepalive)( void * context );
 	int32_t (*error)( void * context, int32_t result );
@@ -73,13 +75,10 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 
 // 发送数据到会话
-// 指定不需要拷贝buf, 在发送失败的情况下, 需要手动释放buf
-int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy );
+int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
 
 // 广播数据到指定的会话
-int32_t iolayer_broadcast( iolayer_t self, 
-							sid_t * ids, uint32_t count, 
-							const char * buf, uint32_t nbytes, int32_t iscopy );
+int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
 
 // 终止指定的会话
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );

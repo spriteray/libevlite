@@ -34,7 +34,7 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
 static inline void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
-static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy );
+static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -329,12 +329,12 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 	return 0;
 }
 
-int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy )
+int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree )
 {
-	return _send_buffer( (struct iolayer *)self, id, buf, nbytes, iscopy );
+	return _send_buffer( (struct iolayer *)self, id, buf, nbytes, isfree );
 }
 
-int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes, int32_t iscopy )
+int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes )
 {
 	// 需要遍历ids
 	uint8_t i = 0;
@@ -387,7 +387,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 		{
 			sid_t id = sidlist_get( listgroup[i], 0 );
 
-			if ( _send_buffer( layer, id, buf, nbytes, iscopy ) == 0 )
+			if ( _send_buffer( layer, id, buf, nbytes, 0 ) == 0 )
 			{
 				// 发送成功
 				rc += 1;
@@ -583,10 +583,9 @@ void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_
 	return;
 }
 
-int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t iscopy )
+int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree )
 {
 	int32_t result = 0;
-	char * _buf = (char *)buf;
 	uint8_t index = SID_INDEX(id);
 
 	if ( index >= self->nthreads )
@@ -595,22 +594,11 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 		return -1;
 	}
 
-	if ( iscopy != 0 )
-	{
-		_buf = (char *)malloc( nbytes );
-		if ( _buf == NULL )
-		{
-			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for '_buf' .", id );
-			return -2;
-		}
-
-		memcpy( _buf, buf, nbytes );
-	}
-
 	struct task_send task;
 	task.id		= id;
-	task.buf	= _buf;
 	task.nbytes	= nbytes;
+	task.isfree	= isfree;
+	task.buf	= (char *)buf;
 
 	if ( pthread_self() == iothreads_get_id( self->group, index ) )
 	{
@@ -619,10 +607,24 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 	}
 
 	// 跨线程提交发送任务
-	result = iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
-	if ( result != 0 && iscopy != 0 )
+	
+	if ( isfree == 0 )
 	{
-		free( _buf );
+		task.buf = (char *)malloc( nbytes );
+		if ( task.buf == NULL )
+		{
+			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for '_buf' .", id );
+			return -2;
+		}
+
+		task.isfree = 1;
+		memcpy( task.buf, buf, nbytes );
+	}
+
+	result = iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+	if ( result != 0 )
+	{
+		free( task.buf );
 	}
 
 	return result;
@@ -644,7 +646,7 @@ void _socket_option( int32_t fd )
 
 #if SAFE_SHUTDOWN
 	ling.l_onoff = 1;
-	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN };
+	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
 #else
 	ling.l_onoff = 1;
 	ling.l_linger = 0; 
@@ -719,17 +721,25 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 
 int32_t _send_direct( struct session_manager * manager, struct task_send * task )
 {
+	int32_t rc = -1;
 	struct session * session = session_manager_get( manager, task->id );
 
-	if ( session == NULL )
+	if ( session )
+	{
+		rc = session_send( session, task->buf, task->nbytes );
+	}
+	else
 	{
 		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
-
-		free( task->buf );
-		return -1;
 	}
 
-	return session_send( session, task->buf, task->nbytes );
+	if ( task->isfree != 0 ) 
+	{
+		// 指定底层释放
+		free( task->buf );
+	}
+
+	return rc;
 }
 
 int32_t _broadcast_direct( struct session_manager * manager, struct message * msg )
@@ -748,16 +758,31 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 			message_add_failure( msg, id );
 			continue;
 		}
+		
+		/*
+		 * session_append() 返回值
+		 *		< 0		- 出错
+		 *		= 0		- 添加成功
+		 *		= 1		- 尝试单独发送
+		 * */
+		int32_t rc1 = session_append( session, msg );
 
-		// 直接添加到会话的发送列表中
-		if ( session_append(session, msg) != 0 )
+		if ( rc1 < 0 )
 		{
 			// 添加失败
 			message_add_failure( msg, id );
-			continue;
 		}
-
-		++rc;
+		else if ( rc == 0 )
+		{
+			// 添加到发送队列成功
+			++rc;	
+		}
+		else if ( rc == 1 )
+		{
+			// 尝试单独发送
+			++rc;
+			++msg->nsuccess;
+		}
 	}
 
 	// 消息发送失败, 直接销毁

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <string.h>
+#include <signal.h>
 
 #include <sys/types.h>
 #include <sys/uio.h>
@@ -253,6 +254,10 @@ void * iothread_main( void * arg )
 	int32_t ntasks = 0;
 	struct task tasks[ POP_TASKS_COUNT ];
 
+	sigset_t mask;
+	sigfillset(&mask);
+	pthread_sigmask(SIG_SETMASK, &mask, NULL);
+
 	while ( parent->runflags )
 	{
 		// ÂÖÑ¯ÍøÂçÊÂ¼ş
@@ -316,6 +321,10 @@ void iothread_on_command( int32_t fd, int16_t ev, void * arg )
 		int32_t nread = 0;
 		
 		nread = read( fd, buf, sizeof(buf) );
+		if ( nread == -1 )
+		{
+			//
+		}
 	}
 
 	return;

@@ -36,8 +36,9 @@ public :
 	// 多个网络线程中被触发
 	//
 
-	virtual int32_t onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
-	virtual int32_t onTimeout() { return 0; }
+	virtual int32_t	onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
+	virtual char *	onTransform( const char * buf, uint32_t & nbytes ) { return const_cast<char *>(buf); }
+	virtual int32_t	onTimeout() { return 0; }
 	virtual int32_t onKeepalive() { return 0; }
 	virtual int32_t onError( int32_t result ) { return 0; }
 	virtual int32_t onShutdown() { return 0; }
@@ -57,7 +58,7 @@ public :
 
 	// 发送数据
 	int32_t send( const std::string & buffer );
-	int32_t send( const char * buffer, uint32_t nbytes, bool iscopy = true );
+	int32_t send( const char * buffer, uint32_t nbytes, bool isfree = false );
 
 	// 关闭会话	
 	int32_t shutdown();
@@ -70,11 +71,12 @@ private :
 	void init( sid_t id, iolayer_t layer );
 
 	// 内部回调函数
-	static int32_t onProcessSession( void * context, const char * buf, uint32_t nbytes ); 
-	static int32_t onTimeoutSession( void * context ); 
-	static int32_t onKeepaliveSession( void * context ); 
-	static int32_t onErrorSession( void * context, int32_t result ); 
-	static int32_t onShutdownSession( void * context ); 
+	static int32_t	onProcessSession( void * context, const char * buf, uint32_t nbytes );
+	static char *	onTransformSession( void * context, const char * buf, uint32_t * nbytes );	
+	static int32_t	onTimeoutSession( void * context ); 
+	static int32_t	onKeepaliveSession( void * context ); 
+	static int32_t	onErrorSession( void * context, int32_t result ); 
+	static int32_t	onShutdownSession( void * context ); 
 
 private :
 
@@ -129,11 +131,11 @@ public :
 
 	// 发送数据
 	int32_t send( sid_t id, const std::string & buffer );
-	int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool iscopy = true );
+	int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree = false );
 
 	// 广播数据	
 	int32_t broadcast( const std::vector<sid_t> & ids, const std::string & buffer );
-	int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes, bool iscopy = true );	
+	int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes );	
 
 	// 终止会话
 	int32_t shutdown( sid_t id );
