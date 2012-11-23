@@ -172,8 +172,11 @@ int32_t iolayer_listen( iolayer_t self,
 	acceptor->context = context;
 	acceptor->parent = self;
 	acceptor->port = port;
-	strncpy( acceptor->host, host, INET_ADDRSTRLEN );
-	
+	acceptor->host[0] = 0;
+	if ( host != NULL )
+	{
+		strncpy( acceptor->host, host, INET_ADDRSTRLEN );
+	}
 	// 分发监听任务
 	iothreads_post( layer->group, (acceptor->fd%layer->nthreads), eIOTaskType_Listen, acceptor, 0 );	
 

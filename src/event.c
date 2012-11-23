@@ -37,11 +37,12 @@
 // event.c中的工具定义
 //
 
-inline int32_t evsets_process_active( struct eventset * self );
-inline int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type );
-inline int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t type );
+static inline int32_t evsets_process_active( struct eventset * self );
+static inline int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type );
+static inline int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t type );
 
-
+static inline void evsets_clear_now( struct eventset * self );
+static inline int64_t evsets_get_now( struct eventset * self );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

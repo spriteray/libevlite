@@ -23,7 +23,7 @@
 //
 
 // 时间函数, 返回毫秒数
-inline int64_t mtime();
+int64_t mtime();
 
 // socket基本操作
 int32_t is_connected( int32_t fd );

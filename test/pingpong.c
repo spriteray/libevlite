@@ -7,7 +7,7 @@
 
 #include "network.h"
 
-#define METHOD	0 
+#define METHOD		1	
 
 struct session
 {

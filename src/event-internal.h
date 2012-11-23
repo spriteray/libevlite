@@ -126,8 +126,5 @@ struct eventset
     struct event_list activelist;
 };
 
-inline void evsets_clear_now( struct eventset * self );
-inline int64_t evsets_get_now( struct eventset * self );
-
 #endif
 

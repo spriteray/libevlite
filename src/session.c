@@ -446,7 +446,7 @@ int32_t session_end( struct session * self, sid_t id )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-static struct session * _get_entry( struct session_manager * self, sid_t id );
+static inline struct session * _get_entry( struct session_manager * self, sid_t id );
 
 struct session * _get_entry( struct session_manager * self, sid_t id )
 {
