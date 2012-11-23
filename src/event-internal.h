@@ -44,18 +44,17 @@ struct eventop
 
 struct event
 {
-    TAILQ_ENTRY(event) timerlink;
-    TAILQ_ENTRY(event) eventlink;
-    TAILQ_ENTRY(event) activelink;
-    
     int32_t fd;
     int16_t events;
 
-    void * evsets;
+    int32_t status;
+    int32_t results;
 
     // cb 一定要合法
     void * arg;
     void (*cb)( int32_t, int16_t, void * ); 
+
+    void * evsets;
 
     // 定时器的超时时间
     int32_t timer_msecs;        
@@ -67,8 +66,9 @@ struct event
     // 事件的周期数
     int32_t timer_stepcnt;     
 
-    int32_t status;
-    int32_t results;
+    TAILQ_ENTRY(event) timerlink;
+    TAILQ_ENTRY(event) eventlink;
+    TAILQ_ENTRY(event) activelink;
 };
 
 TAILQ_HEAD( event_list, event );
