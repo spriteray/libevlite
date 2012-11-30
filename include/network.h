@@ -22,18 +22,21 @@ typedef void *		iolayer_t;
 //						返回值为处理掉的数据包, <0: 处理出错
 //		transform()	- 发送数据包前的回调
 //						返回需要发送的数据包, 确保数据包是malloc()出来的
-//		timeout()	- 超时的回调
 //		keepalive()	- 保活定时器超时的回调
+//
+//		timeout()	- 超时的回调
 //		error()		- 出错的回调
-//		shutdown()	- 会话终止时的回调
-//						返回非0, libevlite会终止会话
+//						对于accept()出来的客户端, 直接回调shutdown();
+//						对于connect()出去的客户端, ==0, 尝试重连, !=0, 直接回调shutdown() .
+//
+//		shutdown()	- 会话终止时的回调, 不论返回值, 直接销毁会话
 //
 typedef struct
 {
 	int32_t (*process)( void * context, const char * buf, uint32_t nbytes );
 	char *	(*transform)( void * context, const char * buf, uint32_t * nbytes );
-	int32_t (*timeout)( void * context );
 	int32_t (*keepalive)( void * context );
+	int32_t (*timeout)( void * context );
 	int32_t (*error)( void * context, int32_t result );
 	int32_t (*shutdown)( void * context );
 }ioservice_t;

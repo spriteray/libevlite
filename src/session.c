@@ -14,7 +14,7 @@
 
 static struct session * _new_session( uint32_t size );
 static int32_t _del_session( struct session * self );
-static int32_t _send( struct session * self, char * buf, uint32_t nbytes );
+static inline int32_t _send( struct session * self, char * buf, uint32_t nbytes );
 
 struct session * _new_session( uint32_t size )
 {
@@ -446,7 +446,7 @@ int32_t session_end( struct session * self, sid_t id )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-static struct session * _get_entry( struct session_manager * self, sid_t id );
+static inline struct session * _get_entry( struct session_manager * self, sid_t id );
 
 struct session * _get_entry( struct session_manager * self, sid_t id )
 {

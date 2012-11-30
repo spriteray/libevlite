@@ -7,7 +7,7 @@
 
 #include "network.h"
 
-#define METHOD	0 
+#define METHOD		1	
 
 struct session
 {
@@ -150,3 +150,4 @@ int main( int32_t argc, char ** argv )
 
 	return 0;
 }
+

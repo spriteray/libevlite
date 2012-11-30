@@ -124,7 +124,7 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) )
 	memset( &addr, 0, sizeof(addr) );
 	addr.sin_family = AF_INET;
 	addr.sin_port	= htons( port );
-	if ( host != NULL )
+	if ( host != NULL && strlen(host) > 0 )
 	{
 		addr.sin_addr.s_addr = inet_addr( host );
 	}

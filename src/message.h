@@ -11,12 +11,12 @@
 //
 struct buffer
 {
-	char * buffer;			// 有效数据段
-	char * orignbuffer;		// 原始数据段
-
 	uint32_t offset;		// 有效数据段相对于原始数据段的偏移量
 	uint32_t length;		// 有效数据段的长度
 	uint32_t totallen;		// 内存块的总长度
+
+	char * buffer;			// 有效数据段
+	char * orignbuffer;		// 原始数据段
 };
 
 // 创建, 销毁缓冲区
