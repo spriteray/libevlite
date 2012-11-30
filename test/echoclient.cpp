@@ -36,7 +36,6 @@ public :
 
 	virtual int32_t onShutdown()
 	{
-		delete this;
 		return 0;
 	}
 };

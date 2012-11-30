@@ -118,7 +118,9 @@ int32_t IIOSession::onShutdownSession( void * context )
 
 	if ( session )
 	{
-		return session->onShutdown();
+		int32_t rc = session->onShutdown();
+		delete session;
+		return rc;
 	}
 
 	return -1;

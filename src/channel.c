@@ -242,10 +242,8 @@ int32_t channel_shutdown( struct session * session )
 	service->shutdown( session->context );
 	
 	// 从会话管理器中移除会话
-	if ( manager != NULL
-			&& session->type == eSessionType_Once )
+	if ( manager != NULL )
 	{
-		// 临时会话, 需要从manager中移除会话
 		session_manager_remove( manager, session );
 	}
 
