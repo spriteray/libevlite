@@ -91,7 +91,7 @@ int32_t tcp_listen( const char * host, uint16_t port )
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags) );
     setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
 	
-#if defined (linux)	
+#if defined (__linux__)	
 	flags = 1;
 	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
 #endif

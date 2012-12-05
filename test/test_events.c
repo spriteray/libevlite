@@ -90,7 +90,7 @@ int32_t main()
         exit(1);
     }
 
-#ifdef __linux
+#ifdef __linux__
     socketfd = open( fifo, O_RDWR|O_NONBLOCK, 0 );
 #else
     socketfd = open( fifo, O_RDONLY|O_NONBLOCK, 0 );

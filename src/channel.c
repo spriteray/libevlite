@@ -431,7 +431,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_WRITE )
 	{
-#if defined (linux)
+#if defined (__linux__)
 		// linux需要进一步检查连接是否成功
 		if ( is_connected( fd ) != 0 )
 		{
@@ -507,7 +507,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_WRITE )
 	{
-#if defined (linux)
+#if defined (__linux__)
 		if ( is_connected(fd) != 0 )
 		{
 			// 重连失败

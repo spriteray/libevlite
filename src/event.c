@@ -23,7 +23,7 @@
 //
 // linux和freebsd的兼容性定义
 //
-#if defined (linux)
+#if defined (__linux__)
     extern const struct eventop epollops;
     const struct eventop * evsel = &epollops;
 #elif defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
