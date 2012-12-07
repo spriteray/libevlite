@@ -328,10 +328,7 @@ int32_t evsets_del( evsets_t self, event_t ev )
     struct event * e = (struct event *)ev;
     struct eventset * sets = (struct eventset *)self;
 
-    if ( e->evsets != sets )
-    {
-        return -1;
-    }
+    assert ( e->evsets == sets );
 
     if ( e->status & ~EVSTATUS_ALL )
     {
