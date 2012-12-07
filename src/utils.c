@@ -403,148 +403,16 @@ void sidlist_destroy( struct sidlist * self )
 	return;
 }
 
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-
-static int32_t _queue_expand( struct queue * self );
-
-int32_t _queue_expand( struct queue * self )
-{
-	// 需要扩展
-	uint32_t headlen = 0, taillen = 0;
-	uint32_t new_size = self->size << 1;
-
-	struct task * new_entries = NULL;
-
-	new_entries = (struct task * )malloc( sizeof(struct task) * new_size );
-	if ( new_entries == NULL )
-	{
-		// 扩展内存块失败
-		return -1;
-	}
-
-	uint32_t headidx = self->head&(self->size-1);
-	uint32_t tailidx = self->tail&(self->size-1);
-
-	if ( headidx < tailidx )
-	{
-		headlen = tailidx - headidx; 
-	}
-	else
-	{
-		headlen = self->size - headidx;
-		taillen = tailidx;
-	}
-
-	memcpy( new_entries, self->entries+headidx, sizeof(struct task)*headlen );
-	memcpy( new_entries+headlen, self->entries, sizeof(struct task)*taillen );
-
-	self->head = 0;
-	self->tail = headlen+taillen; 
-	self->size = new_size;
-
-	free ( self->entries );
-	self->entries = new_entries;
-
-	return 0;	
-}
-
-struct queue * queue_create( uint32_t size )
-{
-	struct queue * self = NULL;
-
-	size = size ? size : 8;
-	size = nextpow2( size );
-
-	self = (struct queue *)malloc( sizeof(struct queue) );
-	if ( self )
-	{
-		self->entries = (struct task *)calloc( size, sizeof(struct task) );
-		if ( self->entries )
-		{
-			self->size 	= size;
-			self->head 	= self->tail = 0;
-		}
-		else
-		{
-			free( self );
-			self = NULL;
-		}
-	}
-
-	return self;
-}
-
-int32_t queue_push( struct queue * self, struct task * task )
-{
-	if ( self->size + self->head - self->tail <= 0 ) 
-	{
-		// 需要扩展
-		if ( _queue_expand(self) != 0 )
-		{
-			return -1; 
-		}
-	}	
-	
-	self->entries[self->tail&(self->size-1)] = *task;
-	++self->tail;
-
-	return 0;
-}
-
-int32_t queue_pop( struct queue * self, struct task * task )
-{
-	uint32_t count = self->tail - self->head;
-
-	if ( count > 0 )
-	{
-		*task = self->entries[self->head&(self->size-1)];
-		++self->head;
-
-		return 1;
-	}
-
-	return 0;
-}
-
-int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count )
-{
-	int32_t i = 0;
-
-	for ( i = 0; i < count; ++i )
-	{
-		if ( queue_pop( self, &(tasks[i]) ) == 0 )
-		{
-			break;
-		}
-	}
-
-	return i;
-}
-
-uint32_t queue_count( struct queue * self )
-{
-	return self->tail - self->head;
-}
-
-int32_t queue_destroy( struct queue * self )
-{
-    if ( self->entries )
-    {
-        free( self->entries );
-        self->entries = NULL;
-    }
-
-    self->size = 0;
-    self->head = self->tail = 0;
-
-    free(self);
-
-    return 0;
-}
-
 // -----------------------------------------------------------------------------------------------------------------
+
+// 队列定义
+QUEUE_CREATE(task)
+QUEUE_EXPAND(task)
+QUEUE_PUSH(task)
+QUEUE_POP(task)
+QUEUE_POPS(task)
+QUEUE_COUNT(task)
+QUEUE_DESTROY(task)
 
 struct msgqueue * msgqueue_create( uint32_t size )
 {
@@ -557,7 +425,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
         self->pushfd = -1;
         pthread_mutex_init( &self->lock, 0 );
     
-        self->queue = queue_create( size );
+        self->queue = queue_create(task)(size);
         if ( self->queue == NULL )
         {
             msgqueue_destroy( self );
@@ -598,10 +466,10 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
 
     pthread_mutex_lock( &self->lock );
 
-    rc = queue_push( self->queue, task );
+    rc = queue_push(task)(self->queue, task);
     if ( isnotify != 0 )
     {
-		isbc = queue_count( self->queue );
+		isbc = queue_count(task)((self->queue));
     }
     
     pthread_mutex_unlock( &self->lock );
@@ -626,7 +494,7 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
     int32_t rc = -1;
 
     pthread_mutex_lock( &self->lock );
-    rc = queue_pop( self->queue, task );
+    rc = queue_pop(task)((self->queue), task);
     pthread_mutex_unlock( &self->lock );
 
     return rc;
@@ -637,7 +505,7 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
 	int32_t rc = -1;
 
     pthread_mutex_lock( &self->lock );
-    rc = queue_pops( self->queue, tasks, count );
+    rc = queue_pops(task)((self->queue), tasks, count);
     pthread_mutex_unlock( &self->lock );
 
     return rc;
@@ -648,7 +516,7 @@ uint32_t msgqueue_count( struct msgqueue * self )
 	uint32_t rc = 0;
 	
 	pthread_mutex_lock( &self->lock );
-	rc = queue_count( self->queue );
+	rc = queue_count(task)((self->queue));
 	pthread_mutex_unlock( &self->lock );
 	
 	return rc;
@@ -669,7 +537,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 {
 	if ( self->queue )
 	{
-		queue_destroy( self->queue );
+		queue_destroy(task)((self->queue));
 		self->queue = NULL;
 	}
 	

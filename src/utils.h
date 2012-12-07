@@ -16,6 +16,7 @@
 #include <netinet/tcp.h>
 #include <sys/uio.h>
 
+#include "queue.h"
 #include "network.h"
 
 //
@@ -77,7 +78,6 @@ int32_t sidlist_add( struct sidlist * self, sid_t id );
 sid_t sidlist_del( struct sidlist * self, int32_t index );
 void sidlist_destroy( struct sidlist * self );
 
-
 // 任务类型
 enum
 {
@@ -101,42 +101,7 @@ struct task
 	};
 };
 
-/*
- * 队列
- * 简单的队列算法, 需要扩展时, 有一定量的数据拷贝
- * 但是, 在长度可控的情况下, 足够高效和简单
- */
-struct queue
-{
-	uint32_t size;					// (4+4)bytes
-	struct task * entries;			// 8bytes
-	uint32_t padding1[12];			// 48,padding
-
-	uint32_t head;					// 4bytes, cacheline padding
-	uint32_t padding2[15];			// 60bytes 
-
-	uint32_t tail;					// 4bytes, cacheline padding
-	uint32_t padding3[15];			// 60bytes 
-};
-
-// TODO: 分段存储，扩展时节省了内存拷贝
-
-// 创建队列
-// size - 性能方面的考虑, 确保size足够大
-struct queue * queue_create( uint32_t size );
-
-// 向队列中提交任务
-int32_t queue_push( struct queue * self, struct task * task );
-
-// 从队列中取出一定量的任务
-int32_t queue_pop( struct queue * self, struct task * task );
-int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count );
-
-// 队列长度
-inline uint32_t queue_count( struct queue * self );
-
-// 销毁队列
-int32_t queue_destroy( struct queue * self );
+QUEUE_DEFINE(task)
 
 /* 
  * 消息队列
@@ -144,7 +109,7 @@ int32_t queue_destroy( struct queue * self );
  */
 struct msgqueue
 {
-	struct queue * queue;
+	QUEUE_TYPE(task) * queue;
 
 	int32_t popfd;
 	int32_t pushfd;

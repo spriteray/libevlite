@@ -30,8 +30,8 @@
  * $FreeBSD: src/sys/sys/queue.h,v 1.68.2.2.2.1 2010/12/21 17:10:29 kensmith Exp $
  */
 
-#ifndef _SYS_QUEUE_H_
-#define	_SYS_QUEUE_H_
+#ifndef __SRC_QUEUE_H__ 
+#define __SRC_QUEUE_H__	
 
 #include <sys/cdefs.h>
 
@@ -586,50 +586,153 @@ struct {								\
 	QMD_TRACE_ELEM(&(elm)->field);					\
 } while (0)
 
-
-#ifdef _KERNEL
-
 /*
- * XXX insque() and remque() are an old way of handling certain queues.
- * They bogusly assumes that all queue heads look alike.
+ * 队列
+ * 简单的队列算法, 需要扩展时, 有一定量的数据拷贝
+ * 但是, 在长度可控的情况下, 足够高效和简单
  */
 
-struct quehead {
-	struct quehead *qh_link;
-	struct quehead *qh_rlink;
+#include <string.h>
+
+#define QUEUE_DEFINE(type)		\
+struct type##_queue				\
+{								\
+	uint32_t size;				\
+	struct type * entries;		\
+	uint32_t padding1[12];		\
+	uint32_t head;				\
+	uint32_t padding2[15];		\
+	uint32_t tail;				\
+	uint32_t padding3[15];		\
 };
 
-#ifdef __CC_SUPPORTS___INLINE
+#define QUEUE_TYPE(type) struct type##_queue
 
-static __inline void
-insque(void *a, void *b)
-{
-	struct quehead *element = (struct quehead *)a,
-		 *head = (struct quehead *)b;
-
-	element->qh_link = head->qh_link;
-	element->qh_rlink = head;
-	head->qh_link = element;
-	element->qh_link->qh_rlink = element;
+#define QUEUE_CREATE(type)									\
+struct type##_queue * type##_queue_create( uint32_t size )	\
+{															\
+	struct type##_queue * self = NULL;						\
+	size = size ? size : 8;									\
+	size = nextpow2( size );								\
+	self = malloc( sizeof(struct type##_queue) );			\
+	if ( self != NULL )										\
+	{														\
+		self->entries = calloc( size, sizeof(struct type) );\
+		if ( self->entries != NULL )						\
+		{													\
+			self->size	= size;								\
+			self->head	= self->tail = 0;					\
+		}													\
+		else												\
+		{													\
+			free( self );									\
+			self = NULL;									\
+		}													\
+	}														\
+	return self;											\
 }
 
-static __inline void
-remque(void *a)
-{
-	struct quehead *element = (struct quehead *)a;
-
-	element->qh_link->qh_rlink = element->qh_rlink;
-	element->qh_rlink->qh_link = element->qh_link;
-	element->qh_rlink = 0;
+#define QUEUE_EXPAND(type)									\
+int32_t type##_queue_expand( struct type##_queue * self )	\
+{															\
+	uint32_t headlen = 0, taillen = 0;						\
+	uint32_t newsize = self->size << 1;						\
+	struct type * newentries = NULL;						\
+	newentries = malloc( sizeof(struct type##_queue) * newsize ); \
+	if ( newentries == NULL )								\
+	{														\
+		return -1;											\
+	}														\
+	uint32_t headidx = self->head&(self->size-1);			\
+	uint32_t tailidx = self->tail&(self->size-1);			\
+	if ( headidx < tailidx )								\
+	{														\
+		headlen = tailidx - headidx;						\
+	}														\
+	else													\
+	{														\
+		headlen = tailidx - headidx;						\
+		taillen = tailidx;									\
+	}														\
+	memcpy( newentries, self->entries+headidx, sizeof(struct type)*headlen ); \
+	memcpy( newentries+headlen, self->entries, sizeof(struct type)*taillen ); \
+	self->head = 0;											\
+	self->tail = headlen+taillen;							\
+	self->size = newsize;									\
+	free( self->entries );									\
+	self->entries = newentries;								\
+	return 0;												\
 }
 
-#else /* !__CC_SUPPORTS___INLINE */
+#define QUEUE_PUSH(type)									\
+int32_t type##_queue_push( struct type##_queue * self, struct type * data )	\
+{															\
+	if ( self->size + self->head - self->tail <= 0 )		\
+	{														\
+		if ( type##_queue_expand(self) != 0 )				\
+		{													\
+			return -1;										\
+		}													\
+	}														\
+	self->entries[self->tail&(self->size-1)] = *data;		\
+	++self->tail;											\
+	return 0;												\
+}
 
-void	insque(void *a, void *b);
-void	remque(void *a);
+#define QUEUE_POP(type)										\
+int32_t type##_queue_pop( struct type##_queue * self,  struct type * data ) \
+{															\
+	uint32_t count = self->tail - self->head;				\
+	if ( count > 0 )										\
+	{														\
+		*data = self->entries[self->head&(self->size-1)];	\
+		++self->head;										\
+		return 1;											\
+	}														\
+	return 0;												\
+}
 
-#endif /* __CC_SUPPORTS___INLINE */
+#define QUEUE_POPS(type)									\
+int32_t type##_queue_pops( struct type##_queue * self, struct type * datas, uint32_t count ) \
+{															\
+	int32_t i = 0;											\
+	for ( i = 0; i < count; ++i )							\
+	{														\
+		if ( type##_queue_pop( self, &(datas[i]) ) == 0 )	\
+		{													\
+			break;											\
+		}													\
+	}														\
+	return i;												\
+}
 
-#endif /* _KERNEL */
+#define QUEUE_COUNT(type)									\
+uint32_t type##_queue_count( struct type##_queue * self )	\
+{															\
+	return self->tail - self->head;							\
+}
 
-#endif /* !_SYS_QUEUE_H_ */
+#define QUEUE_DESTROY(type)									\
+void type##_queue_destroy( struct type##_queue * self )		\
+{															\
+	if ( self->entries != NULL )							\
+	{														\
+		free( self->entries );								\
+		self->entries = NULL;								\
+	}														\
+	self->size = 0;											\
+	self->head = self->tail = 0;							\
+	free( self );											\
+}
+
+// 队列方法
+#define queue_create(type)		type##_queue_create
+#define queue_push(type)		type##_queue_push
+#define queue_pop(type)			type##_queue_pop
+#define queue_count(type)		type##_queue_count
+#define queue_pops(type)		type##_queue_pops
+#define queue_destroy(type)		type##_queue_destroy
+
+
+
+#endif
