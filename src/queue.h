@@ -1,34 +1,3 @@
-/*-
- * Copyright (c) 1991, 1993
- *	The Regents of the University of California.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- *	@(#)queue.h	8.5 (Berkeley) 8/20/94
- * $FreeBSD: src/sys/sys/queue.h,v 1.68.2.2.2.1 2010/12/21 17:10:29 kensmith Exp $
- */
 
 #ifndef __SRC_QUEUE_H__ 
 #define __SRC_QUEUE_H__	
@@ -592,6 +561,8 @@ struct {								\
  * 但是, 在长度可控的情况下, 足够高效和简单
  */
 
+#include <assert.h>
+#include <stdlib.h>
 #include <string.h>
 
 #define QUEUE_DEFINE(type)		\
@@ -613,7 +584,7 @@ struct type##_queue * type##_queue_create( uint32_t size )	\
 {															\
 	struct type##_queue * self = NULL;						\
 	size = size ? size : 8;									\
-	size = nextpow2( size );								\
+	assert( (size&(size-1)) == 0 );							\
 	self = malloc( sizeof(struct type##_queue) );			\
 	if ( self != NULL )										\
 	{														\
@@ -637,8 +608,7 @@ int32_t type##_queue_expand( struct type##_queue * self )	\
 {															\
 	uint32_t headlen = 0, taillen = 0;						\
 	uint32_t newsize = self->size << 1;						\
-	struct type * newentries = NULL;						\
-	newentries = malloc( sizeof(struct type##_queue) * newsize ); \
+	struct type * newentries = malloc( sizeof(struct type) * newsize ); \
 	if ( newentries == NULL )								\
 	{														\
 		return -1;											\
@@ -651,7 +621,7 @@ int32_t type##_queue_expand( struct type##_queue * self )	\
 	}														\
 	else													\
 	{														\
-		headlen = tailidx - headidx;						\
+		headlen = self->size - headidx;						\
 		taillen = tailidx;									\
 	}														\
 	memcpy( newentries, self->entries+headidx, sizeof(struct type)*headlen ); \
@@ -706,6 +676,24 @@ int32_t type##_queue_pops( struct type##_queue * self, struct type * datas, uint
 	return i;												\
 }
 
+#define QUEUE_GET(type)									\
+int32_t type##_queue_get( struct type##_queue * self, uint32_t index, struct type * data ) \
+{															\
+	uint32_t count = self->tail - self->head;				\
+	if ( index < count )									\
+	{														\
+		*data = self->entries[(self->head+index)&(self->size-1)];	\
+		return 0;											\
+	}														\
+	return -1;												\
+}
+
+#define QUEUE_TOP(type)									\
+int32_t type##_queue_top( struct type##_queue * self, struct type * data ) \
+{															\
+	return type##_queue_get( self, 0, data );				\
+}
+
 #define QUEUE_COUNT(type)									\
 uint32_t type##_queue_count( struct type##_queue * self )	\
 {															\
@@ -725,14 +713,26 @@ void type##_queue_destroy( struct type##_queue * self )		\
 	free( self );											\
 }
 
+// 队列方法的实现
+#define QUEUE_METHOD(type)			\
+QUEUE_CREATE(type);					\
+QUEUE_EXPAND(type);					\
+QUEUE_PUSH(type);					\
+QUEUE_POP(type);					\
+QUEUE_POPS(type);					\
+QUEUE_GET(type);					\
+QUEUE_TOP(type);					\
+QUEUE_COUNT(type);					\
+QUEUE_DESTROY(type);
+
 // 队列方法
 #define queue_create(type)		type##_queue_create
 #define queue_push(type)		type##_queue_push
 #define queue_pop(type)			type##_queue_pop
 #define queue_count(type)		type##_queue_count
 #define queue_pops(type)		type##_queue_pops
+#define queue_get(type)			type##_queue_get
+#define queue_top(type)			type##_queue_top
 #define queue_destroy(type)		type##_queue_destroy
-
-
 
 #endif

@@ -406,13 +406,7 @@ void sidlist_destroy( struct sidlist * self )
 // -----------------------------------------------------------------------------------------------------------------
 
 // 队列定义
-QUEUE_CREATE(task)
-QUEUE_EXPAND(task)
-QUEUE_PUSH(task)
-QUEUE_POP(task)
-QUEUE_POPS(task)
-QUEUE_COUNT(task)
-QUEUE_DESTROY(task)
+QUEUE_METHOD(task)
 
 struct msgqueue * msgqueue_create( uint32_t size )
 {
