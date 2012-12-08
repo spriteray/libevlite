@@ -570,6 +570,15 @@ struct type##_queue				\
 {								\
 	uint32_t size;				\
 	struct type * entries;		\
+	uint32_t head;				\
+	uint32_t tail;				\
+};
+
+#define QUEUE_PADDING_DEFINE(type)		\
+struct type##_queue				\
+{								\
+	uint32_t size;				\
+	struct type * entries;		\
 	uint32_t padding1[12];		\
 	uint32_t head;				\
 	uint32_t padding2[15];		\
