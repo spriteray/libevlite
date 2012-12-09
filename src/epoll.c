@@ -53,7 +53,7 @@ const struct eventop epollops = {
     epoll_final
 };
 
-#define NEVENTS         512             // 初始化的事件数, 该框架同样适用于内网服务器
+#define NEVENTS         4096			// 初始化的事件数, 该框架同样适用于内网服务器
 #define MAX_EPOLL_WAIT  35*60*1000
 
 void * epoll_init()

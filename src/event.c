@@ -23,7 +23,7 @@
 //
 // linux和freebsd的兼容性定义
 //
-#if defined (linux)
+#if defined (__linux__)
     extern const struct eventop epollops;
     const struct eventop * evsel = &epollops;
 #elif defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
@@ -328,10 +328,7 @@ int32_t evsets_del( evsets_t self, event_t ev )
     struct event * e = (struct event *)ev;
     struct eventset * sets = (struct eventset *)self;
 
-    if ( e->evsets != sets )
-    {
-        return -1;
-    }
+    assert ( e->evsets == sets );
 
     if ( e->status & ~EVSTATUS_ALL )
     {

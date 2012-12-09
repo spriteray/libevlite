@@ -40,7 +40,7 @@ const struct eventop kqueueops = {
     kqueue_final
 };
 
-#define NEVENTS                 512
+#define NEVENTS                 4096
 #define EVSTATUS_X_KQINKERNEL   0x0100
 
 void * kqueue_init()
