@@ -463,7 +463,7 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
     rc = queue_push(task)(self->queue, task);
     if ( isnotify != 0 )
     {
-		isbc = queue_count(task)((self->queue));
+		isbc = queue_count(task)(self->queue);
     }
     
     pthread_mutex_unlock( &self->lock );
@@ -488,7 +488,7 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
     int32_t rc = -1;
 
     pthread_mutex_lock( &self->lock );
-    rc = queue_pop(task)((self->queue), task);
+    rc = queue_pop(task)(self->queue, task);
     pthread_mutex_unlock( &self->lock );
 
     return rc;
@@ -499,7 +499,7 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
 	int32_t rc = -1;
 
     pthread_mutex_lock( &self->lock );
-    rc = queue_pops(task)((self->queue), tasks, count);
+    rc = queue_pops(task)(self->queue, tasks, count);
     pthread_mutex_unlock( &self->lock );
 
     return rc;
@@ -510,7 +510,7 @@ uint32_t msgqueue_count( struct msgqueue * self )
 	uint32_t rc = 0;
 	
 	pthread_mutex_lock( &self->lock );
-	rc = queue_count(task)((self->queue));
+	rc = queue_count(task)(self->queue);
 	pthread_mutex_unlock( &self->lock );
 	
 	return rc;
@@ -531,7 +531,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 {
 	if ( self->queue )
 	{
-		queue_destroy(task)((self->queue));
+		queue_destroy(task)(self->queue);
 		self->queue = NULL;
 	}
 	
