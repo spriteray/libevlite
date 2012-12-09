@@ -652,7 +652,7 @@ int32_t name##_queue_push( struct name##_queue * self, type * data )	\
 		}													\
 	}														\
 	(self)->entries[(self)->tail&((self)->size-1)] = *data;	\
-	++(self)->tail;											\
+	++((self)->tail);										\
 	return 0;												\
 }
 
@@ -663,7 +663,7 @@ int32_t name##_queue_pop( struct name##_queue * self, type * data ) \
 	if ( count > 0 )										\
 	{														\
 		*(data) = (self)->entries[(self)->head&((self)->size-1)];	\
-		++(self)->head;										\
+		++((self)->head);									\
 		return 1;											\
 	}														\
 	return 0;												\
