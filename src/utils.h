@@ -101,7 +101,7 @@ struct task
 	};
 };
 
-QUEUE_PADDING_DEFINE(task)
+QUEUE_PADDING_DEFINE(task, struct task)
 
 /* 
  * 消息队列

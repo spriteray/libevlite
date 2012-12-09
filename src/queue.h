@@ -565,183 +565,153 @@ struct {								\
 #include <stdlib.h>
 #include <string.h>
 
-#define QUEUE_DEFINE(type)		\
-struct type##_queue				\
+#define QUEUE_DEFINE(name, type)\
+struct name##_queue				\
 {								\
-	uint32_t size;				\
-	struct type * entries;		\
-	uint32_t head;				\
-	uint32_t tail;				\
+	uint32_t	size;			\
+	type *		entries;		\
+	uint32_t	head;			\
+	uint32_t	tail;			\
 };
 
-#define QUEUE_PADDING_DEFINE(type)		\
-struct type##_queue				\
+#define QUEUE_PADDING_DEFINE(name, type)\
+struct name##_queue				\
 {								\
-	uint32_t size;				\
-	struct type * entries;		\
-	uint32_t padding1[12];		\
-	uint32_t head;				\
-	uint32_t padding2[15];		\
-	uint32_t tail;				\
-	uint32_t padding3[15];		\
+	uint32_t	size;			\
+	type *		entries;		\
+	uint32_t	padding1[12];	\
+	uint32_t	head;			\
+	uint32_t	padding2[15];	\
+	uint32_t	tail;			\
+	uint32_t	padding3[15];	\
 };
 
-#define QUEUE_TYPE(type) struct type##_queue
+#define QUEUE_TYPE(name) struct name##_queue
 
-#define QUEUE_CREATE(type)									\
-struct type##_queue * type##_queue_create( uint32_t size )	\
+#define QUEUE_CREATE(name, type)							\
+struct name##_queue * name##_queue_create( uint32_t size )	\
 {															\
-	struct type##_queue * self = NULL;						\
+	struct name##_queue * self = NULL;						\
 	size = size ? size : 8;									\
 	assert( (size&(size-1)) == 0 );							\
-	self = malloc( sizeof(struct type##_queue) );			\
-	if ( self != NULL )										\
+	(self) = malloc( sizeof(struct name##_queue) );			\
+	if ( (self) != NULL )									\
 	{														\
-		self->entries = calloc( size, sizeof(struct type) );\
-		if ( self->entries != NULL )						\
+		(self)->entries = calloc( size, sizeof(type) );\
+		if ( (self)->entries != NULL )						\
 		{													\
-			self->size	= size;								\
-			self->head	= self->tail = 0;					\
+			(self)->size	= size;							\
+			(self)->head	= (self)->tail = 0;				\
 		}													\
 		else												\
 		{													\
-			free( self );									\
-			self = NULL;									\
+			free( (self) );									\
+			(self) = NULL;									\
 		}													\
 	}														\
-	return self;											\
+	return (self);											\
 }
 
-#define QUEUE_EXPAND(type)									\
-int32_t type##_queue_expand( struct type##_queue * self )	\
+#define QUEUE_PUSH(name, type)								\
+int32_t name##_queue_expand( struct name##_queue * self )	\
 {															\
 	uint32_t headlen = 0, taillen = 0;						\
-	uint32_t newsize = self->size << 1;						\
-	struct type * newentries = malloc( sizeof(struct type) * newsize ); \
+	uint32_t newsize = (self)->size << 1;					\
+	struct name * newentries = malloc( sizeof(type) * newsize ); \
 	if ( newentries == NULL )								\
 	{														\
 		return -1;											\
 	}														\
-	uint32_t headidx = self->head&(self->size-1);			\
-	uint32_t tailidx = self->tail&(self->size-1);			\
+	uint32_t headidx = (self)->head&((self)->size-1);		\
+	uint32_t tailidx = (self)->tail&((self)->size-1);		\
 	if ( headidx < tailidx )								\
 	{														\
 		headlen = tailidx - headidx;						\
 	}														\
 	else													\
 	{														\
-		headlen = self->size - headidx;						\
+		headlen = (self)->size - headidx;					\
 		taillen = tailidx;									\
 	}														\
-	memcpy( newentries, self->entries+headidx, sizeof(struct type)*headlen ); \
-	memcpy( newentries+headlen, self->entries, sizeof(struct type)*taillen ); \
-	self->head = 0;											\
-	self->tail = headlen+taillen;							\
-	self->size = newsize;									\
-	free( self->entries );									\
-	self->entries = newentries;								\
+	memcpy( newentries, (self)->entries+headidx, sizeof(type)*headlen ); \
+	memcpy( newentries+headlen, (self)->entries, sizeof(type)*taillen ); \
+	(self)->head = 0;										\
+	(self)->tail = headlen+taillen;							\
+	(self)->size = newsize;									\
+	free( (self)->entries );								\
+	(self)->entries = newentries;							\
 	return 0;												\
-}
-
-#define QUEUE_PUSH(type)									\
-int32_t type##_queue_push( struct type##_queue * self, struct type * data )	\
+};															\
+int32_t name##_queue_push( struct name##_queue * self, type * data )	\
 {															\
-	if ( self->size + self->head - self->tail <= 0 )		\
+	if ( (self)->size + (self)->head - (self)->tail <= 0 )	\
 	{														\
-		if ( type##_queue_expand(self) != 0 )				\
+		if ( name##_queue_expand((self)) != 0 )				\
 		{													\
 			return -1;										\
 		}													\
 	}														\
-	self->entries[self->tail&(self->size-1)] = *data;		\
-	++self->tail;											\
+	(self)->entries[(self)->tail&((self)->size-1)] = *data;	\
+	++(self)->tail;											\
 	return 0;												\
 }
 
-#define QUEUE_POP(type)										\
-int32_t type##_queue_pop( struct type##_queue * self,  struct type * data ) \
+#define QUEUE_POP(name, type)								\
+int32_t name##_queue_pop( struct name##_queue * self, type * data ) \
 {															\
-	uint32_t count = self->tail - self->head;				\
+	uint32_t count = (self)->tail - (self)->head;			\
 	if ( count > 0 )										\
 	{														\
-		*data = self->entries[self->head&(self->size-1)];	\
-		++self->head;										\
+		*(data) = (self)->entries[(self)->head&((self)->size-1)];	\
+		++(self)->head;										\
 		return 1;											\
 	}														\
 	return 0;												\
 }
 
-#define QUEUE_POPS(type)									\
-int32_t type##_queue_pops( struct type##_queue * self, struct type * datas, uint32_t count ) \
+#define QUEUE_GET(name, type)								\
+int32_t name##_queue_get( struct name##_queue * self, uint32_t index, type * data ) \
 {															\
-	int32_t i = 0;											\
-	for ( i = 0; i < count; ++i )							\
-	{														\
-		if ( type##_queue_pop( self, &(datas[i]) ) == 0 )	\
-		{													\
-			break;											\
-		}													\
-	}														\
-	return i;												\
-}
-
-#define QUEUE_GET(type)									\
-int32_t type##_queue_get( struct type##_queue * self, uint32_t index, struct type * data ) \
-{															\
-	uint32_t count = self->tail - self->head;				\
+	uint32_t count = (self)->tail - (self)->head;			\
 	if ( index < count )									\
 	{														\
-		*data = self->entries[(self->head+index)&(self->size-1)];	\
+		*(data) = (self)->entries[((self)->head+index)&((self)->size-1)];	\
 		return 0;											\
 	}														\
 	return -1;												\
 }
 
-#define QUEUE_TOP(type)									\
-int32_t type##_queue_top( struct type##_queue * self, struct type * data ) \
+#define QUEUE_TOP(name, type)								\
+int32_t name##_queue_top( struct name##_queue * self, type * data ) \
 {															\
-	return type##_queue_get( self, 0, data );				\
+	return name##_queue_get( (self), 0, (data) );			\
 }
 
-#define QUEUE_COUNT(type)									\
-uint32_t type##_queue_count( struct type##_queue * self )	\
+#define QUEUE_COUNT(name, type)								\
+uint32_t name##_queue_count( struct name##_queue * self )	\
 {															\
-	return self->tail - self->head;							\
+	return (self)->tail - (self)->head;						\
 }
 
-#define QUEUE_DESTROY(type)									\
-void type##_queue_destroy( struct type##_queue * self )		\
+#define QUEUE_DESTROY(name, type)							\
+void name##_queue_destroy( struct name##_queue * self )		\
 {															\
-	if ( self->entries != NULL )							\
+	if ( (self)->entries != NULL )							\
 	{														\
-		free( self->entries );								\
-		self->entries = NULL;								\
+		free( (self)->entries );							\
+		(self)->entries = NULL;								\
 	}														\
-	self->size = 0;											\
-	self->head = self->tail = 0;							\
-	free( self );											\
+	(self)->size = 0;										\
+	(self)->head = (self)->tail = 0;						\
+	free( (self) );											\
 }
 
-// 队列方法的实现
-#define QUEUE_METHOD(type)			\
-QUEUE_CREATE(type);					\
-QUEUE_EXPAND(type);					\
-QUEUE_PUSH(type);					\
-QUEUE_POP(type);					\
-QUEUE_POPS(type);					\
-QUEUE_GET(type);					\
-QUEUE_TOP(type);					\
-QUEUE_COUNT(type);					\
-QUEUE_DESTROY(type);
-
-// 队列方法
-#define queue_create(type)		type##_queue_create
-#define queue_push(type)		type##_queue_push
-#define queue_pop(type)			type##_queue_pop
-#define queue_count(type)		type##_queue_count
-#define queue_pops(type)		type##_queue_pops
-#define queue_get(type)			type##_queue_get
-#define queue_top(type)			type##_queue_top
-#define queue_destroy(type)		type##_queue_destroy
+#define queue_create(name)		name##_queue_create
+#define queue_push(name)		name##_queue_push
+#define queue_pop(name)			name##_queue_pop
+#define queue_count(name)		name##_queue_count
+#define queue_get(name)			name##_queue_get
+#define queue_top(name)			name##_queue_top
+#define queue_destroy(name)		name##_queue_destroy
 
 #endif
