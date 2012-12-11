@@ -43,7 +43,8 @@ static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char 
 int32_t _new_managers( struct iolayer * self )
 {
 	uint8_t i = 0;
-	uint32_t sessions_per_thread = self->nclients/self->nthreads; 
+	// 会话个数必须要翻倍(避免hashtable enlarge)
+	uint32_t sessions_per_thread = 2 * self->nclients/self->nthreads; 
 
 	// 会话管理器, 
 	// 采用cacheline对齐以提高访问速度

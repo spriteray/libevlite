@@ -115,18 +115,13 @@ int32_t session_end( struct session * self, sid_t id );
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+struct hashtable;
 struct session_manager
 {
 	uint8_t		index;
-	
-	uint32_t	size;
-	uint32_t	count;
-
 	uint32_t	seq;		// 自增的序号
 	
-	// 避免cache-missing引发的性能问题
-	// 性能可以达到开放地址法的hashtable
-	struct arraylist * entries;
+	struct hashtable * table;	
 };
 
 // 创建会话管理器

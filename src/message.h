@@ -19,10 +19,6 @@ struct buffer
 	char * orignbuffer;		// 原始数据段
 };
 
-// 创建, 销毁缓冲区
-struct buffer * buffer_create();
-void buffer_destroy( struct buffer * self );
-
 // 设置缓冲区
 // 速度快, 不存在内存copy, buf一定是malloc()出来的内存地址
 int32_t buffer_set( struct buffer * self, char * buf, uint32_t length );
