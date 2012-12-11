@@ -597,7 +597,7 @@ struct name##_queue * name##_queue_create( uint32_t size )	\
 	(self) = malloc( sizeof(struct name##_queue) );			\
 	if ( (self) != NULL )									\
 	{														\
-		(self)->entries = calloc( size, sizeof(type) );\
+		(self)->entries = calloc( size, sizeof(type) );		\
 		if ( (self)->entries != NULL )						\
 		{													\
 			(self)->size	= size;							\
