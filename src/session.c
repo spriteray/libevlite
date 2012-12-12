@@ -375,13 +375,13 @@ int32_t session_end( struct session * self, sid_t id )
 		// 会话终止时发送队列不为空
 		syslog(LOG_WARNING, "%s(SID=%ld)'s Out-Message-List (%d) is not empty .", __FUNCTION__, id, count );
 
-		for ( ; count > 0; --count )
+		for ( ; count >= 0; --count )
 		{
 			struct message * msg = arraylist_take( &self->outmsglist, -1 );
 			if ( msg )
 			{
 				// 消息发送失败一次
-				message_add_failure( msg, self->id );
+				message_add_failure( msg, id );
 
 				// 检查消息是否可以销毁了
 				if ( message_is_complete(msg) == 0 )
