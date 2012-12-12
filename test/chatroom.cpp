@@ -1,0 +1,274 @@
+
+#include <signal.h>
+#include <stdlib.h>
+#include <string.h>
+#include <pthread.h>
+
+#include "io.h"
+
+using namespace Utils;
+
+class CChatRoomService;
+class CChatRoomSession : public IIOSession
+{
+public:
+	CChatRoomSession();
+	virtual ~CChatRoomSession();
+
+public :
+	virtual int32_t	onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
+	virtual int32_t onShutdown() { return 0; }
+
+public :	
+	void setService( CChatRoomService * s );
+
+private :
+	CChatRoomService *	m_Service;
+};
+
+CChatRoomSession::CChatRoomSession()
+{
+}
+
+CChatRoomSession::~CChatRoomSession()
+{
+}
+
+int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
+{
+	int32_t nprocess = 0;
+
+	while ( 1 )
+	{
+		uint32_t nleft = nbytes - nprocess;
+		const char * buffer = buf + nprocess;
+
+		if ( nbytes < sizeof(struct CSHead) )
+		{
+			break;
+		}
+		
+		CSHead * head = (CSHead *)buffer;
+
+		if ( nleft < head->length ) 
+		{
+			break;
+		}
+		
+		m_Service->post( id(), head );
+		nprocess += head->length;
+	}
+	
+	return nprocess;
+}
+
+int32_t CChatRoomSession::onShutdown()
+{
+	CSHead head;
+	head.msgid = 3;
+	head.length = sizeof(head);
+	m_Service->post( id(), &head );
+
+	return 0;
+}
+
+void CChatRoomSession::setService( CChatRoomService * s )
+{
+	m_Service = s;
+}
+
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+
+class CChatRoomService : public IIOService
+{
+public :
+	CChatRoomService( uint8_t nthreads, uint32_t nclients );
+	virtual ~CChatRoomService();
+
+public :
+	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port );
+
+public :
+	bool init( const char * host, uint16_t port, uint32_t seconds );
+	void run();
+	bool post( sid_t id, CSHead * header );
+
+private :
+	struct Task
+	{
+		uint16_t msgid;
+		uint16_t length;
+		sid_t sid;
+		char * message;
+	};
+
+	pthread_mutex_t		m_TaskLock;
+	std::deque<Task>	m_TaskQueue;
+	std::vector<sid_t>	m_SessionMap;
+};
+
+CChatRoomService::CChatRoomService( uint8_t nthreads, uint32_t nclients )
+	: IIOService( nthreads, nclients )
+{
+	m_SessionMap.reserve( nclients );
+	pthread_mutex_init( &m_TaskLock, NULL );
+}
+
+CChatRoomService::~CChatRoomService()
+{
+	pthread_mutex_destroy( &m_TaskLock );
+}
+
+IIOSession * CChatRoomService::onAccept( sid_t id, const char * host, uint16_t port )
+{
+	CChatRoomSession * session = new CChatRoomSession;
+	if ( session )
+	{
+		CSHead head;
+		head->msgid = 0;
+		head->length = sizeof(head);
+
+		session->setService( this );
+		session->setTimeout( m_TimeoutSeconds );
+
+		post( id, &head );
+	}
+
+	return session;
+}
+
+bool CChatRoomService::init( const char * host, uint16_t port, uint32_t seconds )
+{
+	bool rc = false;
+
+	rc = start();
+	if ( !rc )
+	{
+		printf( "CChatRoomService::start() failed .\n" );
+		return false;
+	}
+
+	rc = listen( host, port );
+	if ( !rc )
+	{
+		printf( "CChatRoomService::listen(%s::%d) failed .\n", host, port );
+		return false;
+	}
+	
+	m_TimeoutSeconds = seconds;
+	return true;
+}
+
+void CChatRoomService::run()
+{
+	std::deque<Task> swapqueue;
+	pthread_mutex_lock( &m_TaskLock );
+	std::swap( swapqueue, m_TaskQueue );
+	pthread_mutex_unlock( &m_TaskQueue );
+
+	for ( std::deque<Task>::iterator it = swapqueue.begin();
+		it != swapqueue.end(); ++it );
+	{
+		Task * task = &(*it);
+
+		switch ( task->msgid )
+		{
+			case 0 :
+				{
+					m_SessionMap.push_back( task->sid );
+				}
+				break;
+
+			case 1 :
+				{
+					send( task->sid, task->message, task->length, true );
+				}
+				break;
+
+			case 2 :
+				{
+					broadcast( m_SessionMap, task->message, task->length );
+					free( task->message );
+				}
+				break;
+
+			case 3 :
+				{
+					std::vector<sid_t>::iterator it = m_SessionMap.find( task->id );
+					if ( it != m_SessionMap.end() )
+					{
+						m_SessionMap.erase( it );
+					}
+				}
+				break;
+		}
+	}
+}
+
+bool CChatRoomService::post( sid_t id, CSHead * header )
+{
+	Task task;
+	task.sid = id;
+	task.msgid = header->msgid;
+	task.length = header->length - sizeof(CSHead);
+	if ( task.length > 0 )
+	{
+		task.message = (char *)malloc( task.length+1 );
+		memcpy( task.message, header+1, task.length );
+		task.message[task.length] = 0;
+	}
+
+	pthread_mutex_lock( &m_TaskLock );
+	m_TaskQueue.push_back( task );
+	pthread_mutex_unlock( &m_TaskLock );
+
+	return true;
+}
+
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+
+bool g_Running;
+
+void signal_handle( int32_t signo )
+{
+	g_Running = false;
+}
+
+int main( int argc, char ** argv )
+{
+	if ( argc != 5 )
+	{
+		printf("chatroom [host] [port] [threads] [clients] \n");
+		return -1;
+	}
+
+	const char * host = argv[1];
+	uint16_t port = atoi(argv[2]);
+	uint8_t nthreads = atoi(argv[3]);
+	uint32_t nclients = atoi(argv[4]);
+
+	signal( SIGPIPE, SIG_IGN );
+	signal( SIGINT, signal_handle );
+
+	CChatRoomService service( nthreads, nclients );
+
+	if ( !service.init(host, port, 60) )
+	{
+		return -2;
+	}
+	
+	g_Running = true;
+	while ( g_Running )
+	{
+		service.run();
+	}
+
+	service.stop();
+	return 0;
+}
+
+
