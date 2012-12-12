@@ -9,7 +9,7 @@ SOFLAGS	= -shared
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).6
-REALNAME= $(LIBNAME).6.3.0
+REALNAME= $(LIBNAME).6.3.1
 
 OS		= $(shell uname)
 
