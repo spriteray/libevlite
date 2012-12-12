@@ -373,7 +373,7 @@ int32_t session_end( struct session * self, sid_t id )
 	if ( count > 0 )
 	{
 		// 会话终止时发送队列不为空
-		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty .", id, count );
+		syslog(LOG_WARNING, "%s(SID=%ld)'s Out-Message-List (%d) is not empty .", __FUNCTION__, id, count );
 
 		for ( ; count > 0; --count )
 		{
@@ -449,7 +449,7 @@ struct hashtable
 {
 	uint32_t size;
 	uint32_t count;
-	uint32_t enlarge_size;				// = size*0.5
+	uint32_t enlarge_size;				// = size*ENLARGE_FACTOR
 	
 	struct hashbucket * buckets;
 };
@@ -491,19 +491,19 @@ int32_t _enlarge_table( struct hashtable * table )
 		struct hashbucket * bucket = table->buckets + i;
 
 		if ( bucket->session != NULL 
-				&&bucket->status == eBucketStatus_Occupied )
+				&& bucket->status == eBucketStatus_Occupied )
 		{
 			_append_session( &newtable, bucket->session );
 		}
 	}
 
 	assert( newtable.count == table->count );
-	
+
 	free ( table->buckets );
 	table->buckets = newtable.buckets;
 	table->size = newtable.size;
 	table->enlarge_size = newtable.enlarge_size;
-	
+
 	return 0;
 }
 
@@ -560,7 +560,11 @@ int32_t _append_session( struct hashtable * table, struct session * s )
 	}
 
 	struct hashbucket * bucket = table->buckets + pos;
-	assert( bucket->session == NULL );
+	if ( bucket->session != NULL && bucket->session->id == s->id )
+	{
+		syslog(LOG_WARNING, "%s(Index=%d): the SID (Seq=%u, Sid=%ld) conflict !", __FUNCTION__, SID_INDEX(s->id), SID_SEQ(s->id), s->id );
+		return -2;
+	}
 	
 	++table->count;
 	bucket->session = s;
@@ -691,7 +695,7 @@ void session_manager_destroy( struct session_manager * self )
 
 	if ( self->table->count > 0 )
 	{
-		syslog( LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, self->table->count );
+		syslog( LOG_WARNING, "%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, self->table->count );
 	}
 
 	for ( i = 0; i < self->table->size; ++i )
