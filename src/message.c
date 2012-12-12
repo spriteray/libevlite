@@ -65,37 +65,6 @@ int32_t _expand( struct buffer * self, uint32_t length )
 	return 0;
 }
 
-struct buffer * buffer_create()
-{
-	struct buffer * buffer = (struct buffer *)malloc(sizeof(struct buffer));
-	if ( buffer )
-	{
-		buffer->buffer		= NULL;
-		buffer->orignbuffer	= NULL;
-		buffer->offset		= 0;
-		buffer->length		= 0;
-		buffer->totallen	= 0;
-	}
-	
-	return buffer;
-}
-
-void buffer_destroy( struct buffer * self )
-{
-	if ( self->orignbuffer )
-	{
-		free( self->orignbuffer );
-		self->orignbuffer = NULL;
-	}
-	
-	self->buffer = NULL;
-	self->offset = self->length = self->totallen = 0;
-	
-	free( self );
-
-	return;
-}
-
 int32_t buffer_set( struct buffer * self, char * buf, uint32_t length )
 {
 	if ( self->orignbuffer )
@@ -232,8 +201,8 @@ void message_destroy( struct message * self )
 	}
 
 	buffer_set( &self->buffer, NULL, 0 );
-
 	free( self );
+
 	return;
 }
 

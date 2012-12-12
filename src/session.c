@@ -373,15 +373,15 @@ int32_t session_end( struct session * self, sid_t id )
 	if ( count > 0 )
 	{
 		// 会话终止时发送队列不为空
-		syslog(LOG_WARNING, "session_end(SID=%ld)'s Out-Message-List (%d) is not empty .", id, count );
+		syslog(LOG_WARNING, "%s(SID=%ld)'s Out-Message-List (%d) is not empty .", __FUNCTION__, id, count );
 
-		for ( ; count > 0; --count )
+		for ( ; count >= 0; --count )
 		{
 			struct message * msg = arraylist_take( &self->outmsglist, -1 );
 			if ( msg )
 			{
 				// 消息发送失败一次
-				message_add_failure( msg, self->id );
+				message_add_failure( msg, id );
 
 				// 检查消息是否可以销毁了
 				if ( message_is_complete(msg) == 0 )
@@ -411,25 +411,6 @@ int32_t session_end( struct session * self, sid_t id )
 		evsets_del( self->evsets, self->evkeepalive );
 		self->status &= ~SESSION_KEEPALIVING;
 	}
-	
-	// 重置部分数据
-	self->id = 0;
-	self->type = 0;
-	self->status = 0;
-	self->port = 0;
-	self->host[0] = 0;
-	self->evsets = NULL;
-	self->context = NULL;
-	self->service.error = NULL;
-	self->service.timeout = NULL;
-	self->service.process = NULL;
-	self->service.transform = NULL;
-	self->service.shutdown = NULL;
-	self->service.keepalive = NULL;
-	self->msgoffsets = 0;
-	self->setting.timeout_msecs = 0;
-	self->setting.keepalive_msecs = 0;
-	self->setting.max_inbuffer_len = 0;
 
 	// NOTICE: 最后一步终止描述符
 	// 系统会回收描述符, libevlite会重用以描述符为key的会话
@@ -439,6 +420,8 @@ int32_t session_end( struct session * self, sid_t id )
 		self->fd = -1;
 	}
 
+	_del_session( self );
+
 	return 0;
 }
 
@@ -446,37 +429,199 @@ int32_t session_end( struct session * self, sid_t id )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-static inline struct session * _get_entry( struct session_manager * self, sid_t id );
+// 填装因子
+#define ENLARGE_FACTOR	0.5f
 
-struct session * _get_entry( struct session_manager * self, sid_t id )
+enum
+{
+	eBucketStatus_Free		= 0,
+	eBucketStatus_Deleted	= 1,
+	eBucketStatus_Occupied	= 2,
+};
+
+struct hashbucket
+{
+	int8_t status;
+	struct session * session;
+};
+
+struct hashtable
+{
+	uint32_t size;
+	uint32_t count;
+	uint32_t enlarge_size;				// = size*ENLARGE_FACTOR
+	
+	struct hashbucket * buckets;
+};
+
+static inline int32_t _init_table( struct hashtable * table, uint32_t size );
+static inline int32_t _enlarge_table( struct hashtable * table );
+static inline int32_t _find_position( struct hashtable * table, sid_t id );
+static inline int32_t _append_session( struct hashtable * table, struct session * s );
+static inline int32_t _remove_session( struct hashtable * table, struct session * s );
+static inline struct session * _find_session( struct hashtable * table, sid_t id );
+
+int32_t _init_table( struct hashtable * table, uint32_t size )
+{
+	table->count = 0;
+	table->size = size;
+	table->enlarge_size = (uint32_t)( (float)size * ENLARGE_FACTOR );
+	
+	table->buckets = calloc( size, sizeof(struct hashbucket) );
+	if ( table->buckets == NULL )
+	{
+		return -1;
+	}
+
+	return 0;
+}
+
+int32_t _enlarge_table( struct hashtable * table )
 {
 	uint32_t i = 0;
-	uint32_t seq = SID_SEQ( id );
-	struct arraylist * bucket = self->entries + ( seq&(self->size-1) );
+	struct hashtable newtable;	
 
-	assert( self->index == SID_INDEX(id) );
-
-	for ( i = 0; i < arraylist_count(bucket); ++i )
+	if ( _init_table(&newtable, table->size<<1) != 0 )
 	{
-		struct session * session = arraylist_get( bucket, i );
-		if ( session->id == id )
-		{
-			// 会话id合法但与entry中记录的key和seq不相符
-			// 这种错误对于libevlite来说是相当致命的
+		return -1;
+	}
 
-			return session;
+	for ( i = 0; i < table->size; ++i )
+	{
+		struct hashbucket * bucket = table->buckets + i;
+
+		if ( bucket->session != NULL 
+				&& bucket->status == eBucketStatus_Occupied )
+		{
+			_append_session( &newtable, bucket->session );
 		}
 	}
 
-	return NULL;
+	assert( newtable.count == table->count );
+
+	free ( table->buckets );
+	table->buckets = newtable.buckets;
+	table->size = newtable.size;
+	table->enlarge_size = newtable.enlarge_size;
+
+	return 0;
+}
+
+int32_t _find_position( struct hashtable * table, sid_t id )
+{
+	int32_t pos = -1; 
+	int32_t probes = 0;
+	int32_t bucknum = SID_SEQ(id) & (table->size-1);
+
+	while ( 1 )
+	{
+		struct hashbucket * bucket = table->buckets + bucknum;
+
+		if ( bucket->status == eBucketStatus_Free
+				|| bucket->status == eBucketStatus_Deleted )
+		{
+			if ( pos == -1 )
+			{
+				pos = bucknum;
+			}
+
+			if ( bucket->status == eBucketStatus_Free )
+			{
+				return pos;
+			}
+		}	
+		else if ( bucket->session->id == id )
+		{
+			return bucknum;
+		}
+
+		++probes;
+		bucknum = (bucknum + probes) & (table->size-1);
+	}
+
+	return -1;
+}
+
+int32_t _append_session( struct hashtable * table, struct session * s )
+{
+	if ( table->count >= table->enlarge_size )
+	{
+		// 扩展
+		if ( _enlarge_table( table ) != 0 )
+		{
+			return -1;
+		}
+	}
+
+	int32_t pos = _find_position( table, s->id );
+	if ( pos == -1 )
+	{
+		return -1;
+	}
+
+	struct hashbucket * bucket = table->buckets + pos;
+	if ( bucket->session != NULL && bucket->session->id == s->id )
+	{
+		syslog(LOG_WARNING, "%s(Index=%d): the SID (Seq=%u, Sid=%ld) conflict !", __FUNCTION__, SID_INDEX(s->id), SID_SEQ(s->id), s->id );
+		return -2;
+	}
+	
+	++table->count;
+	bucket->session = s;
+	bucket->status = eBucketStatus_Occupied;
+
+	return 0;
+}
+
+int32_t _remove_session( struct hashtable * table, struct session * s )
+{
+	int32_t pos = _find_position( table, s->id );
+	if ( pos == -1 )
+	{
+		return -1;
+	}
+
+	if ( table->buckets[pos].status == eBucketStatus_Free
+	  || table->buckets[pos].status == eBucketStatus_Deleted )
+	{
+		return -2;
+	}
+
+	struct hashbucket * bucket = table->buckets + pos;
+	assert( bucket->session == s );
+	
+	--table->count;
+	bucket->session = NULL;
+	bucket->status = eBucketStatus_Deleted;
+
+	return 0;	
+}
+
+struct session * _find_session( struct hashtable * table, sid_t id )
+{
+	int32_t pos = _find_position( table, id );
+	if ( pos == -1 )
+	{
+		return NULL;
+	}
+
+	if ( table->buckets[pos].status == eBucketStatus_Free
+	  || table->buckets[pos].status == eBucketStatus_Deleted )
+	{
+		return NULL;
+	}
+
+	assert( table->buckets[pos].session != NULL );
+	assert( table->buckets[pos].session->id == id );
+
+	return table->buckets[pos].session;
 }
 
 struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 {
-	uint32_t i = 0;
 	struct session_manager * self = NULL;
 
-	self = calloc( 1, sizeof(struct session_manager) );
+	self = calloc( 1, sizeof(struct session_manager)+sizeof(struct hashtable) );
 	if ( self == NULL )
 	{
 		return NULL;
@@ -485,33 +630,14 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 	size = nextpow2( size );
 
 	self->seq = 0;
-	self->count = 0;
-	self->size = size;
 	self->index = index;
+	self->table = (struct hashtable *)( self + 1 );
 
-	self->entries = calloc( size, sizeof(struct arraylist) );
-	if ( self->entries == NULL )
+	if ( _init_table(self->table, size) != 0 )
 	{
 		free( self );
-		return NULL;
-	}
-
-	for ( i = 0; i < size; ++i )
-	{
-		int32_t rc = arraylist_init( self->entries+i, 8 );
-		if ( rc != 0 )
-		{
-			uint32_t j = 0;
-			for ( j = 0; j < i; ++j )
-			{
-				arraylist_final( self->entries+j );
-			}
-
-			free( self->entries );
-			free( self );
-			return NULL;
-		}
-	}
+		self = NULL;
+	}		
 
 	return self;
 }
@@ -519,64 +645,39 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 struct session * session_manager_alloc( struct session_manager * self )
 {
 	sid_t id = 0;
-	uint32_t i = 0;
-
 	struct session * session = NULL;
-	struct arraylist * bucket = self->entries + ( (self->seq)&(self->size-1) );
-	
+
 	// 生成sid
 	id = self->index+1;
 	id <<= 32;
 	id |= self->seq++;
 	id &= SID_MASK;
 
-	// 查找合适的会话并交验sid是否合法
-	for ( i = 0; i < arraylist_count(bucket); ++i )
+	session = _new_session( OUTMSGLIST_DEFAULT_SIZE );
+	if ( session != NULL )
 	{
-		struct session * s = arraylist_get( bucket, i );
-		if ( s->id == id )
+		session->id = id;
+		session->manager = self;
+
+		// 添加会话
+		if ( _append_session(self->table, session) != 0 )
 		{
-			// 会话ID冲突, 记录日志
-			syslog(LOG_WARNING, "session_manager_alloc(Index=%u): the SID (Seq=%u, Sid=%ld) conflict !", self->index, self->seq-1, id );
-			return NULL;
+			_del_session( session );
+			session = NULL;
 		}
-		else if ( s->id == 0 )
-		{
-			// 找到可用的会话句柄
-			session = s;
-		}
-	}
-
-	if ( session == NULL )
-	{
-		// 没有找到可用的会话句柄
-		session = _new_session( OUTMSGLIST_DEFAULT_SIZE );
-		if ( session == NULL )
-		{
-			return NULL;
-		}
-
-		// 添加到列表中
-		arraylist_append( bucket, session );
-	}
-
-	++self->count;
-
-	// 会话初始化操作
-	session->id = id;
-	session->manager = self;
+	}	
 
 	return session;
 }
 
 struct session * session_manager_get( struct session_manager * self, sid_t id )
 {
-	return _get_entry( self, id );
+	return _find_session( self->table, id );
 }
 
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
 {
-	if ( _get_entry( self, session->id ) == NULL )
+	if ( _remove_session(self->table, session) != 0 )
 	{
 		return -1;
 	}
@@ -585,8 +686,6 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 	session->id = 0;
 	session->manager = NULL;
 
-	--self->count;
-
 	return 0;
 }
 
@@ -594,39 +693,31 @@ void session_manager_destroy( struct session_manager * self )
 {
 	int32_t i = 0;
 
-	if ( self->count > 0 )
+	if ( self->table->count > 0 )
 	{
-		syslog(LOG_WARNING, "session_manager_destroy(Index=%u): the number of residual active session is %d .", self->index, self->count );
+		syslog( LOG_WARNING, "%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, self->table->count );
 	}
 
-	for ( i = 0; i < self->size; ++i )
+	for ( i = 0; i < self->table->size; ++i )
 	{
-		struct arraylist * bucket = self->entries+i;
-		
-		while ( arraylist_count(bucket) > 0 )
+		struct hashbucket * bucket = self->table->buckets + i;
+
+		if ( bucket->session != NULL 
+				&& bucket->status == eBucketStatus_Occupied )
 		{
-			struct session * session = arraylist_take( bucket, -1 );
+			struct session * session = bucket->session; 
 
 			if ( session )
 			{
-				if ( session->id != 0 ) 
-				{
-					// 会话处于激活状态
-					session_end( session, session->id );
-				}
-				
-				// 销毁	
-				_del_session( session );
+				session_end( session, session->id );
 			}
 		}
-
-		arraylist_final( bucket );
 	}
 
-	if ( self->entries )
+	if ( self->table->buckets != NULL )
 	{
-		free( self->entries );
-		self->entries = NULL;
+		free( self->table->buckets );
+		self->table->buckets = NULL;
 	}
 
 	free( self );

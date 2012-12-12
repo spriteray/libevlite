@@ -43,7 +43,8 @@ static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char 
 int32_t _new_managers( struct iolayer * self )
 {
 	uint8_t i = 0;
-	uint32_t sessions_per_thread = self->nclients/self->nthreads; 
+	// 会话个数必须要翻倍(避免hashtable enlarge)
+	uint32_t sessions_per_thread = 2 * self->nclients/self->nthreads; 
 
 	// 会话管理器, 
 	// 采用cacheline对齐以提高访问速度
@@ -147,7 +148,7 @@ int32_t iolayer_listen( iolayer_t self,
 	struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
 	if ( acceptor == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_listen(host:'%s', port:%d) failed, Out-Of-Memory .", host, port);
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, Out-Of-Memory .", __FUNCTION__, host, port);
 		return -1;
 	}
 
@@ -155,7 +156,7 @@ int32_t iolayer_listen( iolayer_t self,
 	acceptor->event = event_create();
 	if ( acceptor->event == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_listen(host:'%s', port:%d) failed, can't create AcceptEvent.", host, port);
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, can't create AcceptEvent.", __FUNCTION__, host, port);
 		return -2;
 	}
 
@@ -163,7 +164,7 @@ int32_t iolayer_listen( iolayer_t self,
 	acceptor->fd = tcp_listen( (char *)host, port, _socket_option );
 	if ( acceptor->fd <= 0 )
 	{
-		syslog(LOG_WARNING, "iolayer_listen(host:'%s', port:%d) failed, tcp_listen() failure .", host, port);
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_listen() failure .", __FUNCTION__, host, port);
 		return -3;
 	}
 
@@ -204,7 +205,7 @@ int32_t iolayer_connect( iolayer_t self,
 	struct connector * connector = calloc( 1, sizeof(struct connector) ); 
 	if ( connector == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_connect(host:'%s', port:%d) failed, Out-Of-Memory .", host, port);
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, Out-Of-Memory .", __FUNCTION__, host, port);
 		return -1;
 	}
 
@@ -212,7 +213,7 @@ int32_t iolayer_connect( iolayer_t self,
 	connector->event = event_create();
 	if ( connector->event == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_connect(host:'%s', port:%d) failed, can't create ConnectEvent.", host, port);
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, can't create ConnectEvent.", __FUNCTION__, host, port);
 		return -2;
 	}
 
@@ -220,7 +221,7 @@ int32_t iolayer_connect( iolayer_t self,
 	connector->fd = tcp_connect( (char *)host, port, 1 );
 	if ( connector->fd <= 0 )
 	{
-		syslog(LOG_WARNING, "iolayer_connect(host:'%s', port:%d) failed, tcp_connect() failure .", host, port);
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, host, port);
 		return -3;
 	}
 
@@ -246,21 +247,21 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
 
 	if ( index >= layer->nthreads )
 	{
-		syslog(LOG_WARNING, "iolayer_set_timeout(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( layer, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_set_timeout(SID=%ld) failed, the Session's manager[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_set_timeout(SID=%ld) failed, the Session is invalid .", id );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
 		return -3;
 	}
 
@@ -277,21 +278,21 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
 
 	if ( index >= layer->nthreads )
 	{
-		syslog(LOG_WARNING, "iolayer_set_keepalive(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( layer, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_set_keepalive(SID=%ld) failed, the Session's manager[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_set_keepalive(SID=%ld) failed, the Session is invalid .", id );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
 		return -3;
 	}
 
@@ -308,21 +309,21 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 
 	if ( index >= layer->nthreads )
 	{
-		syslog(LOG_WARNING, "iolayer_set_service(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
 		return -1;
 	}
 
 	struct session_manager * manager = _get_manager( layer, index );
 	if ( manager == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_set_service(SID=%ld) failed, the Session's manager[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
 		return -2;
 	}
 
 	struct session * session = session_manager_get( manager, id );
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "iolayer_set_service(SID=%ld) failed, the Session is invalid .", id );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
 		return -3;
 	}
 
@@ -411,7 +412,7 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 
 	if ( index >= layer->nthreads )
 	{
-		syslog(LOG_WARNING, "iolayer_shutdown(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
 		return -1;
 	}
 	
@@ -482,7 +483,7 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 	}
 	else
 	{
-		syslog(LOG_WARNING, "iolayer_alloc_session(fd=%d) failed, the SessionManager's index[%d] is invalid .", key, index );
+		syslog(LOG_WARNING, "%s(fd=%d) failed, the SessionManager's index[%d] is invalid .", __FUNCTION__, key, index );
 	}
 
 	return session;
@@ -500,7 +501,7 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	connector->fd = tcp_connect( connector->host, connector->port, 1 );
 	if ( connector->fd < 0 )
 	{
-		syslog(LOG_WARNING, "iolayer_reconnect(host:'%s', port:%d) failed, tcp_connect() failure .", connector->host, connector->port);
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
 	}
 	
 	return _connect_direct( event_get_sets(connector->event), connector );
@@ -593,7 +594,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 
 	if ( index >= self->nthreads )
 	{
-		syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, the Session's index[%u] is invalid .", id, index );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
 		return -1;
 	}
 
@@ -616,7 +617,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 		task.buf = (char *)malloc( nbytes );
 		if ( task.buf == NULL )
 		{
-			syslog(LOG_WARNING, "_send_buffer(SID=%ld) failed, can't allocate the memory for '_buf' .", id );
+			syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for '_buf' .", __FUNCTION__, id );
 			return -2;
 		}
 
@@ -700,7 +701,7 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, 
-			"_assign_direct(fd:%d, host:'%s', port:%d) failed .", task->fd, task->host, task->port );
+			"%s(fd:%d, host:'%s', port:%d) failed .", __FUNCTION__, task->fd, task->host, task->port );
 		close( task->fd );
 		return -1;
 	}
@@ -733,7 +734,7 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 	}
 	else
 	{
-		syslog(LOG_WARNING, "_send_direct(SID=%ld) failed, the Session is invalid .", task->id );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, task->id );
 	}
 
 	if ( task->isfree != 0 ) 
@@ -803,7 +804,7 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 
 	if ( session == NULL )
 	{
-		syslog(LOG_WARNING, "_shutdown_direct(SID=%ld) failed, the Session is invalid .", id );
+		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__,id );
 		return -1;
 	}
 
