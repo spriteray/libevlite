@@ -1,10 +1,17 @@
 
+#include <deque>
+#include <vector>
+#include <algorithm>
+
+#include <stdio.h>
 #include <signal.h>
+#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
 
 #include "io.h"
+#include "chatroom.h"
 
 using namespace Utils;
 
@@ -16,8 +23,8 @@ public:
 	virtual ~CChatRoomSession();
 
 public :
-	virtual int32_t	onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
-	virtual int32_t onShutdown() { return 0; }
+	virtual int32_t	onProcess( const char * buf, uint32_t nbytes );
+	virtual int32_t onShutdown();
 
 public :	
 	void setService( CChatRoomService * s );
@@ -25,6 +32,48 @@ public :
 private :
 	CChatRoomService *	m_Service;
 };
+
+class CChatRoomService : public IIOService
+{
+public :
+	CChatRoomService( uint8_t nthreads, uint32_t nclients );
+	virtual ~CChatRoomService();
+
+public :
+	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port );
+
+public :
+	bool init( const char * host, uint16_t port, uint32_t seconds );
+	void run();
+	bool post( sid_t id, CSHead * header );
+
+private :
+	struct Task
+	{
+		uint16_t msgid;
+		uint16_t length;
+		sid_t sid;
+		char * message;
+
+		Task()
+		{
+			msgid = 0;
+			length = 0;
+			sid = 0;
+			message = NULL;
+		}
+	};
+
+	uint32_t			m_TimeoutSeconds;
+
+	pthread_mutex_t		m_TaskLock;
+	std::deque<Task>	m_TaskQueue;
+	std::vector<sid_t>	m_SessionMap;
+};
+
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
+// -------------------------------------------------------------------------------
 
 CChatRoomSession::CChatRoomSession()
 {
@@ -77,37 +126,6 @@ void CChatRoomSession::setService( CChatRoomService * s )
 	m_Service = s;
 }
 
-// -------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------
-
-class CChatRoomService : public IIOService
-{
-public :
-	CChatRoomService( uint8_t nthreads, uint32_t nclients );
-	virtual ~CChatRoomService();
-
-public :
-	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port );
-
-public :
-	bool init( const char * host, uint16_t port, uint32_t seconds );
-	void run();
-	bool post( sid_t id, CSHead * header );
-
-private :
-	struct Task
-	{
-		uint16_t msgid;
-		uint16_t length;
-		sid_t sid;
-		char * message;
-	};
-
-	pthread_mutex_t		m_TaskLock;
-	std::deque<Task>	m_TaskQueue;
-	std::vector<sid_t>	m_SessionMap;
-};
 
 CChatRoomService::CChatRoomService( uint8_t nthreads, uint32_t nclients )
 	: IIOService( nthreads, nclients )
@@ -127,8 +145,8 @@ IIOSession * CChatRoomService::onAccept( sid_t id, const char * host, uint16_t p
 	if ( session )
 	{
 		CSHead head;
-		head->msgid = 0;
-		head->length = sizeof(head);
+		head.msgid = 0;
+		head.length = sizeof(head);
 
 		session->setService( this );
 		session->setTimeout( m_TimeoutSeconds );
@@ -166,10 +184,9 @@ void CChatRoomService::run()
 	std::deque<Task> swapqueue;
 	pthread_mutex_lock( &m_TaskLock );
 	std::swap( swapqueue, m_TaskQueue );
-	pthread_mutex_unlock( &m_TaskQueue );
+	pthread_mutex_unlock( &m_TaskLock );
 
-	for ( std::deque<Task>::iterator it = swapqueue.begin();
-		it != swapqueue.end(); ++it );
+	for ( std::deque<Task>::iterator it = swapqueue.begin(); it != swapqueue.end(); ++it )
 	{
 		Task * task = &(*it);
 
@@ -196,7 +213,9 @@ void CChatRoomService::run()
 
 			case 3 :
 				{
-					std::vector<sid_t>::iterator it = m_SessionMap.find( task->id );
+					std::vector<sid_t>::iterator it;
+				   
+					it = std::find( m_SessionMap.begin(), m_SessionMap.end(), task->sid );
 					if ( it != m_SessionMap.end() )
 					{
 						m_SessionMap.erase( it );
@@ -265,6 +284,7 @@ int main( int argc, char ** argv )
 	while ( g_Running )
 	{
 		service.run();
+		usleep(1000*10);
 	}
 
 	service.stop();

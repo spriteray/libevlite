@@ -2,6 +2,8 @@
 #ifndef CHATROOM_H
 #define CHATROOM_H
 
+#include <stdint.h>
+
 #pragma pack(1)
 
 struct CSHead
