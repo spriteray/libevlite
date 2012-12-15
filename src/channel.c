@@ -327,12 +327,10 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_WRITE )
 	{
-		int32_t writen = 0;
-
 		if ( arraylist_count(&session->outmsglist) > 0 )
 		{
 			// 发送数据
-			writen = _transmit( session );
+			int32_t writen = _transmit( session );
 
 			// 处理结果
 			if ( writen < 0 && errno != EAGAIN )
@@ -421,8 +419,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 {
-	int32_t rc = 0;
-	int32_t result = 0;
+	int32_t rc = 0, result = 0;
 	struct connector * connector = (struct connector *)arg;
 
 	sid_t id = 0;

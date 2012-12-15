@@ -520,6 +520,7 @@ int32_t _find_position( struct hashtable * table, sid_t id )
 		if ( bucket->status == eBucketStatus_Free
 				|| bucket->status == eBucketStatus_Deleted )
 		{
+			// É¾³ı»òÕß¿ÕÏĞ
 			if ( pos == -1 )
 			{
 				pos = bucknum;
@@ -527,19 +528,21 @@ int32_t _find_position( struct hashtable * table, sid_t id )
 
 			if ( bucket->status == eBucketStatus_Free )
 			{
-				return pos;
+				// ¿ÕÏĞ
+				break;
 			}
 		}	
 		else if ( bucket->session->id == id )
 		{
-			return bucknum;
+			// Õ¼ÓÃ
+			break;
 		}
 
 		++probes;
-		bucknum = (bucknum + probes) & (table->size-1);
+		bucknum = (bucknum+probes) & (table->size-1);
 	}
 
-	return -1;
+	return pos;
 }
 
 int32_t _append_session( struct hashtable * table, struct session * s )
@@ -581,13 +584,14 @@ int32_t _remove_session( struct hashtable * table, struct session * s )
 		return -1;
 	}
 
-	if ( table->buckets[pos].status == eBucketStatus_Free
-	  || table->buckets[pos].status == eBucketStatus_Deleted )
+	struct hashbucket * bucket = table->buckets + pos;
+
+	if ( bucket->status == eBucketStatus_Free
+	  || bucket->status == eBucketStatus_Deleted )
 	{
 		return -2;
 	}
 
-	struct hashbucket * bucket = table->buckets + pos;
 	assert( bucket->session == s );
 	
 	--table->count;
