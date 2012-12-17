@@ -535,6 +535,7 @@ int32_t _find_position( struct hashtable * table, sid_t id )
 		else if ( bucket->session->id == id )
 		{
 			// ’º”√
+			pos = bucknum;
 			break;
 		}
 
