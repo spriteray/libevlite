@@ -101,7 +101,7 @@ struct task
 	};
 };
 
-QUEUE_PADDING_DEFINE(task, struct task)
+QUEUE_PADDING_HEAD(taskqueue, struct task);
 
 /* 
  * 消息队列
@@ -109,8 +109,7 @@ QUEUE_PADDING_DEFINE(task, struct task)
  */
 struct msgqueue
 {
-	QUEUE_TYPE(task) * queue;
-
+	struct taskqueue * queue;
 	int32_t popfd;
 	int32_t pushfd;
 

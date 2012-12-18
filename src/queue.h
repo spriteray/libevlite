@@ -565,17 +565,17 @@ struct {								\
 #include <stdlib.h>
 #include <string.h>
 
-#define QUEUE_DEFINE(name, type)\
-struct name##_queue				\
+#define QUEUE_HEAD(name, type)	\
+struct name						\
 {								\
 	uint32_t	size;			\
 	type *		entries;		\
 	uint32_t	head;			\
 	uint32_t	tail;			\
-};
+}
 
-#define QUEUE_PADDING_DEFINE(name, type)\
-struct name##_queue				\
+#define QUEUE_PADDING_HEAD(name, type)\
+struct name						\
 {								\
 	uint32_t	size;			\
 	type *		entries;		\
@@ -584,134 +584,130 @@ struct name##_queue				\
 	uint32_t	padding2[15];	\
 	uint32_t	tail;			\
 	uint32_t	padding3[15];	\
-};
-
-#define QUEUE_TYPE(name) struct name##_queue
-
-#define QUEUE_CREATE(name, type)							\
-struct name##_queue * name##_queue_create( uint32_t size )	\
-{															\
-	struct name##_queue * self = NULL;						\
-	size = size ? size : 8;									\
-	assert( (size&(size-1)) == 0 );							\
-	(self) = malloc( sizeof(struct name##_queue) );			\
-	if ( (self) != NULL )									\
-	{														\
-		(self)->entries = calloc( size, sizeof(type) );		\
-		if ( (self)->entries != NULL )						\
-		{													\
-			(self)->size	= size;							\
-			(self)->head	= (self)->tail = 0;				\
-		}													\
-		else												\
-		{													\
-			free( (self) );									\
-			(self) = NULL;									\
-		}													\
-	}														\
-	return (self);											\
 }
 
-#define QUEUE_PUSH(name, type)								\
-int32_t name##_queue_expand( struct name##_queue * self )	\
-{															\
-	uint32_t headlen = 0, taillen = 0;						\
-	uint32_t newsize = (self)->size << 1;					\
-	struct name * newentries = malloc( sizeof(type) * newsize ); \
-	if ( newentries == NULL )								\
-	{														\
-		return -1;											\
-	}														\
-	uint32_t headidx = (self)->head&((self)->size-1);		\
-	uint32_t tailidx = (self)->tail&((self)->size-1);		\
-	if ( headidx < tailidx )								\
-	{														\
-		headlen = tailidx - headidx;						\
-	}														\
-	else													\
-	{														\
-		headlen = (self)->size - headidx;					\
-		taillen = tailidx;									\
-	}														\
+#define QUEUE_CREATE(name)		name##_QUEUE_CREATE
+#define QUEUE_PUSH(name)		name##_QUEUE_PUSH
+#define QUEUE_POP(name)			name##_QUEUE_POP
+#define QUEUE_COUNT(name)		name##_QUEUE_COUNT
+#define QUEUE_GET(name)			name##_QUEUE_GET
+#define QUEUE_TOP(name)			name##_QUEUE_TOP
+#define QUEUE_DESTROY(name)		name##_QUEUE_DESTROY
+
+#define QUEUE_PROTOTYPE( name, type )							\
+struct name * name##_QUEUE_CREATE( uint32_t size );				\
+int32_t name##_QUEUE_PUSH( struct name * self, type * data );	\
+int32_t name##_QUEUE_POP( struct name * self, type * data );	\
+uint32_t name##_QUEUE_COUNT( struct name * self );				\
+int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data );\
+int32_t name##_QUEUE_TOP( struct name * self, type * data );	\
+void name##_QUEUE_DESTROY( struct name * self );
+
+#define QUEUE_GENERATE( name, type )							\
+struct name * name##_QUEUE_CREATE( uint32_t size )				\
+{																\
+	struct name * self = NULL;									\
+	size = size ? size : 8;										\
+	assert( (size&(size-1)) == 0 );								\
+	(self) = malloc( sizeof(struct name) );						\
+	if ( (self) != NULL )										\
+	{															\
+		(self)->entries = calloc( size, sizeof(type) );			\
+		if ( (self)->entries != NULL )							\
+		{														\
+			(self)->size	= size;								\
+			(self)->head	= (self)->tail = 0;					\
+		}														\
+		else													\
+		{														\
+			free( (self) );										\
+			(self) = NULL;										\
+		}														\
+	}															\
+	return (self);												\
+}																\
+int32_t name##_QUEUE_GROW( struct name * self )					\
+{																\
+	uint32_t headlen = 0, taillen = 0;							\
+	uint32_t newsize = (self)->size << 1;						\
+	type * newentries = malloc( sizeof(type) * newsize );		\
+	if ( newentries == NULL )									\
+	{															\
+		return -1;												\
+	}															\
+	uint32_t headidx = (self)->head&((self)->size-1);			\
+	uint32_t tailidx = (self)->tail&((self)->size-1);			\
+	if ( headidx < tailidx )									\
+	{															\
+		headlen = tailidx - headidx;							\
+	}															\
+	else														\
+	{															\
+		headlen = (self)->size - headidx;						\
+		taillen = tailidx;										\
+	}															\
 	memcpy( newentries, (self)->entries+headidx, sizeof(type)*headlen ); \
 	memcpy( newentries+headlen, (self)->entries, sizeof(type)*taillen ); \
-	(self)->head = 0;										\
-	(self)->tail = headlen+taillen;							\
-	(self)->size = newsize;									\
-	free( (self)->entries );								\
-	(self)->entries = newentries;							\
-	return 0;												\
-};															\
-int32_t name##_queue_push( struct name##_queue * self, type * data )	\
-{															\
-	if ( (self)->size + (self)->head - (self)->tail <= 0 )	\
-	{														\
-		if ( name##_queue_expand((self)) != 0 )				\
-		{													\
-			return -1;										\
-		}													\
-	}														\
-	(self)->entries[(self)->tail&((self)->size-1)] = *data;	\
-	++((self)->tail);										\
-	return 0;												\
-}
-
-#define QUEUE_POP(name, type)								\
-int32_t name##_queue_pop( struct name##_queue * self, type * data ) \
-{															\
-	uint32_t count = (self)->tail - (self)->head;			\
-	if ( count > 0 )										\
-	{														\
+	(self)->head = 0;											\
+	(self)->tail = headlen+taillen;								\
+	(self)->size = newsize;										\
+	free( (self)->entries );									\
+	(self)->entries = newentries;								\
+	return 0;													\
+}																\
+int32_t name##_QUEUE_PUSH( struct name * self, type * data )	\
+{																\
+	if ( (self)->size + (self)->head - (self)->tail <= 0 )		\
+	{															\
+		if ( name##_QUEUE_GROW((self)) != 0 )					\
+		{														\
+			return -1;											\
+		}														\
+	}															\
+	(self)->entries[(self)->tail&((self)->size-1)] = *data;		\
+	++((self)->tail);											\
+	return 0;													\
+}																\
+int32_t name##_QUEUE_POP( struct name * self, type * data ) 	\
+{																\
+	uint32_t count = (self)->tail - (self)->head;				\
+	if ( count > 0 )											\
+	{															\
 		*(data) = (self)->entries[(self)->head&((self)->size-1)];	\
-		++((self)->head);									\
-		return 1;											\
-	}														\
-	return 0;												\
-}
-
-#define QUEUE_GET(name, type)								\
-int32_t name##_queue_get( struct name##_queue * self, uint32_t index, type * data ) \
-{															\
-	uint32_t count = (self)->tail - (self)->head;			\
-	if ( index < count )									\
-	{														\
+		++((self)->head);										\
+		return 1;												\
+	}															\
+	return 0;													\
+}																\
+int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data ) \
+{																\
+	uint32_t count = (self)->tail - (self)->head;				\
+	if ( index < count )										\
+	{															\
 		*(data) = (self)->entries[((self)->head+index)&((self)->size-1)];	\
-		return 0;											\
-	}														\
-	return -1;												\
+		return 0;												\
+	}															\
+	return -1;													\
+}																\
+int32_t name##_QUEUE_TOP( struct name * self, type * data ) 	\
+{																\
+	return name##_QUEUE_GET( (self), 0, (data) );				\
+}																\
+uint32_t name##_QUEUE_COUNT( struct name * self )				\
+{																\
+	return (self)->tail - (self)->head;							\
+}																\
+void name##_QUEUE_DESTROY( struct name * self )					\
+{																\
+	if ( (self)->entries != NULL )								\
+	{															\
+		free( (self)->entries );								\
+		(self)->entries = NULL;									\
+	}															\
+	(self)->size = 0;											\
+	(self)->head = (self)->tail = 0;							\
+	free( (self) );												\
 }
-
-#define QUEUE_TOP(name, type)								\
-int32_t name##_queue_top( struct name##_queue * self, type * data ) \
-{															\
-	return name##_queue_get( (self), 0, (data) );			\
-}
-
-#define QUEUE_COUNT(name, type)								\
-uint32_t name##_queue_count( struct name##_queue * self )	\
-{															\
-	return (self)->tail - (self)->head;						\
-}
-
-#define QUEUE_DESTROY(name, type)							\
-void name##_queue_destroy( struct name##_queue * self )		\
-{															\
-	if ( (self)->entries != NULL )							\
-	{														\
-		free( (self)->entries );							\
-		(self)->entries = NULL;								\
-	}														\
-	(self)->size = 0;										\
-	(self)->head = (self)->tail = 0;						\
-	free( (self) );											\
-}
-
-#define queue_create(name)		name##_queue_create
-#define queue_push(name)		name##_queue_push
-#define queue_pop(name)			name##_queue_pop
-#define queue_count(name)		name##_queue_count
-#define queue_get(name)			name##_queue_get
-#define queue_top(name)			name##_queue_top
-#define queue_destroy(name)		name##_queue_destroy
 
 #endif
+

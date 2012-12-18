@@ -405,14 +405,8 @@ void sidlist_destroy( struct sidlist * self )
 
 // -----------------------------------------------------------------------------------------------------------------
 
-// 队列实现
-QUEUE_CREATE(task, struct task)
-QUEUE_PUSH(task, struct task)
-QUEUE_POP(task, struct task)
-QUEUE_GET(task, struct task)
-QUEUE_TOP(task, struct task)
-QUEUE_COUNT(task, struct task)
-QUEUE_DESTROY(task, struct task)
+QUEUE_PROTOTYPE( taskqueue, struct task )
+QUEUE_GENERATE( taskqueue, struct task )
 
 struct msgqueue * msgqueue_create( uint32_t size )
 {
@@ -425,7 +419,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
         self->pushfd = -1;
         pthread_mutex_init( &self->lock, 0 );
     
-        self->queue = queue_create(task)(size);
+        self->queue = QUEUE_CREATE(taskqueue)(size);
         if ( self->queue == NULL )
         {
             msgqueue_destroy( self );
@@ -466,10 +460,10 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
 
     pthread_mutex_lock( &self->lock );
 
-    rc = queue_push(task)(self->queue, task);
+    rc = QUEUE_PUSH(taskqueue)(self->queue, task);
     if ( isnotify != 0 )
     {
-		isbc = queue_count(task)(self->queue);
+		isbc = QUEUE_COUNT(taskqueue)(self->queue);
     }
     
     pthread_mutex_unlock( &self->lock );
@@ -494,7 +488,7 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
     int32_t rc = -1;
 
     pthread_mutex_lock( &self->lock );
-    rc = queue_pop(task)(self->queue, task);
+    rc = QUEUE_POP(taskqueue)(self->queue, task);
     pthread_mutex_unlock( &self->lock );
 
     return rc;
@@ -507,7 +501,7 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
     pthread_mutex_lock( &self->lock );
 	for ( i = 0; i < count; ++i )
 	{
-		int32_t rc = queue_pop(task)(self->queue, &tasks[i]);	
+		int32_t rc = QUEUE_POP(taskqueue)(self->queue, &tasks[i]);	
 		if ( rc == 0 )
 		{
 			break;
@@ -523,7 +517,7 @@ uint32_t msgqueue_count( struct msgqueue * self )
 	uint32_t rc = 0;
 	
 	pthread_mutex_lock( &self->lock );
-	rc = queue_count(task)(self->queue);
+	rc = QUEUE_COUNT(taskqueue)(self->queue);
 	pthread_mutex_unlock( &self->lock );
 	
 	return rc;
@@ -544,7 +538,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 {
 	if ( self->queue )
 	{
-		queue_destroy(task)(self->queue);
+		QUEUE_DESTROY(taskqueue)(self->queue);
 		self->queue = NULL;
 	}
 	
