@@ -180,144 +180,6 @@ uint32_t nextpow2( uint32_t size )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-struct arraylist * arraylist_create( uint32_t size )
-{
-	struct arraylist * self = NULL;
-
-	self = (struct arraylist *)malloc( sizeof(struct arraylist) );
-	if ( self )
-	{
-		if ( arraylist_init( self, size ) != 0 )
-		{
-			free( self );
-			self = NULL;
-		}
-	}
-
-	return self;
-}
-
-int32_t arraylist_init( struct arraylist * self, uint32_t size )
-{
-	size = size ? size : 8;
-
-    self->count = 0;
-    self->size = size;
-    self->entries = (void **)calloc( self->size, sizeof(void *) );
-    if ( self->entries == NULL )
-    {
-        free( self );
-        return -1;
-    }
-
-    return 0;
-}
-
-uint32_t arraylist_count( struct arraylist * self )
-{
-    return self->count;
-}
-
-void arraylist_reset( struct arraylist * self )
-{
-    memset( self->entries, 0, sizeof(void *)*self->count );
-    self->count = 0;
-
-    return;
-}
-
-void arraylist_final( struct arraylist * self )
-{
-	if ( self->entries )
-	{
-		free( self->entries );
-		self->entries = NULL;
-	}
-
-	self->size = 0;
-	self->count = 0;
-	return;
-}
-
-int32_t arraylist_append( struct arraylist * self, void * data )
-{
-    if ( self->count >= self->size )
-    {
-        self->size <<= 1;
-        self->entries = (void **)realloc( self->entries, sizeof(void *)*self->size );
-
-        assert( self->entries != NULL );
-        memset( self->entries+self->count, 0, (self->size-self->count)*sizeof(void *) );
-    }
-
-    self->entries[self->count++] = data;
-
-    return 0;
-}
-
-void * arraylist_get( struct arraylist * self, int32_t index )
-{
-    uint32_t id = 0;
-    void * data = NULL;
-
-    id = index == -1 ? self->count-1 : index;
-    if ( id < self->count )
-    {
-        data = self->entries[id];
-    }
-
-    return data;
-}
-
-void * arraylist_take( struct arraylist * self, int32_t index )
-{
-    uint32_t id = 0;
-    void * data = NULL;
-
-    id = index == -1 ? self->count-1 : index;
-    if ( id < self->count )
-    {
-        data = self->entries[id];
-        --self->count;
-#if 0
-        if ( id != self->count )
-        {
-            self->entries[id] = self->entries[self->count];
-        }
-
-        self->entries[self->count] = NULL;
-#endif
-
-		if ( index+1 < self->size )
-		{
-			memmove( self->entries+id, self->entries+id+1, (self->size-id-1)*sizeof(void *) );
-		}
-		else
-		{
-			self->entries[index] = NULL;
-		}
-    }
-
-    return data;
-}
-
-int32_t arraylist_destroy( struct arraylist * self )
-{
-    if ( self->entries )
-    {
-        free( self->entries );
-        self->entries = NULL;
-    }
-
-    free(self);
-
-    return 0;
-}
-
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-// -----------------------------------------------------------------------------
-
 struct sidlist * sidlist_create( uint32_t size )
 {
 	struct sidlist * self = NULL;
@@ -419,8 +281,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
         self->pushfd = -1;
         pthread_mutex_init( &self->lock, 0 );
     
-        self->queue = QUEUE_CREATE(taskqueue)(size);
-        if ( self->queue == NULL )
+        if ( QUEUE_INIT(taskqueue)(&self->queue, size) != 0 )
         {
             msgqueue_destroy( self );
             self = NULL;
@@ -460,10 +321,10 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
 
     pthread_mutex_lock( &self->lock );
 
-    rc = QUEUE_PUSH(taskqueue)(self->queue, task);
+    rc = QUEUE_PUSH(taskqueue)(&self->queue, task);
     if ( isnotify != 0 )
     {
-		isbc = QUEUE_COUNT(taskqueue)(self->queue);
+		isbc = QUEUE_COUNT(taskqueue)(&self->queue);
     }
     
     pthread_mutex_unlock( &self->lock );
@@ -488,7 +349,7 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
     int32_t rc = -1;
 
     pthread_mutex_lock( &self->lock );
-    rc = QUEUE_POP(taskqueue)(self->queue, task);
+    rc = QUEUE_POP(taskqueue)(&self->queue, task);
     pthread_mutex_unlock( &self->lock );
 
     return rc;
@@ -501,7 +362,7 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
     pthread_mutex_lock( &self->lock );
 	for ( i = 0; i < count; ++i )
 	{
-		int32_t rc = QUEUE_POP(taskqueue)(self->queue, &tasks[i]);	
+		int32_t rc = QUEUE_POP(taskqueue)(&self->queue, &tasks[i]);	
 		if ( rc == 0 )
 		{
 			break;
@@ -517,7 +378,7 @@ uint32_t msgqueue_count( struct msgqueue * self )
 	uint32_t rc = 0;
 	
 	pthread_mutex_lock( &self->lock );
-	rc = QUEUE_COUNT(taskqueue)(self->queue);
+	rc = QUEUE_COUNT(taskqueue)(&self->queue);
 	pthread_mutex_unlock( &self->lock );
 	
 	return rc;
@@ -536,12 +397,6 @@ int32_t msgqueue_popfd( struct msgqueue * self )
 
 int32_t msgqueue_destroy( struct msgqueue * self )
 {
-	if ( self->queue )
-	{
-		QUEUE_DESTROY(taskqueue)(self->queue);
-		self->queue = NULL;
-	}
-	
 	if ( self->popfd )
 	{
 		close( self->popfd );
@@ -553,6 +408,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 		self->pushfd = -1;
 	}
 	
+	QUEUE_CLEAR(taskqueue)(&self->queue);
 	pthread_mutex_destroy( &self->lock );
 	free( self );
 	

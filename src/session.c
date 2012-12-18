@@ -12,10 +12,15 @@
 
 #include "session.h"
 
+
 static struct session * _new_session( uint32_t size );
 static int32_t _del_session( struct session * self );
 static inline int32_t _send( struct session * self, char * buf, uint32_t nbytes );
 
+//
+QUEUE_GENERATE( sendqueue, struct message * )
+
+//
 struct session * _new_session( uint32_t size )
 {
 	struct session * self = NULL;
@@ -30,7 +35,6 @@ struct session * _new_session( uint32_t size )
 	self->evread = event_create();
 	self->evwrite = event_create();
 	self->evkeepalive = event_create();
-	
 	if ( self->evkeepalive == NULL 
 			|| self->evread == NULL || self->evwrite == NULL )
 	{
@@ -38,13 +42,13 @@ struct session * _new_session( uint32_t size )
 		return NULL;
 	}
 	
-	// 初始化发送队列	
-	if ( arraylist_init(&self->outmsglist, size) != 0 )
+	// 初始化发送队列
+	if ( QUEUE_INIT(sendqueue)(&self->sendqueue, size) != 0 )
 	{
 		_del_session( self );
 		return NULL;
 	}
-
+	
 	return self;
 }
 
@@ -68,11 +72,9 @@ int32_t _del_session( struct session * self )
 	}
 	
 	// 销毁发送队列
-	arraylist_final( &self->outmsglist );
-
+	QUEUE_CLEAR(sendqueue)(&self->sendqueue);
 	// 销毁接收缓冲区
 	buffer_set( &self->inbuffer, NULL, 0 );
-
 	free( self );
 
 	return 0;
@@ -91,7 +93,7 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 
 	// 判断session是否繁忙
 	if ( !(self->status&SESSION_WRITING) 
-			&& arraylist_count(&self->outmsglist) == 0 )
+			&& QUEUE_COUNT(sendqueue)(&self->sendqueue) == 0 )
 	{
 		// 直接发送
 		rc = channel_send( self, buf, nbytes ); 
@@ -114,7 +116,7 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 
 	message_add_buffer( message, buf+rc, nbytes-rc );
 	message_add_receiver( message, self->id );
-	arraylist_append( &self->outmsglist, message );
+	QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
 	session_add_event( self, EV_WRITE );
 
 	return rc;
@@ -186,7 +188,7 @@ int32_t session_append( struct session * self, struct message * message )
 		// 消息未进行改造
 
 		// 添加到会话的发送列表中
-		rc = arraylist_append( &self->outmsglist, message );
+		rc = QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
 		if ( rc == 0 )
 		{
 			// 注册写事件, 处理发送队列
@@ -346,7 +348,7 @@ int32_t session_start_reconnect( struct session * self )
 int32_t session_shutdown( struct session * self )
 {
 	if ( !(self->status&SESSION_EXITING)
-		&& arraylist_count(&self->outmsglist) > 0 )
+		&& QUEUE_COUNT(sendqueue)(&self->sendqueue) > 0 )
 	{
 		// 会话状态正常, 并且发送队列不为空
 		// 尝试继续把未发送的数据发送出去, 在终止会话
@@ -369,7 +371,7 @@ int32_t session_end( struct session * self, sid_t id )
 	// 会话中的ID已经非法
 
 	// 清空发送队列
-	int32_t count = arraylist_count( &self->outmsglist );
+	uint32_t count = QUEUE_COUNT(sendqueue)(&self->sendqueue);
 	if ( count > 0 )
 	{
 		// 会话终止时发送队列不为空
@@ -377,7 +379,9 @@ int32_t session_end( struct session * self, sid_t id )
 
 		for ( ; count >= 0; --count )
 		{
-			struct message * msg = arraylist_take( &self->outmsglist, -1 );
+			struct message * msg = NULL;
+
+			QUEUE_POP(sendqueue)( &self->sendqueue, &msg );
 			if ( msg )
 			{
 				// 消息发送失败一次

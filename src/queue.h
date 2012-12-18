@@ -586,45 +586,32 @@ struct name						\
 	uint32_t	padding3[15];	\
 }
 
-#define QUEUE_CREATE(name)		name##_QUEUE_CREATE
+#define QUEUE_INIT(name)		name##_QUEUE_INIT
 #define QUEUE_PUSH(name)		name##_QUEUE_PUSH
 #define QUEUE_POP(name)			name##_QUEUE_POP
 #define QUEUE_COUNT(name)		name##_QUEUE_COUNT
 #define QUEUE_GET(name)			name##_QUEUE_GET
 #define QUEUE_TOP(name)			name##_QUEUE_TOP
-#define QUEUE_DESTROY(name)		name##_QUEUE_DESTROY
+#define QUEUE_CLEAR(name)		name##_QUEUE_CLEAR
 
 #define QUEUE_PROTOTYPE( name, type )							\
-struct name * name##_QUEUE_CREATE( uint32_t size );				\
+int32_t name##_QUEUE_INIT( struct name * self, uint32_t size );\
 int32_t name##_QUEUE_PUSH( struct name * self, type * data );	\
 int32_t name##_QUEUE_POP( struct name * self, type * data );	\
 uint32_t name##_QUEUE_COUNT( struct name * self );				\
 int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data );\
 int32_t name##_QUEUE_TOP( struct name * self, type * data );	\
-void name##_QUEUE_DESTROY( struct name * self );
+void name##_QUEUE_CLEAR( struct name * self );
 
 #define QUEUE_GENERATE( name, type )							\
-struct name * name##_QUEUE_CREATE( uint32_t size )				\
+int32_t name##_QUEUE_INIT( struct name * self, uint32_t size )	\
 {																\
-	struct name * self = NULL;									\
 	size = size ? size : 8;										\
 	assert( (size&(size-1)) == 0 );								\
-	(self) = malloc( sizeof(struct name) );						\
-	if ( (self) != NULL )										\
-	{															\
-		(self)->entries = calloc( size, sizeof(type) );			\
-		if ( (self)->entries != NULL )							\
-		{														\
-			(self)->size	= size;								\
-			(self)->head	= (self)->tail = 0;					\
-		}														\
-		else													\
-		{														\
-			free( (self) );										\
-			(self) = NULL;										\
-		}														\
-	}															\
-	return (self);												\
+	(self)->size = size;										\
+	(self)->head = (self)->tail = 0;							\
+	(self)->entries = calloc( size, sizeof(type) );				\
+	return (self)->entries == NULL ? -1 : 0 ;					\
 }																\
 int32_t name##_QUEUE_GROW( struct name * self )					\
 {																\
@@ -697,7 +684,7 @@ uint32_t name##_QUEUE_COUNT( struct name * self )				\
 {																\
 	return (self)->tail - (self)->head;							\
 }																\
-void name##_QUEUE_DESTROY( struct name * self )					\
+void name##_QUEUE_CLEAR( struct name * self )					\
 {																\
 	if ( (self)->entries != NULL )								\
 	{															\
@@ -706,7 +693,6 @@ void name##_QUEUE_DESTROY( struct name * self )					\
 	}															\
 	(self)->size = 0;											\
 	(self)->head = (self)->tail = 0;							\
-	free( (self) );												\
 }
 
 #endif

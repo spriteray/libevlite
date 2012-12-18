@@ -34,6 +34,9 @@ struct session_setting
 	int32_t max_inbuffer_len;
 };
 
+QUEUE_HEAD( sendqueue, struct message * );
+QUEUE_PROTOTYPE( sendqueue, struct message * )
+
 struct session
 {
 	sid_t		id;
@@ -63,7 +66,7 @@ struct session
 
 	// 发送队列以及消息偏移量
 	int32_t 			msgoffsets;
-	struct arraylist 	outmsglist;
+	struct sendqueue 	sendqueue;
 
 	// 会话的设置
 	struct session_setting setting;

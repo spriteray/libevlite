@@ -55,10 +55,11 @@ int32_t _transmit( struct session * session )
 	struct iovec iov_array[iov_max];
 	memset( iov_array, 0, sizeof(iov_array) );
 
-	for ( i = 0; i < arraylist_count(&session->outmsglist) && iov_size < iov_max; ++i )
+	for ( i = 0; i < QUEUE_COUNT(sendqueue)(&session->sendqueue) && iov_size < iov_max; ++i )
 	{
-		struct message * message = arraylist_get( &session->outmsglist, i );
+		struct message * message = NULL;
 
+		QUEUE_GET(sendqueue)( &session->sendqueue, i, &message );
 		if ( offsets >= message_get_length(message) )
 		{
 			offsets -= message_get_length(message);
@@ -89,16 +90,17 @@ int32_t _transmit( struct session * session )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( ; arraylist_count( &session->outmsglist ); )
+		for ( ; QUEUE_COUNT(sendqueue)(&session->sendqueue); )
 		{
-			struct message * message = arraylist_get( &session->outmsglist, 0 );
-
+			struct message * message = NULL;
+			
+			QUEUE_TOP(sendqueue)( &session->sendqueue, &message );
 			if ( offsets < message_get_length(message) )
 			{
 				break;
 			}
 
-			arraylist_take( &session->outmsglist, 0 );
+			QUEUE_POP(sendqueue)( &session->sendqueue, &message );
 			offsets -= message_get_length(message);
 
 			++message->nsuccess;
@@ -111,7 +113,7 @@ int32_t _transmit( struct session * session )
 		session->msgoffsets = offsets;
 	}
 
-	if ( writen > 0 && arraylist_count( &session->outmsglist ) > 0 )
+	if ( writen > 0 && QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
 	{
 		int32_t againlen = _transmit( session );
 		if ( againlen > 0 )
@@ -327,7 +329,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_WRITE )
 	{
-		if ( arraylist_count(&session->outmsglist) > 0 )
+		if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
 		{
 			// 发送数据
 			int32_t writen = _transmit( session );
@@ -343,7 +345,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 				// 正常发送
 				// socket缓冲区已满
 
-				if ( arraylist_count(&session->outmsglist) > 0 )
+				if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
 				{
 					// 还有数据需要发送
 					// NOTICE: 为什么不判断会话是否正在终止呢?
