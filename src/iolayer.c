@@ -749,7 +749,7 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 int32_t _broadcast_direct( struct session_manager * manager, struct message * msg )
 {
 	uint32_t i = 0;
-	int32_t rc = 0;
+	int32_t count = 0;
 
 	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
 	{
@@ -769,9 +769,9 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 		 *		= 0		- 添加成功
 		 *		= 1		- 尝试单独发送
 		 * */
-		int32_t rc1 = session_append( session, msg );
+		int32_t rc = session_append( session, msg );
 
-		if ( rc1 < 0 )
+		if ( rc < 0 )
 		{
 			// 添加失败
 			message_add_failure( msg, id );
@@ -779,12 +779,12 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 		else if ( rc == 0 )
 		{
 			// 添加到发送队列成功
-			++rc;	
+			++count;	
 		}
 		else if ( rc == 1 )
 		{
 			// 尝试单独发送
-			++rc;
+			++count;
 			++msg->nsuccess;
 		}
 	}
@@ -795,7 +795,7 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 		message_destroy( msg );
 	}
 
-	return rc;
+	return count;
 }
 
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
@@ -814,7 +814,7 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids )
 {
 	uint32_t i = 0;
-	int32_t rc = 0;
+	int32_t count = 0;
 
 	for ( i = 0; i < sidlist_count(ids); ++i )
 	{
@@ -827,13 +827,13 @@ int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * id
 		}
 
 		// 直接终止
-		++rc;
+		++count;
 		session_shutdown( session );
 	}
 
 	sidlist_destroy( ids );
 
-	return rc;
+	return count;
 }
 
 void _io_methods( void * context, uint8_t index, int16_t type, void * task )
