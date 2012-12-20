@@ -8,8 +8,8 @@ LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared 
 
 LIBNAME	= libevlite.so
-SONAME	= $(LIBNAME).6
-REALNAME= $(LIBNAME).6.3.2
+SONAME	= $(LIBNAME).7
+REALNAME= $(LIBNAME).7.0.0
 
 OS		= $(shell uname)
 
@@ -80,6 +80,9 @@ iothreads_dispatcher : test_iothreads.o $(OBJS)
 	$(CC) $(LFLAGS) $^ -o $@
 
 chatroom_server: io.o chatroom_server.o $(OBJS)
+	$(CXX) $^ -o $@ $(LFLAGS)
+
+chatroom_client: io.o chatroom_client.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
 clean :

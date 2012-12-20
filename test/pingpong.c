@@ -22,6 +22,11 @@ struct PacketHead
 	uint32_t len;
 };
 
+int32_t onStart( void * context )
+{
+	return 0;
+}
+
 int32_t onProcess( void * context, const char * buf, uint32_t nbytes ) 
 {
 	int32_t nprocess = 0;
@@ -100,6 +105,7 @@ int32_t onAccept( void * context, sid_t id, const char * host, uint16_t port )
 		session->layer = layer;
 		
 		ioservice_t ioservice;
+		ioservice.start		= onStart;
 		ioservice.process	= onProcess;
 		ioservice.transform = onTransform;
 		ioservice.timeout	= onTimeout;

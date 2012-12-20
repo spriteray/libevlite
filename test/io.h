@@ -21,21 +21,19 @@ public :
 
 	IIOSession() 
 		: m_Sid( 0 ),
-		  m_Layer( NULL ),
-		  m_TimeoutSeconds( 0 ),
-		  m_KeepaliveSeconds( 0 )
+		  m_Layer( NULL )
 	{}
 
 	virtual ~IIOSession() 
 	{}
 
 public :
-
 	//	
 	// 网络事件	
 	// 多个网络线程中被触发
 	//
-
+	
+	virtual int32_t onStart() { return 0; }
 	virtual int32_t	onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
 	virtual char *	onTransform( const char * buf, uint32_t & nbytes ) { return const_cast<char *>(buf); }
 	virtual int32_t	onTimeout() { return 0; }
@@ -44,7 +42,6 @@ public :
 	virtual int32_t onShutdown() { return 0; }
 
 public :
-	
 	//	
 	// 在网络线程中对会话的操作
 	//
@@ -64,13 +61,13 @@ public :
 	int32_t shutdown();
 
 private :
-
 	friend class IIOService;
 
 	// 初始化会话
 	void init( sid_t id, iolayer_t layer );
 
 	// 内部回调函数
+	static int32_t	onStartSession( void * context );
 	static int32_t	onProcessSession( void * context, const char * buf, uint32_t nbytes );
 	static char *	onTransformSession( void * context, const char * buf, uint32_t * nbytes );	
 	static int32_t	onTimeoutSession( void * context ); 
@@ -79,12 +76,8 @@ private :
 	static int32_t	onShutdownSession( void * context ); 
 
 private :
-
 	sid_t		m_Sid;
 	iolayer_t	m_Layer;
-
-	int32_t		m_TimeoutSeconds;
-	int32_t		m_KeepaliveSeconds;
 };
 
 //

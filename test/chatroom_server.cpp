@@ -23,6 +23,7 @@ public:
 	virtual ~CChatRoomSession();
 
 public :
+	virtual int32_t onStart();
 	virtual int32_t	onProcess( const char * buf, uint32_t nbytes );
 	virtual int32_t onShutdown();
 
@@ -43,7 +44,7 @@ public :
 	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port );
 
 public :
-	bool init( const char * host, uint16_t port, uint32_t seconds );
+	bool init( const char * host, uint16_t port );
 	void run();
 	bool post( sid_t id, CSHead * header );
 
@@ -64,8 +65,6 @@ private :
 		}
 	};
 
-	uint32_t			m_TimeoutSeconds;
-
 	pthread_mutex_t		m_TaskLock;
 	std::deque<Task>	m_TaskQueue;
 	std::vector<sid_t>	m_SessionMap;
@@ -81,6 +80,18 @@ CChatRoomSession::CChatRoomSession()
 
 CChatRoomSession::~CChatRoomSession()
 {
+}
+
+int32_t CChatRoomSession::onStart()
+{
+	CSHead head;
+	head.msgid = 0;
+	head.length = sizeof(head);
+
+	setTimeout( 60 );
+	m_Service->post( id(), &head );
+	
+	return 0;
 }
 
 int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
@@ -144,20 +155,13 @@ IIOSession * CChatRoomService::onAccept( sid_t id, const char * host, uint16_t p
 	CChatRoomSession * session = new CChatRoomSession;
 	if ( session )
 	{
-		CSHead head;
-		head.msgid = 0;
-		head.length = sizeof(head);
-
 		session->setService( this );
-		session->setTimeout( m_TimeoutSeconds );
-
-		post( id, &head );
 	}
 
 	return session;
 }
 
-bool CChatRoomService::init( const char * host, uint16_t port, uint32_t seconds )
+bool CChatRoomService::init( const char * host, uint16_t port )
 {
 	bool rc = false;
 
@@ -175,7 +179,6 @@ bool CChatRoomService::init( const char * host, uint16_t port, uint32_t seconds 
 		return false;
 	}
 	
-	m_TimeoutSeconds = seconds;
 	return true;
 }
 
@@ -261,7 +264,7 @@ int main( int argc, char ** argv )
 {
 	if ( argc != 5 )
 	{
-		printf("chatroom [host] [port] [threads] [clients] \n");
+		printf("chatroom_server [host] [port] [threads] [clients] \n");
 		return -1;
 	}
 
@@ -275,7 +278,7 @@ int main( int argc, char ** argv )
 
 	CChatRoomService service( nthreads, nclients );
 
-	if ( !service.init(host, port, 60) )
+	if ( !service.init(host, port ) )
 	{
 		return -2;
 	}

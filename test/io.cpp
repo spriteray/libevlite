@@ -1,4 +1,5 @@
 
+#include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -14,12 +15,14 @@ sid_t IIOSession::id() const
 
 void IIOSession::setTimeout( int32_t seconds )
 {
-	m_TimeoutSeconds = seconds;
+	assert( m_Sid != 0 && m_Layer != NULL );
+	iolayer_set_timeout( m_Layer, m_Sid, seconds );
 }
 
 void IIOSession::setKeepalive( int32_t seconds )
 {
-	m_KeepaliveSeconds = seconds;
+	assert( m_Sid != 0 && m_Layer != NULL );
+	iolayer_set_keepalive( m_Layer, m_Sid, seconds );
 }
 
 int32_t IIOSession::send( const std::string & buffer )
@@ -41,15 +44,18 @@ void IIOSession::init( sid_t id, iolayer_t layer )
 {
 	m_Sid = id;
 	m_Layer = layer;
+}
 
-	if ( m_TimeoutSeconds > 0 )
+int32_t IIOSession::onStartSession( void * context )
+{
+	IIOSession * session = static_cast<IIOSession *>( context );
+
+	if ( session )
 	{
-		iolayer_set_timeout( m_Layer, m_Sid, m_TimeoutSeconds );
+		return session->onStart();
 	}
-	if ( m_KeepaliveSeconds > 0 )
-	{
-		iolayer_set_keepalive( m_Layer, m_Sid, m_KeepaliveSeconds );
-	}
+
+	return -1;
 }
 
 int32_t IIOSession::onProcessSession( void * context, const char * buf, uint32_t nbytes ) 
@@ -169,19 +175,12 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string
 
 int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
 {
-	int32_t rc = 0;
 	std::vector<sid_t>::const_iterator start = ids.begin();	
 
 	uint32_t count = (uint32_t)ids.size();
 	sid_t * idlist = const_cast<sid_t *>( &(*start) );
 
-	rc = iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes );
-	if ( rc != 0 )
-	{
-		free( const_cast<char*>(buffer) );
-	}
-
-	return rc;
+	return iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes );
 }
 
 int32_t IIOService::shutdown( sid_t id )
@@ -204,6 +203,7 @@ void IIOService::attach( sid_t id, IIOSession * session )
 	session->init( id, m_IOLayer );
 
 	ioservice_t ioservice;
+	ioservice.start		= IIOSession::onStartSession;
 	ioservice.process	= IIOSession::onProcessSession;
 	ioservice.transform = IIOSession::onTransformSession;
 	ioservice.timeout	= IIOSession::onTimeoutSession;

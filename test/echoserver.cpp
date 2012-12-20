@@ -23,6 +23,11 @@ public :
 
 public :
 
+	virtual int32_t onStart()
+	{
+		setTimeout( 60 );
+	}
+
 	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
 	{
 		send( buf, nbytes );
@@ -68,12 +73,7 @@ public :
 
 	Utils::IIOSession * onAccept( sid_t id, const char * host, uint16_t port )
 	{
-		Utils::IIOSession * session = new CEchoSession(); 
-		if ( session )
-		{
-			session->setTimeout( 60 );
-		}
-		return session;
+		return new CEchoSession;
 	}
 };
 
