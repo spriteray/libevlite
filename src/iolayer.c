@@ -362,6 +362,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			struct message * msg = message_create();
 			if ( msg == NULL )
 			{
+				sidlist_destroy( listgroup[i] );
 				continue;
 			}
 
