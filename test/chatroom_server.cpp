@@ -8,6 +8,7 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include <pthread.h>
 
 #include "io.h"
@@ -103,12 +104,15 @@ int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
 		uint32_t nleft = nbytes - nprocess;
 		const char * buffer = buf + nprocess;
 
-		if ( nbytes < sizeof(struct CSHead) )
+		if ( nleft < sizeof(struct CSHead) )
 		{
 			break;
 		}
 		
 		CSHead * head = (CSHead *)buffer;
+
+		assert( head->length == 104 );
+		assert( head->msgid == 1 || head->msgid == 2 );
 
 		if ( nleft < head->length ) 
 		{
@@ -234,9 +238,13 @@ bool CChatRoomService::post( sid_t id, CSHead * header )
 	Task task;
 	task.sid = id;
 	task.msgid = header->msgid;
-	task.length = header->length - sizeof(CSHead);
-	if ( task.length > 0 )
+
+	if ( header->length - sizeof(CSHead) > 0 )
 	{
+		task.length = header->length - sizeof(CSHead);
+
+		assert( task.length == 100 );
+
 		task.message = (char *)malloc( task.length+1 );
 		memcpy( task.message, header+1, task.length );
 		task.message[task.length] = 0;

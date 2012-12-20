@@ -9,7 +9,7 @@ SOFLAGS	= -shared
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).7
-REALNAME= $(LIBNAME).7.0.0
+REALNAME= $(LIBNAME).7.0.1
 
 OS		= $(shell uname)
 
@@ -78,6 +78,8 @@ echostress :
 
 iothreads_dispatcher : test_iothreads.o $(OBJS)
 	$(CC) $(LFLAGS) $^ -o $@
+
+chatroom : chatroom_server chatroom_client
 
 chatroom_server: io.o chatroom_server.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)

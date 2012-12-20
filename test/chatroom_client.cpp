@@ -78,7 +78,7 @@ int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
 		uint32_t nleft = nbytes - nprocess;
 		const char * buffer = buf + nprocess;
 
-		if ( nbytes < sizeof(struct CSHead) )
+		if ( nleft < sizeof(struct CSHead) )
 		{
 			break;
 		}
@@ -157,7 +157,8 @@ bool CChatRoomService::send2( sid_t id )
 	std::string msg( length, 1 );
 
 	CSHead * head = (CSHead *)msg.data();
-	head->msgid = ( rand()%100 < 50 ) ? 1 : 2;
+//	head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
+	head->msgid = 2;
 	head->length = length;
 	msg.resize( length );
 	
@@ -193,9 +194,11 @@ int main( int argc, char ** argv )
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
+	srand( time(NULL) );
+
 	CChatRoomService service( nthreads, nclients );
 
-	if ( !service.init(host, port, 60) )
+	if ( !service.init(host, port, nclients) )
 	{
 		return -2;
 	}

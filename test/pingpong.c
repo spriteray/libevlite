@@ -7,7 +7,7 @@
 
 #include "network.h"
 
-#define METHOD		1	
+#define METHOD		1
 
 struct session
 {
@@ -44,7 +44,7 @@ int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
 		uint32_t nleft = nbytes - nprocess;
 		const char * buffer = buf + nprocess;
 
-		if ( nbytes < sizeof(struct PacketHead) )
+		if ( nleft < sizeof(struct PacketHead) )
 		{
 			break;
 		}

@@ -90,7 +90,7 @@ int32_t _transmit( struct session * session )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( ; QUEUE_COUNT(sendqueue)(&session->sendqueue); )
+		for ( ; QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0; )
 		{
 			struct message * message = NULL;
 			

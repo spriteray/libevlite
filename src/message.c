@@ -17,7 +17,7 @@ void _align( struct buffer * self )
 	memmove( self->orignbuffer, self->buffer, self->length );
 
 	self->buffer = self->orignbuffer;
-	self->length = 0;
+	self->offset = 0;
 }
 
 int32_t _expand( struct buffer * self, uint32_t length )
