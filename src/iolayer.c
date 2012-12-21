@@ -771,7 +771,7 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 		{
 			// 尝试单独发送
 			// 添加到发送队列成功
-			++count;	
+			++count;
 		}
 	}
 

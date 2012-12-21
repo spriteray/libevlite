@@ -282,6 +282,13 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 			return;
 		}
 
+		if ( nread > 0 || (nread == -1 && errno == EAGAIN) )
+		{
+			// 会话正常
+			session_add_event( session, EV_READ );
+			return;
+		}
+
 		if ( nread == -2 )
 		{
 			// expand() failure
@@ -290,26 +297,12 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 		else if ( nread == -1 )
 		{
 			// read() failure
-			if ( nread == -1 && errno == EAGAIN )
-			{
-				// 正常,socket中无数据可读
-				session_add_event( session, EV_READ );
-			}
-			else
-			{
-				// 出错, 
-				channel_error( session, eIOError_ReadFailure );
-			}
+			channel_error( session, eIOError_ReadFailure );
 		}
 		else if ( nread == 0 )
 		{
 			// peer shutdown
 			channel_error( session, eIOError_PeerShutdown );
-		}
-		else
-		{
-			// ok 
-			session_add_event( session, EV_READ );
 		}
 	}
 	else
