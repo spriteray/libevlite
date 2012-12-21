@@ -15,6 +15,8 @@
 // 发送接收数据
 static int32_t _receive( struct session * session );
 static int32_t _transmit( struct session * session );
+static inline int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
+
 
 // 逻辑操作  
 static int32_t _process( struct session * session );
@@ -43,13 +45,8 @@ int32_t _transmit( struct session * session )
 	const int32_t iov_max = 8;
 #endif
 
-#if defined (TCP_CORK)
-	int32_t corked = 0;
-#endif
-
 	uint32_t i = 0;
-	int32_t writen = 0;
-	int32_t offsets = session->msgoffsets;
+	int32_t writen = 0, offsets = session->msgoffsets;
 
 	int32_t iov_size = 0;
 	struct iovec iov_array[iov_max];
@@ -74,17 +71,7 @@ int32_t _transmit( struct session * session )
 		}
 	}
 
-#if defined (TCP_CORK)
-	corked = 1;
-	setsockopt( session->fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
-#endif
-
-	writen = writev( session->fd, iov_array, iov_size );
-
-#if defined (TCP_CORK)
-	corked = 0;
-	setsockopt( session->fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
-#endif
+	writen = _write_vec( session->fd, iov_array, iov_size );
 
 	if ( writen > 0 )
 	{
@@ -121,6 +108,25 @@ int32_t _transmit( struct session * session )
 			writen += againlen;
 		}
 	}
+
+	return writen;
+}
+
+int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
+{
+	int32_t writen = -1;
+
+#if defined (TCP_CORK)
+	int32_t corked = 1;
+	setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+#endif
+
+	writen = writev( fd, array, count );
+
+#if defined (TCP_CORK)
+	corked = 0;
+	setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+#endif
 
 	return writen;
 }

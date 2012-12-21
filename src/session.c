@@ -377,16 +377,11 @@ int32_t session_end( struct session * self, sid_t id )
 			struct message * msg = NULL;
 
 			QUEUE_POP(sendqueue)( &self->sendqueue, &msg );
-			if ( msg )
+			message_add_failure( msg, id );
+			// 检查消息是否可以销毁了
+			if ( message_is_complete(msg) )
 			{
-				// 消息发送失败一次
-				message_add_failure( msg, id );
-
-				// 检查消息是否可以销毁了
-				if ( message_is_complete(msg) )
-				{
-					message_destroy( msg );
-				}
+				message_destroy( msg );
 			}
 		}
 	}
