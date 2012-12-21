@@ -203,7 +203,7 @@ int32_t session_append( struct session * self, struct message * message )
 		if ( rc >= 0 )
 		{
 			// 改造后的消息已经单独发送
-			rc = 1;
+			++message->nsuccess;
 		}
 
 		free( buffer );

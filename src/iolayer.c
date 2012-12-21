@@ -761,29 +761,17 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 			continue;
 		}
 		
-		/*
-		 * session_append() 返回值
-		 *		< 0		- 出错
-		 *		= 0		- 添加成功
-		 *		= 1		- 尝试单独发送
-		 * */
 		int32_t rc = session_append( session, msg );
-
 		if ( rc < 0 )
 		{
 			// 添加失败
 			message_add_failure( msg, id );
 		}
-		else if ( rc == 0 )
-		{
-			// 添加到发送队列成功
-			++count;	
-		}
-		else if ( rc == 1 )
+		else
 		{
 			// 尝试单独发送
-			++count;
-			++msg->nsuccess;
+			// 添加到发送队列成功
+			++count;	
 		}
 	}
 
