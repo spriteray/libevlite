@@ -1,7 +1,6 @@
 
 #include <stdio.h>
 #include <syslog.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -343,8 +342,8 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
-	pthread_t threadid = pthread_self();
 
+	pthread_t threadid = pthread_self();
 	struct sidlist * listgroup[ 256 ] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
 
@@ -357,50 +356,48 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			continue;
 		}
 
-		if ( sidlist_count( listgroup[i] ) > 1 )
-		{
-			struct message * msg = message_create();
-			if ( msg == NULL )
-			{
-				sidlist_destroy( listgroup[i] );
-				continue;
-			}
-
-			message_add_buffer( msg, (char *)buf, nbytes );
-			message_set_receivers( msg, listgroup[i] );
-
-			if ( threadid == iothreads_get_id( layer->group, i ) )
-			{
-				// 本线程内直接广播
-				_broadcast_direct( _get_manager(layer, i), msg );
-			}
-			else
-			{
-				// 跨线程提交广播任务
-				int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
-				if ( result != 0 )
-				{
-					message_destroy( msg );
-					continue;
-				}
-			}
-
-			rc += sidlist_count( listgroup[i] );
-			// listgroup[i] 会在message中销毁
-		}
-		else
+		if ( sidlist_count( listgroup[i] ) == 1 )
 		{
 			sid_t id = sidlist_get( listgroup[i], 0 );
-
 			if ( _send_buffer( layer, id, buf, nbytes, 0 ) == 0 )
 			{
 				// 发送成功
 				rc += 1;
 			}
-
 			// 销毁listgroup[i]
 			sidlist_destroy( listgroup[i] );
+			continue;
 		}
+		
+		// 广播逻辑
+		struct message * msg = message_create();
+		if ( msg == NULL )
+		{
+			sidlist_destroy( listgroup[i] );
+			continue;
+		}
+
+		message_add_buffer( msg, (char *)buf, nbytes );
+		message_set_receivers( msg, listgroup[i] );
+
+		if ( threadid == iothreads_get_id( layer->group, i ) )
+		{
+			// 本线程内直接广播
+			_broadcast_direct( _get_manager(layer, i), msg );
+		}
+		else
+		{
+			// 跨线程提交广播任务
+			int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
+			if ( result != 0 )
+			{
+				message_destroy( msg );
+				continue;
+			}
+		}
+
+		rc += sidlist_count( listgroup[i] );
+		// listgroup[i] 会在message中销毁
 	}
 
 	return rc;
@@ -791,7 +788,7 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 	}
 
 	// 消息发送失败, 直接销毁
-	if ( message_is_complete(msg) == 0 )
+	if ( message_is_complete(msg) )
 	{
 		message_destroy( msg );
 	}

@@ -104,7 +104,7 @@ int32_t _transmit( struct session * session )
 			offsets -= message_get_length(message);
 
 			++message->nsuccess;
-			if ( message_is_complete(message) == 0 )
+			if ( message_is_complete(message) )
 			{
 				message_destroy( message );
 			}
@@ -554,4 +554,29 @@ void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
 
 	return;
 }
+
+void channel_on_tryreconnect( int32_t fd, int16_t ev, void * arg )
+{
+	struct session * session = (struct session *)arg;
+
+	session->status &= ~SESSION_WRITING;
+	
+	// 连接远程服务器
+	session->fd = tcp_connect( session->host, session->port, 1 ); 
+	if ( session->fd < 0 )
+	{
+		channel_error( session, eIOError_ConnectFailure );
+		return;
+	}
+	
+	// 注册写事件, 以重新激活会话
+	event_set( session->evwrite, session->fd, EV_WRITE );
+	event_set_callback( session->evwrite, channel_on_reconnect, session );
+	evsets_add( session->evsets, session->evwrite, 0 );
+
+	session->status |= SESSION_WRITING;
+
+	return;
+}
+
 

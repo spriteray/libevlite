@@ -76,7 +76,7 @@ int32_t message_add_failure( struct message * self, sid_t id );
 
 // 消息是否完全发送
 int32_t message_left_count( struct message * self );
-#define message_is_complete( self ) 				message_left_count( (self) )
+#define message_is_complete( self ) 				( message_left_count( (self) ) == 0 )
 
 // 获取消息数据的长度以及内
 #define message_get_buffer( self )					buffer_data( &((self)->buffer) )

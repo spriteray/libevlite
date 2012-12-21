@@ -1,7 +1,6 @@
 
 #include <assert.h>
 #include <syslog.h>
-#include <stdarg.h>
 #include <string.h>
 #include <unistd.h>
 #include <stdlib.h>
@@ -11,7 +10,6 @@
 #include "network-internal.h"
 
 #include "session.h"
-
 
 static struct session * _new_session( uint32_t size );
 static int32_t _del_session( struct session * self );
@@ -269,7 +267,7 @@ void session_del_event( struct session * self, int16_t ev )
 
 	if ( (ev&EV_WRITE) && (status&SESSION_WRITING) )
 	{
-		evsets_del( sets, self->evread );
+		evsets_del( sets, self->evwrite );
 		self->status &= ~SESSION_WRITING;
 	}
 
@@ -326,23 +324,18 @@ int32_t session_start_reconnect( struct session * self )
 		self->status &= ~SESSION_KEEPALIVING;
 	}
 
-	// 终止描述符
+	// 关闭描述符
 	if ( self->fd > 0 )
 	{
 		close( self->fd );
+		self->fd = -1;
 	}
-
-	// 连接远程服务器
-	self->fd = tcp_connect( self->host, self->port, 1 ); 
-	if ( self->fd < 0 )
-	{
-		return channel_error( self, eIOError_ConnectFailure );
-	}
-
-	event_set( self->evwrite, self->fd, EV_WRITE );
-	event_set_callback( self->evwrite, channel_on_reconnect, self );
-	evsets_add( sets, self->evwrite, 0 );
-	self->status |= SESSION_WRITING;
+	
+	// 2秒后尝试重连, 避免忙等
+	event_set( self->evwrite, -1, 0 );
+	event_set_callback( self->evwrite, channel_on_tryreconnect, self );
+	evsets_add( sets, self->evwrite, TRY_RECONNECT_INTERVAL );
+	self->status |= SESSION_WRITING;			// 让session忙起来
 
 	return 0;
 }
@@ -373,13 +366,13 @@ int32_t session_end( struct session * self, sid_t id )
 	// 会话中的ID已经非法
 
 	// 清空发送队列
-	uint32_t count = QUEUE_COUNT(sendqueue)(&self->sendqueue);
+	uint32_t count = QUEUE_COUNT(sendqueue)( &self->sendqueue );
 	if ( count > 0 )
 	{
 		// 会话终止时发送队列不为空
 		syslog(LOG_WARNING, "%s(SID=%ld)'s Out-Message-List (%d) is not empty .", __FUNCTION__, id, count );
 
-		for ( ; count >= 0; --count )
+		for ( ; count > 0; --count )
 		{
 			struct message * msg = NULL;
 
@@ -390,7 +383,7 @@ int32_t session_end( struct session * self, sid_t id )
 				message_add_failure( msg, id );
 
 				// 检查消息是否可以销毁了
-				if ( message_is_complete(msg) == 0 )
+				if ( message_is_complete(msg) )
 				{
 					message_destroy( msg );
 				}

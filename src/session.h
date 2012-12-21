@@ -16,8 +16,8 @@
 #include "utils.h"
 #include "message.h"
 
-#define SESSION_READING			0x01	// 等待读事件, 读很忙
-#define SESSION_WRITING			0x02	// 等待写事件, 写很忙
+#define SESSION_READING			0x01	// 等待读事件
+#define SESSION_WRITING			0x02	// 等待写事件, [连接, 重连, 发送]
 #define SESSION_KEEPALIVING		0x04	// 等待保活事件
 #define SESSION_EXITING			0x10	// 等待退出, 数据全部发送完毕后, 即可终止
 

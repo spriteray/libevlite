@@ -29,5 +29,8 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg );
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg );
 
+// ≥¢ ‘÷ÿ¡¨
+void channel_on_tryreconnect( int32_t fd, int16_t ev, void * arg );
+
 #endif
 
