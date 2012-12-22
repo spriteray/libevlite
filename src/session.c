@@ -11,15 +11,16 @@
 
 #include "session.h"
 
-static struct session * _new_session( uint32_t size );
+static struct session * _new_session();
 static int32_t _del_session( struct session * self );
+static inline void _stop( struct session * self );
 static inline int32_t _send( struct session * self, char * buf, uint32_t nbytes );
 
 //
 QUEUE_GENERATE( sendqueue, struct message * )
 
-//
-struct session * _new_session( uint32_t size )
+	//
+struct session * _new_session()
 {
 	struct session * self = NULL;
 
@@ -39,14 +40,14 @@ struct session * _new_session( uint32_t size )
 		_del_session( self );
 		return NULL;
 	}
-	
+
 	// 初始化发送队列
-	if ( QUEUE_INIT(sendqueue)(&self->sendqueue, size) != 0 )
+	if ( QUEUE_INIT(sendqueue)(&self->sendqueue, OUTMSGLIST_DEFAULT_SIZE) != 0 )
 	{
 		_del_session( self );
 		return NULL;
 	}
-	
+
 	return self;
 }
 
@@ -68,14 +69,45 @@ int32_t _del_session( struct session * self )
 		event_destroy( self->evkeepalive );
 		self->evkeepalive = NULL;
 	}
-	
-	// 销毁发送队列
+
 	QUEUE_CLEAR(sendqueue)(&self->sendqueue);
-	// 销毁接收缓冲区
 	buffer_set( &self->inbuffer, NULL, 0 );
 	free( self );
 
 	return 0;
+}
+
+// 会话停止(删除网络事件以及关闭描述符)
+void _stop( struct session * self )
+{
+	evsets_t sets = self->evsets;
+
+	// 删除网络事件
+	if ( self->status&SESSION_READING )
+	{
+		evsets_del( sets, self->evread );
+		self->status &= ~SESSION_READING;
+	}
+	if ( self->status&SESSION_WRITING )
+	{
+		evsets_del( sets, self->evwrite );
+		self->status &= ~SESSION_WRITING;
+	}
+	if ( self->status&SESSION_KEEPALIVING )
+	{
+		evsets_del( sets, self->evkeepalive );
+		self->status &= ~SESSION_KEEPALIVING;
+	}
+
+	// 清空接收缓冲区
+	buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
+
+	// 关闭描述符
+	if ( self->fd > 0 )
+	{
+		close( self->fd );
+		self->fd = -1;
+	}
 }
 
 //
@@ -83,9 +115,9 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 {
 	int32_t rc = 0;
 
-	// 等待关闭的连接
 	if ( self->status&SESSION_EXITING )
 	{
+		// 等待关闭的连接
 		return -1;
 	}
 
@@ -127,10 +159,10 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	self->evsets	= sets;
 
 	// TODO: 设置默认的最大接收缓冲区
-	
+
 	// 不需要每次开始会话的时候初始化
 	// 只需要在manager创建会话的时候初始化一次，即可	
-	
+
 	self->service.start( self->context );
 
 	// 关注读事件, 按需开启保活心跳
@@ -150,7 +182,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
 	int32_t rc = -1;
 	ioservice_t * service = &self->service;
-	
+
 	// 数据改造(加密 or 压缩)
 	uint32_t _nbytes = nbytes;
 	char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
@@ -179,8 +211,8 @@ int32_t session_append( struct session * self, struct message * message )
 
 	char * buf = message_get_buffer( message );
 	uint32_t nbytes = message_get_length( message );
-	
-	// 数据改造
+
+	// 数据改造(加密 or 压缩)
 	char * buffer = service->transform( self->context, (const char *)buf, &nbytes );
 
 	if ( buffer == buf )
@@ -221,7 +253,7 @@ void session_add_event( struct session * self, int16_t ev )
 	// 注册读事件
 	// 不在等待读事件的正常会话
 	if ( !(status&SESSION_EXITING)
-		&& (ev&EV_READ) && !(status&SESSION_READING) )
+			&& (ev&EV_READ) && !(status&SESSION_READING) )
 	{
 		event_set( self->evread, self->fd, ev );
 		event_set_callback( self->evread, channel_on_read, self );
@@ -234,7 +266,7 @@ void session_add_event( struct session * self, int16_t ev )
 	if ( (ev&EV_WRITE) && !(status&SESSION_WRITING) )
 	{
 		int32_t wait_for_shutdown = 0;
-		
+
 		// 在等待退出的会话上总是会添加10s的定时器
 		if ( status&SESSION_EXITING )
 		{
@@ -307,30 +339,9 @@ int32_t session_start_reconnect( struct session * self )
 		return -2;
 	}
 
-	// 删除网络事件
-	if ( self->status&SESSION_READING )
-	{
-		evsets_del( sets, self->evread );
-		self->status &= ~SESSION_READING;
-	}
-	if ( self->status&SESSION_WRITING )
-	{
-		evsets_del( sets, self->evwrite );
-		self->status &= ~SESSION_WRITING;
-	}
-	if ( self->status&SESSION_KEEPALIVING )
-	{
-		evsets_del( sets, self->evkeepalive );
-		self->status &= ~SESSION_KEEPALIVING;
-	}
+	// 停止会话
+	_stop( self );
 
-	// 关闭描述符
-	if ( self->fd > 0 )
-	{
-		close( self->fd );
-		self->fd = -1;
-	}
-	
 	// 2秒后尝试重连, 避免忙等
 	event_set( self->evwrite, -1, 0 );
 	event_set_callback( self->evwrite, channel_on_tryreconnect, self );
@@ -343,15 +354,14 @@ int32_t session_start_reconnect( struct session * self )
 int32_t session_shutdown( struct session * self )
 {
 	if ( !(self->status&SESSION_EXITING)
-		&& QUEUE_COUNT(sendqueue)(&self->sendqueue) > 0 )
+			&& QUEUE_COUNT(sendqueue)(&self->sendqueue) > 0 )
 	{
 		// 会话状态正常, 并且发送队列不为空
 		// 尝试继续把未发送的数据发送出去, 在终止会话
 		self->status |= SESSION_EXITING;
 
-		// 删除读事件
+		// 优先把数据发出去
 		session_del_event( self, EV_READ );
-		// 注册写事件
 		session_add_event( self, EV_WRITE );
 
 		return 1;
@@ -369,51 +379,25 @@ int32_t session_end( struct session * self, sid_t id )
 	uint32_t count = QUEUE_COUNT(sendqueue)( &self->sendqueue );
 	if ( count > 0 )
 	{
-		// 会话终止时发送队列不为空
-		syslog(LOG_WARNING, "%s(SID=%ld)'s Out-Message-List (%d) is not empty .", __FUNCTION__, id, count );
+		syslog(LOG_WARNING, 
+				"%s(SID=%ld)'s Out-Message-List (%d) is not empty .", __FUNCTION__, id, count );
 
 		for ( ; count > 0; --count )
 		{
 			struct message * msg = NULL;
-
 			QUEUE_POP(sendqueue)( &self->sendqueue, &msg );
-			message_add_failure( msg, id );
+
 			// 检查消息是否可以销毁了
+			message_add_failure( msg, id );
 			if ( message_is_complete(msg) )
 			{
 				message_destroy( msg );
 			}
 		}
 	}
-	
-	// 清空接收缓冲区
-	buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
 
-	// 删除事件
-	if ( self->evread && (self->status&SESSION_READING) )
-	{
-		evsets_del( self->evsets, self->evread );
-		self->status &= ~SESSION_READING;
-	}
-	if ( self->evwrite && (self->status&SESSION_WRITING) )
-	{
-		evsets_del( self->evsets, self->evwrite );
-		self->status &= ~SESSION_WRITING;
-	}
-	if ( self->evkeepalive && (self->status&SESSION_KEEPALIVING) )
-	{
-		evsets_del( self->evsets, self->evkeepalive );
-		self->status &= ~SESSION_KEEPALIVING;
-	}
-
-	// NOTICE: 最后一步终止描述符
-	// 系统会回收描述符, libevlite会重用以描述符为key的会话
-	if ( self->fd > 0 )
-	{
-		close( self->fd );
-		self->fd = -1;
-	}
-
+	// 停止会话
+	_stop( self );
 	_del_session( self );
 
 	return 0;
@@ -444,7 +428,7 @@ struct hashtable
 	uint32_t size;
 	uint32_t count;
 	uint32_t enlarge_size;				// = size*ENLARGE_FACTOR
-	
+
 	struct hashbucket * buckets;
 };
 
@@ -460,7 +444,7 @@ int32_t _init_table( struct hashtable * table, uint32_t size )
 	table->count = 0;
 	table->size = size;
 	table->enlarge_size = (uint32_t)( (float)size * ENLARGE_FACTOR );
-	
+
 	table->buckets = calloc( size, sizeof(struct hashbucket) );
 	if ( table->buckets == NULL )
 	{
@@ -563,7 +547,7 @@ int32_t _append_session( struct hashtable * table, struct session * s )
 		syslog(LOG_WARNING, "%s(Index=%d): the SID (Seq=%u, Sid=%ld) conflict !", __FUNCTION__, SID_INDEX(s->id), SID_SEQ(s->id), s->id );
 		return -2;
 	}
-	
+
 	++table->count;
 	bucket->session = s;
 	bucket->status = eBucketStatus_Occupied;
@@ -582,13 +566,13 @@ int32_t _remove_session( struct hashtable * table, struct session * s )
 	struct hashbucket * bucket = table->buckets + pos;
 
 	if ( bucket->status == eBucketStatus_Free
-	  || bucket->status == eBucketStatus_Deleted )
+			|| bucket->status == eBucketStatus_Deleted )
 	{
 		return -2;
 	}
 
 	assert( bucket->session == s );
-	
+
 	--table->count;
 	bucket->session = NULL;
 	bucket->status = eBucketStatus_Deleted;
@@ -605,7 +589,7 @@ struct session * _find_session( struct hashtable * table, sid_t id )
 	}
 
 	if ( table->buckets[pos].status == eBucketStatus_Free
-	  || table->buckets[pos].status == eBucketStatus_Deleted )
+			|| table->buckets[pos].status == eBucketStatus_Deleted )
 	{
 		return NULL;
 	}
@@ -652,13 +636,14 @@ struct session * session_manager_alloc( struct session_manager * self )
 	id |= self->seq++;
 	id &= SID_MASK;
 
-	session = _new_session( OUTMSGLIST_DEFAULT_SIZE );
+	session = _new_session();
 	if ( session != NULL )
 	{
 		session->id = id;
 		session->manager = self;
 
 		// 添加会话
+		// TODO: 是否可以拆分, generate() and session_start()
 		if ( _append_session(self->table, session) != 0 )
 		{
 			_del_session( session );
@@ -694,7 +679,8 @@ void session_manager_destroy( struct session_manager * self )
 
 	if ( self->table->count > 0 )
 	{
-		syslog( LOG_WARNING, "%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, self->table->count );
+		syslog( LOG_WARNING, 
+				"%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, self->table->count );
 	}
 
 	for ( i = 0; i < self->table->size; ++i )

@@ -14,12 +14,12 @@ int64_t mtime()
 {
 	int64_t now = -1;
 	struct timeval tv;
-	
+
 	if ( gettimeofday( &tv, NULL ) == 0 )
 	{
 		now = tv.tv_sec * 1000ll + tv.tv_usec / 1000ll;
 	}
-	
+
 	return now;
 }
 
@@ -267,99 +267,99 @@ void sidlist_destroy( struct sidlist * self )
 
 // -----------------------------------------------------------------------------------------------------------------
 
-QUEUE_PROTOTYPE( taskqueue, struct task )
+	QUEUE_PROTOTYPE( taskqueue, struct task )
 QUEUE_GENERATE( taskqueue, struct task )
 
 struct msgqueue * msgqueue_create( uint32_t size )
 {
-    struct msgqueue * self = NULL;
+	struct msgqueue * self = NULL;
 
-    self = (struct msgqueue *)malloc( sizeof(struct msgqueue) );
-    if ( self )
-    {
-        self->popfd = -1;
-        self->pushfd = -1;
-        pthread_mutex_init( &self->lock, 0 );
-    
-        if ( QUEUE_INIT(taskqueue)(&self->queue, size) != 0 )
-        {
-            msgqueue_destroy( self );
-            self = NULL;
-        }
-        else
-        {
-            int32_t rc = -1;
-            int32_t fds[2] = { -1, -1 };
+	self = (struct msgqueue *)malloc( sizeof(struct msgqueue) );
+	if ( self )
+	{
+		self->popfd = -1;
+		self->pushfd = -1;
+		pthread_mutex_init( &self->lock, 0 );
+
+		if ( QUEUE_INIT(taskqueue)(&self->queue, size) != 0 )
+		{
+			msgqueue_destroy( self );
+			self = NULL;
+		}
+		else
+		{
+			int32_t rc = -1;
+			int32_t fds[2] = { -1, -1 };
 
 			rc = pipe( fds );
-            //rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
-            if ( rc == -1 )
-            {
-                msgqueue_destroy( self );
-                self = NULL;
-            }
-            else
-            {
-                self->popfd = fds[0];
-                self->pushfd = fds[1];
-				
+			//rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
+			if ( rc == -1 )
+			{
+				msgqueue_destroy( self );
+				self = NULL;
+			}
+			else
+			{
+				self->popfd = fds[0];
+				self->pushfd = fds[1];
+
 #ifdef O_NOATIME
 				// linux在读pipe的时候会更新访问时间, touch_atime(), 这个的开销也不小
 				fcntl( self->popfd, F_SETFL, O_NOATIME );
 #endif
-            }
-        }
-    }
+			}
+		}
+	}
 
-    return self;
+	return self;
 }
 
 int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnotify  )
 {
-    int32_t rc = -1;
-    uint32_t isbc = 0;
+	int32_t rc = -1;
+	uint32_t isbc = 0;
 
-    pthread_mutex_lock( &self->lock );
+	pthread_mutex_lock( &self->lock );
 
-    rc = QUEUE_PUSH(taskqueue)(&self->queue, task);
-    if ( isnotify != 0 )
-    {
+	rc = QUEUE_PUSH(taskqueue)(&self->queue, task);
+	if ( isnotify != 0 )
+	{
 		isbc = QUEUE_COUNT(taskqueue)(&self->queue);
-    }
-    
-    pthread_mutex_unlock( &self->lock );
+	}
 
-    if ( rc == 0 && isbc == 1 )
-    {
-        char buf[1] = {0};
-        int32_t nwrite = 0;
-		
+	pthread_mutex_unlock( &self->lock );
+
+	if ( rc == 0 && isbc == 1 )
+	{
+		char buf[1] = {0};
+		int32_t nwrite = 0;
+
 		nwrite = write( self->pushfd, buf, 1 );
 		if ( nwrite != 1 )
 		{
 			// 
 		}
-    }
+	}
 
-    return rc;
+	return rc;
 }
 
 int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
 {
-    int32_t rc = -1;
+	int32_t rc = -1;
 
-    pthread_mutex_lock( &self->lock );
-    rc = QUEUE_POP(taskqueue)(&self->queue, task);
-    pthread_mutex_unlock( &self->lock );
+	pthread_mutex_lock( &self->lock );
+	rc = QUEUE_POP(taskqueue)(&self->queue, task);
+	pthread_mutex_unlock( &self->lock );
 
-    return rc;
+	return rc;
 }
 
 int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t count )
 {
 	uint32_t i = 0;
 
-    pthread_mutex_lock( &self->lock );
+	pthread_mutex_lock( &self->lock );
 	for ( i = 0; i < count; ++i )
 	{
 		int32_t rc = QUEUE_POP(taskqueue)(&self->queue, &tasks[i]);	
@@ -368,30 +368,30 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
 			break;
 		}
 	}
-    pthread_mutex_unlock( &self->lock );
+	pthread_mutex_unlock( &self->lock );
 
-    return i;
+	return i;
 }
 
 uint32_t msgqueue_count( struct msgqueue * self )
 {
 	uint32_t rc = 0;
-	
+
 	pthread_mutex_lock( &self->lock );
 	rc = QUEUE_COUNT(taskqueue)(&self->queue);
 	pthread_mutex_unlock( &self->lock );
-	
+
 	return rc;
 }
 
 int32_t msgqueue_popfd( struct msgqueue * self )
 {
 	int32_t rc = 0;
-	
+
 	pthread_mutex_lock( &self->lock );
 	rc = self->popfd;
 	pthread_mutex_unlock( &self->lock );
-	
+
 	return rc;
 }
 
@@ -407,11 +407,11 @@ int32_t msgqueue_destroy( struct msgqueue * self )
 		close( self->pushfd );
 		self->pushfd = -1;
 	}
-	
+
 	QUEUE_CLEAR(taskqueue)(&self->queue);
 	pthread_mutex_destroy( &self->lock );
 	free( self );
-	
+
 	return 0;
 }
 

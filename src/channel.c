@@ -246,16 +246,9 @@ int32_t channel_shutdown( struct session * session )
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
 
-	// 回调逻辑层
-	service->shutdown( session->context );
-	
-	// 从会话管理器中移除会话
-	if ( manager != NULL )
-	{
-		session_manager_remove( manager, session );
-	}
-
 	// 会话终止
+	service->shutdown( session->context );
+	session_manager_remove( manager, session );
 	session_end( session, id );
 
 	return 0;
@@ -313,7 +306,6 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 	}
 	else
 	{
-		// 超时
 		_timeout( session );
 	}
 
@@ -332,21 +324,16 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 		{
 			// 发送数据
 			int32_t writen = _transmit( session );
-
-			// 处理结果
 			if ( writen < 0 && errno != EAGAIN )
 			{
-				// 出错了
 				channel_error( session, eIOError_WriteFailure );
 			}
 			else
 			{
-				// 正常发送
-				// socket缓冲区已满
+				// 正常发送 或者 socket缓冲区已满
 
 				if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
 				{
-					// 还有数据需要发送
 					// NOTICE: 为什么不判断会话是否正在终止呢?
 					// 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
 					// 直到发送队列为空
@@ -354,8 +341,6 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 				}
 				else
 				{
-					// 数据已经全部发送
-
 					if ( session->status&SESSION_EXITING )
 					{
 						// 等待关闭的会话, 直接终止会话
@@ -409,8 +394,6 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 			// 分发策略
 			index = cfd % (layer->nthreads);
-
-			// 把这个会话分发给指定的网络线程
 			iolayer_assign_session( layer, index, &(task) );
 		}
 	}
@@ -433,20 +416,18 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		// linux需要进一步检查连接是否成功
 		if ( is_connected( fd ) != 0 )
 		{
-			// 连接失败
 			result = eIOError_ConnectStatus;
 		}
 #endif
 	}
 	else
 	{
-		// 连接超时了
 		result = eIOError_Timeout;
 	}
 	
 	if ( result == 0 )
 	{
-		// 连接成功的情况下, 需要去分配一个会话
+		// 连接成功的情况下, 创建会话
 		session = iolayer_alloc_session( layer, connector->fd );
 		if ( session == NULL )
 		{
@@ -476,8 +457,6 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 			set_non_block( connector->fd );
 			session_set_endpoint( session, connector->host, connector->port );
 			session_start( session, eSessionType_Persist, connector->fd, sets );
-			
-			// 需要释放 connector	
 			connector->fd = -1;
 			iolayer_free_connector( layer, connector );
 		}
@@ -486,11 +465,9 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	{
 		if ( session )
 		{
-			// 从会话管理器中移除会话
 			session_manager_remove( session->manager, session );
 			session_end( session, id );
 		}
-		// 需要释放 connector
 		iolayer_free_connector( layer, connector );
 	}
 
@@ -508,30 +485,23 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 #if defined (__linux__)
 		if ( is_connected(fd) != 0 )
 		{
-			// 重连失败
 			channel_error( session, eIOError_ConnectStatus );
 			return;
 		}
 #endif
 		// 总算是连接上了
-		
-		// 设置描述符
+
 		set_non_block( fd );
-
-		// 回调
 		session->service.start( session->context );
-
+		
 		// 注册读写事件
 		// 把积累下来的数据全部发送出去
 		session_add_event( session, EV_READ );
 		session_add_event( session, EV_WRITE );
-
-		// 启动keepalive服务
 		session_start_keepalive( session );
 	}
 	else
 	{
-		// 超时
 		_timeout( session );
 	}
 	
