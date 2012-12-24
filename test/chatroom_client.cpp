@@ -151,6 +151,8 @@ public :
 			{
 				break;
 			}
+
+			assert( head->length == 100+sizeof(CSHead) );
 			
 			m_RecvBytes += head->length;
 			nprocess += head->length;
@@ -235,15 +237,20 @@ void start_clients( ChatRoomClient ** clients, evsets_t sets )
 
 void statics( ChatRoomClient ** clients, uint64_t mseconds )
 {
+	uint64_t max_recvbytes = 0, max_sendbytes = 0;
 	uint64_t total_recvbytes = 0, total_sendbytes = 0;
 
 	for ( int32_t i = 0; i < g_ClientsCount; ++i )
 	{
 		total_recvbytes += clients[i]->getRecvBytes();
 		total_sendbytes += clients[i]->getSendBytes();
+
+		max_recvbytes = std::max( max_recvbytes, clients[i]->getRecvBytes() );
+		max_sendbytes = std::max( max_sendbytes, clients[i]->getSendBytes() );
 	}
 
-	printf("MSeconds: %lld, RecvSpeed: %6.3fKBytes/s, SendSpeed: %6.3fKBytes/s \n", mseconds, total_recvbytes*1000.0f/mseconds, total_sendbytes*1000.0f/mseconds );
+	printf("MaxRecvBytes: %lld, MaxSendBytes: %lld\n", max_recvbytes, max_sendbytes);
+	printf("MSeconds: %lld, RecvSpeed: %6.3fKBytes/s, SendSpeed: %6.3fKBytes/s \n", mseconds, total_recvbytes/mseconds*1000.0f, total_sendbytes/mseconds*1000.0f );
 }
 
 int main( int argc, char ** argv )

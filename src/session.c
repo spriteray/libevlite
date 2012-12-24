@@ -1,4 +1,5 @@
 
+#include <stdio.h>
 #include <assert.h>
 #include <syslog.h>
 #include <string.h>
@@ -408,7 +409,9 @@ int32_t session_end( struct session * self, sid_t id )
 // -----------------------------------------------------------------------------
 
 // 填装因子
-#define ENLARGE_FACTOR	0.5f
+#define ENLARGE_FACTOR		0.5f
+#define SHRINK_FACTOR		(0.4f*ENLARGE_FACTOR)
+#define BUCKETS_MIN_COUNT	512	
 
 enum
 {
@@ -426,15 +429,18 @@ struct hashbucket
 struct hashtable
 {
 	uint32_t size;
-	uint32_t count;
-	uint32_t enlarge_size;				// = size*ENLARGE_FACTOR
+
+	uint32_t ndeleted;
+	uint32_t nelement;
+
+	uint32_t nshrink;				// = size*SHRINK_FACTOR
+	uint32_t nenlarge;				// = size*ENLARGE_FACTOR
 
 	struct hashbucket * buckets;
 };
 
 static inline int32_t _init_table( struct hashtable * table, uint32_t size );
-static inline int32_t _enlarge_table( struct hashtable * table );
-static inline void _clear_deleted( struct hashtable * table, sid_t id, int32_t pos );
+static inline int32_t _resize_table( struct hashtable * table, uint32_t size );
 static inline int32_t _find_position( struct hashtable * table, sid_t id );
 static inline int32_t _append_session( struct hashtable * table, struct session * s );
 static inline int32_t _remove_session( struct hashtable * table, struct session * s );
@@ -442,9 +448,11 @@ static inline struct session * _find_session( struct hashtable * table, sid_t id
 
 int32_t _init_table( struct hashtable * table, uint32_t size )
 {
-	table->count = 0;
 	table->size = size;
-	table->enlarge_size = (uint32_t)( (float)size * ENLARGE_FACTOR );
+	table->ndeleted = 0;
+	table->nelement = 0;
+	table->nshrink = (uint32_t)( (float)size * SHRINK_FACTOR );
+	table->nenlarge = (uint32_t)( (float)size * ENLARGE_FACTOR );
 
 	table->buckets = calloc( size, sizeof(struct hashbucket) );
 	if ( table->buckets == NULL )
@@ -455,12 +463,12 @@ int32_t _init_table( struct hashtable * table, uint32_t size )
 	return 0;
 }
 
-int32_t _enlarge_table( struct hashtable * table )
+int32_t _resize_table( struct hashtable * table, uint32_t size )
 {
 	uint32_t i = 0;
 	struct hashtable newtable;	
 
-	if ( _init_table(&newtable, table->size<<1) != 0 )
+	if ( _init_table(&newtable, size) != 0 )
 	{
 		return -1;
 	}
@@ -476,31 +484,14 @@ int32_t _enlarge_table( struct hashtable * table )
 		}
 	}
 
-	assert( newtable.count == table->count );
-
 	free ( table->buckets );
+
 	table->buckets = newtable.buckets;
 	table->size = newtable.size;
-	table->enlarge_size = newtable.enlarge_size;
+	table->nenlarge = newtable.nenlarge;
+	table->nshrink = newtable.nshrink;
 
 	return 0;
-}
-
-void _clear_deleted( struct hashtable * table, sid_t id, int32_t pos )
-{
-	int32_t begin_pos = SID_SEQ(id) & (table->size-1);
-
-	for ( ; pos >= begin_pos; --pos )
-	{
-		if ( table->buckets[pos].status != eBucketStatus_Deleted )
-		{
-			break;
-		}
-
-		table->buckets[pos].status = eBucketStatus_Free;
-	}
-
-	return;
 }
 
 int32_t _find_position( struct hashtable * table, sid_t id )
@@ -542,10 +533,9 @@ int32_t _find_position( struct hashtable * table, sid_t id )
 
 int32_t _append_session( struct hashtable * table, struct session * s )
 {
-	if ( table->count >= table->enlarge_size )
+	if ( table->nelement - table->ndeleted >= table->nenlarge )
 	{
-		// 扩展
-		if ( _enlarge_table( table ) != 0 )
+		if ( _resize_table( table, table->size<<1 ) != 0 )
 		{
 			return -1;
 		}
@@ -564,7 +554,15 @@ int32_t _append_session( struct hashtable * table, struct session * s )
 		return -2;
 	}
 
-	++table->count;
+	if ( bucket->status == eBucketStatus_Deleted )
+	{
+		--table->ndeleted;
+	}
+	else
+	{
+		++table->nelement;
+	}
+
 	bucket->session = s;
 	bucket->status = eBucketStatus_Occupied;
 
@@ -588,10 +586,22 @@ int32_t _remove_session( struct hashtable * table, struct session * s )
 	}
 
 	assert( bucket->session == s );
-
-	--table->count;
+	
+	++table->ndeleted;
 	bucket->session = NULL;
 	bucket->status = eBucketStatus_Deleted;
+	
+	uint32_t ncount = table->nelement - table->ndeleted; 
+	if ( table->size > BUCKETS_MIN_COUNT && ncount < table->nshrink )
+	{
+		uint32_t nsize = table->size >> 1;
+		while ( nsize > BUCKETS_MIN_COUNT && ncount < nsize*SHRINK_FACTOR )
+		{
+			nsize = nsize>>1;
+		}
+
+		_resize_table( table, nsize );
+	}
 
 	return 0;	
 }
@@ -692,11 +702,12 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 void session_manager_destroy( struct session_manager * self )
 {
 	int32_t i = 0;
+	uint32_t ncount = self->table->nelement - self->table->ndeleted;
 
-	if ( self->table->count > 0 )
+	if ( ncount > 0 )
 	{
 		syslog( LOG_WARNING, 
-				"%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, self->table->count );
+				"%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, ncount );
 	}
 
 	for ( i = 0; i < self->table->size; ++i )
