@@ -2,6 +2,11 @@
 #ifndef SRC_MESSAGE_H
 #define SRC_MESSAGE_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include <stdint.h>
 
 #include "utils.h"
@@ -81,6 +86,10 @@ int32_t message_left_count( struct message * self );
 // 获取消息数据的长度以及内
 #define message_get_buffer( self )					buffer_data( &((self)->buffer) )
 #define message_get_length( self ) 					buffer_length( &((self)->buffer) )
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

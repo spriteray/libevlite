@@ -2,6 +2,11 @@
 #ifndef SRC_UTILS_H
 #define SRC_UTILS_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /*
  * 工具算法模块
  */
@@ -75,7 +80,7 @@ struct task
 	int16_t utype;				// 2bytes
 	union
 	{
-		void *	task;			 
+		void *	taskdata;			 
 		char	data[TASK_PADDING_SIZE];
 	};
 };
@@ -114,6 +119,10 @@ int32_t msgqueue_popfd( struct msgqueue * self );
 
 // 销毁消息队列
 int32_t msgqueue_destroy( struct msgqueue * self );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

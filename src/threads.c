@@ -214,7 +214,7 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
 	}
 	else
 	{
-		intask.task = task;
+		intask.taskdata = task;
 	}
 
 	// 默认: 提交任务不提醒消费者
@@ -283,7 +283,7 @@ void * iothread_main( void * arg )
 				case eTaskType_User :
 					{
 						// 用户命令
-						data = tasks[i].task;
+						data = tasks[i].taskdata;
 					}
 					break;
 

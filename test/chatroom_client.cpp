@@ -1,216 +1,291 @@
 
-#include <deque>
-#include <vector>
-#include <algorithm>
+#include <string>
 
-#include <stdio.h>
 #include <signal.h>
-#include <unistd.h>
-#include <stdlib.h>
-#include <string.h>
-#include <pthread.h>
+#include <stdio.h>
+#include <errno.h>
 
-#include "io.h"
+#include "utils.h"
+#include "event.h"
+#include "message.h"
+
 #include "chatroom.h"
 
-using namespace Utils;
+bool g_Running;
 
-class CChatRoomService;
-class CChatRoomSession : public IIOSession
+char * g_Host;
+uint16_t g_Port;
+int32_t g_ClientsCount;
+
+class ChatRoomClient
 {
-public:
-	CChatRoomSession();
-	virtual ~CChatRoomSession();
+public :
+	ChatRoomClient()
+		: m_Fd(0),
+		  m_ReadEvent(NULL),
+		  m_TimerEvent(NULL),
+		  m_SendBytes(0),
+		  m_RecvBytes(0)
+	{
+		buffer_set( &m_InBuffer, NULL, 0 );
+	}
+
+	~ChatRoomClient()
+	{
+		buffer_set( &m_InBuffer, NULL, 0 );
+	}
+
+	enum
+	{
+		e_SendIntervalMicroSeconds	= 10,		// 每个10ms发送一个请求
+	};
 
 public :
-	virtual int32_t onStart();
-	virtual int32_t	onProcess( const char * buf, uint32_t nbytes );
-	virtual int32_t onShutdown();
+
+	bool connect( const char * host, uint16_t port )
+	{
+		struct sockaddr_in addr;
+		
+		memset( &addr, 0, sizeof(addr) );
+		addr.sin_family = AF_INET;
+		addr.sin_addr.s_addr = inet_addr( host );
+		addr.sin_port = htons( port );
+
+		m_Fd = socket( AF_INET, SOCK_STREAM, 0 );
+		if ( m_Fd < 0 )
+		{
+			return false;
+		}	
+		if ( ::connect(m_Fd, (struct sockaddr *)&addr, sizeof(addr)) != 0 )
+		{
+			close( m_Fd );
+			m_Fd = -1;
+			return false;
+		}
+		set_non_block( m_Fd );
+		return true;
+	}
+
+	void start( evsets_t sets )
+	{
+		m_ReadEvent = event_create();
+		m_TimerEvent = event_create();
+
+		event_set( m_ReadEvent, m_Fd, EV_READ );
+		event_set_callback( m_ReadEvent, ChatRoomClient::onRead, this );
+		evsets_add( sets, m_ReadEvent, 0 );
+
+		event_set( m_TimerEvent, -1, 0 );
+		event_set_callback( m_TimerEvent, ChatRoomClient::onTimer, this );
+		evsets_add( sets,  m_TimerEvent, e_SendIntervalMicroSeconds );
+	}
+
+	int32_t recv()
+	{
+		int32_t nread = buffer_read( &m_InBuffer, m_Fd, -1 );
+		if ( nread > 0 )
+		{
+			m_RecvBytes += nread;
+		}
+		
+		return nread;
+	}
+
+	int32_t send()
+	{
+		uint16_t length = 100+sizeof(CSHead);
+		std::string msg( length, 1 );
+
+		CSHead * head = (CSHead *)msg.data();
+		//	head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
+		head->msgid = 2;
+		head->length = length;
+		msg.resize( length );
+
+		m_SendBytes += length;
+
+		return write( m_Fd, msg.data(), msg.size() );
+	}
+
+	void shutdown()
+	{
+		if ( m_Fd )
+		{
+			close( m_Fd );
+			m_Fd = -1;
+		}
+
+		if ( m_ReadEvent )
+		{
+			evsets_del( event_get_sets(m_ReadEvent), m_ReadEvent );
+			event_destroy( m_ReadEvent );
+		}
+
+		if ( m_TimerEvent )
+		{
+			evsets_del( event_get_sets(m_TimerEvent), m_TimerEvent );
+			event_destroy( m_TimerEvent );
+		}
+	}
+
+	void onProcess()
+	{
+		int32_t nprocess = 0;
+
+		const char * buf = buffer_data( &m_InBuffer );
+		uint32_t nbytes = buffer_length( &m_InBuffer );
+
+		while ( 1 )
+		{
+			uint32_t nleft = nbytes - nprocess;
+			const char * buffer = buf + nprocess;
+
+			if ( nleft < sizeof(struct CSHead) )
+			{
+				break;
+			}
+
+			CSHead * head = (CSHead *)buffer;
+
+			if ( nleft < head->length ) 
+			{
+				break;
+			}
+			
+			m_RecvBytes += head->length;
+			nprocess += head->length;
+		}
+
+		buffer_erase( &m_InBuffer, nprocess );
+	}
+
+	uint64_t getSendBytes() const { return m_SendBytes; }
+	uint64_t getRecvBytes() const { return m_RecvBytes; }
 
 public :
-	void setService( CChatRoomService * s );
+	
+	static void onRead( int32_t fd, int16_t ev, void * arg );
+	static void onTimer( int32_t fd, int16_t ev, void * arg );
 
 private :
 
-	CChatRoomService * m_Service;
+	int32_t			m_Fd;
+	event_t			m_ReadEvent;
+	event_t			m_TimerEvent;
+	struct buffer	m_InBuffer;
+
+	uint64_t		m_SendBytes;
+	uint64_t		m_RecvBytes;
 };
 
-class CChatRoomService : public IIOService
+void ChatRoomClient::onRead( int32_t fd, int16_t ev, void * arg )
 {
-public :
-	CChatRoomService( uint8_t nthreads, uint32_t nclients );
-	virtual ~CChatRoomService();
+	ChatRoomClient * client = (ChatRoomClient *)arg;
 
-public :
-	virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port );
-
-public :
-	bool init( const char * host, uint16_t port, uint32_t nclients );
-	bool send2( sid_t id );
-};
-
-// -------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------
-// -------------------------------------------------------------------------------
-
-CChatRoomSession::CChatRoomSession()
-{
-}
-
-CChatRoomSession::~CChatRoomSession()
-{
-}
-
-int32_t CChatRoomSession::onStart()
-{
-	setTimeout( 90 );
-	setKeepalive( 10 );
-	m_Service->send2( id() );
-	return 0;
-}
-
-int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
-{
-	int32_t nprocess = 0;
-
-	while ( 1 )
+	if ( ev & EV_READ )
 	{
-		uint32_t nleft = nbytes - nprocess;
-		const char * buffer = buf + nprocess;
-
-		if ( nleft < sizeof(struct CSHead) )
+		int32_t nread = client->recv();
+		if ( nread <= 0 )
 		{
-			break;
+			if ( nread == 0 
+					|| ( nread < 0 && errno == EAGAIN ) )
+			{
+				client->shutdown();
+			}
+			return;
 		}
-		
-		CSHead * head = (CSHead *)buffer;
 
-		if ( nleft < head->length ) 
-		{
-			break;
-		}
-		
-		m_Service->send2( id() );	
-		nprocess += head->length;
+		client->onProcess();
 	}
-	
-	return nprocess;
 }
 
-int32_t CChatRoomSession::onShutdown()
+void ChatRoomClient::onTimer( int32_t fd, int16_t ev, void * arg )
 {
-	return 0;
+	ChatRoomClient * client = (ChatRoomClient *)arg;
+	client->send();
 }
-
-void CChatRoomSession::setService( CChatRoomService * s )
-{
-	m_Service = s;
-}
-
-
-CChatRoomService::CChatRoomService( uint8_t nthreads, uint32_t nclients )
-	: IIOService( nthreads, nclients )
-{
-}
-
-CChatRoomService::~CChatRoomService()
-{
-}
-
-IIOSession * CChatRoomService::onConnect( sid_t id, const char * host, uint16_t port )
-{
-	CChatRoomSession * session = new CChatRoomSession;
-	if ( session )
-	{
-		session->setService( this );
-	}
-
-	return session;
-}
-
-bool CChatRoomService::init( const char * host, uint16_t port, uint32_t nclients )
-{
-	bool rc = false;
-
-	rc = start();
-	if ( !rc )
-	{
-		printf( "CChatRoomService::start() failed .\n" );
-		return false;
-	}
-
-	for ( uint32_t i = 0; i < nclients; ++i )
-	{
-		rc = connect( host, port, 60 );
-		if ( !rc )
-		{
-			printf("#%d connect(%s::%d) failed .\n", i, host, port);
-		}
-	}
-
-	return true;
-}
-
-bool CChatRoomService::send2( sid_t id )
-{
-	uint16_t length = 100+sizeof(CSHead);
-	std::string msg( length, 1 );
-
-	CSHead * head = (CSHead *)msg.data();
-//	head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
-	head->msgid = 2;
-	head->length = length;
-	msg.resize( length );
-	
-	send( id, msg );	
-	return true;
-}
-
 
 // -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
-
-bool g_Running;
 
 void signal_handle( int32_t signo )
 {
 	g_Running = false;
 }
 
+void start_clients( ChatRoomClient ** clients, evsets_t sets )
+{
+	for ( int32_t i = 0; i < g_ClientsCount; ++i )
+	{
+		ChatRoomClient * client = new ChatRoomClient;
+		clients[ i ] = client;
+		
+		if ( client )
+		{
+			if ( !client->connect(g_Host, g_Port) )
+			{
+				delete client;
+			}
+			
+			client->start( sets );
+		}
+	}
+}
+
+void statics( ChatRoomClient ** clients, uint64_t mseconds )
+{
+	uint64_t total_recvbytes = 0, total_sendbytes = 0;
+
+	for ( int32_t i = 0; i < g_ClientsCount; ++i )
+	{
+		total_recvbytes += clients[i]->getRecvBytes();
+		total_sendbytes += clients[i]->getSendBytes();
+	}
+
+	printf("MSeconds: %lld, RecvSpeed: %6.3fKBytes/s, SendSpeed: %6.3fKBytes/s \n", mseconds, total_recvbytes*1000.0f/mseconds, total_sendbytes*1000.0f/mseconds );
+}
+
 int main( int argc, char ** argv )
 {
 	if ( argc != 4 )
 	{
-		printf("chatroom_client [host] [port] [clients] \n");
+		printf("chatroom_client [host] [port] [clients] .\n");
 		return -1;
 	}
 
-	const char * host = argv[1];
-	uint16_t port = atoi(argv[2]);
-	uint32_t nclients = atoi(argv[3]);
-	uint8_t nthreads = nclients/1000 + 1;
+	g_Host = strdup( argv[1] );
+	g_Port = atoi( argv[2] );
+	g_ClientsCount = atoi( argv[3] );
 
-	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
-
-	srand( time(NULL) );
-
-	CChatRoomService service( nthreads, nclients );
-
-	if ( !service.init(host, port, nclients) )
-	{
-		return -2;
-	}
+	signal( SIGPIPE, SIG_IGN );
 	
+	//
+	ChatRoomClient ** clients = (ChatRoomClient **)malloc( sizeof(ChatRoomClient *) * g_ClientsCount ); 
+
+	assert( clients != NULL && "malloc() failed " );
+	
+	evsets_t sets = evsets_create();
+	assert( sets != NULL && "evsets_create() failed" );
+
+	// 连接远程服务器
+	start_clients( clients, sets );
+	
+	// 运行
 	g_Running = true;
+	uint64_t nEndTime;
+	uint64_t nStartTime = mtime();
 	while ( g_Running )
 	{
-		usleep(1000*10);
+		evsets_dispatch( sets );
 	}
-
-	service.stop();
+	nEndTime = mtime();
+	
+	// 统计
+	statics( clients, nEndTime-nStartTime );
+	
+	free( clients );
 	return 0;
 }
-
 

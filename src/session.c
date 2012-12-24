@@ -434,6 +434,7 @@ struct hashtable
 
 static inline int32_t _init_table( struct hashtable * table, uint32_t size );
 static inline int32_t _enlarge_table( struct hashtable * table );
+static inline void _clear_deleted( struct hashtable * table, sid_t id, int32_t pos );
 static inline int32_t _find_position( struct hashtable * table, sid_t id );
 static inline int32_t _append_session( struct hashtable * table, struct session * s );
 static inline int32_t _remove_session( struct hashtable * table, struct session * s );
@@ -485,10 +486,26 @@ int32_t _enlarge_table( struct hashtable * table )
 	return 0;
 }
 
+void _clear_deleted( struct hashtable * table, sid_t id, int32_t pos )
+{
+	int32_t begin_pos = SID_SEQ(id) & (table->size-1);
+
+	for ( ; pos >= begin_pos; --pos )
+	{
+		if ( table->buckets[pos].status != eBucketStatus_Deleted )
+		{
+			break;
+		}
+
+		table->buckets[pos].status = eBucketStatus_Free;
+	}
+
+	return;
+}
+
 int32_t _find_position( struct hashtable * table, sid_t id )
 {
 	int32_t pos = -1; 
-	int32_t probes = 0;
 	int32_t bucknum = SID_SEQ(id) & (table->size-1);
 
 	while ( 1 )
@@ -516,9 +533,8 @@ int32_t _find_position( struct hashtable * table, sid_t id )
 			pos = bucknum;
 			break;
 		}
-
-		++probes;
-		bucknum = (bucknum+probes) & (table->size-1);
+		
+		bucknum = (bucknum+1) & (table->size-1);	
 	}
 
 	return pos;
