@@ -37,7 +37,7 @@ public :
 
 	enum
 	{
-		e_SendIntervalMicroSeconds	= 10,		// 每个10ms发送一个请求
+		e_SendIntervalMicroSeconds	= 100,		// 每个100ms发送一个请求
 	};
 
 public :
@@ -70,8 +70,9 @@ public :
 	{
 		m_ReadEvent = event_create();
 		m_TimerEvent = event_create();
+		m_EventSets = sets;
 
-		event_set( m_ReadEvent, m_Fd, EV_READ );
+		event_set( m_ReadEvent, m_Fd, EV_READ|EV_PERSIST );
 		event_set_callback( m_ReadEvent, ChatRoomClient::onRead, this );
 		evsets_add( sets, m_ReadEvent, 0 );
 
@@ -97,8 +98,8 @@ public :
 		std::string msg( length, 1 );
 
 		CSHead * head = (CSHead *)msg.data();
-		//	head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
-		head->msgid = 2;
+		head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
+	//	head->msgid = 2;
 		head->length = length;
 		msg.resize( length );
 
@@ -162,6 +163,13 @@ public :
 		buffer_erase( &m_InBuffer, nprocess );
 	}
 
+	void addTimer()
+	{
+		event_set( m_TimerEvent, -1, 0 );
+		event_set_callback( m_TimerEvent, ChatRoomClient::onTimer, this );
+		evsets_add( m_EventSets,  m_TimerEvent, e_SendIntervalMicroSeconds );
+	}
+
 	uint64_t getSendBytes() const { return m_SendBytes; }
 	uint64_t getRecvBytes() const { return m_RecvBytes; }
 
@@ -175,6 +183,7 @@ private :
 	int32_t			m_Fd;
 	event_t			m_ReadEvent;
 	event_t			m_TimerEvent;
+	evsets_t		m_EventSets;
 	struct buffer	m_InBuffer;
 
 	uint64_t		m_SendBytes;
@@ -206,6 +215,7 @@ void ChatRoomClient::onTimer( int32_t fd, int16_t ev, void * arg )
 {
 	ChatRoomClient * client = (ChatRoomClient *)arg;
 	client->send();
+	client->addTimer();
 }
 
 // -------------------------------------------------------------------------------
@@ -238,19 +248,15 @@ void start_clients( ChatRoomClient ** clients, evsets_t sets )
 
 void statics( ChatRoomClient ** clients, uint64_t mseconds )
 {
-	uint64_t max_recvbytes = 0, max_sendbytes = 0;
-	uint64_t total_recvbytes = 0, total_sendbytes = 0;
+	uint64_t total_recvbytes = 0;
+	uint64_t total_sendbytes = 0;
 
 	for ( int32_t i = 0; i < g_ClientsCount; ++i )
 	{
 		total_recvbytes += clients[i]->getRecvBytes();
 		total_sendbytes += clients[i]->getSendBytes();
-
-		max_recvbytes = std::max( max_recvbytes, clients[i]->getRecvBytes() );
-		max_sendbytes = std::max( max_sendbytes, clients[i]->getSendBytes() );
 	}
 
-	printf("MaxRecvBytes: %lld, MaxSendBytes: %lld\n", max_recvbytes, max_sendbytes);
 	printf("TotalRecvBytes: %lld, TotalSendBytes: %lld\n", total_recvbytes, total_sendbytes);
 	printf("MSeconds: %lld, RecvSpeed: %6.3fKBytes/s, SendSpeed: %6.3fKBytes/s \n", mseconds, total_recvbytes/mseconds*1000.0f, total_sendbytes/mseconds*1000.0f );
 }
@@ -269,6 +275,7 @@ int main( int argc, char ** argv )
 
 	signal( SIGINT, signal_handle );
 	signal( SIGPIPE, SIG_IGN );
+	srand( time(NULL) );
 	
 	//
 	ChatRoomClient ** clients = (ChatRoomClient **)malloc( sizeof(ChatRoomClient *) * g_ClientsCount ); 

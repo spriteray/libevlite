@@ -408,54 +408,33 @@ int32_t session_end( struct session * self, sid_t id )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-// 填装因子
-#define ENLARGE_FACTOR		0.5f
-#define SHRINK_FACTOR		(0.4f*ENLARGE_FACTOR)
-#define BUCKETS_MIN_COUNT	512	
-
-enum
+struct hashnode
 {
-	eBucketStatus_Free		= 0,
-	eBucketStatus_Deleted	= 1,
-	eBucketStatus_Occupied	= 2,
-};
-
-struct hashbucket
-{
-	int8_t status;
+	struct hashnode * next;
 	struct session * session;
 };
 
 struct hashtable
 {
 	uint32_t size;
-
-	uint32_t ndeleted;
-	uint32_t nelement;
-
-	uint32_t nshrink;				// = size*SHRINK_FACTOR
-	uint32_t nenlarge;				// = size*ENLARGE_FACTOR
-
-	struct hashbucket * buckets;
+	uint32_t count;
+	struct hashnode * entries;
 };
 
 static inline int32_t _init_table( struct hashtable * table, uint32_t size );
-static inline int32_t _resize_table( struct hashtable * table, uint32_t size );
-static inline int32_t _find_position( struct hashtable * table, sid_t id );
+static inline struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag );
 static inline int32_t _append_session( struct hashtable * table, struct session * s );
 static inline int32_t _remove_session( struct hashtable * table, struct session * s );
-static inline struct session * _find_session( struct hashtable * table, sid_t id );
 
 int32_t _init_table( struct hashtable * table, uint32_t size )
 {
+	assert( (size&(size-1)) == 0 );
+
+	table->count = 0;
 	table->size = size;
-	table->ndeleted = 0;
-	table->nelement = 0;
-	table->nshrink = (uint32_t)( (float)size * SHRINK_FACTOR );
-	table->nenlarge = (uint32_t)( (float)size * ENLARGE_FACTOR );
 
-	table->buckets = calloc( size, sizeof(struct hashbucket) );
-	if ( table->buckets == NULL )
+	table->entries = calloc( size, sizeof(struct hashnode) );
+	if ( table->entries == NULL )
 	{
 		return -1;
 	}
@@ -463,167 +442,89 @@ int32_t _init_table( struct hashtable * table, uint32_t size )
 	return 0;
 }
 
-int32_t _resize_table( struct hashtable * table, uint32_t size )
+struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag )
 {
-	uint32_t i = 0;
-	struct hashtable newtable;	
+	int32_t bucket = SID_SEQ(id) & (table->size-1);
 
-	if ( _init_table(&newtable, size) != 0 )
-	{
-		return -1;
-	}
-
-	for ( i = 0; i < table->size; ++i )
-	{
-		struct hashbucket * bucket = table->buckets + i;
-
-		if ( bucket->session != NULL 
-				&& bucket->status == eBucketStatus_Occupied )
-		{
-			_append_session( &newtable, bucket->session );
-		}
-	}
-
-	free ( table->buckets );
-
-	table->buckets = newtable.buckets;
-	table->size = newtable.size;
-	table->nenlarge = newtable.nenlarge;
-	table->nshrink = newtable.nshrink;
-
-	return 0;
-}
-
-int32_t _find_position( struct hashtable * table, sid_t id )
-{
-	int32_t pos = -1; 
-	int32_t bucknum = SID_SEQ(id) & (table->size-1);
+	struct hashnode * node = NULL;
+	struct hashnode * entries = table->entries + bucket;
 
 	while ( 1 )
 	{
-		struct hashbucket * bucket = table->buckets + bucknum;
-
-		if ( bucket->status == eBucketStatus_Free
-				|| bucket->status == eBucketStatus_Deleted )
+		if ( entries->session != NULL )
 		{
-			// 删除或者空闲
-			if ( pos == -1 )
+			if ( entries->session->id == id )
 			{
-				pos = bucknum;
-			}
-
-			if ( bucket->status == eBucketStatus_Free )
-			{
-				// 空闲
+				node = entries;
 				break;
 			}
-		}	
-		else if ( bucket->session->id == id )
+		}
+		else if ( node == NULL )
 		{
-			// 占用
-			pos = bucknum;
+			node = entries;
+		}
+
+		if ( entries->next == NULL )
+		{
 			break;
 		}
-		
-		bucknum = (bucknum+1) & (table->size-1);	
 	}
 
-	return pos;
+	if ( node == NULL && flag != 0 )
+	{
+		node = malloc( sizeof(struct hashnode) );
+
+		if ( node != NULL )
+		{
+			node->next = NULL;
+			node->session = NULL;
+			entries->next = node;
+		}
+	}
+	
+	return node;
 }
 
 int32_t _append_session( struct hashtable * table, struct session * s )
 {
-	if ( table->nelement - table->ndeleted >= table->nenlarge )
-	{
-		if ( _resize_table( table, table->size<<1 ) != 0 )
-		{
-			return -1;
-		}
-	}
+	struct hashnode * node = _find_table( table, s->id, 1 );
 
-	int32_t pos = _find_position( table, s->id );
-	if ( pos == -1 )
+	if ( node == NULL )
 	{
 		return -1;
 	}
 
-	struct hashbucket * bucket = table->buckets + pos;
-	if ( bucket->session != NULL && bucket->session->id == s->id )
+	if ( node->session != NULL && node->session->id == s->id )
 	{
 		syslog(LOG_WARNING, "%s(Index=%d): the SID (Seq=%u, Sid=%ld) conflict !", __FUNCTION__, SID_INDEX(s->id), SID_SEQ(s->id), s->id );
 		return -2;
 	}
 
-	if ( bucket->status == eBucketStatus_Deleted )
-	{
-		--table->ndeleted;
-	}
-	else
-	{
-		++table->nelement;
-	}
-
-	bucket->session = s;
-	bucket->status = eBucketStatus_Occupied;
-
+	++table->count;
+	node->session = s;
+	
 	return 0;
 }
 
 int32_t _remove_session( struct hashtable * table, struct session * s )
 {
-	int32_t pos = _find_position( table, s->id );
-	if ( pos == -1 )
+	struct hashnode * node = _find_table( table, s->id, 0 );
+
+	if ( node == NULL )
 	{
 		return -1;
 	}
-
-	struct hashbucket * bucket = table->buckets + pos;
-
-	if ( bucket->status == eBucketStatus_Free
-			|| bucket->status == eBucketStatus_Deleted )
+	if ( node->session == NULL )
 	{
 		return -2;
 	}
 
-	assert( bucket->session == s );
+	assert( node->session == s );
 	
-	++table->ndeleted;
-	bucket->session = NULL;
-	bucket->status = eBucketStatus_Deleted;
+	--table->count;
+	node->session = NULL;
 	
-	uint32_t ncount = table->nelement - table->ndeleted; 
-	if ( table->size > BUCKETS_MIN_COUNT && ncount < table->nshrink )
-	{
-		uint32_t nsize = table->size >> 1;
-		while ( nsize > BUCKETS_MIN_COUNT && ncount < nsize*SHRINK_FACTOR )
-		{
-			nsize = nsize>>1;
-		}
-
-		_resize_table( table, nsize );
-	}
-
 	return 0;	
-}
-
-struct session * _find_session( struct hashtable * table, sid_t id )
-{
-	int32_t pos = _find_position( table, id );
-	if ( pos == -1 )
-	{
-		return NULL;
-	}
-
-	if ( table->buckets[pos].status == eBucketStatus_Free
-			|| table->buckets[pos].status == eBucketStatus_Deleted )
-	{
-		return NULL;
-	}
-
-	assert( table->buckets[pos].session != NULL );
-	assert( table->buckets[pos].session->id == id );
-
-	return table->buckets[pos].session;
 }
 
 struct session_manager * session_manager_create( uint8_t index, uint32_t size )
@@ -638,7 +539,7 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 
 	size = nextpow2( size );
 
-	self->seq = 0;
+	self->autoseq = 0;
 	self->index = index;
 	self->table = (struct hashtable *)( self + 1 );
 
@@ -659,7 +560,7 @@ struct session * session_manager_alloc( struct session_manager * self )
 	// 生成sid
 	id = self->index+1;
 	id <<= 32;
-	id |= self->seq++;
+	id |= self->autoseq++;
 	id &= SID_MASK;
 
 	session = _new_session();
@@ -682,7 +583,20 @@ struct session * session_manager_alloc( struct session_manager * self )
 
 struct session * session_manager_get( struct session_manager * self, sid_t id )
 {
-	return _find_session( self->table, id );
+	struct hashnode * node = _find_table( self->table, id, 0 );
+
+	if ( node == NULL )
+	{
+		return NULL;
+	}
+	if ( node->session == NULL )
+	{
+		return NULL;
+	}
+
+	assert( node->session->id == id );
+
+	return node->session;
 }
 
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
@@ -702,34 +616,40 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 void session_manager_destroy( struct session_manager * self )
 {
 	int32_t i = 0;
-	uint32_t ncount = self->table->nelement - self->table->ndeleted;
 
-	if ( ncount > 0 )
+	if ( self->table->count > 0 )
 	{
 		syslog( LOG_WARNING, 
-				"%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, ncount );
+				"%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, self->table->count );
 	}
 
 	for ( i = 0; i < self->table->size; ++i )
 	{
-		struct hashbucket * bucket = self->table->buckets + i;
+		int32_t nlist = 0;
+		struct hashnode * node = self->table->entries + i;
 
-		if ( bucket->session != NULL 
-				&& bucket->status == eBucketStatus_Occupied )
+		while ( node )
 		{
-			struct session * session = bucket->session; 
-
-			if ( session )
+			struct session * s = node->session;
+			if ( s != NULL )
 			{
-				session_end( session, session->id );
+				session_end( s, s->id );
+				node->session = NULL;
+			}
+
+			struct hashnode * _node = node;
+			node = node->next;
+			if ( nlist++ != 0 )
+			{
+				free( _node );
 			}
 		}
 	}
 
-	if ( self->table->buckets != NULL )
+	if ( self->table->entries != NULL )
 	{
-		free( self->table->buckets );
-		self->table->buckets = NULL;
+		free( self->table->entries );
+		self->table->entries = NULL;
 	}
 
 	free( self );

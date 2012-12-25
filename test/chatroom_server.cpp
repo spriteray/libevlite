@@ -217,6 +217,7 @@ void CChatRoomService::run()
 					buffer.resize( length );
 
 					send( task->sid, buffer );
+					free( task->message );
 				}
 				break;
 

@@ -122,7 +122,7 @@ struct hashtable;
 struct session_manager
 {
 	uint8_t		index;
-	uint32_t	seq;		// 自增的序号
+	uint32_t	autoseq;		// 自增的序号
 	
 	struct hashtable * table;	
 };

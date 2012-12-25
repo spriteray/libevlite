@@ -3,13 +3,13 @@
 
 CC		= gcc
 CXX		= g++
-CFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
+CFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread 
 SOFLAGS	= -shared 
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).7
-REALNAME= $(LIBNAME).7.0.2
+REALNAME= $(LIBNAME).7.1.2
 
 OS		= $(shell uname)
 
