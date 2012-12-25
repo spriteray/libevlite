@@ -267,7 +267,7 @@ void sidlist_destroy( struct sidlist * self )
 
 // -----------------------------------------------------------------------------------------------------------------
 
-	QUEUE_PROTOTYPE( taskqueue, struct task )
+QUEUE_PROTOTYPE( taskqueue, struct task )
 QUEUE_GENERATE( taskqueue, struct task )
 
 struct msgqueue * msgqueue_create( uint32_t size )

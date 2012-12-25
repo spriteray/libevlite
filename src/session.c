@@ -227,6 +227,10 @@ int32_t session_append( struct session * self, struct message * message )
 			// 注册写事件, 处理发送队列
 			session_add_event( self, EV_WRITE );
 		}
+		else if ( rc < 0 )
+		{
+			message_add_failure( message, self->id );
+		}
 	}
 	else if ( buffer != NULL )
 	{
@@ -238,9 +242,13 @@ int32_t session_append( struct session * self, struct message * message )
 			// 改造后的消息已经单独发送
 			++message->nsuccess;
 		}
+		else
+		{
+			message_add_failure( message, self->id );
+		}
 
 		free( buffer );
-	}	
+	}
 
 	return rc;
 }

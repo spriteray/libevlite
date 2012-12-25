@@ -98,8 +98,8 @@ public :
 		std::string msg( length, 1 );
 
 		CSHead * head = (CSHead *)msg.data();
-		head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
-	//	head->msgid = 2;
+	//	head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
+		head->msgid = 2;
 		head->length = length;
 		msg.resize( length );
 
