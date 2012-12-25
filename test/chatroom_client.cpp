@@ -153,6 +153,7 @@ public :
 			}
 
 			assert( head->length == 100+sizeof(CSHead) );
+			assert( head->msgid == 1 || head->msgid == 2 );
 			
 			m_RecvBytes += head->length;
 			nprocess += head->length;
@@ -250,6 +251,7 @@ void statics( ChatRoomClient ** clients, uint64_t mseconds )
 	}
 
 	printf("MaxRecvBytes: %lld, MaxSendBytes: %lld\n", max_recvbytes, max_sendbytes);
+	printf("TotalRecvBytes: %lld, TotalSendBytes: %lld\n", total_recvbytes, total_sendbytes);
 	printf("MSeconds: %lld, RecvSpeed: %6.3fKBytes/s, SendSpeed: %6.3fKBytes/s \n", mseconds, total_recvbytes/mseconds*1000.0f, total_sendbytes/mseconds*1000.0f );
 }
 

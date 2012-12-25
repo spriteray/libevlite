@@ -207,13 +207,31 @@ void CChatRoomService::run()
 
 			case 1 :
 				{
-					send( task->sid, task->message, task->length, true );
+					uint16_t length = task->length+sizeof(CSHead);
+					std::string buffer( length, 0 );
+
+					CSHead * head = (CSHead *)buffer.data();
+					head->msgid = task->msgid;
+					head->length = length;
+					memcpy( head+1, task->message, task->length );
+					buffer.resize( length );
+
+					send( task->sid, buffer );
 				}
 				break;
 
 			case 2 :
 				{
-					broadcast( m_SessionMap, task->message, task->length );
+					uint16_t length = task->length+sizeof(CSHead);
+					std::string buffer( length, 0 );
+
+					CSHead * head = (CSHead *)buffer.data();
+					head->msgid = task->msgid;
+					head->length = length;
+					memcpy( head+1, task->message, task->length );
+					buffer.resize( length );
+					
+					broadcast( m_SessionMap, buffer );
 					free( task->message );
 				}
 				break;
