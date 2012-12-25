@@ -89,7 +89,6 @@ int32_t CChatRoomSession::onStart()
 	head.msgid = 0;
 	head.length = sizeof(head);
 
-	setTimeout( 60 );
 	m_Service->post( id(), &head );
 	
 	return 0;

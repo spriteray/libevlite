@@ -12,6 +12,7 @@
 #include "chatroom.h"
 
 bool g_Running;
+bool g_Waiting;
 
 char * g_Host;
 uint16_t g_Port;
@@ -225,6 +226,7 @@ void ChatRoomClient::onTimer( int32_t fd, int16_t ev, void * arg )
 void signal_handle( int32_t signo )
 {
 	g_Running = false;
+	g_Waiting = false;
 }
 
 void start_clients( ChatRoomClient ** clients, evsets_t sets )
@@ -290,6 +292,7 @@ int main( int argc, char ** argv )
 	
 	// 运行
 	g_Running = true;
+	g_Waiting = true;
 	uint64_t nEndTime;
 	uint64_t nStartTime = mtime();
 	while ( g_Running )
@@ -298,6 +301,12 @@ int main( int argc, char ** argv )
 	}
 	nEndTime = mtime();
 	
+	g_Waiting = true;
+	while ( g_Waiting )
+	{
+		pause();
+	}
+
 	// 统计
 	statics( clients, nEndTime-nStartTime );
 	
