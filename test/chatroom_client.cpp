@@ -258,7 +258,7 @@ void statics( ChatRoomClient ** clients, uint64_t mseconds )
 	}
 
 	printf("TotalRecvBytes: %lld, TotalSendBytes: %lld\n", total_recvbytes, total_sendbytes);
-	printf("MSeconds: %lld, RecvSpeed: %6.3fKBytes/s, SendSpeed: %6.3fKBytes/s \n", mseconds, total_recvbytes/mseconds*1000.0f, total_sendbytes/mseconds*1000.0f );
+	printf("MSeconds: %lld, RecvSpeed: %6.3fKBytes/s, SendSpeed: %6.3fKBytes/s \n", mseconds, (double)total_recvbytes/(double)mseconds, (double)total_sendbytes/(double)mseconds );
 }
 
 int main( int argc, char ** argv )
