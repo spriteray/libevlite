@@ -111,7 +111,7 @@ int32_t buffer_append( struct buffer * self, char * buf, uint32_t length )
 {
 	uint32_t needlength = self->offset + self->length + length;
 	
-	if ( needlength >= self->totallen )
+	if ( needlength > self->totallen )
 	{
 		if ( _expand(self,  length) == -1 )
 		{
