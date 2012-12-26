@@ -53,7 +53,6 @@ const struct eventop epollops = {
 	epoll_final
 };
 
-#define NEVENTS         4096			// 初始化的事件数, 该框架同样适用于内网服务器
 #define MAX_EPOLL_WAIT  35*60*1000
 
 void * epoll_init()
@@ -78,16 +77,16 @@ void * epoll_init()
 
 	poller->epollfd = epollfd;
 
-	poller->evpairs = (struct eventpair *)calloc( NEVENTS, sizeof(struct eventpair) );
-	poller->events = (struct epoll_event *)calloc( NEVENTS, sizeof(struct epoll_event) );
+	poller->evpairs = (struct eventpair *)calloc( INIT_EVENTS, sizeof(struct eventpair) );
+	poller->events = (struct epoll_event *)calloc( INIT_EVENTS, sizeof(struct epoll_event) );
 	if ( poller->evpairs == NULL || poller->events == NULL )
 	{
 		epoll_final( poller );
 		return NULL;
 	}
 
-	poller->npairs = NEVENTS;
-	poller->nevents = NEVENTS;
+	poller->npairs = INIT_EVENTS;
+	poller->nevents = INIT_EVENTS;
 
 	return poller;
 }

@@ -40,7 +40,6 @@ const struct eventop kqueueops = {
 	kqueue_final
 };
 
-#define NEVENTS                 4096
 #define EVSTATUS_X_KQINKERNEL   0x0100
 
 void * kqueue_init()
@@ -60,8 +59,8 @@ void * kqueue_init()
 		return NULL;
 	}
 
-	poller->events = (struct kevent *)calloc( NEVENTS, sizeof(struct kevent) );
-	poller->changes = (struct kevent *)calloc( NEVENTS, sizeof(struct kevent) );
+	poller->events = (struct kevent *)calloc( INIT_EVENTS, sizeof(struct kevent) );
+	poller->changes = (struct kevent *)calloc( INIT_EVENTS, sizeof(struct kevent) );
 	if ( poller->events == NULL || poller->changes == NULL )
 	{
 		kqueue_final( poller );
@@ -69,9 +68,9 @@ void * kqueue_init()
 	}
 
 	poller->nchanges = 0;
-	poller->changessize = NEVENTS;
+	poller->changessize = INIT_EVENTS;
 
-	poller->nevents = NEVENTS;
+	poller->nevents = INIT_EVENTS;
 
 	return poller;
 }
