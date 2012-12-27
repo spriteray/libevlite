@@ -29,8 +29,8 @@ struct buffer
 int32_t buffer_set( struct buffer * self, char * buf, uint32_t length );
 
 // 获取网络缓冲区得大小和数据
-uint32_t buffer_length( struct buffer * self );
-char * buffer_data( struct buffer * self );
+#define buffer_data( self )			(self)->buffer
+#define buffer_length( self )		(self)->length
 
 //
 int32_t buffer_erase( struct buffer * self, uint32_t length );
@@ -74,6 +74,7 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids );
 
 //
 int32_t message_add_failure( struct message * self, sid_t id );
+#define message_add_success( self )					++((self)->nsuccess)
 
 // 添加/设置 消息的数据
 #define message_set_buffer( self, buf, nbytes ) 	buffer_set( &((self)->buffer), (buf), (nbytes) )

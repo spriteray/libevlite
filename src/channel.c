@@ -89,8 +89,8 @@ int32_t _transmit( struct session * session )
 
 			QUEUE_POP(sendqueue)( &session->sendqueue, &message );
 			offsets -= message_get_length(message);
-
-			++message->nsuccess;
+			
+			message_add_success( message );
 			if ( message_is_complete(message) )
 			{
 				message_destroy( message );

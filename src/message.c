@@ -79,16 +79,6 @@ int32_t buffer_set( struct buffer * self, char * buf, uint32_t length )
 	return 0;
 }
 
-uint32_t buffer_length( struct buffer * self )
-{
-	return self->length;
-}
-
-char * buffer_data( struct buffer * self )
-{
-	return self->buffer;
-}
-
 int32_t buffer_erase( struct buffer * self, uint32_t length )
 {
 	if ( self->length <= length )

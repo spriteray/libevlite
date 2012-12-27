@@ -236,8 +236,9 @@ int32_t session_append( struct session * self, struct message * message )
 		if ( rc >= 0 )
 		{
 			// 改造后的消息已经单独发送
-			++message->nsuccess;
+			message_add_success( message );
 		}
+
 		free( buffer );
 	}
 
@@ -428,6 +429,7 @@ struct hashtable
 static inline int32_t _init_table( struct hashtable * table, uint32_t size );
 static inline struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag );
 static inline int32_t _append_session( struct hashtable * table, struct session * s );
+static inline struct session * _find_session( struct hashtable * table, sid_t id );
 static inline int32_t _remove_session( struct hashtable * table, struct session * s );
 
 int32_t _init_table( struct hashtable * table, uint32_t size )
@@ -512,6 +514,23 @@ int32_t _append_session( struct hashtable * table, struct session * s )
 	return 0;
 }
 
+struct session * _find_session( struct hashtable * table, sid_t id )
+{
+	struct hashnode * node = _find_table( table, id, 0 );
+
+	if ( node == NULL )
+	{
+		return NULL;
+	}
+	if ( node->session == NULL )
+	{
+		return NULL;
+	}
+
+	assert( node->session->id == id );
+	return node->session;
+}
+
 int32_t _remove_session( struct hashtable * table, struct session * s )
 {
 	struct hashnode * node = _find_table( table, s->id, 0 );
@@ -589,20 +608,7 @@ struct session * session_manager_alloc( struct session_manager * self )
 
 struct session * session_manager_get( struct session_manager * self, sid_t id )
 {
-	struct hashnode * node = _find_table( self->table, id, 0 );
-
-	if ( node == NULL )
-	{
-		return NULL;
-	}
-	if ( node->session == NULL )
-	{
-		return NULL;
-	}
-
-	assert( node->session->id == id );
-
-	return node->session;
+	return _find_session( self->table, id );
 }
 
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
