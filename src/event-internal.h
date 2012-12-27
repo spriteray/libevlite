@@ -6,7 +6,7 @@
 #include "event.h"
 
 // 初始化的事件数, 该框架同样适用于内网服务器
-#define INIT_EVENTS		4096
+#define INIT_EVENTS			1024
 
 //
 // 事件的状态
