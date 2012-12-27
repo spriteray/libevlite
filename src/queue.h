@@ -615,28 +615,22 @@ int32_t name##_QUEUE_INIT( struct name * self, uint32_t size )	\
 }																\
 int32_t name##_QUEUE_GROW( struct name * self )					\
 {																\
-	uint32_t headlen = 0, taillen = 0;							\
 	uint32_t newsize = (self)->size << 1;						\
-	type * newentries = malloc( sizeof(type) * newsize );		\
+	uint32_t count = (self)->tail - (self)->head;				\
+	type * newentries = calloc( newsize, sizeof(type) );		\
 	if ( newentries == NULL )									\
 	{															\
 		return -1;												\
 	}															\
-	uint32_t headidx = (self)->head&((self)->size-1);			\
-	uint32_t tailidx = (self)->tail&((self)->size-1);			\
-	if ( headidx < tailidx )									\
+	uint32_t len = (self)->size-((self)->head&((self)->size-1));\
+	if ( len > count )											\
 	{															\
-		headlen = tailidx - headidx;							\
+		len = count;											\
 	}															\
-	else														\
-	{															\
-		headlen = (self)->size - headidx;						\
-		taillen = tailidx;										\
-	}															\
-	memcpy( newentries, (self)->entries+headidx, sizeof(type)*headlen ); \
-	memcpy( newentries+headlen, (self)->entries, sizeof(type)*taillen ); \
+	memcpy( newentries, &(self)->entries[(self)->head&((self)->size-1)], len*sizeof(type) ); \
+	memcpy( &newentries[len], (self)->entries, (count-len)*sizeof(type) ); \
 	(self)->head = 0;											\
-	(self)->tail = headlen+taillen;								\
+	(self)->tail = count;										\
 	(self)->size = newsize;										\
 	free( (self)->entries );									\
 	(self)->entries = newentries;								\
