@@ -472,6 +472,8 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 		{
 			break;
 		}
+		
+		entries = entries->next;
 	}
 
 	if ( node == NULL && flag != 0 )
