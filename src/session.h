@@ -16,10 +16,22 @@
 #include "utils.h"
 #include "message.h"
 
-#define SESSION_READING			0x01	// 等待读事件
-#define SESSION_WRITING			0x02	// 等待写事件, [连接, 重连, 发送]
-#define SESSION_KEEPALIVING		0x04	// 等待保活事件
-#define SESSION_EXITING			0x10	// 等待退出, 数据全部发送完毕后, 即可终止
+// 64位SID的构成
+// |XXXXXX	|XX		|XXXXXXXX	|
+// |RES		|INDEX	|SEQ		|
+// |24		|8		|32			|
+
+#define SID_MASK			0x000000ffffffffffULL
+#define SEQ_MASK			0x00000000ffffffffULL
+#define INDEX_MASK			0x000000ff00000000ULL
+
+#define SID_SEQ(sid)		( (sid)&SEQ_MASK )
+#define SID_INDEX(sid)		( ( ((sid)&INDEX_MASK) >> 32 ) - 1 )
+
+#define SESSION_READING		0x01	// 等待读事件
+#define SESSION_WRITING		0x02	// 等待写事件, [连接, 重连, 发送]
+#define SESSION_KEEPALIVING	0x04	// 等待保活事件
+#define SESSION_EXITING		0x10	// 等待退出, 数据全部发送完毕后, 即可终止
 
 enum SessionType
 {
@@ -72,23 +84,14 @@ struct session
 	struct session_setting setting;
 };
 
-// 64位SID的构成
-// |XXXXXX	|XX		|XXXXXXXX	|
-// |RES		|INDEX	|SEQ		|
-// |24		|8		|32			|
-
-#define SID_MASK	0x000000ffffffffffULL
-#define SEQ_MASK	0x00000000ffffffffULL
-#define INDEX_MASK	0x000000ff00000000ULL
-
-#define SID_SEQ(sid)	( (sid)&SEQ_MASK )
-#define SID_INDEX(sid)	( ( ((sid)&INDEX_MASK) >> 32 ) - 1 )
-
 // 会话开始
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
 
 // 
 void session_set_endpoint( struct session * self, char * host, uint16_t port );
+
+// 发送队列的长度
+#define session_sendqueue_count( self )		QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )
 
 // 向session发送数据
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );

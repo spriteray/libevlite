@@ -52,7 +52,7 @@ int32_t _transmit( struct session * session )
 	struct iovec iov_array[iov_max];
 	memset( iov_array, 0, sizeof(iov_array) );
 
-	for ( i = 0; i < QUEUE_COUNT(sendqueue)(&session->sendqueue) && iov_size < iov_max; ++i )
+	for ( i = 0; i < session_sendqueue_count(session) && iov_size < iov_max; ++i )
 	{
 		struct message * message = NULL;
 
@@ -77,7 +77,7 @@ int32_t _transmit( struct session * session )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( ; QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0; )
+		for ( ; session_sendqueue_count(session) > 0; )
 		{
 			struct message * message = NULL;
 			
@@ -100,7 +100,7 @@ int32_t _transmit( struct session * session )
 		session->msgoffsets = offsets;
 	}
 
-	if ( writen > 0 && QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
+	if ( writen > 0 && session_sendqueue_count(session) > 0 )
 	{
 		int32_t againlen = _transmit( session );
 		if ( againlen > 0 )
@@ -320,7 +320,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_WRITE )
 	{
-		if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
+		if ( session_sendqueue_count(session) > 0 )
 		{
 			// 发送数据
 			int32_t writen = _transmit( session );
@@ -332,7 +332,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 			{
 				// 正常发送 或者 socket缓冲区已满
 
-				if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
+				if ( session_sendqueue_count(session) > 0 )
 				{
 					// NOTICE: 为什么不判断会话是否正在终止呢?
 					// 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
