@@ -155,6 +155,14 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets )
 {
+	assert( self->service.start != NULL );
+	assert( self->service.process != NULL );
+	assert( self->service.transform != NULL );
+	assert( self->service.keepalive != NULL );
+	assert( self->service.timeout != NULL );
+	assert( self->service.error != NULL );
+	assert( self->service.shutdown != NULL );
+
 	self->fd		= fd;
 	self->type		= type;
 	self->evsets	= sets;
