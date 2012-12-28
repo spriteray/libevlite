@@ -13,29 +13,23 @@
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-//
 // 版本
-//
 #ifndef __EVENT_VERSION__
 #define __EVENT_VERSION__ "libevlite-X.X.X"
 #endif
 
-//
 // linux和freebsd的兼容性定义
-//
 #if defined (__linux__)
-    extern const struct eventop epollops;
-    const struct eventop * evsel = &epollops;
+extern const struct eventop epollops;
+const struct eventop * evsel = &epollops;
 #elif defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
-    extern const struct eventop kqueueops;
-    const struct eventop * evsel = &kqueueops;
+extern const struct eventop kqueueops;
+const struct eventop * evsel = &kqueueops;
 #else
-    const struct eventop * evsel = NULL;
+const struct eventop * evsel = NULL;
 #endif
 
-//
 // event.c中的工具定义
-//
 
 static inline int32_t evsets_process_active( struct eventset * self );
 static inline int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type );
@@ -50,81 +44,81 @@ static inline int64_t evsets_get_now( struct eventset * self );
 
 int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type )
 {
-    if ( ev->status & type )
-    {
-        // 事件已经处于该列表中
-        return 1;
-    }
+	if ( ev->status & type )
+	{
+		// 事件已经处于该列表中
+		return 1;
+	}
 
-    ev->status |= type;
+	ev->status |= type;
 
-    switch( type )
-    {
-        case EVSTATUS_INSERTED :
-        {
-            TAILQ_INSERT_TAIL( &(self->eventlist), ev, eventlink );
-        }
-        break;
+	switch( type )
+	{
+		case EVSTATUS_INSERTED :
+			{
+				TAILQ_INSERT_TAIL( &(self->eventlist), ev, eventlink );
+			}
+			break;
 
-        case EVSTATUS_ACTIVE :
-        {
-            TAILQ_INSERT_TAIL( &(self->activelist), ev, activelink );
-        }
-        break;
+		case EVSTATUS_ACTIVE :
+			{
+				TAILQ_INSERT_TAIL( &(self->activelist), ev, activelink );
+			}
+			break;
 
-        case EVSTATUS_TIMER :
-        {
-            evtimer_append( self->core_timer, ev );
-        }
-        break;
+		case EVSTATUS_TIMER :
+			{
+				evtimer_append( self->core_timer, ev );
+			}
+			break;
 
-        default :
-        {
-            return -1;
-        }
-        break;
-    }
+		default :
+			{
+				return -1;
+			}
+			break;
+	}
 
-    return 0;
+	return 0;
 }
 
 int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t type )
 {
-    if ( !(ev->status & type) )
-    {
-        return -1;
-    }
+	if ( !(ev->status & type) )
+	{
+		return -1;
+	}
 
-    ev->status &= ~type;
+	ev->status &= ~type;
 
-    switch( type )
-    {
-        case EVSTATUS_INSERTED :
-        {
-            TAILQ_REMOVE( &(self->eventlist), ev, eventlink );
-        }
-        break;
+	switch( type )
+	{
+		case EVSTATUS_INSERTED :
+			{
+				TAILQ_REMOVE( &(self->eventlist), ev, eventlink );
+			}
+			break;
 
-        case EVSTATUS_ACTIVE :
-        {
-            TAILQ_REMOVE( &(self->activelist), ev, activelink );
-        }
-        break;
+		case EVSTATUS_ACTIVE :
+			{
+				TAILQ_REMOVE( &(self->activelist), ev, activelink );
+			}
+			break;
 
-        case EVSTATUS_TIMER :
-        {
-            evtimer_remove( self->core_timer, ev );
-        }
-        break;
+		case EVSTATUS_TIMER :
+			{
+				evtimer_remove( self->core_timer, ev );
+			}
+			break;
 
-        default :
-        {
-            return -2;
-        }
-        break;
-    }
+		default :
+			{
+				return -2;
+			}
+			break;
+	}
 
-    return 0;
+	return 0;
 }
 
 
@@ -135,85 +129,85 @@ int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t ty
 
 event_t event_create()
 {
-    struct event * self = NULL;
+	struct event * self = NULL;
 
-    self = (struct event *)malloc( sizeof(struct event) );
-    if ( self )
-    {
-        self->fd = -1;
-        self->events = 0;
-        self->evsets = NULL;
+	self = (struct event *)malloc( sizeof(struct event) );
+	if ( self )
+	{
+		self->fd = -1;
+		self->events = 0;
+		self->evsets = NULL;
 
-        self->cb = NULL;
-        self->arg = NULL;
+		self->cb = NULL;
+		self->arg = NULL;
 
-        self->timer_index = -1;
-        self->timer_msecs = -1;
-        self->timer_stepcnt = -1;
+		self->timer_index = -1;
+		self->timer_msecs = -1;
+		self->timer_stepcnt = -1;
 
-        self->status = 0;           // 只有设置cb后,status才合法
-        self->results = 0;
-    }
+		self->status = 0;           // 只有设置cb后,status才合法
+		self->results = 0;
+	}
 
-    return (event_t)self;
+	return (event_t)self;
 }
 
 void event_set( event_t self, int32_t fd, int16_t ev )
 {
-    struct event * e = (struct event *)self;
+	struct event * e = (struct event *)self;
 
-    e->fd = fd;
-    e->events = ev;
+	e->fd = fd;
+	e->events = ev;
 
-    return;
+	return;
 }
 
 void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), void * arg )
 {
-    struct event * e = (struct event *)self;
+	struct event * e = (struct event *)self;
 
-    e->cb = cb;
-    e->arg = arg;
+	e->cb = cb;
+	e->arg = arg;
 
-    if ( e->cb )
-    {
-        e->status = EVSTATUS_INIT;
-    }
+	if ( e->cb )
+	{
+		e->status = EVSTATUS_INIT;
+	}
 
-    return;
+	return;
 }
 
 int32_t event_get_fd( event_t self )
 { 
-    struct event * e = (struct event *)self;
+	struct event * e = (struct event *)self;
 
-    return e->fd;
+	return e->fd;
 }
 
 evsets_t event_get_sets( event_t self )
 { 
-    struct event * e = (struct event *)self;
+	struct event * e = (struct event *)self;
 
-    return e->evsets;
+	return e->evsets;
 }
 
 void event_destroy( event_t self )
 {
-    free( self );
+	free( self );
 }
 
 int32_t event_active( struct event * self, int16_t res )
 {
-    if ( self->status & EVSTATUS_ACTIVE )
-    {
-        self->results |= res;
-        return 1;
-    }
+	if ( self->status & EVSTATUS_ACTIVE )
+	{
+		self->results |= res;
+		return 1;
+	}
 
-    self->results = res;
-    event_list_insert( self->evsets, self, EVSTATUS_ACTIVE );
+	self->results = res;
+	event_list_insert( self->evsets, self, EVSTATUS_ACTIVE );
 
-    return 0;
+	return 0;
 }
 
 
@@ -224,133 +218,129 @@ int32_t event_active( struct event * self, int16_t res )
 
 evsets_t evsets_create()
 {
-    struct eventset * self = NULL;
+	struct eventset * self = NULL;
 
-    //
-    // 兼容性检查
-    //
-    assert( evsel != NULL );
+	//
+	// 兼容性检查
+	//
+	assert( evsel != NULL );
 
-    self = (struct eventset *)malloc( sizeof(struct eventset) );
-    if ( self )
-    {
-        self->evselect = (struct eventop *)evsel;
-        
-        self->evsets = self->evselect->init();
-        if ( self->evsets )
-        {
-            self->core_timer = evtimer_create( TIMER_MAX_PRECISION, TIMER_BUCKET_COUNT );
-            if ( self->core_timer )
-            {
-                TAILQ_INIT( &self->eventlist );
-                TAILQ_INIT( &self->activelist );
-                
-                self->timer_precision = TIMER_MAX_PRECISION;
-                self->expire_time = mtime() + self->timer_precision;
-            }
-            else
-            {
-                evsets_destroy( self );
-                self = NULL;
-            }
-        }
-        else
-        {
-            evsets_destroy( self );
-            self = NULL;
-        }
-    }
+	self = (struct eventset *)malloc( sizeof(struct eventset) );
+	if ( self )
+	{
+		self->evselect = (struct eventop *)evsel;
 
-    return self;
+		self->evsets = self->evselect->init();
+		if ( self->evsets )
+		{
+			self->core_timer = evtimer_create( TIMER_MAX_PRECISION, TIMER_BUCKET_COUNT );
+			if ( self->core_timer )
+			{
+				TAILQ_INIT( &self->eventlist );
+				TAILQ_INIT( &self->activelist );
+
+				self->timer_precision = TIMER_MAX_PRECISION;
+				self->expire_time = mtime() + self->timer_precision;
+			}
+			else
+			{
+				evsets_destroy( self );
+				self = NULL;
+			}
+		}
+		else
+		{
+			evsets_destroy( self );
+			self = NULL;
+		}
+	}
+
+	return self;
 }
 
 const char * evsets_get_version()
 {
-    return __EVENT_VERSION__;
+	return __EVENT_VERSION__;
 }
 
 int32_t evsets_add(evsets_t self, event_t ev, int32_t tv )
 {
-    int32_t rc = 1;
-    struct event * e = (struct event *)ev;
-    struct eventset * sets = (struct eventset *)self;
+	int32_t rc = 1;
+	struct event * e = (struct event *)ev;
+	struct eventset * sets = (struct eventset *)self;
 
-    if ( e->status & ~EVSTATUS_ALL )
-    {
-        return -1;
-    }
-
-    e->evsets = self;
-
-    if ( (e->events & (EV_READ|EV_WRITE))
-        && !(e->status & (EVSTATUS_ACTIVE|EVSTATUS_INSERTED)) )
+	if ( e->status & ~EVSTATUS_ALL )
 	{
-        rc = sets->evselect->add( sets->evsets, e );
-        if ( rc == 0 )
-        {
-            event_list_insert( sets, e, EVSTATUS_INSERTED );
-        }
-    }
+		return -1;
+	}
 
-    if ( rc >= 0 && tv > 0 )
-    {
-        //
-        // 如果已经在定时器中了,
-        // 一定要删除，以当前时间当前索引重新加入定时器中
-        // 这样比较准确
-        //
-        if ( e->status & EVSTATUS_TIMER )
-        {
-            event_list_remove( sets, e, EVSTATUS_TIMER );
-        }
+	e->evsets = self;
 
-        //
-        // 已经超时了
-        // 必须从激活队列中删除，
-        // 重新加入定时器中
-        //
-        if ( (e->results & EV_TIMEOUT)
-            && (e->status & EVSTATUS_ACTIVE) )
-        {
-            event_list_remove( sets, e, EVSTATUS_ACTIVE );
-        }
+	if ( (e->events & (EV_READ|EV_WRITE))
+			&& !(e->status & (EVSTATUS_ACTIVE|EVSTATUS_INSERTED)) )
+	{
+		rc = sets->evselect->add( sets->evsets, e );
+		if ( rc == 0 )
+		{
+			event_list_insert( sets, e, EVSTATUS_INSERTED );
+		}
+	}
 
-        rc = 0;
-        e->timer_msecs = tv < sets->timer_precision ? sets->timer_precision : tv;
-        event_list_insert( sets, e, EVSTATUS_TIMER );
-    }
+	if ( rc >= 0 && tv > 0 )
+	{
+		// 如果已经在定时器中了,
+		// 一定要删除，以当前时间当前索引重新加入定时器中
+		// 这样比较准确
+		if ( e->status & EVSTATUS_TIMER )
+		{
+			event_list_remove( sets, e, EVSTATUS_TIMER );
+		}
 
-    return rc;
+		// 已经超时了
+		// 必须从激活队列中删除，
+		// 重新加入定时器中
+		if ( (e->results & EV_TIMEOUT)
+				&& (e->status & EVSTATUS_ACTIVE) )
+		{
+			event_list_remove( sets, e, EVSTATUS_ACTIVE );
+		}
+
+		rc = 0;
+		e->timer_msecs = tv < sets->timer_precision ? sets->timer_precision : tv;
+		event_list_insert( sets, e, EVSTATUS_TIMER );
+	}
+
+	return rc;
 }
 
 int32_t evsets_del( evsets_t self, event_t ev )
 {
-    struct event * e = (struct event *)ev;
-    struct eventset * sets = (struct eventset *)self;
+	struct event * e = (struct event *)ev;
+	struct eventset * sets = (struct eventset *)self;
 
-    assert ( e->evsets == sets );
+	assert ( e->evsets == sets );
 
-    if ( e->status & ~EVSTATUS_ALL )
-    {
-        return -2;
-    }
+	if ( e->status & ~EVSTATUS_ALL )
+	{
+		return -2;
+	}
 
-    if ( e->status & EVSTATUS_TIMER )
-    {
-        e->timer_msecs = -1;
-        event_list_remove( sets, e, EVSTATUS_TIMER );
-    }
-    if ( e->status & EVSTATUS_ACTIVE )
-    {
-        event_list_remove( sets, e, EVSTATUS_ACTIVE );
-    }
-    if ( e->status & EVSTATUS_INSERTED )
-    {
-        event_list_remove( sets, e, EVSTATUS_INSERTED );
-        return sets->evselect->del( sets->evsets, e );
-    }
+	if ( e->status & EVSTATUS_TIMER )
+	{
+		e->timer_msecs = -1;
+		event_list_remove( sets, e, EVSTATUS_TIMER );
+	}
+	if ( e->status & EVSTATUS_ACTIVE )
+	{
+		event_list_remove( sets, e, EVSTATUS_ACTIVE );
+	}
+	if ( e->status & EVSTATUS_INSERTED )
+	{
+		event_list_remove( sets, e, EVSTATUS_INSERTED );
+		return sets->evselect->del( sets->evsets, e );
+	}
 
-    return 0;
+	return 0;
 }
 
 int32_t evsets_dispatch( evsets_t self )
@@ -359,10 +349,10 @@ int32_t evsets_dispatch( evsets_t self )
 	int32_t seconds4wait = 0;
 
 	struct eventset * sets = (struct eventset *)self;
-	
+
 	// 清空时间缓存
 	evsets_clear_now( sets );
-	
+
 	// 没有激活事件的情况下等待超时时间	
 	if ( TAILQ_EMPTY(&sets->activelist) )
 	{
@@ -377,14 +367,14 @@ int32_t evsets_dispatch( evsets_t self )
 			seconds4wait = sets->timer_precision;
 		}
 	}
-	
+
 	// 处理IO事件
 	res = sets->evselect->dispatch( sets, sets->evsets, seconds4wait );
 	if ( res < 0 )
 	{
 		return -1;
 	}
-	
+
 	// 事件集的超时时间是要及时更新的
 	evsets_clear_now( sets );
 	if ( sets->expire_time <= evsets_get_now(sets) )
@@ -393,7 +383,7 @@ int32_t evsets_dispatch( evsets_t self )
 		res += evtimer_dispatch( sets->core_timer );
 		sets->expire_time = evsets_get_now(sets) + sets->timer_precision;
 	}
-	
+
 	// 处理所有事件, 并回调定义好的函数
 	return evsets_process_active( sets );
 }
@@ -415,90 +405,78 @@ int64_t evsets_get_now( struct eventset * self )
 
 void evsets_destroy( evsets_t self )
 {
-    struct event * ev = NULL;
-    struct eventset * sets = (struct eventset *)self;
+	struct event * ev = NULL;
+	struct eventset * sets = (struct eventset *)self;
 
-    // 
-    // 删除所有事件
-    //
-    for ( ev = TAILQ_FIRST( &(sets->eventlist) ); ev; )
-    {
-        struct event * next = TAILQ_NEXT( ev, eventlink );
+	// 删除所有事件
+	for ( ev = TAILQ_FIRST( &(sets->eventlist) ); ev; )
+	{
+		struct event * next = TAILQ_NEXT( ev, eventlink );
 
-        if ( !(ev->status & EVSTATUS_INTERNAL) )
-        {
-            evsets_del( self, (event_t)ev );
-            //event_destroy( (event_t)ev );
-        }
+		if ( !(ev->status & EVSTATUS_INTERNAL) )
+		{
+			evsets_del( self, (event_t)ev );
+			//event_destroy( (event_t)ev );
+		}
 
-        ev = next;
-    }
+		ev = next;
+	}
 
-    //
-    // 清除定时器
-    //
-    if ( sets->core_timer )
-    {
-        evtimer_clean( sets->core_timer );
-    }
+	// 清除定时器
+	if ( sets->core_timer )
+	{
+		evtimer_clean( sets->core_timer );
+	}
 
-    //
-    // 删除激活事件
-    //
-    for ( ev = TAILQ_FIRST( &(sets->activelist) ); ev; )
-    {
-        struct event * next = TAILQ_NEXT( ev, activelink );
+	// 删除激活事件
+	for ( ev = TAILQ_FIRST( &(sets->activelist) ); ev; )
+	{
+		struct event * next = TAILQ_NEXT( ev, activelink );
 
-        if ( !(ev->status & EVSTATUS_INTERNAL) )
-        {
-            evsets_del( self, (event_t)ev );
-            //event_destroy( (event_t)ev );
-        }
+		if ( !(ev->status & EVSTATUS_INTERNAL) )
+		{
+			evsets_del( self, (event_t)ev );
+		}
 
-        ev = next;
-    }
+		ev = next;
+	}
 
-    //
-    // 销毁定时器
-    //
-    if ( sets->core_timer )
-    {
-        evtimer_destroy( sets->core_timer );
-    }
+	// 销毁定时器
+	if ( sets->core_timer )
+	{
+		evtimer_destroy( sets->core_timer );
+	}
 
-    //
-    // 销毁IO实例
-    //
-    sets->evselect->final( sets->evsets );
+	// 销毁IO实例
+	sets->evselect->final( sets->evsets );
+	free( sets );
 
-    free( sets );
-
-    return ;
+	return ;
 }
 
 int32_t evsets_process_active( struct eventset * self )
 {
-    int32_t rc = 0;
-    struct event * ev = NULL;
-    struct event_list * activelist = &(self->activelist);
+	int32_t rc = 0;
+	struct event * ev = NULL;
+	struct event_list * activelist = &(self->activelist);
 
-    for ( ev = TAILQ_FIRST(activelist); ev; ev = TAILQ_FIRST(activelist) )
-    {
-        ++rc;
+	for ( ev = TAILQ_FIRST(activelist); ev; ev = TAILQ_FIRST(activelist) )
+	{
+		++rc;
 
-        if ( ev->events & EV_PERSIST )
-        {
-            event_list_remove( self, ev, EVSTATUS_ACTIVE );
-        }
-        else
-        {
-            evsets_del( self, (event_t)ev );
-        }
+		if ( ev->events & EV_PERSIST )
+		{
+			event_list_remove( self, ev, EVSTATUS_ACTIVE );
+		}
+		else
+		{
+			evsets_del( self, (event_t)ev );
+		}
 
-        // 回调
-        (*ev->cb)( event_get_fd((event_t)ev), ev->results, ev->arg );
-    }
+		// 回调
+		(*ev->cb)( event_get_fd((event_t)ev), ev->results, ev->arg );
+	}
 
-    return rc;
+	return rc;
 }
 

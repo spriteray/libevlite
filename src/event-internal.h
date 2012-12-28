@@ -5,6 +5,9 @@
 #include "queue.h"
 #include "event.h"
 
+// 初始化的事件数, 该框架同样适用于内网服务器
+#define INIT_EVENTS			1024
+
 //
 // 事件的状态
 // 0000 0000 0000 0000
@@ -31,11 +34,11 @@ struct event;
 struct eventset;
 struct eventop
 {
-    void * (*init)();
-    int32_t (*add)(void *, struct event *);
-    int32_t (*del)(void *, struct event *);
-    int32_t (*dispatch)(struct eventset *, void *, int32_t);
-    void (*final)(void *);
+	void * (*init)();
+	int32_t (*add)(void *, struct event *);
+	int32_t (*del)(void *, struct event *);
+	int32_t (*dispatch)(struct eventset *, void *, int32_t);
+	void (*final)(void *);
 };
 
 //
@@ -44,31 +47,31 @@ struct eventop
 
 struct event
 {
-    int32_t fd;
-    int16_t events;
+	int32_t fd;
+	int16_t events;
 
-    int32_t status;
-    int32_t results;
+	int32_t status;
+	int32_t results;
 
-    // cb 一定要合法
-    void * arg;
-    void (*cb)( int32_t, int16_t, void * ); 
+	// cb 一定要合法
+	void * arg;
+	void (*cb)( int32_t, int16_t, void * ); 
 
-    void * evsets;
+	void * evsets;
 
-    // 定时器的超时时间
-    int32_t timer_msecs;        
+	// 定时器的超时时间
+	int32_t timer_msecs;        
 
-    // 事件在定时器数组中的索引
-    // 删除时, 快速定位到某一个桶
-    int32_t timer_index; 
+	// 事件在定时器数组中的索引
+	// 删除时, 快速定位到某一个桶
+	int32_t timer_index; 
 
-    // 事件的周期数
-    int32_t timer_stepcnt;     
+	// 事件的周期数
+	int32_t timer_stepcnt;     
 
-    TAILQ_ENTRY(event) timerlink;
-    TAILQ_ENTRY(event) eventlink;
-    TAILQ_ENTRY(event) activelink;
+	TAILQ_ENTRY(event) timerlink;
+	TAILQ_ENTRY(event) eventlink;
+	TAILQ_ENTRY(event) activelink;
 };
 
 TAILQ_HEAD( event_list, event );
@@ -89,12 +92,12 @@ inline int32_t event_active( struct event * self, int16_t res );
 
 struct evtimer
 {
-    int32_t event_count;                // 管理的事件个数
-    int32_t bucket_count;               // 桶的个数
-    int32_t max_precision;              // 最大精度, 精确到1毫秒
+	int32_t event_count;                // 管理的事件个数
+	int32_t bucket_count;               // 桶的个数
+	int32_t max_precision;              // 最大精度, 精确到1毫秒
 
-    int32_t dispatch_refer;             //
-    struct event_list * bucket_array;   // 桶的数组
+	int32_t dispatch_refer;             //
+	struct event_list * bucket_array;   // 桶的数组
 };
 
 #define EVTIMER_INDEX(t,c) 				( (c) & ((t)->bucket_count-1) )
@@ -113,17 +116,17 @@ void evtimer_destroy( struct evtimer * self );
 
 struct eventset
 {
-    int32_t timer_precision;
-    
+	int32_t timer_precision;
+
 	int64_t cache_now;
-    int64_t expire_time;
-    struct evtimer * core_timer;
+	int64_t expire_time;
+	struct evtimer * core_timer;
 
-    void * evsets;
-    struct eventop * evselect;
+	void * evsets;
+	struct eventop * evselect;
 
-    struct event_list eventlist;
-    struct event_list activelist;
+	struct event_list eventlist;
+	struct event_list activelist;
 };
 
 #endif

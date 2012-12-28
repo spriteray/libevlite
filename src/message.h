@@ -2,6 +2,11 @@
 #ifndef SRC_MESSAGE_H
 #define SRC_MESSAGE_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 #include <stdint.h>
 
 #include "utils.h"
@@ -24,8 +29,8 @@ struct buffer
 int32_t buffer_set( struct buffer * self, char * buf, uint32_t length );
 
 // 获取网络缓冲区得大小和数据
-uint32_t buffer_length( struct buffer * self );
-char * buffer_data( struct buffer * self );
+#define buffer_data( self )			(self)->buffer
+#define buffer_length( self )		(self)->length
 
 //
 int32_t buffer_erase( struct buffer * self, uint32_t length );
@@ -69,6 +74,7 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids );
 
 //
 int32_t message_add_failure( struct message * self, sid_t id );
+#define message_add_success( self )					++((self)->nsuccess)
 
 // 添加/设置 消息的数据
 #define message_set_buffer( self, buf, nbytes ) 	buffer_set( &((self)->buffer), (buf), (nbytes) )
@@ -76,11 +82,15 @@ int32_t message_add_failure( struct message * self, sid_t id );
 
 // 消息是否完全发送
 int32_t message_left_count( struct message * self );
-#define message_is_complete( self ) 				message_left_count( (self) )
+#define message_is_complete( self ) 				( message_left_count( (self) ) == 0 )
 
 // 获取消息数据的长度以及内
 #define message_get_buffer( self )					buffer_data( &((self)->buffer) )
 #define message_get_length( self ) 					buffer_length( &((self)->buffer) )
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

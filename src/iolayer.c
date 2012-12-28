@@ -1,7 +1,6 @@
 
 #include <stdio.h>
 #include <syslog.h>
-#include <stdarg.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdlib.h>
@@ -43,8 +42,7 @@ static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char 
 int32_t _new_managers( struct iolayer * self )
 {
 	uint8_t i = 0;
-	// 会话个数必须要翻倍(避免hashtable enlarge)
-	uint32_t sessions_per_thread = 2 * self->nclients/self->nthreads; 
+	uint32_t sessions_per_thread = self->nclients/self->nthreads; 
 
 	// 会话管理器, 
 	// 采用cacheline对齐以提高访问速度
@@ -144,7 +142,6 @@ int32_t iolayer_listen( iolayer_t self,
 {
 	struct iolayer * layer = (struct iolayer *)self;
 
-	// 创建接收器
 	struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
 	if ( acceptor == NULL )
 	{
@@ -152,7 +149,6 @@ int32_t iolayer_listen( iolayer_t self,
 		return -1;
 	}
 
-	// 创建接收事件
 	acceptor->event = event_create();
 	if ( acceptor->event == NULL )
 	{
@@ -160,7 +156,6 @@ int32_t iolayer_listen( iolayer_t self,
 		return -2;
 	}
 
-	// 创建listenfd
 	acceptor->fd = tcp_listen( (char *)host, port, _socket_option );
 	if ( acceptor->fd <= 0 )
 	{
@@ -168,7 +163,6 @@ int32_t iolayer_listen( iolayer_t self,
 		return -3;
 	}
 
-	// 接收器初始化
 	acceptor->cb = cb;
 	acceptor->context = context;
 	acceptor->parent = self;
@@ -178,7 +172,7 @@ int32_t iolayer_listen( iolayer_t self,
 	{
 		strncpy( acceptor->host, host, INET_ADDRSTRLEN );
 	}
-	// 分发监听任务
+	
 	iothreads_post( layer->group, (acceptor->fd%layer->nthreads), eIOTaskType_Listen, acceptor, 0 );	
 
 	return 0;
@@ -201,7 +195,6 @@ int32_t iolayer_connect( iolayer_t self,
 {
 	struct iolayer * layer = (struct iolayer *)self;
 
-	// 创建连接器
 	struct connector * connector = calloc( 1, sizeof(struct connector) ); 
 	if ( connector == NULL )
 	{
@@ -209,7 +202,6 @@ int32_t iolayer_connect( iolayer_t self,
 		return -1;
 	}
 
-	// 创建连接事件
 	connector->event = event_create();
 	if ( connector->event == NULL )
 	{
@@ -217,7 +209,6 @@ int32_t iolayer_connect( iolayer_t self,
 		return -2;
 	}
 
-	// 连接远程服务器
 	connector->fd = tcp_connect( (char *)host, port, 1 );
 	if ( connector->fd <= 0 )
 	{
@@ -225,7 +216,6 @@ int32_t iolayer_connect( iolayer_t self,
 		return -3;
 	}
 
-	// 连接器初始化
 	connector->cb = cb;
 	connector->context = context;
 	connector->seconds = seconds;
@@ -233,7 +223,6 @@ int32_t iolayer_connect( iolayer_t self,
 	connector->port = port;
 	strncpy( connector->host, host, INET_ADDRSTRLEN );
 
-	// 分发连接任务
 	iothreads_post( layer->group, (connector->fd%layer->nthreads), eIOTaskType_Connect, connector, 0 );	
 
 	return 0;
@@ -343,8 +332,8 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
-	pthread_t threadid = pthread_self();
 
+	pthread_t threadid = pthread_self();
 	struct sidlist * listgroup[ 256 ] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
 
@@ -357,49 +346,47 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			continue;
 		}
 
-		if ( sidlist_count( listgroup[i] ) > 1 )
+		if ( sidlist_count( listgroup[i] ) == 1 )
 		{
-			struct message * msg = message_create();
-			if ( msg == NULL )
+			sid_t id = sidlist_get( listgroup[i], 0 );
+			if ( _send_buffer( layer, id, buf, nbytes, 0 ) == 0 )
 			{
-				continue;
+				rc += 1;
 			}
+			// 销毁listgroup[i]
+			sidlist_destroy( listgroup[i] );
+			continue;
+		}
+		
+		// 广播逻辑
+		struct message * msg = message_create();
+		if ( msg == NULL )
+		{
+			sidlist_destroy( listgroup[i] );
+			continue;
+		}
 
-			message_add_buffer( msg, (char *)buf, nbytes );
-			message_set_receivers( msg, listgroup[i] );
+		message_add_buffer( msg, (char *)buf, nbytes );
+		message_set_receivers( msg, listgroup[i] );
 
-			if ( threadid == iothreads_get_id( layer->group, i ) )
-			{
-				// 本线程内直接广播
-				_broadcast_direct( _get_manager(layer, i), msg );
-			}
-			else
-			{
-				// 跨线程提交广播任务
-				int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
-				if ( result != 0 )
-				{
-					message_destroy( msg );
-					continue;
-				}
-			}
-
-			rc += sidlist_count( listgroup[i] );
-			// listgroup[i] 会在message中销毁
+		if ( threadid == iothreads_get_id( layer->group, i ) )
+		{
+			// 本线程内直接广播
+			_broadcast_direct( _get_manager(layer, i), msg );
 		}
 		else
 		{
-			sid_t id = sidlist_get( listgroup[i], 0 );
-
-			if ( _send_buffer( layer, id, buf, nbytes, 0 ) == 0 )
+			// 跨线程提交广播任务
+			int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
+			if ( result != 0 )
 			{
-				// 发送成功
-				rc += 1;
+				message_destroy( msg );
+				continue;
 			}
-
-			// 销毁listgroup[i]
-			sidlist_destroy( listgroup[i] );
 		}
+
+		rc += sidlist_count( listgroup[i] );
+		// listgroup[i] 会在message中销毁
 	}
 
 	return rc;
@@ -535,7 +522,6 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
 
 	if ( pthread_self() == threadid )
 	{
-		// 该会话分发到本线程内了
 		return _assign_direct( _get_manager(self, index), sets, task );
 	}
 
@@ -565,7 +551,6 @@ void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_
 	{
 		uint8_t index = SID_INDEX( ids[i] );
 
-		// index非法
 		if ( index >= self->nthreads )
 		{
 			continue;
@@ -606,7 +591,6 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 
 	if ( pthread_self() == iothreads_get_id( self->group, index ) )
 	{
-		// 本线程内直接发送
 		return _send_direct( _get_manager(self, index), &task );
 	}
 
@@ -716,7 +700,6 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 		return 1;
 	}
 	
-	// 会话开始
 	session_set_endpoint( session, task->host, task->port );
 	session_start( session, eSessionType_Once, task->fd, sets );
 	
@@ -758,39 +741,21 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 
 		if ( session == NULL )
 		{
-			// 会话非法
 			message_add_failure( msg, id );
 			continue;
 		}
 		
-		/*
-		 * session_append() 返回值
-		 *		< 0		- 出错
-		 *		= 0		- 添加成功
-		 *		= 1		- 尝试单独发送
-		 * */
 		int32_t rc = session_append( session, msg );
-
-		if ( rc < 0 )
-		{
-			// 添加失败
-			message_add_failure( msg, id );
-		}
-		else if ( rc == 0 )
-		{
-			// 添加到发送队列成功
-			++count;	
-		}
-		else if ( rc == 1 )
+		if ( rc >= 0 )
 		{
 			// 尝试单独发送
+			// 添加到发送队列成功
 			++count;
-			++msg->nsuccess;
 		}
 	}
 
-	// 消息发送失败, 直接销毁
-	if ( message_is_complete(msg) == 0 )
+	// 消息发送完毕, 直接销毁
+	if ( message_is_complete(msg) )
 	{
 		message_destroy( msg );
 	}

@@ -16,8 +16,8 @@
 #include "utils.h"
 #include "message.h"
 
-#define SESSION_READING			0x01	// 等待读事件, 读很忙
-#define SESSION_WRITING			0x02	// 等待写事件, 写很忙
+#define SESSION_READING			0x01	// 等待读事件
+#define SESSION_WRITING			0x02	// 等待写事件, [连接, 重连, 发送]
 #define SESSION_KEEPALIVING		0x04	// 等待保活事件
 #define SESSION_EXITING			0x10	// 等待退出, 数据全部发送完毕后, 即可终止
 
@@ -33,6 +33,9 @@ struct session_setting
 	int32_t keepalive_msecs;
 	int32_t max_inbuffer_len;
 };
+
+QUEUE_HEAD( sendqueue, struct message * );
+QUEUE_PROTOTYPE( sendqueue, struct message * )
 
 struct session
 {
@@ -63,7 +66,7 @@ struct session
 
 	// 发送队列以及消息偏移量
 	int32_t 			msgoffsets;
-	struct arraylist 	outmsglist;
+	struct sendqueue 	sendqueue;
 
 	// 会话的设置
 	struct session_setting setting;
@@ -119,7 +122,7 @@ struct hashtable;
 struct session_manager
 {
 	uint8_t		index;
-	uint32_t	seq;		// 自增的序号
+	uint32_t	autoseq;		// 自增的序号
 	
 	struct hashtable * table;	
 };

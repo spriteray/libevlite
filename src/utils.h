@@ -2,6 +2,11 @@
 #ifndef SRC_UTILS_H
 #define SRC_UTILS_H
 
+#ifdef __cplusplus
+extern "C"
+{
+#endif
+
 /*
  * 工具算法模块
  */
@@ -16,6 +21,7 @@
 #include <netinet/tcp.h>
 #include <sys/uio.h>
 
+#include "queue.h"
 #include "network.h"
 
 //
@@ -39,27 +45,6 @@ uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
 
 /*
- *
- */ 
-struct arraylist
-{
-    uint32_t count;
-    uint32_t size;
-
-    void ** entries;
-};
-
-struct arraylist * arraylist_create( uint32_t size );
-int32_t arraylist_init( struct arraylist * self, uint32_t size );
-uint32_t arraylist_count( struct arraylist * self );
-void arraylist_reset( struct arraylist * self );
-void arraylist_final( struct arraylist * self );
-int32_t arraylist_append( struct arraylist * self, void * data );
-void * arraylist_get( struct arraylist * self, int32_t index );
-void * arraylist_take( struct arraylist * self, int32_t index );
-int32_t arraylist_destroy( struct arraylist * self );
-
-/*
  * sidlist 
  */
 struct sidlist
@@ -76,7 +61,6 @@ sid_t sidlist_get( struct sidlist * self, int32_t index );
 int32_t sidlist_add( struct sidlist * self, sid_t id );
 sid_t sidlist_del( struct sidlist * self, int32_t index );
 void sidlist_destroy( struct sidlist * self );
-
 
 // 任务类型
 enum
@@ -96,47 +80,12 @@ struct task
 	int16_t utype;				// 2bytes
 	union
 	{
-		void *	task;			 
+		void *	taskdata;			 
 		char	data[TASK_PADDING_SIZE];
 	};
 };
 
-/*
- * 队列
- * 简单的队列算法, 需要扩展时, 有一定量的数据拷贝
- * 但是, 在长度可控的情况下, 足够高效和简单
- */
-struct queue
-{
-	uint32_t size;					// (4+4)bytes
-	struct task * entries;			// 8bytes
-	uint32_t padding1[12];			// 48,padding
-
-	uint32_t head;					// 4bytes, cacheline padding
-	uint32_t padding2[15];			// 60bytes 
-
-	uint32_t tail;					// 4bytes, cacheline padding
-	uint32_t padding3[15];			// 60bytes 
-};
-
-// TODO: 分段存储，扩展时节省了内存拷贝
-
-// 创建队列
-// size - 性能方面的考虑, 确保size足够大
-struct queue * queue_create( uint32_t size );
-
-// 向队列中提交任务
-int32_t queue_push( struct queue * self, struct task * task );
-
-// 从队列中取出一定量的任务
-int32_t queue_pop( struct queue * self, struct task * task );
-int32_t queue_pops( struct queue * self, struct task * tasks, uint32_t count );
-
-// 队列长度
-inline uint32_t queue_count( struct queue * self );
-
-// 销毁队列
-int32_t queue_destroy( struct queue * self );
+QUEUE_PADDING_HEAD(taskqueue, struct task);
 
 /* 
  * 消息队列
@@ -144,8 +93,7 @@ int32_t queue_destroy( struct queue * self );
  */
 struct msgqueue
 {
-	struct queue * queue;
-
+	struct taskqueue queue;
 	int32_t popfd;
 	int32_t pushfd;
 
@@ -171,6 +119,10 @@ int32_t msgqueue_popfd( struct msgqueue * self );
 
 // 销毁消息队列
 int32_t msgqueue_destroy( struct msgqueue * self );
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif
 

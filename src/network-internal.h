@@ -24,10 +24,13 @@ enum
 #define SAFE_SHUTDOWN					0	
 
 // 发送队列的默认大小
-#define OUTMSGLIST_DEFAULT_SIZE			8			
+#define DEFAULT_SENDQUEUE_SIZE			128
 
 // 关闭前最大等待时间,默认10s
 #define MAX_SECONDS_WAIT_FOR_SHUTDOWN	(10*1000)	
+
+// 尝试重连的间隔时间
+#define TRY_RECONNECT_INTERVAL			(2*1000)
 
 // 发送接收缓冲区设置
 #define SEND_BUFFER_SIZE				0

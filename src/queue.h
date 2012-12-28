@@ -1,37 +1,6 @@
-/*-
- * Copyright (c) 1991, 1993
- *	The Regents of the University of California.  All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted provided that the following conditions
- * are met:
- * 1. Redistributions of source code must retain the above copyright
- *    notice, this list of conditions and the following disclaimer.
- * 2. Redistributions in binary form must reproduce the above copyright
- *    notice, this list of conditions and the following disclaimer in the
- *    documentation and/or other materials provided with the distribution.
- * 4. Neither the name of the University nor the names of its contributors
- *    may be used to endorse or promote products derived from this software
- *    without specific prior written permission.
- *
- * THIS SOFTWARE IS PROVIDED BY THE REGENTS AND CONTRIBUTORS ``AS IS'' AND
- * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
- * ARE DISCLAIMED.  IN NO EVENT SHALL THE REGENTS OR CONTRIBUTORS BE LIABLE
- * FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS
- * OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION)
- * HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
- * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
- * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
- * SUCH DAMAGE.
- *
- *	@(#)queue.h	8.5 (Berkeley) 8/20/94
- * $FreeBSD: src/sys/sys/queue.h,v 1.68.2.2.2.1 2010/12/21 17:10:29 kensmith Exp $
- */
 
-#ifndef _SYS_QUEUE_H_
-#define	_SYS_QUEUE_H_
+#ifndef __SRC_QUEUE_H__ 
+#define __SRC_QUEUE_H__	
 
 #include <sys/cdefs.h>
 
@@ -586,50 +555,139 @@ struct {								\
 	QMD_TRACE_ELEM(&(elm)->field);					\
 } while (0)
 
-
-#ifdef _KERNEL
-
 /*
- * XXX insque() and remque() are an old way of handling certain queues.
- * They bogusly assumes that all queue heads look alike.
+ * 队列
+ * 简单的队列算法, 需要扩展时, 有一定量的数据拷贝
+ * 但是, 在长度可控的情况下, 足够高效和简单
  */
 
-struct quehead {
-	struct quehead *qh_link;
-	struct quehead *qh_rlink;
-};
+#include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 
-#ifdef __CC_SUPPORTS___INLINE
-
-static __inline void
-insque(void *a, void *b)
-{
-	struct quehead *element = (struct quehead *)a,
-		 *head = (struct quehead *)b;
-
-	element->qh_link = head->qh_link;
-	element->qh_rlink = head;
-	head->qh_link = element;
-	element->qh_link->qh_rlink = element;
+#define QUEUE_HEAD(name, type)	\
+struct name						\
+{								\
+	uint32_t	size;			\
+	type *		entries;		\
+	uint32_t	head;			\
+	uint32_t	tail;			\
 }
 
-static __inline void
-remque(void *a)
-{
-	struct quehead *element = (struct quehead *)a;
-
-	element->qh_link->qh_rlink = element->qh_rlink;
-	element->qh_rlink->qh_link = element->qh_link;
-	element->qh_rlink = 0;
+#define QUEUE_PADDING_HEAD(name, type)\
+struct name						\
+{								\
+	uint32_t	size;			\
+	type *		entries;		\
+	uint32_t	padding1[12];	\
+	uint32_t	head;			\
+	uint32_t	padding2[15];	\
+	uint32_t	tail;			\
+	uint32_t	padding3[15];	\
 }
 
-#else /* !__CC_SUPPORTS___INLINE */
+#define QUEUE_INIT(name)		name##_QUEUE_INIT
+#define QUEUE_PUSH(name)		name##_QUEUE_PUSH
+#define QUEUE_POP(name)			name##_QUEUE_POP
+#define QUEUE_COUNT(name)		name##_QUEUE_COUNT
+#define QUEUE_GET(name)			name##_QUEUE_GET
+#define QUEUE_TOP(name)			name##_QUEUE_TOP
+#define QUEUE_CLEAR(name)		name##_QUEUE_CLEAR
 
-void	insque(void *a, void *b);
-void	remque(void *a);
+#define QUEUE_PROTOTYPE( name, type )							\
+int32_t name##_QUEUE_INIT( struct name * self, uint32_t size );\
+int32_t name##_QUEUE_PUSH( struct name * self, type * data );	\
+int32_t name##_QUEUE_POP( struct name * self, type * data );	\
+uint32_t name##_QUEUE_COUNT( struct name * self );				\
+int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data );\
+int32_t name##_QUEUE_TOP( struct name * self, type * data );	\
+void name##_QUEUE_CLEAR( struct name * self );
 
-#endif /* __CC_SUPPORTS___INLINE */
+#define QUEUE_GENERATE( name, type )							\
+int32_t name##_QUEUE_INIT( struct name * self, uint32_t size )	\
+{																\
+	size = size ? size : 8;										\
+	assert( (size&(size-1)) == 0 );								\
+	(self)->size = size;										\
+	(self)->head = (self)->tail = 0;							\
+	(self)->entries = calloc( size, sizeof(type) );				\
+	return (self)->entries == NULL ? -1 : 0 ;					\
+}																\
+int32_t name##_QUEUE_GROW( struct name * self )					\
+{																\
+	uint32_t newsize = (self)->size << 1;						\
+	uint32_t count = (self)->tail - (self)->head;				\
+	type * newentries = calloc( newsize, sizeof(type) );		\
+	if ( newentries == NULL )									\
+	{															\
+		return -1;												\
+	}															\
+	uint32_t len = (self)->size-((self)->head&((self)->size-1));\
+	if ( len > count )											\
+	{															\
+		len = count;											\
+	}															\
+	memcpy( newentries, &(self)->entries[(self)->head&((self)->size-1)], len*sizeof(type) ); \
+	memcpy( &newentries[len], (self)->entries, (count-len)*sizeof(type) ); \
+	(self)->head = 0;											\
+	(self)->tail = count;										\
+	(self)->size = newsize;										\
+	free( (self)->entries );									\
+	(self)->entries = newentries;								\
+	return 0;													\
+}																\
+int32_t name##_QUEUE_PUSH( struct name * self, type * data )	\
+{																\
+	if ( (self)->size + (self)->head - (self)->tail <= 0 )		\
+	{															\
+		if ( name##_QUEUE_GROW((self)) != 0 )					\
+		{														\
+			return -1;											\
+		}														\
+	}															\
+	(self)->entries[(self)->tail&((self)->size-1)] = *data;		\
+	++((self)->tail);											\
+	return 0;													\
+}																\
+int32_t name##_QUEUE_POP( struct name * self, type * data ) 	\
+{																\
+	uint32_t count = (self)->tail - (self)->head;				\
+	if ( count > 0 )											\
+	{															\
+		*(data) = (self)->entries[(self)->head&((self)->size-1)];	\
+		++((self)->head);										\
+		return 1;												\
+	}															\
+	return 0;													\
+}																\
+int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data ) \
+{																\
+	uint32_t count = (self)->tail - (self)->head;				\
+	if ( index < count )										\
+	{															\
+		*(data) = (self)->entries[((self)->head+index)&((self)->size-1)];	\
+		return 0;												\
+	}															\
+	return -1;													\
+}																\
+int32_t name##_QUEUE_TOP( struct name * self, type * data ) 	\
+{																\
+	return name##_QUEUE_GET( (self), 0, (data) );				\
+}																\
+uint32_t name##_QUEUE_COUNT( struct name * self )				\
+{																\
+	return (self)->tail - (self)->head;							\
+}																\
+void name##_QUEUE_CLEAR( struct name * self )					\
+{																\
+	if ( (self)->entries != NULL )								\
+	{															\
+		free( (self)->entries );								\
+		(self)->entries = NULL;									\
+	}															\
+	(self)->size = 0;											\
+	(self)->head = (self)->tail = 0;							\
+}
 
-#endif /* _KERNEL */
+#endif
 
-#endif /* !_SYS_QUEUE_H_ */

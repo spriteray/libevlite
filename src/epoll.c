@@ -18,22 +18,22 @@
 //
 struct eventpair
 {
-    struct event * evread;
-    struct event * evwrite;
+	struct event * evread;
+	struct event * evwrite;
 };
 
 struct epoller
 {
-    // 管理的所有事件对, 这个是基于描述符的
-    int32_t npairs;
-    struct eventpair * evpairs;
+	// 管理的所有事件对, 这个是基于描述符的
+	int32_t npairs;
+	struct eventpair * evpairs;
 
-    // 管理固定数目的激活事件
-    int32_t nevents;
-    struct epoll_event * events;
+	// 管理固定数目的激活事件
+	int32_t nevents;
+	struct epoll_event * events;
 
-    // epoll描述符
-    int32_t epollfd;
+	// epoll描述符
+	int32_t epollfd;
 };
 
 void * epoll_init();
@@ -46,93 +46,92 @@ int32_t epoll_expand( struct epoller * self );
 int32_t epoll_insert( struct epoller * self, int32_t max );
 
 const struct eventop epollops = {
-    epoll_init,
-    epoll_add,
-    epoll_del,
-    epoll_dispatch,
-    epoll_final
+	epoll_init,
+	epoll_add,
+	epoll_del,
+	epoll_dispatch,
+	epoll_final
 };
 
-#define NEVENTS         4096			// 初始化的事件数, 该框架同样适用于内网服务器
 #define MAX_EPOLL_WAIT  35*60*1000
 
 void * epoll_init()
 {
-    int32_t epollfd = -1;
-    struct epoller * poller = NULL;
-    
-    epollfd = epoll_create(64000);      // 该参数在新内核中已经取消
-    if ( epollfd == -1 )
-    {
-        return NULL;
-    }
+	int32_t epollfd = -1;
+	struct epoller * poller = NULL;
 
-    fcntl( epollfd, F_SETFD, 1 );
+	epollfd = epoll_create(64000);      // 该参数在新内核中已经取消
+	if ( epollfd == -1 )
+	{
+		return NULL;
+	}
 
-    poller = (struct epoller *)malloc( sizeof(struct epoller) );
-    if ( poller == NULL )
-    {
-        close( epollfd );
-        return NULL;
-    }
+	fcntl( epollfd, F_SETFD, 1 );
 
-    poller->epollfd = epollfd;
+	poller = (struct epoller *)malloc( sizeof(struct epoller) );
+	if ( poller == NULL )
+	{
+		close( epollfd );
+		return NULL;
+	}
 
-    poller->evpairs = (struct eventpair *)calloc( NEVENTS, sizeof(struct eventpair) );
-    poller->events = (struct epoll_event *)calloc( NEVENTS, sizeof(struct epoll_event) );
-    if ( poller->evpairs == NULL || poller->events == NULL )
-    {
-        epoll_final( poller );
-        return NULL;
-    }
+	poller->epollfd = epollfd;
 
-    poller->npairs = NEVENTS;
-    poller->nevents = NEVENTS;
+	poller->evpairs = (struct eventpair *)calloc( INIT_EVENTS, sizeof(struct eventpair) );
+	poller->events = (struct epoll_event *)calloc( INIT_EVENTS, sizeof(struct epoll_event) );
+	if ( poller->evpairs == NULL || poller->events == NULL )
+	{
+		epoll_final( poller );
+		return NULL;
+	}
 
-    return poller;
+	poller->npairs = INIT_EVENTS;
+	poller->nevents = INIT_EVENTS;
+
+	return poller;
 }
 
 int32_t epoll_expand( struct epoller * self )
 {
-    int32_t nevents = self->nevents;
-    struct epoll_event * newevents = NULL;
+	int32_t nevents = self->nevents;
+	struct epoll_event * newevents = NULL;
 
-    nevents <<= 1;
+	nevents <<= 1;
 
-    newevents = realloc( self->events, nevents*sizeof(struct epoll_event) );
-    if ( newevents == NULL )
-    {
-        return -1;
-    }
+	newevents = realloc( self->events, nevents*sizeof(struct epoll_event) );
+	if ( newevents == NULL )
+	{
+		return -1;
+	}
 
-    self->nevents = nevents;
-    self->events = newevents;
+	self->nevents = nevents;
+	self->events = newevents;
 
-    return 0;
+	return 0;
 }
 
 int32_t epoll_insert( struct epoller * self, int32_t max )
 {
-    int32_t npairs = 0;
-    struct eventpair * pairs = NULL;
+	int32_t npairs = 0;
+	struct eventpair * pairs = NULL;
 
-    npairs = self->npairs;
-    while ( npairs <= max )
-    {
-        npairs <<= 1;
-    }
+	npairs = self->npairs;
+	while ( npairs <= max )
+	{
+		npairs <<= 1;
+	}
 
-    pairs = realloc( self->evpairs, npairs*sizeof(struct eventpair) );
-    if ( pairs == NULL )
-    {
-        return -1;
-    }
+	pairs = realloc( self->evpairs, npairs*sizeof(struct eventpair) );
+	if ( pairs == NULL )
+	{
+		return -1;
+	}
 
-    self->evpairs = pairs;
-    memset( pairs+self->npairs, 0, (npairs-self->npairs)*sizeof(struct eventpair) );
-    self->npairs = npairs;
+	self->evpairs = pairs;
+	memset( pairs+self->npairs, 0, (npairs-self->npairs)*sizeof(struct eventpair) );
+	self->npairs = npairs;
 
-    return 0;
+	return 0;
 }
 
 int32_t epoll_add( void * arg, struct event * ev )
@@ -179,7 +178,6 @@ int32_t epoll_add( void * arg, struct event * ev )
 
 	epollevent.data.fd = fd;
 	epollevent.events = events;
-	
 	if ( epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 )
 	{
 		return -2;
@@ -347,22 +345,22 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
 
 void epoll_final( void * arg )
 {
-    struct epoller * poller = ( struct epoller * )arg;
+	struct epoller * poller = ( struct epoller * )arg;
 
-    if ( poller->evpairs )
-    {
-        free( poller->evpairs );
-    }
-    if ( poller->events )
-    {
-        free( poller->events );
-    }
-    if ( poller->epollfd >= 0 )
-    {
-        close( poller->epollfd );
-    }
+	if ( poller->evpairs )
+	{
+		free( poller->evpairs );
+	}
+	if ( poller->events )
+	{
+		free( poller->events );
+	}
+	if ( poller->epollfd >= 0 )
+	{
+		close( poller->epollfd );
+	}
 
-    free( poller );
-    return;
+	free( poller );
+	return;
 }
 

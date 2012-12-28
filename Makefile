@@ -8,8 +8,8 @@ LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared 
 
 LIBNAME	= libevlite.so
-SONAME	= $(LIBNAME).6
-REALNAME= $(LIBNAME).6.3.0
+SONAME	= $(LIBNAME).7
+REALNAME= $(LIBNAME).7.1.2
 
 OS		= $(shell uname)
 
@@ -56,36 +56,36 @@ $(REALNAME) : $(OBJS)
 test : test_events test_addtimer echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
-
 	$(CC) $^ -o $@ $(LFLAGS)
 
 test_addtimer : test_addtimer.o $(OBJS)
-
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echoserver-lock : accept-lock-echoserver.o $(OBJS)
-
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echoclient : io.o echoclient.o $(OBJS)
-
 	$(CXX) $^ -o $@ $(LFLAGS)
 
 echoserver : io.o echoserver.o $(OBJS)
-
 	$(CXX) $^ -o $@ $(LFLAGS)
 
 pingpong : pingpong.o $(OBJS)
-
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echostress :
-
 	$(CC) -I/usr/local/include -L/usr/local/lib -levent test/echostress.c -o $@
 
 iothreads_dispatcher : test_iothreads.o $(OBJS)
-
 	$(CC) $(LFLAGS) $^ -o $@
+
+chatroom : chatroom_server chatroom_client
+
+chatroom_server: io.o chatroom_server.o $(OBJS)
+	$(CXX) $^ -o $@ $(LFLAGS)
+
+chatroom_client: io.o chatroom_client.o $(OBJS)
+	$(CXX) $^ -o $@ $(LFLAGS)
 
 clean :
 
@@ -101,6 +101,7 @@ clean :
 
 	rm -rf test_events event.fifo
 	rm -rf test_addtimer echoclient echostress echoserver pingpong echoserver-lock iothreads_dispatcher
+	rm -rf chatroom_client chatroom_server
 	
 # --------------------------------------------------------
 #

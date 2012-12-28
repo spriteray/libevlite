@@ -15,11 +15,11 @@
 // 发送接收数据
 static int32_t _receive( struct session * session );
 static int32_t _transmit( struct session * session );
+static inline int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
 // 逻辑操作  
 static int32_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
-
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -43,22 +43,18 @@ int32_t _transmit( struct session * session )
 	const int32_t iov_max = 8;
 #endif
 
-#if defined (TCP_CORK)
-	int32_t corked = 0;
-#endif
-
 	uint32_t i = 0;
-	int32_t writen = 0;
-	int32_t offsets = session->msgoffsets;
+	int32_t writen = 0, offsets = session->msgoffsets;
 
 	int32_t iov_size = 0;
 	struct iovec iov_array[iov_max];
 	memset( iov_array, 0, sizeof(iov_array) );
 
-	for ( i = 0; i < arraylist_count(&session->outmsglist) && iov_size < iov_max; ++i )
+	for ( i = 0; i < QUEUE_COUNT(sendqueue)(&session->sendqueue) && iov_size < iov_max; ++i )
 	{
-		struct message * message = arraylist_get( &session->outmsglist, i );
+		struct message * message = NULL;
 
+		QUEUE_GET(sendqueue)( &session->sendqueue, i, &message );
 		if ( offsets >= message_get_length(message) )
 		{
 			offsets -= message_get_length(message);
@@ -73,36 +69,27 @@ int32_t _transmit( struct session * session )
 		}
 	}
 
-#if defined (TCP_CORK)
-	corked = 1;
-	setsockopt( session->fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
-#endif
-
-	writen = writev( session->fd, iov_array, iov_size );
-
-#if defined (TCP_CORK)
-	corked = 0;
-	setsockopt( session->fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
-#endif
+	writen = _write_vec( session->fd, iov_array, iov_size );
 
 	if ( writen > 0 )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( ; arraylist_count( &session->outmsglist ); )
+		for ( ; QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0; )
 		{
-			struct message * message = arraylist_get( &session->outmsglist, 0 );
-
+			struct message * message = NULL;
+			
+			QUEUE_TOP(sendqueue)( &session->sendqueue, &message );
 			if ( offsets < message_get_length(message) )
 			{
 				break;
 			}
 
-			arraylist_take( &session->outmsglist, 0 );
+			QUEUE_POP(sendqueue)( &session->sendqueue, &message );
 			offsets -= message_get_length(message);
-
-			++message->nsuccess;
-			if ( message_is_complete(message) == 0 )
+			
+			message_add_success( message );
+			if ( message_is_complete(message) )
 			{
 				message_destroy( message );
 			}
@@ -111,7 +98,7 @@ int32_t _transmit( struct session * session )
 		session->msgoffsets = offsets;
 	}
 
-	if ( writen > 0 && arraylist_count( &session->outmsglist ) > 0 )
+	if ( writen > 0 && QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
 	{
 		int32_t againlen = _transmit( session );
 		if ( againlen > 0 )
@@ -119,6 +106,25 @@ int32_t _transmit( struct session * session )
 			writen += againlen;
 		}
 	}
+
+	return writen;
+}
+
+int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
+{
+	int32_t writen = -1;
+
+#if defined (TCP_CORK)
+	int32_t corked = 1;
+	setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+#endif
+
+	writen = writev( fd, array, count );
+
+#if defined (TCP_CORK)
+	corked = 0;
+	setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+#endif
 
 	return writen;
 }
@@ -238,16 +244,9 @@ int32_t channel_shutdown( struct session * session )
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
 
-	// 回调逻辑层
-	service->shutdown( session->context );
-	
-	// 从会话管理器中移除会话
-	if ( manager != NULL )
-	{
-		session_manager_remove( manager, session );
-	}
-
 	// 会话终止
+	service->shutdown( session->context );
+	session_manager_remove( manager, session );
 	session_end( session, id );
 
 	return 0;
@@ -280,6 +279,13 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 			return;
 		}
 
+		if ( nread > 0 || (nread == -1 && errno == EAGAIN) )
+		{
+			// 会话正常
+			session_add_event( session, EV_READ );
+			return;
+		}
+
 		if ( nread == -2 )
 		{
 			// expand() failure
@@ -288,31 +294,16 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 		else if ( nread == -1 )
 		{
 			// read() failure
-			if ( nread == -1 && errno == EAGAIN )
-			{
-				// 正常,socket中无数据可读
-				session_add_event( session, EV_READ );
-			}
-			else
-			{
-				// 出错, 
-				channel_error( session, eIOError_ReadFailure );
-			}
+			channel_error( session, eIOError_ReadFailure );
 		}
 		else if ( nread == 0 )
 		{
 			// peer shutdown
 			channel_error( session, eIOError_PeerShutdown );
 		}
-		else
-		{
-			// ok 
-			session_add_event( session, EV_READ );
-		}
 	}
 	else
 	{
-		// 超时
 		_timeout( session );
 	}
 
@@ -327,27 +318,20 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_WRITE )
 	{
-		int32_t writen = 0;
-
-		if ( arraylist_count(&session->outmsglist) > 0 )
+		if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
 		{
 			// 发送数据
-			writen = _transmit( session );
-
-			// 处理结果
+			int32_t writen = _transmit( session );
 			if ( writen < 0 && errno != EAGAIN )
 			{
-				// 出错了
 				channel_error( session, eIOError_WriteFailure );
 			}
 			else
 			{
-				// 正常发送
-				// socket缓冲区已满
+				// 正常发送 或者 socket缓冲区已满
 
-				if ( arraylist_count(&session->outmsglist) > 0 )
+				if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
 				{
-					// 还有数据需要发送
 					// NOTICE: 为什么不判断会话是否正在终止呢?
 					// 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
 					// 直到发送队列为空
@@ -355,8 +339,6 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 				}
 				else
 				{
-					// 数据已经全部发送
-
 					if ( session->status&SESSION_EXITING )
 					{
 						// 等待关闭的会话, 直接终止会话
@@ -410,8 +392,6 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 			// 分发策略
 			index = cfd % (layer->nthreads);
-
-			// 把这个会话分发给指定的网络线程
 			iolayer_assign_session( layer, index, &(task) );
 		}
 	}
@@ -421,8 +401,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 {
-	int32_t rc = 0;
-	int32_t result = 0;
+	int32_t rc = 0, result = 0;
 	struct connector * connector = (struct connector *)arg;
 
 	sid_t id = 0;
@@ -435,20 +414,17 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 		// linux需要进一步检查连接是否成功
 		if ( is_connected( fd ) != 0 )
 		{
-			// 连接失败
 			result = eIOError_ConnectStatus;
 		}
 #endif
 	}
 	else
 	{
-		// 连接超时了
 		result = eIOError_Timeout;
 	}
 	
 	if ( result == 0 )
 	{
-		// 连接成功的情况下, 需要去分配一个会话
 		session = iolayer_alloc_session( layer, connector->fd );
 		if ( session == NULL )
 		{
@@ -478,8 +454,6 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 			set_non_block( connector->fd );
 			session_set_endpoint( session, connector->host, connector->port );
 			session_start( session, eSessionType_Persist, connector->fd, sets );
-			
-			// 需要释放 connector	
 			connector->fd = -1;
 			iolayer_free_connector( layer, connector );
 		}
@@ -488,11 +462,9 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	{
 		if ( session )
 		{
-			// 从会话管理器中移除会话
 			session_manager_remove( session->manager, session );
 			session_end( session, id );
 		}
-		// 需要释放 connector
 		iolayer_free_connector( layer, connector );
 	}
 
@@ -510,28 +482,23 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 #if defined (__linux__)
 		if ( is_connected(fd) != 0 )
 		{
-			// 重连失败
 			channel_error( session, eIOError_ConnectStatus );
 			return;
 		}
 #endif
 		// 总算是连接上了
 
-		// 重连需要重置描述符吗? 
-		//session->fd = fd;
-
+		set_non_block( fd );
+		session->service.start( session->context );
+		
 		// 注册读写事件
 		// 把积累下来的数据全部发送出去
-		set_non_block( fd );
 		session_add_event( session, EV_READ );
 		session_add_event( session, EV_WRITE );
-
-		// 启动keepalive服务
 		session_start_keepalive( session );
 	}
 	else
 	{
-		// 超时
 		_timeout( session );
 	}
 	
@@ -550,6 +517,30 @@ void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
 		// 逻辑层需要继续发送保活包
 		session_start_keepalive( session );
 	}	
+
+	return;
+}
+
+void channel_on_tryreconnect( int32_t fd, int16_t ev, void * arg )
+{
+	struct session * session = (struct session *)arg;
+
+	session->status &= ~SESSION_WRITING;
+	
+	// 连接远程服务器
+	session->fd = tcp_connect( session->host, session->port, 1 ); 
+	if ( session->fd < 0 )
+	{
+		channel_error( session, eIOError_ConnectFailure );
+		return;
+	}
+	
+	// 注册写事件, 以重新激活会话
+	event_set( session->evwrite, session->fd, EV_WRITE );
+	event_set_callback( session->evwrite, channel_on_reconnect, session );
+	evsets_add( session->evsets, session->evwrite, 0 );
+
+	session->status |= SESSION_WRITING;
 
 	return;
 }

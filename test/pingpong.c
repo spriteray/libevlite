@@ -7,7 +7,7 @@
 
 #include "network.h"
 
-#define METHOD		1	
+#define METHOD		1
 
 struct session
 {
@@ -21,6 +21,11 @@ struct PacketHead
 	uint16_t ext;
 	uint32_t len;
 };
+
+int32_t onStart( void * context )
+{
+	return 0;
+}
 
 int32_t onProcess( void * context, const char * buf, uint32_t nbytes ) 
 {
@@ -39,7 +44,7 @@ int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
 		uint32_t nleft = nbytes - nprocess;
 		const char * buffer = buf + nprocess;
 
-		if ( nbytes < sizeof(struct PacketHead) )
+		if ( nleft < sizeof(struct PacketHead) )
 		{
 			break;
 		}
@@ -100,6 +105,7 @@ int32_t onAccept( void * context, sid_t id, const char * host, uint16_t port )
 		session->layer = layer;
 		
 		ioservice_t ioservice;
+		ioservice.start		= onStart;
 		ioservice.process	= onProcess;
 		ioservice.transform = onTransform;
 		ioservice.timeout	= onTimeout;
