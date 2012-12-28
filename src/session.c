@@ -43,7 +43,7 @@ struct session * _new_session()
 	}
 
 	// 初始化发送队列
-	if ( QUEUE_INIT(sendqueue)(&self->sendqueue, OUTMSGLIST_DEFAULT_SIZE) != 0 )
+	if ( QUEUE_INIT(sendqueue)(&self->sendqueue, DEFAULT_SENDQUEUE_SIZE) != 0 )
 	{
 		_del_session( self );
 		return NULL;
