@@ -177,8 +177,8 @@ int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host
 	{
 		return -1;
 	}
-
 	service->attach( id, session );
+
 	return 0;
 }
 
@@ -197,8 +197,8 @@ int32_t IIOService::onConnectSession( void * context, int32_t result, const char
 	{
 		return -1;
 	}
-
 	service->attach( id, session );
+
 	return 0;
 }
 
