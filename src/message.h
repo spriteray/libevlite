@@ -16,7 +16,6 @@ extern "C"
 //
 struct buffer
 {
-	uint32_t offset;		// 有效数据段相对于原始数据段的偏移量
 	uint32_t length;		// 有效数据段的长度
 	uint32_t totallen;		// 内存块的总长度
 
@@ -38,7 +37,7 @@ int32_t buffer_append( struct buffer * self, char * buf, uint32_t length );
 uint32_t buffer_take( struct buffer * self, char * buf, uint32_t length );
 
 // 两个缓冲区相互交换
-void buffer_exchange( struct buffer * buf1, struct buffer * buf2 );
+void buffer_swap( struct buffer * buf1, struct buffer * buf2 );
 
 // -1, 系统调用read()返回出错; -2, 返回expand()失败
 int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes );
