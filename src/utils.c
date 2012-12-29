@@ -267,7 +267,6 @@ void sidlist_destroy( struct sidlist * self )
 
 // -----------------------------------------------------------------------------------------------------------------
 
-QUEUE_PROTOTYPE( taskqueue, struct task )
 QUEUE_GENERATE( taskqueue, struct task )
 
 struct msgqueue * msgqueue_create( uint32_t size )
@@ -355,22 +354,13 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
 	return rc;
 }
 
-int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t count )
+int32_t msgqueue_swap( struct msgqueue * self, struct taskqueue * queue )
 {
-	uint32_t i = 0;
-
 	pthread_mutex_lock( &self->lock );
-	for ( i = 0; i < count; ++i )
-	{
-		int32_t rc = QUEUE_POP(taskqueue)(&self->queue, &tasks[i]);	
-		if ( rc == 0 )
-		{
-			break;
-		}
-	}
+	QUEUE_SWAP(taskqueue)(&self->queue, queue);
 	pthread_mutex_unlock( &self->lock );
 
-	return i;
+	return 0;
 }
 
 uint32_t msgqueue_count( struct msgqueue * self )

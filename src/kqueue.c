@@ -1,4 +1,9 @@
 
+// ±‹√‚sys/event.h÷–÷ÿ∏¥∞¸∫¨queue.h
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+#define _SYS_QUEUE_H_
+#endif
+
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
