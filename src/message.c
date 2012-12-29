@@ -126,13 +126,10 @@ uint32_t buffer_take( struct buffer * self, char * buf, uint32_t length )
 
 void buffer_swap( struct buffer * buf1, struct buffer * buf2 )
 {
-	struct buffer tmpbuf;
-	
-	memcpy( &tmpbuf, buf1, sizeof(struct buffer) );
-	memcpy( buf1, buf2, sizeof(struct buffer) );
-	memcpy( buf2, &tmpbuf, sizeof(struct buffer) );
-	
-	return;
+	struct buffer tmpbuf = *buf1;
+
+	*buf1 = *buf2;
+	*buf2 = tmpbuf;
 }
 
 int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )
