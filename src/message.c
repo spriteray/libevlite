@@ -6,7 +6,6 @@
 #include <sys/ioctl.h>
 
 #include "network-internal.h"
-
 #include "message.h"
 
 #define MIN_BUFFER_LENGTH		64

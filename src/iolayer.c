@@ -7,7 +7,6 @@
 #include <assert.h>
 
 #include "network.h"
-
 #include "channel.h"
 #include "session.h"
 #include "network-internal.h"
@@ -815,7 +814,6 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 	
 	switch ( type )
 	{
-	
 	case eIOTaskType_Listen :
 		{
 			// 打开一个服务器
@@ -864,7 +862,6 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 			_shutdowns_direct( manager, (struct sidlist *)task );
 		}
 		break;
-	
 	}
 
 	return;

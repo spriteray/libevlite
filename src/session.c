@@ -9,7 +9,6 @@
 #include "iolayer.h"
 #include "channel.h"
 #include "network-internal.h"
-
 #include "session.h"
 
 static struct session * _new_session();

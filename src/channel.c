@@ -9,7 +9,6 @@
 #include "utils.h"
 #include "iolayer.h"
 #include "network-internal.h"
-
 #include "channel.h"
 
 // 发送接收数据
@@ -359,7 +358,6 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 		// 不管发送队列如何, 直接终止会话
 		
 		assert( session->status&SESSION_EXITING );
-		
 		channel_shutdown( session );
 	}
 
