@@ -4,6 +4,8 @@
 
 #include <stdint.h>
 
+#define CHATROOM_MESSAGE_SIZE		100
+
 #pragma pack(1)
 
 struct CSHead

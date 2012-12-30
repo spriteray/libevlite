@@ -95,7 +95,7 @@ public :
 
 	int32_t send()
 	{
-		uint16_t length = 100+sizeof(CSHead);
+		uint16_t length = CHATROOM_MESSAGE_SIZE+sizeof(CSHead);
 		std::string msg( length, 1 );
 
 		CSHead * head = (CSHead *)msg.data();
@@ -154,7 +154,7 @@ public :
 				break;
 			}
 
-			assert( head->length == 100+sizeof(CSHead) );
+			assert( head->length == CHATROOM_MESSAGE_SIZE+sizeof(CSHead) );
 			assert( head->msgid == 1 || head->msgid == 2 );
 			
 			m_RecvBytes += head->length;
@@ -293,14 +293,16 @@ int main( int argc, char ** argv )
 	// ÔËÐÐ
 	g_Running = true;
 	g_Waiting = true;
-	uint64_t nEndTime;
-	uint64_t nStartTime = mtime();
+	uint64_t nStartTime, nEndTime;
+	
+	nStartTime = mtime();
 	while ( g_Running )
 	{
 		evsets_dispatch( sets );
 	}
 	nEndTime = mtime();
 	
+	printf("chatroom_client stopped .\n");
 	g_Waiting = true;
 	while ( g_Waiting )
 	{
