@@ -17,11 +17,9 @@ static int32_t _receive( struct session * session );
 static int32_t _transmit( struct session * session );
 static inline int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
-
 // 逻辑操作  
 static int32_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
-
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -401,7 +399,47 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 	return;
 }
 
-void channel_on_connect( int32_t fd, int16_t ev, void * arg )
+void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
+{
+	struct session * session = (struct session *)arg;
+	ioservice_t * service = &session->service;
+
+	session->status &= ~SESSION_KEEPALIVING;
+
+	if ( service->keepalive( session->context ) == 0 )
+	{
+		// 逻辑层需要继续发送保活包
+		session_start_keepalive( session );
+	}
+
+	return;
+}
+
+void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
+{
+	struct session * session = (struct session *)arg;
+
+	session->status &= ~SESSION_WRITING;
+
+	// 连接远程服务器
+	session->fd = tcp_connect( session->host, session->port, 1 );
+	if ( session->fd < 0 )
+	{
+		channel_error( session, eIOError_ConnectFailure );
+		return;
+	}
+
+	// 注册写事件, 以重新激活会话
+	event_set( session->evwrite, session->fd, EV_WRITE );
+	event_set_callback( session->evwrite, channel_on_reconnected, session );
+	evsets_add( session->evsets, session->evwrite, 0 );
+
+	session->status |= SESSION_WRITING;
+
+	return;
+}
+
+void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 {
 	int32_t rc = 0, result = 0;
 	struct connector * connector = (struct connector *)arg;
@@ -474,7 +512,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	return;
 }
 
-void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
+void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 {
 	struct session * session = (struct session *)arg;
 
@@ -507,45 +545,4 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 	
 	return;
 }
-
-void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
-{
-	struct session * session = (struct session *)arg;
-	ioservice_t * service = &session->service;
-
-	session->status &= ~SESSION_KEEPALIVING;
-	
-	if ( service->keepalive( session->context ) == 0 )
-	{
-		// 逻辑层需要继续发送保活包
-		session_start_keepalive( session );
-	}	
-
-	return;
-}
-
-void channel_on_tryreconnect( int32_t fd, int16_t ev, void * arg )
-{
-	struct session * session = (struct session *)arg;
-
-	session->status &= ~SESSION_WRITING;
-	
-	// 连接远程服务器
-	session->fd = tcp_connect( session->host, session->port, 1 ); 
-	if ( session->fd < 0 )
-	{
-		channel_error( session, eIOError_ConnectFailure );
-		return;
-	}
-	
-	// 注册写事件, 以重新激活会话
-	event_set( session->evwrite, session->fd, EV_WRITE );
-	event_set_callback( session->evwrite, channel_on_reconnect, session );
-	evsets_add( session->evsets, session->evwrite, 0 );
-
-	session->status |= SESSION_WRITING;
-
-	return;
-}
-
 

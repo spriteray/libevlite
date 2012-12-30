@@ -674,7 +674,7 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 	// 开始关注连接事件
 	
 	event_set( connector->event, connector->fd, EV_WRITE|EV_PERSIST );
-	event_set_callback( connector->event, channel_on_connect, connector );
+	event_set_callback( connector->event, channel_on_connected, connector );
 	evsets_add( sets, connector->event, connector->seconds );
 
 	return 0;

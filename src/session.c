@@ -358,7 +358,7 @@ int32_t session_start_reconnect( struct session * self )
 
 	// 2秒后尝试重连, 避免忙等
 	event_set( self->evwrite, -1, 0 );
-	event_set_callback( self->evwrite, channel_on_tryreconnect, self );
+	event_set_callback( self->evwrite, channel_on_reconnect, self );
 	evsets_add( sets, self->evwrite, TRY_RECONNECT_INTERVAL );
 	self->status |= SESSION_WRITING;			// 让session忙起来
 
