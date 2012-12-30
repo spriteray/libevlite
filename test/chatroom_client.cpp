@@ -23,8 +23,10 @@ class ChatRoomClient
 public :
 	ChatRoomClient()
 		: m_Fd(0),
+		  m_EventSets(NULL),
 		  m_ReadEvent(NULL),
 		  m_TimerEvent(NULL),
+		  m_SendInterval(0),
 		  m_SendBytes(0),
 		  m_RecvBytes(0)
 	{
@@ -38,7 +40,7 @@ public :
 
 	enum
 	{
-		e_SendIntervalMicroSeconds	= 100,		// 每个100ms发送一个请求
+		e_SendIntervalMicroSeconds	= 2000,		// 每个100ms发送一个请求
 	};
 
 public :
@@ -69,17 +71,16 @@ public :
 
 	void start( evsets_t sets )
 	{
+		m_EventSets = sets;
+
 		m_ReadEvent = event_create();
 		m_TimerEvent = event_create();
-		m_EventSets = sets;
 
 		event_set( m_ReadEvent, m_Fd, EV_READ|EV_PERSIST );
 		event_set_callback( m_ReadEvent, ChatRoomClient::onRead, this );
 		evsets_add( sets, m_ReadEvent, 0 );
 
-		event_set( m_TimerEvent, -1, 0 );
-		event_set_callback( m_TimerEvent, ChatRoomClient::onTimer, this );
-		evsets_add( sets,  m_TimerEvent, e_SendIntervalMicroSeconds );
+		addTimer();
 	}
 
 	int32_t recv()
@@ -166,9 +167,11 @@ public :
 
 	void addTimer()
 	{
+		uint32_t seconds = e_SendIntervalMicroSeconds;
+
 		event_set( m_TimerEvent, -1, 0 );
 		event_set_callback( m_TimerEvent, ChatRoomClient::onTimer, this );
-		evsets_add( m_EventSets,  m_TimerEvent, e_SendIntervalMicroSeconds );
+		evsets_add( m_EventSets,  m_TimerEvent, seconds );
 	}
 
 	uint64_t getSendBytes() const { return m_SendBytes; }
@@ -182,10 +185,13 @@ public :
 private :
 
 	int32_t			m_Fd;
+	evsets_t		m_EventSets;
+
 	event_t			m_ReadEvent;
 	event_t			m_TimerEvent;
-	evsets_t		m_EventSets;
 	struct buffer	m_InBuffer;
+	
+	uint32_t		m_SendInterval;
 
 	uint64_t		m_SendBytes;
 	uint64_t		m_RecvBytes;
