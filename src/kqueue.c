@@ -1,6 +1,6 @@
 
 // ±‹√‚sys/event.h÷–÷ÿ∏¥∞¸∫¨queue.h
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+#if defined(__APPLE__) || defined(__darwin__)
 #define _SYS_QUEUE_H_
 #endif
 

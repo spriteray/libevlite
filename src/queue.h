@@ -2,7 +2,6 @@
 #ifndef SRC_QUEUE_H 
 #define SRC_QUEUE_H	
 
-
 #include <sys/cdefs.h>
 
 /*

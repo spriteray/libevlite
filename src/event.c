@@ -449,7 +449,6 @@ void evsets_destroy( evsets_t self )
 
 	// Ïú»ÙIOÊµÀı
 	sets->evselect->final( sets->evsets );
-
 	free( sets );
 
 	return ;
