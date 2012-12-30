@@ -1,6 +1,6 @@
 
-#ifndef __SRC_QUEUE_H__ 
-#define __SRC_QUEUE_H__	
+#ifndef SRC_QUEUE_H 
+#define SRC_QUEUE_H	
 
 #include <sys/cdefs.h>
 
@@ -592,6 +592,7 @@ struct name						\
 #define QUEUE_COUNT(name)		name##_QUEUE_COUNT
 #define QUEUE_GET(name)			name##_QUEUE_GET
 #define QUEUE_TOP(name)			name##_QUEUE_TOP
+#define QUEUE_SWAP(name)		name##_QUEUE_SWAP
 #define QUEUE_CLEAR(name)		name##_QUEUE_CLEAR
 
 #define QUEUE_PROTOTYPE( name, type )							\
@@ -601,6 +602,7 @@ int32_t name##_QUEUE_POP( struct name * self, type * data );	\
 uint32_t name##_QUEUE_COUNT( struct name * self );				\
 int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data );\
 int32_t name##_QUEUE_TOP( struct name * self, type * data );	\
+int32_t name##_QUEUE_SWAP( struct name * self, struct name * q );\
 void name##_QUEUE_CLEAR( struct name * self );
 
 #define QUEUE_GENERATE( name, type )							\
@@ -677,6 +679,22 @@ int32_t name##_QUEUE_TOP( struct name * self, type * data ) 	\
 uint32_t name##_QUEUE_COUNT( struct name * self )				\
 {																\
 	return (self)->tail - (self)->head;							\
+}																\
+int32_t name##_QUEUE_SWAP( struct name * self, struct name * q )\
+{																\
+	uint32_t size = (self)->size;								\
+	uint32_t head = (self)->head;								\
+	uint32_t tail = (self)->tail;								\
+	type * entries = (self)->entries;							\
+	(self)->size = (q)->size;									\
+	(self)->head = (q)->head;									\
+	(self)->tail = (q)->tail;									\
+	(self)->entries = (q)->entries;								\
+	(q)->size = size;											\
+	(q)->head = head;											\
+	(q)->tail = tail;											\
+	(q)->entries = entries;										\
+	return 0;													\
 }																\
 void name##_QUEUE_CLEAR( struct name * self )					\
 {																\

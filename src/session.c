@@ -20,7 +20,7 @@ static inline int32_t _send( struct session * self, char * buf, uint32_t nbytes 
 //
 QUEUE_GENERATE( sendqueue, struct message * )
 
-	//
+//
 struct session * _new_session()
 {
 	struct session * self = NULL;
@@ -124,7 +124,7 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 
 	// 判断session是否繁忙
 	if ( !(self->status&SESSION_WRITING) 
-			&& QUEUE_COUNT(sendqueue)(&self->sendqueue) == 0 )
+			&& session_sendqueue_count(self) == 0 )
 	{
 		// 直接发送
 		rc = channel_send( self, buf, nbytes ); 
@@ -155,6 +155,14 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets )
 {
+	assert( self->service.start != NULL );
+	assert( self->service.process != NULL );
+	assert( self->service.transform != NULL );
+	assert( self->service.keepalive != NULL );
+	assert( self->service.timeout != NULL );
+	assert( self->service.error != NULL );
+	assert( self->service.shutdown != NULL );
+
 	self->fd		= fd;
 	self->type		= type;
 	self->evsets	= sets;
@@ -196,7 +204,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 
 		if ( _buf != buf )
 		{
-			// 消息已经成功改造
+			// 销毁改造的消息
 			free( _buf );
 		}
 	}
@@ -350,7 +358,7 @@ int32_t session_start_reconnect( struct session * self )
 
 	// 2秒后尝试重连, 避免忙等
 	event_set( self->evwrite, -1, 0 );
-	event_set_callback( self->evwrite, channel_on_tryreconnect, self );
+	event_set_callback( self->evwrite, channel_on_reconnect, self );
 	evsets_add( sets, self->evwrite, TRY_RECONNECT_INTERVAL );
 	self->status |= SESSION_WRITING;			// 让session忙起来
 
@@ -360,7 +368,7 @@ int32_t session_start_reconnect( struct session * self )
 int32_t session_shutdown( struct session * self )
 {
 	if ( !(self->status&SESSION_EXITING)
-			&& QUEUE_COUNT(sendqueue)(&self->sendqueue) > 0 )
+			&& session_sendqueue_count(self) > 0 )
 	{
 		// 会话状态正常, 并且发送队列不为空
 		// 尝试继续把未发送的数据发送出去, 在终止会话
@@ -382,7 +390,7 @@ int32_t session_end( struct session * self, sid_t id )
 	// 会话中的ID已经非法
 
 	// 清空发送队列
-	uint32_t count = QUEUE_COUNT(sendqueue)( &self->sendqueue );
+	uint32_t count = session_sendqueue_count(self);
 	if ( count > 0 )
 	{
 		syslog(LOG_WARNING, 

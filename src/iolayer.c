@@ -346,7 +346,11 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			continue;
 		}
 
-		if ( sidlist_count( listgroup[i] ) == 1 )
+		uint32_t count = sidlist_count( listgroup[i] );
+
+		// p2p
+		
+		if ( count == 1 )
 		{
 			sid_t id = sidlist_get( listgroup[i], 0 );
 			if ( _send_buffer( layer, id, buf, nbytes, 0 ) == 0 )
@@ -358,14 +362,14 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			continue;
 		}
 		
-		// 广播逻辑
+		// broadcast
+		
 		struct message * msg = message_create();
 		if ( msg == NULL )
 		{
 			sidlist_destroy( listgroup[i] );
 			continue;
 		}
-
 		message_add_buffer( msg, (char *)buf, nbytes );
 		message_set_receivers( msg, listgroup[i] );
 
@@ -385,8 +389,8 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			}
 		}
 
-		rc += sidlist_count( listgroup[i] );
 		// listgroup[i] 会在message中销毁
+		rc += count;
 	}
 
 	return rc;
@@ -670,7 +674,7 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 	// 开始关注连接事件
 	
 	event_set( connector->event, connector->fd, EV_WRITE|EV_PERSIST );
-	event_set_callback( connector->event, channel_on_connect, connector );
+	event_set_callback( connector->event, channel_on_connected, connector );
 	evsets_add( sets, connector->event, connector->seconds );
 
 	return 0;

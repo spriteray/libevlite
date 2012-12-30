@@ -110,7 +110,7 @@ int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
 		
 		CSHead * head = (CSHead *)buffer;
 
-		assert( head->length == 104 );
+		assert( head->length == CHATROOM_MESSAGE_SIZE+sizeof(CSHead));
 		assert( head->msgid == 1 || head->msgid == 2 );
 
 		if ( nleft < head->length ) 
@@ -261,7 +261,7 @@ bool CChatRoomService::post( sid_t id, CSHead * header )
 	{
 		task.length = header->length - sizeof(CSHead);
 
-		assert( task.length == 100 );
+		assert( task.length == CHATROOM_MESSAGE_SIZE );
 
 		task.message = (char *)malloc( task.length+1 );
 		memcpy( task.message, header+1, task.length );
@@ -313,7 +313,7 @@ int main( int argc, char ** argv )
 	while ( g_Running )
 	{
 		service.run();
-		usleep(1000*10);
+		usleep(1000);
 	}
 
 	service.stop();

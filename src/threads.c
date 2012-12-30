@@ -249,30 +249,32 @@ void * iothread_main( void * arg )
 {
 	struct iothread * thread = (struct iothread *)arg;
 	struct iothreads * parent = (struct iothreads *)(thread->parent);
-
-	int32_t i = 0;
-	int32_t ntasks = 0;
-	struct task tasks[ POP_TASKS_COUNT ];
-
+	
 	sigset_t mask;
 	sigfillset(&mask);
 	pthread_sigmask(SIG_SETMASK, &mask, NULL);
+
+	// 初始化队列	
+	struct taskqueue doqueue;
+	QUEUE_INIT(taskqueue)( &doqueue, MSGQUEUE_DEFAULT_SIZE );
 
 	while ( parent->runflags )
 	{
 		// 轮询网络事件
 		evsets_dispatch( thread->sets );
 
-		// 处理任务
-		do
-		{
-			ntasks = msgqueue_pops( thread->queue, tasks, POP_TASKS_COUNT );
-			for ( i = 0; i < ntasks; ++i )
-			{
-				void * data = NULL;
+		// 交换任务队列
+		msgqueue_swap( thread->queue, &doqueue );
 
-				switch ( tasks[i].type )
-				{
+		// 处理任务
+		while ( QUEUE_COUNT(taskqueue)(&doqueue) > 0 )
+		{
+			struct task task;
+			void * data = NULL;
+
+			QUEUE_POP(taskqueue)( &doqueue, &task );
+			switch ( task.type )
+			{
 				case eTaskType_Null :
 					{
 						// 空命令
@@ -283,24 +285,23 @@ void * iothread_main( void * arg )
 				case eTaskType_User :
 					{
 						// 用户命令
-						data = tasks[i].taskdata;
+						data = task.taskdata;
 					}
 					break;
 
 				case eTaskType_Data :
 					{
 						// 数据命令
-						data = (void *)(tasks[i].data);
+						data = (void *)(task.data);
 					}
 					break;
-				}
-
-				// 回调
-				parent->method( parent->context, thread->index, tasks[i].utype, data );
 			}
+			// 回调
+			parent->method( parent->context, thread->index, task.utype, data );
 		}
-		while ( ntasks == POP_TASKS_COUNT );
 	}
+
+	QUEUE_CLEAR(taskqueue)( &doqueue );
 
 	// 向主线程发送终止信号
 	pthread_mutex_lock( &parent->lock );

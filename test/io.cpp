@@ -48,89 +48,43 @@ void IIOSession::init( sid_t id, iolayer_t layer )
 
 int32_t IIOSession::onStartSession( void * context )
 {
-	IIOSession * session = static_cast<IIOSession *>( context );
-
-	if ( session )
-	{
-		return session->onStart();
-	}
-
-	return -1;
+	return static_cast<IIOSession *>(context)->onStart();
 }
 
 int32_t IIOSession::onProcessSession( void * context, const char * buf, uint32_t nbytes ) 
 {
-	IIOSession * session = static_cast<IIOSession *>( context );
-
-	if ( session )
-	{
-		return session->onProcess( buf, nbytes );
-	}
-
-	return -1;
+	return static_cast<IIOSession *>(context)->onProcess( buf, nbytes );
 }
 
 char * IIOSession::onTransformSession( void * context, const char * buf, uint32_t * nbytes )
 {
 	uint32_t & _nbytes = *nbytes;
-	IIOSession * session = static_cast<IIOSession *>( context );
-
-	if ( session )
-	{
-		return session->onTransform( buf, _nbytes );
-	}
-
-	return NULL;
+	return static_cast<IIOSession *>(context)->onTransform( buf, _nbytes );
 }
 
 int32_t IIOSession::onTimeoutSession( void * context ) 
 {
-	IIOSession * session = static_cast<IIOSession *>( context );
-
-	if ( session )
-	{
-		return session->onTimeout();
-	}
-
-	return -1;
+	return static_cast<IIOSession *>(context)->onTimeout();
 }
 
 int32_t IIOSession::onKeepaliveSession( void * context )
 {
-	IIOSession * session = static_cast<IIOSession *>( context );
-
-	if ( session )
-	{
-		return session->onKeepalive();
-	}
-
-	return -1;
+	return static_cast<IIOSession *>(context)->onKeepalive();
 } 
 
 int32_t IIOSession::onErrorSession( void * context, int32_t result ) 
 {
-	IIOSession * session = static_cast<IIOSession *>( context );
-
-	if ( session )
-	{
-		return session->onError( result );
-	}
-
-	return -1;
+	return static_cast<IIOSession *>(context)->onError( result );
 }
 
 int32_t IIOSession::onShutdownSession( void * context ) 
 {
 	IIOSession * session = static_cast<IIOSession *>( context );
 
-	if ( session )
-	{
-		int32_t rc = session->onShutdown();
-		delete session;
-		return rc;
-	}
+	int32_t rc = session->onShutdown();
+	delete session;
 
-	return -1;
+	return rc;
 }
 
 // ----------------------------------------------------------------------------
@@ -223,8 +177,8 @@ int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host
 	{
 		return -1;
 	}
-
 	service->attach( id, session );
+
 	return 0;
 }
 
@@ -243,8 +197,8 @@ int32_t IIOService::onConnectSession( void * context, int32_t result, const char
 	{
 		return -1;
 	}
-
 	service->attach( id, session );
+
 	return 0;
 }
 

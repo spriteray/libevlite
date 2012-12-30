@@ -18,7 +18,6 @@ class IIOService;
 class IIOSession
 {
 public :
-
 	IIOSession() 
 		: m_Sid( 0 ),
 		  m_Layer( NULL )

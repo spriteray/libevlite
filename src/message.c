@@ -9,20 +9,21 @@
 
 #include "message.h"
 
+#define MIN_BUFFER_LENGTH		64
+
 static void _align( struct buffer * self );
 static int32_t _expand( struct buffer * self, uint32_t length );
 
 void _align( struct buffer * self )
 {
 	memmove( self->orignbuffer, self->buffer, self->length );
-
 	self->buffer = self->orignbuffer;
-	self->offset = 0;
 }
 
 int32_t _expand( struct buffer * self, uint32_t length )
 {
-	uint32_t needlength = self->offset + self->length + length;
+	uint32_t offset = self->buffer - self->orignbuffer;
+	uint32_t needlength = offset + self->length + length;
 
 	if ( needlength <= self->totallen )
 	{
@@ -38,9 +39,9 @@ int32_t _expand( struct buffer * self, uint32_t length )
 		void * newbuffer = NULL;
 		uint32_t newlength = self->totallen;
 
-		if ( newlength < 64 )
+		if ( newlength < MIN_BUFFER_LENGTH )
 		{
-			newlength = 64;
+			newlength = MIN_BUFFER_LENGTH;
 		}
 		for ( ; newlength < needlength; )
 		{
@@ -72,7 +73,6 @@ int32_t buffer_set( struct buffer * self, char * buf, uint32_t length )
 		free( self->orignbuffer );
 	}
 	
-	self->offset = 0;
 	self->buffer = self->orignbuffer = buf;
 	self->length = self->totallen = length;
 	
@@ -84,13 +84,11 @@ int32_t buffer_erase( struct buffer * self, uint32_t length )
 	if ( self->length <= length )
 	{
 		self->length = 0;
-		self->offset = 0;
 		self->buffer = self->orignbuffer;
 	}
 	else
 	{
 		self->buffer += length;
-		self->offset += length;
 		self->length -= length;
 	}
 	
@@ -99,11 +97,12 @@ int32_t buffer_erase( struct buffer * self, uint32_t length )
 
 int32_t buffer_append( struct buffer * self, char * buf, uint32_t length )
 {
-	uint32_t needlength = self->offset + self->length + length;
+	uint32_t offset = self->buffer - self->orignbuffer;
+	uint32_t needlength = offset + self->length + length;
 	
 	if ( needlength > self->totallen )
 	{
-		if ( _expand(self,  length) == -1 )
+		if ( _expand(self, length) == -1 )
 		{
 			return -1;
 		}
@@ -125,15 +124,12 @@ uint32_t buffer_take( struct buffer * self, char * buf, uint32_t length )
 	return length;
 }
 
-void buffer_exchange( struct buffer * buf1, struct buffer * buf2 )
+void buffer_swap( struct buffer * buf1, struct buffer * buf2 )
 {
-	struct buffer tmpbuf;
-	
-	memcpy( &tmpbuf, buf1, sizeof(struct buffer) );
-	memcpy( buf1, buf2, sizeof(struct buffer) );
-	memcpy( buf2, &tmpbuf, sizeof(struct buffer) );
-	
-	return;
+	struct buffer tmpbuf = *buf1;
+
+	*buf1 = *buf2;
+	*buf2 = tmpbuf;
 }
 
 int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )

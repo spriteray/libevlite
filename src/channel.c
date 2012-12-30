@@ -50,7 +50,7 @@ int32_t _transmit( struct session * session )
 	struct iovec iov_array[iov_max];
 	memset( iov_array, 0, sizeof(iov_array) );
 
-	for ( i = 0; i < QUEUE_COUNT(sendqueue)(&session->sendqueue) && iov_size < iov_max; ++i )
+	for ( i = 0; i < session_sendqueue_count(session) && iov_size < iov_max; ++i )
 	{
 		struct message * message = NULL;
 
@@ -75,7 +75,7 @@ int32_t _transmit( struct session * session )
 	{
 		offsets = session->msgoffsets + writen;
 
-		for ( ; QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0; )
+		for ( ; session_sendqueue_count(session) > 0; )
 		{
 			struct message * message = NULL;
 			
@@ -98,7 +98,7 @@ int32_t _transmit( struct session * session )
 		session->msgoffsets = offsets;
 	}
 
-	if ( writen > 0 && QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
+	if ( writen > 0 && session_sendqueue_count(session) > 0 )
 	{
 		int32_t againlen = _transmit( session );
 		if ( againlen > 0 )
@@ -318,7 +318,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 
 	if ( ev & EV_WRITE )
 	{
-		if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
+		if ( session_sendqueue_count(session) > 0 )
 		{
 			// 发送数据
 			int32_t writen = _transmit( session );
@@ -330,7 +330,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 			{
 				// 正常发送 或者 socket缓冲区已满
 
-				if ( QUEUE_COUNT(sendqueue)(&session->sendqueue) > 0 )
+				if ( session_sendqueue_count(session) > 0 )
 				{
 					// NOTICE: 为什么不判断会话是否正在终止呢?
 					// 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
@@ -399,7 +399,47 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 	return;
 }
 
-void channel_on_connect( int32_t fd, int16_t ev, void * arg )
+void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
+{
+	struct session * session = (struct session *)arg;
+	ioservice_t * service = &session->service;
+
+	session->status &= ~SESSION_KEEPALIVING;
+
+	if ( service->keepalive( session->context ) == 0 )
+	{
+		// 逻辑层需要继续发送保活包
+		session_start_keepalive( session );
+	}
+
+	return;
+}
+
+void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
+{
+	struct session * session = (struct session *)arg;
+
+	session->status &= ~SESSION_WRITING;
+
+	// 连接远程服务器
+	session->fd = tcp_connect( session->host, session->port, 1 );
+	if ( session->fd < 0 )
+	{
+		channel_error( session, eIOError_ConnectFailure );
+		return;
+	}
+
+	// 注册写事件, 以重新激活会话
+	event_set( session->evwrite, session->fd, EV_WRITE );
+	event_set_callback( session->evwrite, channel_on_reconnected, session );
+	evsets_add( session->evsets, session->evwrite, 0 );
+
+	session->status |= SESSION_WRITING;
+
+	return;
+}
+
+void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 {
 	int32_t rc = 0, result = 0;
 	struct connector * connector = (struct connector *)arg;
@@ -425,6 +465,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	
 	if ( result == 0 )
 	{
+		// 连接成功的情况下, 创建会话
 		session = iolayer_alloc_session( layer, connector->fd );
 		if ( session == NULL )
 		{
@@ -471,7 +512,7 @@ void channel_on_connect( int32_t fd, int16_t ev, void * arg )
 	return;
 }
 
-void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
+void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 {
 	struct session * session = (struct session *)arg;
 
@@ -502,46 +543,6 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 		_timeout( session );
 	}
 	
-	return;
-}
-
-void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
-{
-	struct session * session = (struct session *)arg;
-	ioservice_t * service = &session->service;
-
-	session->status &= ~SESSION_KEEPALIVING;
-	
-	if ( service->keepalive( session->context ) == 0 )
-	{
-		// 逻辑层需要继续发送保活包
-		session_start_keepalive( session );
-	}	
-
-	return;
-}
-
-void channel_on_tryreconnect( int32_t fd, int16_t ev, void * arg )
-{
-	struct session * session = (struct session *)arg;
-
-	session->status &= ~SESSION_WRITING;
-	
-	// 连接远程服务器
-	session->fd = tcp_connect( session->host, session->port, 1 ); 
-	if ( session->fd < 0 )
-	{
-		channel_error( session, eIOError_ConnectFailure );
-		return;
-	}
-	
-	// 注册写事件, 以重新激活会话
-	event_set( session->evwrite, session->fd, EV_WRITE );
-	event_set_callback( session->evwrite, channel_on_reconnect, session );
-	evsets_add( session->evsets, session->evwrite, 0 );
-
-	session->status |= SESSION_WRITING;
-
 	return;
 }
 
