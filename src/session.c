@@ -481,7 +481,7 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 		{
 			break;
 		}
-		
+
 		entries = entries->next;
 	}
 
@@ -496,7 +496,7 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 			entries->next = node;
 		}
 	}
-	
+
 	return node;
 }
 
@@ -517,7 +517,7 @@ int32_t _append_session( struct hashtable * table, struct session * s )
 
 	++table->count;
 	node->session = s;
-	
+
 	return 0;
 }
 
@@ -552,10 +552,10 @@ int32_t _remove_session( struct hashtable * table, struct session * s )
 	}
 
 	assert( node->session == s );
-	
+
 	--table->count;
 	node->session = NULL;
-	
+
 	return 0;	
 }
 

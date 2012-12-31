@@ -77,7 +77,7 @@ int32_t _transmit( struct session * session )
 		for ( ; session_sendqueue_count(session) > 0; )
 		{
 			struct message * message = NULL;
-			
+
 			QUEUE_TOP(sendqueue)( &session->sendqueue, &message );
 			if ( offsets < message_get_length(message) )
 			{
@@ -86,7 +86,7 @@ int32_t _transmit( struct session * session )
 
 			QUEUE_POP(sendqueue)( &session->sendqueue, &message );
 			offsets -= message_get_length(message);
-			
+
 			message_add_success( message );
 			if ( message_is_complete(message) )
 			{
@@ -157,10 +157,10 @@ int32_t _process( struct session * session )
 	{
 		char * buffer = buffer_data( &session->inbuffer );
 		uint32_t nbytes = buffer_length( &session->inbuffer );
-		
+
 		// 回调逻辑层
 		nprocess = service->process(
-						session->context, buffer, nbytes );
+				session->context, buffer, nbytes );
 		if ( nprocess > 0 )
 		{
 			buffer_erase( &session->inbuffer, nprocess );
@@ -182,7 +182,7 @@ int32_t _timeout( struct session * session )
 	rc = service->timeout( session->context );
 
 	if ( rc != 0
-		|| ( session->status&SESSION_EXITING ) )
+			|| ( session->status&SESSION_EXITING ) )
 	{
 		// 等待终止的会话
 		// 逻辑层需要终止的会话
@@ -356,7 +356,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 	{
 		// 等待关闭的会话写事件超时的情况下
 		// 不管发送队列如何, 直接终止会话
-		
+
 		assert( session->status&SESSION_EXITING );
 		channel_shutdown( session );
 	}
@@ -460,7 +460,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 	{
 		result = eIOError_Timeout;
 	}
-	
+
 	if ( result == 0 )
 	{
 		// 连接成功的情况下, 创建会话
@@ -529,7 +529,7 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 
 		set_non_block( fd );
 		session->service.start( session->context );
-		
+
 		// 注册读写事件
 		// 把积累下来的数据全部发送出去
 		session_add_event( session, EV_READ );
@@ -540,7 +540,7 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 	{
 		_timeout( session );
 	}
-	
+
 	return;
 }
 

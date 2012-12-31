@@ -38,32 +38,6 @@ static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _new_managers( struct iolayer * self )
-{
-	uint8_t i = 0;
-	uint32_t sessions_per_thread = self->nclients/self->nthreads; 
-
-	// 会话管理器, 
-	// 采用cacheline对齐以提高访问速度
-	self->managers = calloc( (self->nthreads)<<3, sizeof(void *) );
-	if ( self->managers == NULL )
-	{
-		return -1;
-	}
-	for ( i = 0; i < self->nthreads; ++i )
-	{
-		uint32_t index = i<<3;
-
-		self->managers[index] = session_manager_create( i, sessions_per_thread );
-		if ( self->managers[index] == NULL )
-		{
-			return -2;
-		}
-	}
-
-	return 0;
-}
-
 // 创建网络通信层
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 {
@@ -136,8 +110,8 @@ void iolayer_destroy( iolayer_t self )
 //							参数4: 会话的端口号
 //		context		- 上下文参数
 int32_t iolayer_listen( iolayer_t self, 
-						const char * host, uint16_t port, 
-						int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context )
+		const char * host, uint16_t port, 
+		int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context )
 {
 	struct iolayer * layer = (struct iolayer *)self;
 
@@ -171,7 +145,7 @@ int32_t iolayer_listen( iolayer_t self,
 	{
 		strncpy( acceptor->host, host, INET_ADDRSTRLEN );
 	}
-	
+
 	iothreads_post( layer->group, (acceptor->fd%layer->nthreads), eIOTaskType_Listen, acceptor, 0 );	
 
 	return 0;
@@ -189,8 +163,8 @@ int32_t iolayer_listen( iolayer_t self,
 //							参数5: 连接成功后返回的会话ID
 //		context		- 上下文参数
 int32_t iolayer_connect( iolayer_t self,
-						const char * host, uint16_t port, int32_t seconds, 
-						int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context	)
+		const char * host, uint16_t port, int32_t seconds, 
+		int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context	)
 {
 	struct iolayer * layer = (struct iolayer *)self;
 
@@ -348,7 +322,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 		uint32_t count = sidlist_count( listgroup[i] );
 
 		// p2p
-		
+
 		if ( count == 1 )
 		{
 			sid_t id = sidlist_get( listgroup[i], 0 );
@@ -360,9 +334,9 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			sidlist_destroy( listgroup[i] );
 			continue;
 		}
-		
+
 		// broadcast
-		
+
 		struct message * msg = message_create();
 		if ( msg == NULL )
 		{
@@ -405,7 +379,7 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
 		return -1;
 	}
-	
+
 	// 避免在回调函数中直接终止会话
 	// 这样会引发后续对会话的操作都非法了
 #if 0
@@ -493,7 +467,7 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	{
 		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
 	}
-	
+
 	return _connect_direct( event_get_sets(connector->event), connector );
 }
 
@@ -535,6 +509,32 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+int32_t _new_managers( struct iolayer * self )
+{
+	uint8_t i = 0;
+	uint32_t sessions_per_thread = self->nclients/self->nthreads; 
+
+	// 会话管理器, 
+	// 采用cacheline对齐以提高访问速度
+	self->managers = calloc( (self->nthreads)<<3, sizeof(void *) );
+	if ( self->managers == NULL )
+	{
+		return -1;
+	}
+	for ( i = 0; i < self->nthreads; ++i )
+	{
+		uint32_t index = i<<3;
+
+		self->managers[index] = session_manager_create( i, sessions_per_thread );
+		if ( self->managers[index] == NULL )
+		{
+			return -2;
+		}
+	}
+
+	return 0;
+}
 
 struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
 {
@@ -598,7 +598,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 	}
 
 	// 跨线程提交发送任务
-	
+
 	if ( isfree == 0 )
 	{
 		task.buf = (char *)malloc( nbytes );
@@ -625,13 +625,13 @@ void _socket_option( int32_t fd )
 {
 	int32_t flag = 0;
 	struct linger ling;
-	
+
 	// Socket非阻塞
 	set_non_block( fd );
-	
+
 	flag = 1;
 	setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
-	
+
 	flag = 1;
 	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
@@ -643,15 +643,15 @@ void _socket_option( int32_t fd )
 	ling.l_linger = 0; 
 #endif
 	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
-	
+
 	// 发送接收缓冲区
 #if SEND_BUFFER_SIZE > 0
-//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
-//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
 #endif
 #if RECV_BUFFER_SIZE > 0
-//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
-//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
 
 	return;
@@ -660,7 +660,7 @@ void _socket_option( int32_t fd )
 int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 {
 	// 开始关注accept事件
-	
+
 	event_set( acceptor->event, acceptor->fd, EV_READ|EV_PERSIST );
 	event_set_callback( acceptor->event, channel_on_accept, acceptor );
 	evsets_add( sets, acceptor->event, 0 );
@@ -671,7 +671,7 @@ int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 int32_t _connect_direct( evsets_t sets, struct connector * connector )
 {
 	// 开始关注连接事件
-	
+
 	event_set( connector->event, connector->fd, EV_WRITE|EV_PERSIST );
 	event_set_callback( connector->event, channel_on_connected, connector );
 	evsets_add( sets, connector->event, connector->seconds );
@@ -682,17 +682,17 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task )
 {
 	int32_t rc = 0;
-	
+
 	// 会话管理器分配会话
 	struct session * session = session_manager_alloc( manager );
 	if ( session == NULL )
 	{
 		syslog(LOG_WARNING, 
-			"%s(fd:%d, host:'%s', port:%d) failed .", __FUNCTION__, task->fd, task->host, task->port );
+				"%s(fd:%d, host:'%s', port:%d) failed .", __FUNCTION__, task->fd, task->host, task->port );
 		close( task->fd );
 		return -1;
 	}
-	
+
 	// 回调逻辑层, 确定是否接收这个会话
 	rc = task->cb( task->context, session->id, task->host, task->port );
 	if ( rc != 0 )
@@ -702,10 +702,10 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 		close( task->fd );
 		return 1;
 	}
-	
+
 	session_set_endpoint( session, task->host, task->port );
 	session_start( session, eSessionType_Once, task->fd, sets );
-	
+
 	return 0;
 }
 
@@ -747,7 +747,7 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 			message_add_failure( msg, id );
 			continue;
 		}
-		
+
 		int32_t rc = session_append( session, msg );
 		if ( rc >= 0 )
 		{
@@ -811,57 +811,57 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 	// 获取事件集以及会话管理器
 	evsets_t sets = iothreads_get_sets( layer->group, index );
 	struct session_manager * manager = _get_manager( layer, index );
-	
+
 	switch ( type )
 	{
-	case eIOTaskType_Listen :
-		{
-			// 打开一个服务器
-			_listen_direct( sets, (struct acceptor *)task );
-		}
-		break;
+		case eIOTaskType_Listen :
+			{
+				// 打开一个服务器
+				_listen_direct( sets, (struct acceptor *)task );
+			}
+			break;
 
-	case eIOTaskType_Connect :
-		{
-			// 连接远程服务器
-			_connect_direct( sets, (struct connector *)task );
-		}
-		break;
+		case eIOTaskType_Connect :
+			{
+				// 连接远程服务器
+				_connect_direct( sets, (struct connector *)task );
+			}
+			break;
 
-	case eIOTaskType_Assign :
-		{
-			// 分配一个描述符
-			_assign_direct( manager, sets, (struct task_assign *)task );
-		}
-		break;
+		case eIOTaskType_Assign :
+			{
+				// 分配一个描述符
+				_assign_direct( manager, sets, (struct task_assign *)task );
+			}
+			break;
 
-	case eIOTaskType_Send :
-		{
-			// 发送数据
-			_send_direct( manager, (struct task_send *)task );
-		}
-		break;
+		case eIOTaskType_Send :
+			{
+				// 发送数据
+				_send_direct( manager, (struct task_send *)task );
+			}
+			break;
 
-	case eIOTaskType_Broadcast :
-		{
-			// 广播数据
-			_broadcast_direct( manager, (struct message *)task );
-		}
-		break;
+		case eIOTaskType_Broadcast :
+			{
+				// 广播数据
+				_broadcast_direct( manager, (struct message *)task );
+			}
+			break;
 
-	case eIOTaskType_Shutdown :
-		{
-			// 终止一个会话
-			_shutdown_direct( manager, *( (sid_t *)task ) );
-		}
-		break;
+		case eIOTaskType_Shutdown :
+			{
+				// 终止一个会话
+				_shutdown_direct( manager, *( (sid_t *)task ) );
+			}
+			break;
 
-	case eIOTaskType_Shutdowns :
-		{
-			// 批量终止多个会话
-			_shutdowns_direct( manager, (struct sidlist *)task );
-		}
-		break;
+		case eIOTaskType_Shutdowns :
+			{
+				// 批量终止多个会话
+				_shutdowns_direct( manager, (struct sidlist *)task );
+			}
+			break;
 	}
 
 	return;
