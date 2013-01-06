@@ -459,18 +459,23 @@ int32_t evsets_process_active( struct eventset * self )
 
 	for ( ev = TAILQ_FIRST(activelist); ev; ev = TAILQ_FIRST(activelist) )
 	{
-		++rc;
-
-		if ( ev->events & EV_PERSIST )
-		{
-			event_list_remove( self, ev, EVSTATUS_ACTIVE );
-		}
-		else
+		if ( !(ev->events&EV_PERSIST) )
 		{
 			evsets_del( self, (event_t)ev );
 		}
+		else
+		{
+			event_list_remove( self, ev, EVSTATUS_ACTIVE );
+
+			// Timeouts and persistent events work together
+			if ( ev->results&EV_TIMEOUT )
+			{
+				event_list_insert( self, ev, EVSTATUS_TIMER );
+			}
+		}
 
 		// »Øµ÷
+		++rc;
 		(*ev->cb)( event_get_fd((event_t)ev), ev->results, ev->arg );
 	}
 
