@@ -50,13 +50,14 @@ struct connector
 
 	// 连接事件
 	event_t		event;
+	evsets_t	evsets;
 
 	// 连接服务器的地址和端口号
 	char		host[INET_ADDRSTRLEN];
 	uint16_t	port;
 
 	// 逻辑
-	int32_t		seconds;
+	int32_t		mseconds;
 	void *		context;
 	int32_t		(*cb)( void *, int32_t, const char *, uint16_t, sid_t);
 

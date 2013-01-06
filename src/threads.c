@@ -17,7 +17,7 @@
 // nthreads		- 网络线程组中的线程数
 // method		- 任务处理函数
 iothreads_t iothreads_start( uint8_t nthreads, 
-					void (*method)(void *, uint8_t, int16_t, void *), void * context )
+		void (*method)(void *, uint8_t, int16_t, void *), void * context )
 {
 	uint8_t i = 0;
 	struct iothreads * iothreads = NULL;
@@ -27,7 +27,7 @@ iothreads_t iothreads_start( uint8_t nthreads,
 	{
 		return NULL;
 	}
-	
+
 	iothreads->threadgroup = calloc( nthreads, sizeof(struct iothread) );
 	if ( iothreads->threadgroup == NULL )
 	{
@@ -138,7 +138,7 @@ void iothreads_stop( iothreads_t self )
 	{
 		iothread_stop( iothreads->threadgroup + i );
 	}
-	
+
 	pthread_cond_destroy( &iothreads->cond );
 	pthread_mutex_destroy( &iothreads->lock );
 	if ( iothreads->threadgroup )
@@ -187,12 +187,12 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 	// 启动线程
 	pthread_attr_t attr;
 	pthread_attr_init( &attr );
-//	assert( pthread_attr_setstacksize( &attr, THREAD_DEFAULT_STACK_SIZE ) );
+	//	assert( pthread_attr_setstacksize( &attr, THREAD_DEFAULT_STACK_SIZE ) );
 	pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
 
 	int32_t rc = pthread_create(&(self->id), &attr, iothread_main, self);
 	pthread_attr_destroy( &attr );
-	
+
 	if ( rc != 0 )
 	{
 		iothread_stop(self);
@@ -249,7 +249,7 @@ void * iothread_main( void * arg )
 {
 	struct iothread * thread = (struct iothread *)arg;
 	struct iothreads * parent = (struct iothreads *)(thread->parent);
-	
+
 	sigset_t mask;
 	sigfillset(&mask);
 	pthread_sigmask(SIG_SETMASK, &mask, NULL);
@@ -308,7 +308,7 @@ void * iothread_main( void * arg )
 	--parent->nrunthreads;
 	pthread_cond_signal( &parent->cond );
 	pthread_mutex_unlock( &parent->lock );
-	
+
 	return NULL;
 }
 
@@ -320,7 +320,7 @@ void iothread_on_command( int32_t fd, int16_t ev, void * arg )
 	{	
 		char buf[ 64 ];		
 		int32_t nread = 0;
-		
+
 		nread = read( fd, buf, sizeof(buf) );
 		if ( nread == -1 )
 		{

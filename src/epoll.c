@@ -178,6 +178,7 @@ int32_t epoll_add( void * arg, struct event * ev )
 
 	epollevent.data.fd = fd;
 	epollevent.events = events;
+
 	if ( epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 )
 	{
 		return -2;

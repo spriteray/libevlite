@@ -1,12 +1,10 @@
 
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
 
 #include "network-internal.h"
-
 #include "message.h"
 
 #define MIN_BUFFER_LENGTH		64
@@ -72,10 +70,10 @@ int32_t buffer_set( struct buffer * self, char * buf, uint32_t length )
 	{
 		free( self->orignbuffer );
 	}
-	
+
 	self->buffer = self->orignbuffer = buf;
 	self->length = self->totallen = length;
-	
+
 	return 0;
 }
 
@@ -91,7 +89,7 @@ int32_t buffer_erase( struct buffer * self, uint32_t length )
 		self->buffer += length;
 		self->length -= length;
 	}
-	
+
 	return 0;
 }
 
@@ -99,7 +97,7 @@ int32_t buffer_append( struct buffer * self, char * buf, uint32_t length )
 {
 	uint32_t offset = self->buffer - self->orignbuffer;
 	uint32_t needlength = offset + self->length + length;
-	
+
 	if ( needlength > self->totallen )
 	{
 		if ( _expand(self, length) == -1 )
@@ -107,20 +105,20 @@ int32_t buffer_append( struct buffer * self, char * buf, uint32_t length )
 			return -1;
 		}
 	}
-	
+
 	memcpy( self->buffer+self->length, buf, length );
 	self->length += length;
-	
+
 	return 0;
 }
 
 uint32_t buffer_take( struct buffer * self, char * buf, uint32_t length )
 {
 	length = ( length > self->length ? self->length : length );
-	
+
 	memcpy( buf, self->buffer, length );
 	buffer_erase( self, length );
-	
+
 	return length;
 }
 
