@@ -17,8 +17,6 @@
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-static int32_t _new_managers( struct iolayer * self );
-
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
@@ -30,6 +28,7 @@ static int32_t _shutdowns_direct( struct session_manager * manager, struct sidli
 static void _socket_option( int32_t fd );
 static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 
+static inline int32_t _new_managers( struct iolayer * self );
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
 static inline void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
