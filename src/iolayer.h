@@ -56,7 +56,7 @@ struct connector
 	uint16_t	port;
 
 	// Âß¼­
-	int32_t		seconds;
+	int32_t		mseconds;
 	void *		context;
 	int32_t		(*cb)( void *, int32_t, const char *, uint16_t, sid_t);
 

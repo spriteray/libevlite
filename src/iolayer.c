@@ -191,7 +191,7 @@ int32_t iolayer_connect( iolayer_t self,
 
 	connector->cb = cb;
 	connector->context = context;
-	connector->seconds = seconds;
+	connector->mseconds = seconds*1000;
 	connector->parent = self;
 	connector->port = port;
 	strncpy( connector->host, host, INET_ADDRSTRLEN );
@@ -674,7 +674,7 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 
 	event_set( connector->event, connector->fd, EV_WRITE|EV_PERSIST );
 	event_set_callback( connector->event, channel_on_connected, connector );
-	evsets_add( sets, connector->event, connector->seconds );
+	evsets_add( sets, connector->event, connector->mseconds );
 
 	return 0;
 }
