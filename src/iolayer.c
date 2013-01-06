@@ -21,6 +21,7 @@ static int32_t _new_managers( struct iolayer * self );
 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
+static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
 static int32_t _send_direct( struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct session_manager * manager, struct message * msg );
@@ -459,25 +460,22 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 	if ( connector->fd > 0 )
 	{
 		close( connector->fd );
+		connector->fd = -1;
 	}
 
-	// 尝试重新连接
-	connector->fd = tcp_connect( connector->host, connector->port, 1 );
-	if ( connector->fd < 0 )
-	{
-		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
-	}
+	// 2秒后尝试重连, 避免忙等
+	event_set( connector->event, -1, 0 );
+	event_set_callback( connector->event, _reconnect_direct, connector );
+	evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
 
-	return _connect_direct( event_get_sets(connector->event), connector );
+	return 0;
 }
 
 int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector )
 {
 	if ( connector->event )
 	{
-		evsets_t sets = event_get_sets( connector->event );
-
-		evsets_del( sets, connector->event );
+		evsets_del( connector->evsets, connector->event );
 		event_destroy( connector->event );
 		connector->event = NULL;
 	}
@@ -671,12 +669,28 @@ int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 int32_t _connect_direct( evsets_t sets, struct connector * connector )
 {
 	// 开始关注连接事件
+	connector->evsets = sets;
 
 	event_set( connector->event, connector->fd, EV_WRITE );
 	event_set_callback( connector->event, channel_on_connected, connector );
 	evsets_add( sets, connector->event, connector->mseconds );
 
 	return 0;
+}
+
+void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
+{
+	struct connector * connector = (struct connector *)arg;
+
+	// 尝试重新连接
+	connector->fd = tcp_connect( connector->host, connector->port, 1 );
+	if ( connector->fd < 0 )
+	{
+		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
+	}
+
+	_connect_direct( connector->evsets, connector );
+	return;
 }
 
 int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task )

@@ -488,11 +488,10 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 		else
 		{
 			// 连接成功
-			evsets_t sets = event_get_sets( connector->event );
-
 			set_non_block( connector->fd );
 			session_set_endpoint( session, connector->host, connector->port );
-			session_start( session, eSessionType_Persist, connector->fd, sets );
+			session_start( session, eSessionType_Persist, connector->fd, connector->evsets );
+
 			connector->fd = -1;
 			iolayer_free_connector( layer, connector );
 		}

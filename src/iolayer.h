@@ -50,6 +50,7 @@ struct connector
 
 	// 连接事件
 	event_t		event;
+	evsets_t	evsets;
 
 	// 连接服务器的地址和端口号
 	char		host[INET_ADDRSTRLEN];
