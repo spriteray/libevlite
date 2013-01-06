@@ -145,8 +145,8 @@ event_t event_create()
 		self->timer_msecs = -1;
 		self->timer_stepcnt = -1;
 
-		self->status = 0;           // 只有设置cb后,status才合法
 		self->results = 0;
+		self->status = EVSTATUS_INIT;
 	}
 
 	return (event_t)self;
@@ -168,11 +168,6 @@ void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), voi
 
 	e->cb = cb;
 	e->arg = arg;
-
-	if ( e->cb )
-	{
-		e->status = EVSTATUS_INIT;
-	}
 
 	return;
 }
@@ -263,11 +258,13 @@ const char * evsets_get_version()
 	return __EVENT_VERSION__;
 }
 
-int32_t evsets_add(evsets_t self, event_t ev, int32_t tv )
+int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 {
 	int32_t rc = 1;
 	struct event * e = (struct event *)ev;
 	struct eventset * sets = (struct eventset *)self;
+
+	assert( e->cb != NULL );
 
 	if ( e->status & ~EVSTATUS_ALL )
 	{
