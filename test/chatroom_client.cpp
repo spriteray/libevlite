@@ -97,7 +97,7 @@ public :
 	int32_t send()
 	{
 		uint16_t length = CHATROOM_MESSAGE_SIZE+sizeof(CSHead);
-		std::string msg( length, 1 );
+		std::string msg( length, 0 );
 
 		CSHead * head = (CSHead *)msg.data();
 	//	head->msgid = ((rand()%1000) % 2) == 0 ? 1 : 2;
