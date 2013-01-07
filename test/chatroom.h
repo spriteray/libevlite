@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#define CHATROOM_MESSAGE_SIZE		300
+#define CHATROOM_MESSAGE_SIZE		100
 
 #pragma pack(1)
 

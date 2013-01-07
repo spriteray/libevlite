@@ -340,7 +340,6 @@ int32_t evsets_dispatch( evsets_t self )
 {
 	int32_t res = 0;
 	int32_t seconds4wait = 0;
-
 	struct eventset * sets = (struct eventset *)self;
 
 	// Çå¿ÕÊ±¼ä»º´æ
@@ -409,7 +408,6 @@ void evsets_destroy( evsets_t self )
 		if ( !(ev->status & EVSTATUS_INTERNAL) )
 		{
 			evsets_del( self, (event_t)ev );
-			//event_destroy( (event_t)ev );
 		}
 
 		ev = next;
