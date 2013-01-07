@@ -93,6 +93,10 @@ struct task_send
 #pragma pack(1)
 #pragma pack()
 
+// socket选项
+void iolayer_server_option( int32_t fd );
+void iolayer_client_option( int32_t fd );
+
 // 分配一个会话
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key );
 

@@ -420,7 +420,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 	session->status &= ~SESSION_WRITING;
 
 	// 连接远程服务器
-	session->fd = tcp_connect( session->host, session->port, 1 );
+	session->fd = tcp_connect( session->host, session->port, iolayer_client_option );
 	if ( session->fd < 0 )
 	{
 		channel_error( session, eIOError_ConnectFailure );
