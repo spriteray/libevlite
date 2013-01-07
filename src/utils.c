@@ -140,6 +140,22 @@ int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) )
 		close( fd );
 		fd = -1;
 	}
+	
+	if ( fd >= 0 )
+	{
+		// Fix: Linux TCP Self-Connection
+		struct sockaddr_in laddr;
+		socklen_t llen = sizeof(struct sockaddr); 
+
+		rc = getsockname( fd, (struct sockaddr *)&laddr, &llen );
+		if ( rc == 0 
+				&& addr.sin_port == laddr.sin_port
+				&& addr.sin_addr.s_addr == laddr.sin_addr.s_addr )
+		{
+			close( fd );
+			fd = -1;
+		}
+	}
 
 	return fd;
 }
