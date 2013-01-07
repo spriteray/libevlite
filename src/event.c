@@ -174,16 +174,12 @@ void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), voi
 
 int32_t event_get_fd( event_t self )
 { 
-	struct event * e = (struct event *)self;
-
-	return e->fd;
+	return ((struct event *)self)->fd;
 }
 
 evsets_t event_get_sets( event_t self )
 { 
-	struct event * e = (struct event *)self;
-
-	return e->evsets;
+	return ((struct event *)self)->evsets;
 }
 
 void event_destroy( event_t self )
