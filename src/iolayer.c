@@ -433,6 +433,65 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+void iolayer_server_option( int32_t fd )
+{
+	int32_t flag = 0;
+	struct linger ling;
+
+	// Socket非阻塞
+	set_non_block( fd );
+
+	flag = 1;
+	setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
+
+	flag = 1;
+	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
+
+#if SAFE_SHUTDOWN
+	ling.l_onoff = 1;
+	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
+#else
+	ling.l_onoff = 1;
+	ling.l_linger = 0; 
+#endif
+	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+
+	// 发送接收缓冲区
+#if SEND_BUFFER_SIZE > 0
+	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+#endif
+#if RECV_BUFFER_SIZE > 0
+	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+#endif
+
+	return;
+}
+
+void iolayer_client_option( int32_t fd )
+{
+	int32_t flag = 0;
+
+	// Socket非阻塞
+	set_non_block( fd );
+
+	flag = 1;
+	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
+
+	// 发送接收缓冲区
+#if SEND_BUFFER_SIZE > 0
+	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+#endif
+#if RECV_BUFFER_SIZE > 0
+	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+#endif
+
+	return;
+}
+
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 {
 	uint8_t index = key % self->nthreads;
@@ -615,65 +674,6 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 	}
 
 	return result;
-}
-
-void iolayer_server_option( int32_t fd )
-{
-	int32_t flag = 0;
-	struct linger ling;
-
-	// Socket非阻塞
-	set_non_block( fd );
-
-	flag = 1;
-	setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
-
-	flag = 1;
-	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
-
-#if SAFE_SHUTDOWN
-	ling.l_onoff = 1;
-	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
-#else
-	ling.l_onoff = 1;
-	ling.l_linger = 0; 
-#endif
-	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
-
-	// 发送接收缓冲区
-#if SEND_BUFFER_SIZE > 0
-	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
-	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
-#endif
-#if RECV_BUFFER_SIZE > 0
-	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
-	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
-#endif
-
-	return;
-}
-
-void iolayer_client_option( int32_t fd )
-{
-	int32_t flag = 0;
-
-	// Socket非阻塞
-	set_non_block( fd );
-
-	flag = 1;
-	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
-
-	// 发送接收缓冲区
-#if SEND_BUFFER_SIZE > 0
-	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
-	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
-#endif
-#if RECV_BUFFER_SIZE > 0
-	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
-	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
-#endif
-
-	return;
 }
 
 int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
