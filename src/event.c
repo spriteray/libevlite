@@ -174,16 +174,12 @@ void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), voi
 
 int32_t event_get_fd( event_t self )
 { 
-	struct event * e = (struct event *)self;
-
-	return e->fd;
+	return ((struct event *)self)->fd;
 }
 
 evsets_t event_get_sets( event_t self )
 { 
-	struct event * e = (struct event *)self;
-
-	return e->evsets;
+	return ((struct event *)self)->evsets;
 }
 
 void event_destroy( event_t self )
@@ -344,7 +340,6 @@ int32_t evsets_dispatch( evsets_t self )
 {
 	int32_t res = 0;
 	int32_t seconds4wait = 0;
-
 	struct eventset * sets = (struct eventset *)self;
 
 	// 清空时间缓存
@@ -413,7 +408,6 @@ void evsets_destroy( evsets_t self )
 		if ( !(ev->status & EVSTATUS_INTERNAL) )
 		{
 			evsets_del( self, (event_t)ev );
-			//event_destroy( (event_t)ev );
 		}
 
 		ev = next;
@@ -459,18 +453,23 @@ int32_t evsets_process_active( struct eventset * self )
 
 	for ( ev = TAILQ_FIRST(activelist); ev; ev = TAILQ_FIRST(activelist) )
 	{
-		++rc;
-
-		if ( ev->events & EV_PERSIST )
-		{
-			event_list_remove( self, ev, EVSTATUS_ACTIVE );
-		}
-		else
+		if ( !(ev->events&EV_PERSIST) )
 		{
 			evsets_del( self, (event_t)ev );
 		}
+		else
+		{
+			event_list_remove( self, ev, EVSTATUS_ACTIVE );
+
+			// Timeouts and persistent events work together
+			if ( ev->results&EV_TIMEOUT )
+			{
+				event_list_insert( self, ev, EVSTATUS_TIMER );
+			}
+		}
 
 		// 回调
+		++rc;
 		(*ev->cb)( event_get_fd((event_t)ev), ev->results, ev->arg );
 	}
 
