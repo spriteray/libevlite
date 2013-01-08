@@ -26,6 +26,7 @@ public :
 	virtual int32_t onStart()
 	{
 		setTimeout( 60 );
+		return 0;
 	}
 
 	virtual int32_t onProcess( const char * buf, uint32_t nbytes )

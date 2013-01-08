@@ -26,13 +26,12 @@ static int32_t _broadcast_direct( struct session_manager * manager, struct messa
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids );
 
-static void _socket_option( int32_t fd );
-static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
-
 static inline int32_t _new_managers( struct iolayer * self );
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
 static inline void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
+
+static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -71,6 +70,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 // 销毁网络通信层
 void iolayer_destroy( iolayer_t self )
 {
+	uint8_t i = 0;
 	struct iolayer * layer = (struct iolayer *)self;
 
 	// 停止网络线程组
@@ -82,7 +82,6 @@ void iolayer_destroy( iolayer_t self )
 	// 销毁管理器
 	if ( layer->managers )
 	{
-		uint8_t i = 0;
 		for ( i = 0; i < layer->nthreads; ++i )
 		{
 			struct session_manager * manager = layer->managers[i<<3];	
@@ -129,7 +128,7 @@ int32_t iolayer_listen( iolayer_t self,
 		return -2;
 	}
 
-	acceptor->fd = tcp_listen( (char *)host, port, _socket_option );
+	acceptor->fd = tcp_listen( (char *)host, port, iolayer_server_option );
 	if ( acceptor->fd <= 0 )
 	{
 		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_listen() failure .", __FUNCTION__, host, port);
@@ -182,7 +181,7 @@ int32_t iolayer_connect( iolayer_t self,
 		return -2;
 	}
 
-	connector->fd = tcp_connect( (char *)host, port, 1 );
+	connector->fd = tcp_connect( (char *)host, port, iolayer_client_option );
 	if ( connector->fd <= 0 )
 	{
 		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, host, port);
@@ -305,9 +304,9 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
-
 	pthread_t threadid = pthread_self();
-	struct sidlist * listgroup[ 256 ] = {NULL};
+
+	struct sidlist * listgroup[256] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
 
 	_dispatch_sidlist( layer, listgroup, ids, count );
@@ -401,7 +400,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 	uint8_t i = 0;
 	int32_t rc = 0;
 
-	struct sidlist * listgroup[ 256 ] = {NULL};
+	struct sidlist * listgroup[256] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
 
 	_dispatch_sidlist( layer, listgroup, ids, count );
@@ -433,6 +432,65 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+void iolayer_server_option( int32_t fd )
+{
+	int32_t flag = 0;
+	struct linger ling;
+
+	// Socket非阻塞
+	set_non_block( fd );
+
+	flag = 1;
+	setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
+
+	flag = 1;
+	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
+
+#if SAFE_SHUTDOWN
+	ling.l_onoff = 1;
+	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
+#else
+	ling.l_onoff = 1;
+	ling.l_linger = 0; 
+#endif
+	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+
+	// 发送接收缓冲区
+#if SEND_BUFFER_SIZE > 0
+	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+#endif
+#if RECV_BUFFER_SIZE > 0
+	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+#endif
+
+	return;
+}
+
+void iolayer_client_option( int32_t fd )
+{
+	int32_t flag = 0;
+
+	// Socket非阻塞
+	set_non_block( fd );
+
+	flag = 1;
+	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
+
+	// 发送接收缓冲区
+#if SEND_BUFFER_SIZE > 0
+	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+#endif
+#if RECV_BUFFER_SIZE > 0
+	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
+	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+#endif
+
+	return;
+}
 
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 {
@@ -618,42 +676,6 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 	return result;
 }
 
-void _socket_option( int32_t fd )
-{
-	int32_t flag = 0;
-	struct linger ling;
-
-	// Socket非阻塞
-	set_non_block( fd );
-
-	flag = 1;
-	setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
-
-	flag = 1;
-	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
-
-#if SAFE_SHUTDOWN
-	ling.l_onoff = 1;
-	ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
-#else
-	ling.l_onoff = 1;
-	ling.l_linger = 0; 
-#endif
-	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
-
-	// 发送接收缓冲区
-#if SEND_BUFFER_SIZE > 0
-	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
-	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
-#endif
-#if RECV_BUFFER_SIZE > 0
-	//	int32_t recvbuf_size = RECV_BUFFER_SIZE;
-	//	setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
-#endif
-
-	return;
-}
-
 int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 {
 	// 开始关注accept事件
@@ -682,7 +704,7 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
 	struct connector * connector = (struct connector *)arg;
 
 	// 尝试重新连接
-	connector->fd = tcp_connect( connector->host, connector->port, 1 );
+	connector->fd = tcp_connect( connector->host, connector->port, iolayer_client_option );
 	if ( connector->fd < 0 )
 	{
 		syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
@@ -761,8 +783,7 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 			continue;
 		}
 
-		int32_t rc = session_append( session, msg );
-		if ( rc >= 0 )
+		if ( session_append(session, msg) >= 0 )
 		{
 			// 尝试单独发送
 			// 添加到发送队列成功

@@ -51,41 +51,6 @@ int32_t set_non_block( int32_t fd )
 	return rc;
 }
 
-int32_t tcp_connect( char * host, uint16_t port, int8_t isasyn )
-{
-	int32_t fd = -1;
-	int32_t rc = -1;
-
-	struct sockaddr_in addr;
-
-	fd = socket( AF_INET, SOCK_STREAM, 0 );
-	if ( fd < 0 )
-	{
-		return -1;
-	}
-
-	if ( isasyn != 0 )
-	{
-		// 指定了异步连接
-		set_non_block( fd );
-	}
-
-	memset( &addr, 0, sizeof(addr) );
-	addr.sin_family = AF_INET;
-	addr.sin_port	= htons(port);
-	inet_pton(AF_INET, host, (void *)&(addr.sin_addr.s_addr));
-
-	rc = connect( fd, (struct sockaddr *)&addr, sizeof(struct sockaddr) );
-	if ( rc == -1 && errno != EINPROGRESS )
-	{
-		// 连接出错
-		close( fd );
-		fd = -1;
-	}
-
-	return fd;
-}
-
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
 {
 	int32_t cfd = -1;
@@ -148,6 +113,52 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) )
 	return fd;
 }
 
+int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) )
+{
+	int32_t fd = -1;
+	int32_t rc = -1;
+	struct sockaddr_in addr;
+
+	fd = socket( AF_INET, SOCK_STREAM, 0 );
+	if ( fd < 0 )
+	{
+		return -1;
+	}
+
+	// 对描述符的选项操作
+	options( fd );
+
+	memset( &addr, 0, sizeof(addr) );
+	addr.sin_family = AF_INET;
+	addr.sin_port	= htons(port);
+	inet_pton(AF_INET, host, (void *)&(addr.sin_addr.s_addr));
+
+	rc = connect( fd, (struct sockaddr *)&addr, sizeof(struct sockaddr) );
+	if ( rc == -1 && errno != EINPROGRESS )
+	{
+		// 连接出错
+		close( fd );
+		fd = -1;
+	}
+	
+	if ( fd >= 0 )
+	{
+		// Fix: Linux TCP Self-Connection
+		struct sockaddr_in laddr;
+		socklen_t llen = sizeof(struct sockaddr); 
+
+		rc = getsockname( fd, (struct sockaddr *)&laddr, &llen );
+		if ( rc == 0 
+				&& addr.sin_port == laddr.sin_port
+				&& addr.sin_addr.s_addr == laddr.sin_addr.s_addr )
+		{
+			close( fd );
+			fd = -1;
+		}
+	}
+
+	return fd;
+}
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

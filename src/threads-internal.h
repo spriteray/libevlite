@@ -8,10 +8,6 @@
 // 即时性很强的网络应用需要打开这个选项
 #define POST_IOTASK_AND_NOTIFY		0
 
-// 一次从队列中批量获取任务的个数
-// 这个选项需要测试期间不断调整以适应场景的需要
-#define POP_TASKS_COUNT				512
-
 // 队列默认大小
 // 这个选项需要测试期间不断调整以适应场景的需要
 #define MSGQUEUE_DEFAULT_SIZE		8192
@@ -27,7 +23,7 @@ struct iothread
 {
 	uint8_t 	index;
 	pthread_t	id;
-	
+
 	evsets_t 	sets;
 	void *		parent;
 
@@ -37,7 +33,7 @@ struct iothread
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
 int32_t iothread_post( struct iothread * self, 
-						int16_t type, int16_t utype, void * task, uint8_t size );
+		int16_t type, int16_t utype, void * task, uint8_t size );
 int32_t iothread_stop( struct iothread * self );
 
 //
@@ -50,7 +46,7 @@ struct iothreads
 
 	void * context;
 	void (*method)( void *, uint8_t, int16_t, void *);	
-	
+
 	uint8_t nthreads;
 	uint8_t runflags;
 
