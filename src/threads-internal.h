@@ -8,10 +8,6 @@
 // 即时性很强的网络应用需要打开这个选项
 #define POST_IOTASK_AND_NOTIFY		0
 
-// 一次从队列中批量获取任务的个数
-// 这个选项需要测试期间不断调整以适应场景的需要
-#define POP_TASKS_COUNT				512
-
 // 队列默认大小
 // 这个选项需要测试期间不断调整以适应场景的需要
 #define MSGQUEUE_DEFAULT_SIZE		8192

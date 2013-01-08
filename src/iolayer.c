@@ -70,6 +70,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 // 销毁网络通信层
 void iolayer_destroy( iolayer_t self )
 {
+	uint8_t i = 0;
 	struct iolayer * layer = (struct iolayer *)self;
 
 	// 停止网络线程组
@@ -81,7 +82,6 @@ void iolayer_destroy( iolayer_t self )
 	// 销毁管理器
 	if ( layer->managers )
 	{
-		uint8_t i = 0;
 		for ( i = 0; i < layer->nthreads; ++i )
 		{
 			struct session_manager * manager = layer->managers[i<<3];	
@@ -304,9 +304,9 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
-
 	pthread_t threadid = pthread_self();
-	struct sidlist * listgroup[ 256 ] = {NULL};
+
+	struct sidlist * listgroup[256] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
 
 	_dispatch_sidlist( layer, listgroup, ids, count );
@@ -400,7 +400,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 	uint8_t i = 0;
 	int32_t rc = 0;
 
-	struct sidlist * listgroup[ 256 ] = {NULL};
+	struct sidlist * listgroup[256] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
 
 	_dispatch_sidlist( layer, listgroup, ids, count );
@@ -783,8 +783,7 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 			continue;
 		}
 
-		int32_t rc = session_append( session, msg );
-		if ( rc >= 0 )
+		if ( session_append(session, msg) >= 0 )
 		{
 			// 尝试单独发送
 			// 添加到发送队列成功
