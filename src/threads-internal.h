@@ -23,7 +23,7 @@ struct iothread
 {
 	uint8_t 	index;
 	pthread_t	id;
-	
+
 	evsets_t 	sets;
 	void *		parent;
 
@@ -33,7 +33,7 @@ struct iothread
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
 int32_t iothread_post( struct iothread * self, 
-						int16_t type, int16_t utype, void * task, uint8_t size );
+		int16_t type, int16_t utype, void * task, uint8_t size );
 int32_t iothread_stop( struct iothread * self );
 
 //
@@ -46,7 +46,7 @@ struct iothreads
 
 	void * context;
 	void (*method)( void *, uint8_t, int16_t, void *);	
-	
+
 	uint8_t nthreads;
 	uint8_t runflags;
 
