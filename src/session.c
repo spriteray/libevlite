@@ -615,6 +615,11 @@ struct session * session_manager_alloc( struct session_manager * self )
 
 struct session * session_manager_get( struct session_manager * self, sid_t id )
 {
+	if ( SID_INDEX(id) != self->index )
+	{
+		return NULL;
+	}
+
 	return _find_session( self->table, id );
 }
 

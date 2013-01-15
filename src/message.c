@@ -178,11 +178,11 @@ void message_destroy( struct message * self )
 		self->tolist = NULL;
 	}
 
-	if ( self->failurelist )
-	{
-		sidlist_destroy( self->failurelist );
-		self->failurelist = NULL;
-	}
+// 	if ( self->failurelist )
+// 	{
+// 		sidlist_destroy( self->failurelist );
+// 		self->failurelist = NULL;
+// 	}
 
 	buffer_set( &self->buffer, NULL, 0 );
 	free( self );
@@ -216,35 +216,31 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 	return 0;
 }
 
-int32_t message_add_failure( struct message * self, sid_t id )
-{
-	if ( self->failurelist == NULL )
-	{
-		self->failurelist = sidlist_create(8);
-		if ( self->failurelist == NULL )
-		{
-			return -1;
-		}
-	}
-
-	return sidlist_add( self->failurelist, id );
-}
+// int32_t message_add_failure( struct message * self, sid_t id )
+// {
+// 	if ( self->failurelist == NULL )
+// 	{
+// 		self->failurelist = sidlist_create(8);
+// 		if ( self->failurelist == NULL )
+// 		{
+// 			return -1;
+// 		}
+// 	}
+// 
+// 	return sidlist_add( self->failurelist, id );
+// }
+// 
+// int32_t message_left_count( struct message * self )
+// {
+// 	int32_t totalcount = self->tolist ? sidlist_count(self->tolist) : 0;
+// 	int32_t failurecount = self->failurelist ? sidlist_count( self->failurelist ) : 0;
+// 
+// 	return totalcount - self->nsuccess - failurecount;
+// }
 
 int32_t message_left_count( struct message * self )
 {
-	int32_t totalcount = 0;
-	int32_t failurecount = 0;
-
-	if ( self->tolist )
-	{
-		totalcount = sidlist_count( self->tolist );
-	}
-
-	if ( self->failurelist )
-	{
-		failurecount = sidlist_count( self->failurelist );
-	}
-
-	return totalcount-self->nsuccess-failurecount;
+	int32_t totalcount = self->tolist ? sidlist_count(self->tolist) : 0;
+	return totalcount - self->nsuccess - self->nfailure;
 }
 

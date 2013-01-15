@@ -54,12 +54,13 @@ int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes );
 //
 struct message
 {
-    int32_t nsuccess;
+	int32_t nsuccess;
+	int32_t nfailure;
 
-    struct sidlist * tolist;
-    struct sidlist * failurelist;
-    
-    struct buffer 	buffer;
+	struct sidlist * tolist;
+//	struct sidlist * failurelist;
+
+	struct buffer 	buffer;
 };
 
 // 创建/销毁 消息
@@ -72,7 +73,8 @@ int32_t message_add_receiver( struct message * self, sid_t id );
 int32_t message_set_receivers( struct message * self, struct sidlist * ids );
 
 //
-int32_t message_add_failure( struct message * self, sid_t id );
+//int32_t message_add_failure( struct message * self, sid_t id );
+#define message_add_failure( self, id )				++((self)->nfailure)
 #define message_add_success( self )					++((self)->nsuccess)
 
 // 添加/设置 消息的数据
