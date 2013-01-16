@@ -71,7 +71,7 @@ int32_t _del_session( struct session * self )
 	}
 
 	QUEUE_CLEAR(sendqueue)(&self->sendqueue);
-	buffer_set( &self->inbuffer, NULL, 0 );
+	buffer_clear( &self->inbuffer );
 	free( self );
 
 	return 0;
@@ -461,8 +461,8 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 
 	struct hashnode * node = NULL;
 	struct hashnode * entries = table->entries + bucket;
-
-	while ( 1 )
+	
+	do
 	{
 		if ( entries->session != NULL )
 		{
@@ -484,6 +484,7 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 
 		entries = entries->next;
 	}
+	while ( 1 );
 
 	if ( node == NULL && flag != 0 )
 	{

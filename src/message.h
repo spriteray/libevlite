@@ -17,11 +17,14 @@ extern "C"
 struct buffer
 {
 	uint32_t length;		// 有效数据段的长度
-	uint32_t totallen;		// 内存块的总长度
+	uint32_t capacity;		// 内存块的总长度
 
 	char * buffer;			// 有效数据段
 	char * orignbuffer;		// 原始数据段
 };
+
+int32_t buffer_init( struct buffer * self );
+#define buffer_clear( self )	buffer_set( (self), NULL, 0 );
 
 // 设置缓冲区
 // 速度快, 不存在内存copy, buf一定是malloc()出来的内存地址
@@ -54,12 +57,13 @@ int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes );
 //
 struct message
 {
-    int32_t nsuccess;
+	int32_t nsuccess;
+	int32_t nfailure;
 
-    struct sidlist * tolist;
-    struct sidlist * failurelist;
-    
-    struct buffer 	buffer;
+	struct sidlist * tolist;
+//	struct sidlist * failurelist;
+
+	struct buffer 	buffer;
 };
 
 // 创建/销毁 消息
@@ -69,10 +73,12 @@ void message_destroy( struct message * self );
 // 增加消息的接收者
 // 设置消息的接收列表
 int32_t message_add_receiver( struct message * self, sid_t id );
+int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t count );
 int32_t message_set_receivers( struct message * self, struct sidlist * ids );
 
-//
-int32_t message_add_failure( struct message * self, sid_t id );
+// 增加消息计数器
+//int32_t message_add_failure( struct message * self, sid_t id );
+#define message_add_failure( self, id )				++((self)->nfailure)
 #define message_add_success( self )					++((self)->nsuccess)
 
 // 添加/设置 消息的数据
@@ -80,10 +86,9 @@ int32_t message_add_failure( struct message * self, sid_t id );
 #define message_add_buffer( self, buf, nbytes ) 	buffer_append( &((self)->buffer), (buf), (nbytes) )
 
 // 消息是否完全发送
-int32_t message_left_count( struct message * self );
-#define message_is_complete( self ) 				( message_left_count( (self) ) == 0 )
+int32_t message_is_complete( struct message * self );
 
-// 获取消息数据的长度以及内
+// 获取消息数据的长度以及内容
 #define message_get_buffer( self )					buffer_data( &((self)->buffer) )
 #define message_get_length( self ) 					buffer_length( &((self)->buffer) )
 

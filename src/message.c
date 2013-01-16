@@ -23,27 +23,27 @@ int32_t _expand( struct buffer * self, uint32_t length )
 	uint32_t offset = self->buffer - self->orignbuffer;
 	uint32_t needlength = offset + self->length + length;
 
-	if ( needlength <= self->totallen )
+	if ( needlength <= self->capacity )
 	{
 		return 0;
 	}
 
-	if ( self->totallen - self->length >= length )
+	if ( self->capacity - self->length >= length )
 	{
 		_align( self );
 	}
 	else
 	{
 		void * newbuffer = NULL;
-		uint32_t newlength = self->totallen;
+		uint32_t newcapacity = self->capacity;
 
-		if ( newlength < MIN_BUFFER_LENGTH )
+		if ( newcapacity < MIN_BUFFER_LENGTH )
 		{
-			newlength = MIN_BUFFER_LENGTH;
+			newcapacity = MIN_BUFFER_LENGTH;
 		}
-		for ( ; newlength < needlength; )
+		for ( ; newcapacity < needlength; )
 		{
-			newlength <<= 1;
+			newcapacity <<= 1;
 		}
 
 		if ( self->orignbuffer != self->buffer )
@@ -51,16 +51,25 @@ int32_t _expand( struct buffer * self, uint32_t length )
 			_align( self );
 		}
 
-		newbuffer = (char *)realloc( self->orignbuffer, newlength );
+		newbuffer = (char *)realloc( self->orignbuffer, newcapacity );
 		if ( newbuffer == NULL )
 		{
 			return -1;
 		}
 
-		self->totallen = newlength;
+		self->capacity = newcapacity;
 		self->orignbuffer = self->buffer = newbuffer;
 	}
 
+	return 0;
+}
+
+int32_t buffer_init( struct buffer * self )
+{
+	self->length = 0;
+	self->capacity = 0;
+	self->buffer = NULL;
+	self->orignbuffer = NULL;
 	return 0;
 }
 
@@ -72,7 +81,7 @@ int32_t buffer_set( struct buffer * self, char * buf, uint32_t length )
 	}
 
 	self->buffer = self->orignbuffer = buf;
-	self->length = self->totallen = length;
+	self->length = self->capacity = length;
 
 	return 0;
 }
@@ -98,7 +107,7 @@ int32_t buffer_append( struct buffer * self, char * buf, uint32_t length )
 	uint32_t offset = self->buffer - self->orignbuffer;
 	uint32_t needlength = offset + self->length + length;
 
-	if ( needlength > self->totallen )
+	if ( needlength > self->capacity )
 	{
 		if ( _expand(self, length) == -1 )
 		{
@@ -167,7 +176,16 @@ int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )
 
 struct message * message_create()
 {
-	return (struct message *)calloc( 1, sizeof(struct message) );
+	struct message * self = (struct message *)malloc( sizeof(struct message) );
+	if ( self != NULL )
+	{
+		self->nfailure = 0;
+		self->nsuccess = 0;
+		self->tolist = NULL;
+		buffer_init( &self->buffer );
+	}
+
+	return self;
 }
 
 void message_destroy( struct message * self )
@@ -178,13 +196,13 @@ void message_destroy( struct message * self )
 		self->tolist = NULL;
 	}
 
-	if ( self->failurelist )
-	{
-		sidlist_destroy( self->failurelist );
-		self->failurelist = NULL;
-	}
+// 	if ( self->failurelist )
+// 	{
+// 		sidlist_destroy( self->failurelist );
+// 		self->failurelist = NULL;
+// 	}
 
-	buffer_set( &self->buffer, NULL, 0 );
+	buffer_clear( &self->buffer );
 	free( self );
 
 	return;
@@ -204,6 +222,20 @@ int32_t message_add_receiver( struct message * self, sid_t id )
 	return sidlist_add( self->tolist, id );
 }
 
+int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t count )
+{
+	if ( self->tolist == NULL )
+	{
+		self->tolist = sidlist_create(count);
+		if ( self->tolist == NULL )
+		{
+			return -1;
+		}
+	}
+
+	return sidlist_adds( self->tolist, ids, count );
+}
+
 int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 {
 	if ( self->tolist )
@@ -216,35 +248,31 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 	return 0;
 }
 
-int32_t message_add_failure( struct message * self, sid_t id )
+// int32_t message_add_failure( struct message * self, sid_t id )
+// {
+// 	if ( self->failurelist == NULL )
+// 	{
+// 		self->failurelist = sidlist_create(8);
+// 		if ( self->failurelist == NULL )
+// 		{
+// 			return -1;
+// 		}
+// 	}
+// 
+// 	return sidlist_add( self->failurelist, id );
+// }
+// 
+// int32_t message_is_complete( struct message * self )
+// {
+// 	int32_t totalcount = self->tolist ? sidlist_count(self->tolist) : 0;
+// 	int32_t failurecount = self->failurelist ? sidlist_count( self->failurelist ) : 0;
+// 
+// 	return (totalcount == self->nsuccess - failurecount);
+// }
+
+int32_t message_is_complete( struct message * self )
 {
-	if ( self->failurelist == NULL )
-	{
-		self->failurelist = sidlist_create(8);
-		if ( self->failurelist == NULL )
-		{
-			return -1;
-		}
-	}
-
-	return sidlist_add( self->failurelist, id );
-}
-
-int32_t message_left_count( struct message * self )
-{
-	int32_t totalcount = 0;
-	int32_t failurecount = 0;
-
-	if ( self->tolist )
-	{
-		totalcount = sidlist_count( self->tolist );
-	}
-
-	if ( self->failurelist )
-	{
-		failurecount = sidlist_count( self->failurelist );
-	}
-
-	return totalcount-self->nsuccess-failurecount;
+	int32_t totalcount = self->tolist ? sidlist_count(self->tolist) : 0;
+	return ( totalcount == self->nsuccess + self->nfailure );
 }
 

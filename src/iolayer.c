@@ -19,7 +19,6 @@
 
 static inline int32_t _new_managers( struct iolayer * self );
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
-static inline void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count );
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
@@ -27,9 +26,9 @@ static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
 static int32_t _send_direct( struct session_manager * manager, struct task_send * task );
-static int32_t _broadcast_direct( struct session_manager * manager, struct message * msg );
+static int32_t _broadcast_direct( uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
-static int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids );
+static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 
 static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 
@@ -301,54 +300,26 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes )
 {
-	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
+
 	pthread_t threadid = pthread_self();
-
-	struct sidlist * listgroup[256] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
-
-	_dispatch_sidlist( layer, listgroup, ids, count );
 
 	for ( i = 0; i < layer->nthreads; ++i )
 	{
-		if ( listgroup[i] == NULL )
-		{
-			continue;
-		}
-
-		uint32_t count = sidlist_count( listgroup[i] );
-
-		// p2p
-
-		if ( count == 1 )
-		{
-			sid_t id = sidlist_get( listgroup[i], 0 );
-			if ( _send_buffer( layer, id, buf, nbytes, 0 ) == 0 )
-			{
-				rc += 1;
-			}
-			// 销毁listgroup[i]
-			sidlist_destroy( listgroup[i] );
-			continue;
-		}
-
-		// broadcast
-
 		struct message * msg = message_create();
 		if ( msg == NULL )
 		{
-			sidlist_destroy( listgroup[i] );
 			continue;
 		}
+		message_add_receivers( msg, ids, count );
 		message_add_buffer( msg, (char *)buf, nbytes );
-		message_set_receivers( msg, listgroup[i] );
 
 		if ( threadid == iothreads_get_id( layer->group, i ) )
 		{
 			// 本线程内直接广播
-			_broadcast_direct( _get_manager(layer, i), msg );
+			_broadcast_direct( i, _get_manager(layer, i), msg );
 		}
 		else
 		{
@@ -361,7 +332,6 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 			}
 		}
 
-		// listgroup[i] 会在message中销毁
 		rc += count;
 	}
 
@@ -396,33 +366,30 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 {
-	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
-
-	struct sidlist * listgroup[256] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
-
-	_dispatch_sidlist( layer, listgroup, ids, count );
 
 	for ( i = 0; i < layer->nthreads; ++i )
 	{
-		if ( listgroup[i] == NULL )
+		struct sidlist * list = sidlist_create( count );
+		if ( list == NULL )
 		{
 			continue;
 		}
+		sidlist_adds( list, ids, count );
 
 		// 参照iolayer_shutdown()
 
 		// 跨线程提交批量终止任务
-		int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, listgroup[i], 0 );
+		int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, list, 0 );
 		if ( result != 0 )
 		{
-			sidlist_destroy( listgroup[i] );
+			sidlist_destroy( list );
 			continue;
 		}
 
-		rc += sidlist_count( listgroup[i] );
+		rc += count;
 	}
 
 	return rc;
@@ -601,35 +568,6 @@ struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
 	return (struct session_manager *)( self->managers[index<<3] );
 }
 
-void _dispatch_sidlist( struct iolayer * self, struct sidlist ** listgroup, sid_t * ids, uint32_t count )
-{
-	uint32_t i = 0;
-
-	for ( i = 0; i < count; ++i )
-	{
-		uint8_t index = SID_INDEX( ids[i] );
-
-		if ( index >= self->nthreads )
-		{
-			continue;
-		}
-
-		// list未创建
-		if ( listgroup[index] == NULL )
-		{
-			listgroup[index] = sidlist_create( count );
-		}
-
-		// 添加到list中
-		if ( listgroup[index] )
-		{
-			sidlist_add( listgroup[index], ids[i] );
-		}
-	}
-
-	return;
-}
-
 int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree )
 {
 	int32_t result = 0;
@@ -767,7 +705,7 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 	return rc;
 }
 
-int32_t _broadcast_direct( struct session_manager * manager, struct message * msg )
+int32_t _broadcast_direct( uint8_t index, struct session_manager * manager, struct message * msg )
 {
 	uint32_t i = 0;
 	int32_t count = 0;
@@ -775,8 +713,14 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
 	{
 		sid_t id = sidlist_get(msg->tolist, i);
-		struct session * session = session_manager_get( manager, id );
 
+		if ( SID_INDEX(id) != index )
+		{
+			message_add_failure( msg, id );
+			continue;
+		}
+
+		struct session * session = session_manager_get( manager, id );
 		if ( session == NULL )
 		{
 			message_add_failure( msg, id );
@@ -813,7 +757,7 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 	return session_shutdown( session );
 }
 
-int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids )
+int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids )
 {
 	uint32_t i = 0;
 	int32_t count = 0;
@@ -821,8 +765,13 @@ int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * id
 	for ( i = 0; i < sidlist_count(ids); ++i )
 	{
 		sid_t id = sidlist_get(ids, i);
-		struct session * session = session_manager_get( manager, id );
 
+		if ( SID_INDEX(id) != index )
+		{
+			continue;
+		}
+
+		struct session * session = session_manager_get( manager, id );
 		if ( session == NULL )
 		{
 			continue;
@@ -879,7 +828,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 		case eIOTaskType_Broadcast :
 			{
 				// 广播数据
-				_broadcast_direct( manager, (struct message *)task );
+				_broadcast_direct( index, manager, (struct message *)task );
 			}
 			break;
 
@@ -893,7 +842,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 		case eIOTaskType_Shutdowns :
 			{
 				// 批量终止多个会话
-				_shutdowns_direct( manager, (struct sidlist *)task );
+				_shutdowns_direct( index, manager, (struct sidlist *)task );
 			}
 			break;
 	}

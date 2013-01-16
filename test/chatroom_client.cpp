@@ -28,12 +28,12 @@ public :
 		  m_SendBytes(0),
 		  m_RecvBytes(0)
 	{
-		buffer_set( &m_InBuffer, NULL, 0 );
+		buffer_init( &m_InBuffer );
 	}
 
 	~ChatRoomClient()
 	{
-		buffer_set( &m_InBuffer, NULL, 0 );
+		buffer_clear( &m_InBuffer );
 	}
 
 	enum

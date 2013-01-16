@@ -55,24 +55,14 @@ iothreads_t iothreads_start( uint8_t nthreads,
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 {
 	struct iothreads * iothreads = (struct iothreads *)(self);
-
-	if ( index >= iothreads->nthreads )
-	{
-		return 0;
-	}
-
+	assert( index < iothreads->nthreads );
 	return iothreads->threadgroup[index].id;
 }
 
 evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
 {
 	struct iothreads * iothreads = (struct iothreads *)(self);
-
-	if ( index >= iothreads->nthreads )
-	{
-		return 0;
-	}
-
+	assert( index < iothreads->nthreads );
 	return iothreads->threadgroup[index].sets;
 }
 
@@ -83,34 +73,17 @@ evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
 // size		- 任务数据的长度, 默认设置为0
 int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * task, uint8_t size )
 {
-	int16_t intype = eTaskType_Data;
 	struct iothreads * iothreads = (struct iothreads *)(self);
 
-	if ( index >= iothreads->nthreads )
+	assert( size <= TASK_PADDING_SIZE );
+	assert( index < iothreads->nthreads );
+
+	if ( iothreads->runflags != 1 )
 	{
 		return -1;
 	}
 
-	if ( iothreads->runflags != 1 )
-	{
-		return -2;
-	}
-
-	if ( size > TASK_PADDING_SIZE )
-	{
-		intype = eTaskType_Null;	
-	}
-	else if ( size == 0 )
-	{
-		intype = eTaskType_User;
-	}
-
-	if ( intype != eTaskType_Null )
-	{
-		return iothread_post( iothreads->threadgroup+index, intype, type, task, size );
-	}
-
-	return -3;
+	return iothread_post( iothreads->threadgroup+index, (size == 0 ? eTaskType_User : eTaskType_Data), type, task, size );
 }
 
 void iothreads_stop( iothreads_t self )
@@ -204,21 +177,22 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 
 int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void * task, uint8_t size )
 {
-	struct task intask;
+	struct task inter_task;
 
-	intask.type		= type;
-	intask.utype	= utype;
-	if ( size > 0 )
+	inter_task.type		= type;
+	inter_task.utype	= utype;
+
+	if ( size == 0 )
 	{
-		memcpy( &(intask.data), task, size );
+		inter_task.taskdata = task;
 	}
 	else
 	{
-		intask.taskdata = task;
+		memcpy( &(inter_task.data), task, size );
 	}
 
 	// 默认: 提交任务不提醒消费者
-	return msgqueue_push( self->queue, &intask, POST_IOTASK_AND_NOTIFY );
+	return msgqueue_push( self->queue, &inter_task, POST_IOTASK_AND_NOTIFY );
 }
 
 int32_t iothread_stop( struct iothread * self )
