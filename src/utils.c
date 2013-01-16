@@ -201,7 +201,7 @@ struct sidlist * sidlist_create( uint32_t size )
 	{
 		self->count = 0;
 		self->size = size;
-		self->entries = (sid_t *)calloc( self->size, sizeof(sid_t) );
+		self->entries = (sid_t *)malloc( self->size*sizeof(sid_t) );
 		if ( self->entries == NULL )
 		{
 			free( self );
@@ -246,10 +246,9 @@ int32_t sidlist_add( struct sidlist * self, sid_t id )
 	if ( self->count >= self->size )
 	{
 		self->size <<= 1;
-		self->entries = (sid_t *)realloc( self->entries, sizeof(sid_t)*self->size );
 
+		self->entries = (sid_t *)realloc( self->entries, sizeof(sid_t)*self->size );
 		assert( self->entries != NULL );
-		memset( self->entries+self->count, 0, (self->size-self->count)*sizeof(sid_t) );
 	}
 
 	self->entries[self->count++] = id;
@@ -265,15 +264,13 @@ sid_t sidlist_del( struct sidlist * self, int32_t index )
 	id = index == -1 ? self->count-1 : index;
 	if ( id < self->count )
 	{
-		rc = self->entries[id];
 		--self->count;
+		rc = self->entries[id];
 
 		if ( id != self->count )
 		{
 			self->entries[id] = self->entries[self->count];
 		}
-
-		self->entries[self->count] = 0;
 	}
 
 	return rc;
