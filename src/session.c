@@ -71,7 +71,7 @@ int32_t _del_session( struct session * self )
 	}
 
 	QUEUE_CLEAR(sendqueue)(&self->sendqueue);
-	buffer_set( &self->inbuffer, NULL, 0 );
+	buffer_clear( &self->inbuffer );
 	free( self );
 
 	return 0;

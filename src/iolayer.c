@@ -28,7 +28,7 @@ static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, 
 static int32_t _send_direct( struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
-static int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids );
+static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 
 static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 
@@ -757,7 +757,7 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 	return session_shutdown( session );
 }
 
-int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids )
+int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids )
 {
 	uint32_t i = 0;
 	int32_t count = 0;
@@ -765,8 +765,13 @@ int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * id
 	for ( i = 0; i < sidlist_count(ids); ++i )
 	{
 		sid_t id = sidlist_get(ids, i);
-		struct session * session = session_manager_get( manager, id );
 
+		if ( SID_INDEX(id) != index )
+		{
+			continue;
+		}
+
+		struct session * session = session_manager_get( manager, id );
 		if ( session == NULL )
 		{
 			continue;
@@ -837,7 +842,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 		case eIOTaskType_Shutdowns :
 			{
 				// 批量终止多个会话
-				_shutdowns_direct( manager, (struct sidlist *)task );
+				_shutdowns_direct( index, manager, (struct sidlist *)task );
 			}
 			break;
 	}
