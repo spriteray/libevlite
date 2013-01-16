@@ -35,15 +35,15 @@ int32_t _expand( struct buffer * self, uint32_t length )
 	else
 	{
 		void * newbuffer = NULL;
-		uint32_t newlength = self->capacity;
+		uint32_t newcapacity = self->capacity;
 
-		if ( newlength < MIN_BUFFER_LENGTH )
+		if ( newcapacity < MIN_BUFFER_LENGTH )
 		{
-			newlength = MIN_BUFFER_LENGTH;
+			newcapacity = MIN_BUFFER_LENGTH;
 		}
-		for ( ; newlength < needlength; )
+		for ( ; newcapacity < needlength; )
 		{
-			newlength <<= 1;
+			newcapacity <<= 1;
 		}
 
 		if ( self->orignbuffer != self->buffer )
@@ -51,13 +51,13 @@ int32_t _expand( struct buffer * self, uint32_t length )
 			_align( self );
 		}
 
-		newbuffer = (char *)realloc( self->orignbuffer, newlength );
+		newbuffer = (char *)realloc( self->orignbuffer, newcapacity );
 		if ( newbuffer == NULL )
 		{
 			return -1;
 		}
 
-		self->capacity = newlength;
+		self->capacity = newcapacity;
 		self->orignbuffer = self->buffer = newbuffer;
 	}
 
