@@ -27,7 +27,7 @@ static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
 static int32_t _send_direct( struct session_manager * manager, struct task_send * task );
-static int32_t _broadcast_direct( struct session_manager * manager, struct message * msg );
+static int32_t _broadcast_direct( uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( struct session_manager * manager, struct sidlist * ids );
 
@@ -329,7 +329,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 		if ( threadid == iothreads_get_id( layer->group, i ) )
 		{
 			// 本线程内直接广播
-			_broadcast_direct( _get_manager(layer, i), msg );
+			_broadcast_direct( i, _get_manager(layer, i), msg );
 		}
 		else
 		{
@@ -748,7 +748,7 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 	return rc;
 }
 
-int32_t _broadcast_direct( struct session_manager * manager, struct message * msg )
+int32_t _broadcast_direct( uint8_t index, struct session_manager * manager, struct message * msg )
 {
 	uint32_t i = 0;
 	int32_t count = 0;
@@ -756,8 +756,14 @@ int32_t _broadcast_direct( struct session_manager * manager, struct message * ms
 	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
 	{
 		sid_t id = sidlist_get(msg->tolist, i);
-		struct session * session = session_manager_get( manager, id );
 
+		if ( SID_INDEX(id) != index )
+		{
+			message_add_failure( msg, id );
+			continue;
+		}
+
+		struct session * session = session_manager_get( manager, id );
 		if ( session == NULL )
 		{
 			message_add_failure( msg, id );
@@ -860,7 +866,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 		case eIOTaskType_Broadcast :
 			{
 				// 广播数据
-				_broadcast_direct( manager, (struct message *)task );
+				_broadcast_direct( index, manager, (struct message *)task );
 			}
 			break;
 
