@@ -212,6 +212,21 @@ struct sidlist * sidlist_create( uint32_t size )
 	return self;
 }
 
+struct sidlist * sidlist_init( uint32_t count, sid_t * ids )
+{
+	struct sidlist * self = NULL;
+
+	self = (struct sidlist *)malloc( sizeof(struct sidlist) );
+	if ( self )
+	{
+		self->size = count;
+		self->count = count;
+		self->entries = ids;
+	}
+
+	return self;
+}
+
 sid_t sidlist_get( struct sidlist * self, int32_t index )
 {
 	sid_t sid = 0;

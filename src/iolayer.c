@@ -304,46 +304,27 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 	// 需要遍历ids
 	uint8_t i = 0;
 	int32_t rc = 0;
+
 	pthread_t threadid = pthread_self();
-
-	struct sidlist * listgroup[256] = {NULL};
 	struct iolayer * layer = (struct iolayer *)self;
-
-	_dispatch_sidlist( layer, listgroup, ids, count );
 
 	for ( i = 0; i < layer->nthreads; ++i )
 	{
-		if ( listgroup[i] == NULL )
+		sid_t * list = malloc( sizeof(sid_t)*count );
+		if ( list == NULL )
 		{
 			continue;
 		}
-
-		uint32_t count = sidlist_count( listgroup[i] );
-
-		// p2p
-
-		if ( count == 1 )
-		{
-			sid_t id = sidlist_get( listgroup[i], 0 );
-			if ( _send_buffer( layer, id, buf, nbytes, 0 ) == 0 )
-			{
-				rc += 1;
-			}
-			// 销毁listgroup[i]
-			sidlist_destroy( listgroup[i] );
-			continue;
-		}
-
-		// broadcast
+		memcpy( list, ids, sizeof(sid_t)*count );
 
 		struct message * msg = message_create();
 		if ( msg == NULL )
 		{
-			sidlist_destroy( listgroup[i] );
+			free( list );
 			continue;
 		}
 		message_add_buffer( msg, (char *)buf, nbytes );
-		message_set_receivers( msg, listgroup[i] );
+		message_set_receivers2( msg, list, count );
 
 		if ( threadid == iothreads_get_id( layer->group, i ) )
 		{

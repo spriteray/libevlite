@@ -216,6 +216,17 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 	return 0;
 }
 
+int32_t message_set_receivers2( struct message * self, sid_t * ids, uint32_t count )
+{
+	if ( self->tolist )
+	{
+		sidlist_destroy( self->tolist );
+	}
+
+	self->tolist = sidlist_init( count, ids );
+	return ( self->tolist == NULL ? -1 : 0 );
+}
+
 int32_t message_add_failure( struct message * self, sid_t id )
 {
 	if ( self->failurelist == NULL )
