@@ -204,6 +204,20 @@ int32_t message_add_receiver( struct message * self, sid_t id )
 	return sidlist_add( self->tolist, id );
 }
 
+int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t count )
+{
+	if ( self->tolist == NULL )
+	{
+		self->tolist = sidlist_create(count);
+		if ( self->tolist == NULL )
+		{
+			return -1;
+		}
+	}
+
+	return sidlist_adds( self->tolist, ids, count );
+}
+
 int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 {
 	if ( self->tolist )
@@ -214,17 +228,6 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 	self->tolist = ids;
 
 	return 0;
-}
-
-int32_t message_set_receivers2( struct message * self, sid_t * ids, uint32_t count )
-{
-	if ( self->tolist )
-	{
-		sidlist_destroy( self->tolist );
-	}
-
-	self->tolist = sidlist_init( count, ids );
-	return ( self->tolist == NULL ? -1 : 0 );
 }
 
 // int32_t message_add_failure( struct message * self, sid_t id )
