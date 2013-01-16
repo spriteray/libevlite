@@ -176,14 +176,16 @@ int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )
 
 struct message * message_create()
 {
-	struct message * msg = struct message *)malloc( sizeof(struct message) );
-	if ( msg != NULL )
+	struct message * self = (struct message *)malloc( sizeof(struct message) );
+	if ( self != NULL )
 	{
-		msg->nfailure = 0;
-		msg->nsuccess = 0;
-		msg->tolist = NULL;
-		buffer_init( &msg->buffer );
+		self->nfailure = 0;
+		self->nsuccess = 0;
+		self->tolist = NULL;
+		buffer_init( &self->buffer );
 	}
+
+	return self;
 }
 
 void message_destroy( struct message * self )
