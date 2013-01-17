@@ -24,7 +24,7 @@ struct buffer
 };
 
 int32_t buffer_init( struct buffer * self );
-#define buffer_clear( self )	buffer_set( (self), NULL, 0 );
+#define buffer_clear( self )	buffer_set( (self), NULL, 0 )
 
 // 设置缓冲区
 // 速度快, 不存在内存copy, buf一定是malloc()出来的内存地址
