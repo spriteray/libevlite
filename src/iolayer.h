@@ -23,7 +23,8 @@ struct iolayer
 	void **		managers;
 
 	// 数据改造接口
-	char *		(*transform)( iolayer_t, const char *, uint32_t * );
+	void *		context;
+	char *		(*transform)( void *, const char *, uint32_t * );
 };
 
 // 接收器

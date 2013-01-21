@@ -94,7 +94,14 @@ int32_t IIOSession::onShutdownSession( void * context )
 bool IIOService::start()
 {
 	m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount );
-	return ( m_IOLayer != NULL );
+
+	if ( m_IOLayer != NULL )
+	{
+        iolayer_set_transform( m_IOLayer, onTransformService, this );
+        return true;
+	}
+
+	return false;
 }
 
 void IIOService::stop()
@@ -165,6 +172,14 @@ void IIOService::attach( sid_t id, IIOSession * session )
 	ioservice.error		= IIOSession::onErrorSession;
 	ioservice.shutdown	= IIOSession::onShutdownSession;
 	iolayer_set_service( m_IOLayer, id, &ioservice, session );
+}
+
+char * IIOService::onTransformService( void * context, const char * buffer, uint32_t * nbytes )
+{
+    uint32_t & _nbytes = *nbytes;
+    IIOService * service = static_cast<IIOService*>( context );
+
+    return service->onTransform( buffer, _nbytes );
 }
 
 int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host, uint16_t port )

@@ -97,6 +97,8 @@ public :
 	{}
 
 public :
+	// 数据改造
+	virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buf); }
 
 	// 接受/连接事件
 	// 需要调用者自己实现
@@ -138,8 +140,8 @@ public :
 	void attach( sid_t id, IIOSession * session );
 	
 private :
+	static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
 	
-	// 内部函数
 	static int32_t onAcceptSession( void * context, sid_t id, const char * host, uint16_t port );
 	static int32_t onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id );
 

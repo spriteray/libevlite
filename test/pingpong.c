@@ -94,7 +94,12 @@ int32_t onShutdown( void * context )
 	return 0;
 }
 
-int32_t onAccept( void * context, sid_t id, const char * host, uint16_t port )
+char * onLayerTransform( void * context, const char * buf, uint32_t * nbytes )
+{
+	return (char *)buf;
+}
+
+int32_t onLayerAccept( void * context, sid_t id, const char * host, uint16_t port )
 {
 	iolayer_t layer = (iolayer_t)context;
 	struct session * session = malloc( sizeof(struct session) );
@@ -138,12 +143,17 @@ int main( int32_t argc, char ** argv )
 	uint16_t port = atoi(argv[2]);
 	uint8_t nthreads = atoi(argv[3]);
 
-	iolayer_t layer = iolayer_create( nthreads, 20000 );
-	
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	iolayer_listen( layer, host, port, onAccept, layer) ;
+	iolayer_t layer = iolayer_create( nthreads, 20000 );
+	if ( layer == NULL )
+	{
+		return -2;
+	}
+
+	iolayer_set_transform( layer, onLayerTransform, layer );
+	iolayer_listen( layer, host, port, onLayerAccept, layer) ;
 	
 	g_Running = 1;	
 

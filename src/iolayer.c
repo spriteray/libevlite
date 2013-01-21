@@ -45,6 +45,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 		return NULL;
 	}
 
+	self->context  = NULL;
 	self->transform= NULL;
 	self->nthreads = nthreads;
 	self->nclients = nclients;
@@ -205,9 +206,10 @@ int32_t iolayer_connect( iolayer_t self,
 }
 
 int32_t iolayer_set_transform( iolayer_t self, 
-		char * (*transform)(iolayer_t, const char *, uint32_t *) )
+		char * (*transform)(void *, const char *, uint32_t *), void * context )
 {
 	struct iolayer * layer = (struct iolayer *)self;
+	layer->context = context;
 	layer->transform = transform;
 	return 0;
 }
@@ -704,7 +706,7 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
 	{
 		// 数据统一改造
 		uint32_t nbytes = task->nbytes;
-		char * buffer = self->transform( self, task->buf, &nbytes );
+		char * buffer = self->transform( self->context, task->buf, &nbytes );
 
 		rc = session_send( session, buffer, nbytes );
 		
@@ -735,7 +737,7 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
 	
 	// 数据改造
 	uint32_t nbytes = message_get_length( msg );
-	char * buffer = self->transform( self, message_get_buffer(msg), &nbytes );
+	char * buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
 	if ( buffer == NULL )
 	{
 		// 数据改造失败
