@@ -51,15 +51,15 @@ int32_t IIOSession::onStartSession( void * context )
 	return static_cast<IIOSession *>(context)->onStart();
 }
 
-int32_t IIOSession::onProcessSession( void * context, const char * buf, uint32_t nbytes ) 
+int32_t IIOSession::onProcessSession( void * context, const char * buffer, uint32_t nbytes ) 
 {
-	return static_cast<IIOSession *>(context)->onProcess( buf, nbytes );
+	return static_cast<IIOSession *>(context)->onProcess( buffer, nbytes );
 }
 
-char * IIOSession::onTransformSession( void * context, const char * buf, uint32_t * nbytes )
+char * IIOSession::onTransformSession( void * context, const char * buffer, uint32_t * nbytes )
 {
 	uint32_t & _nbytes = *nbytes;
-	return static_cast<IIOSession *>(context)->onTransform( buf, _nbytes );
+	return static_cast<IIOSession *>(context)->onTransform( buffer, _nbytes );
 }
 
 int32_t IIOSession::onTimeoutSession( void * context ) 
