@@ -25,8 +25,8 @@ static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
-static int32_t _send_direct( struct session_manager * manager, struct task_send * task );
-static int32_t _broadcast_direct( uint8_t index, struct session_manager * manager, struct message * msg );
+static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
+static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 
@@ -39,12 +39,14 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 // 创建网络通信层
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 {
-	struct iolayer * self = (struct iolayer *)calloc( 1, sizeof(struct iolayer) );
+	struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
 	if ( self == NULL )
 	{
 		return NULL;
 	}
 
+	self->context  = NULL;
+	self->transform= NULL;
 	self->nthreads = nthreads;
 	self->nclients = nclients;
 
@@ -113,6 +115,8 @@ int32_t iolayer_listen( iolayer_t self,
 {
 	struct iolayer * layer = (struct iolayer *)self;
 
+	assert( layer->transform != NULL );
+
 	struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
 	if ( acceptor == NULL )
 	{
@@ -166,6 +170,8 @@ int32_t iolayer_connect( iolayer_t self,
 {
 	struct iolayer * layer = (struct iolayer *)self;
 
+	assert( layer->transform != NULL );
+
 	struct connector * connector = calloc( 1, sizeof(struct connector) ); 
 	if ( connector == NULL )
 	{
@@ -196,6 +202,15 @@ int32_t iolayer_connect( iolayer_t self,
 
 	iothreads_post( layer->group, (connector->fd%layer->nthreads), eIOTaskType_Connect, connector, 0 );	
 
+	return 0;
+}
+
+int32_t iolayer_set_transform( iolayer_t self, 
+		char * (*transform)(void *, const char *, uint32_t *), void * context )
+{
+	struct iolayer * layer = (struct iolayer *)self;
+	layer->context = context;
+	layer->transform = transform;
 	return 0;
 }
 
@@ -319,7 +334,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 		if ( threadid == iothreads_get_id( layer->group, i ) )
 		{
 			// 本线程内直接广播
-			_broadcast_direct( i, _get_manager(layer, i), msg );
+			_broadcast_direct( layer, i, _get_manager(layer, i), msg );
 		}
 		else
 		{
@@ -587,7 +602,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 
 	if ( pthread_self() == iothreads_get_id( self->group, index ) )
 	{
-		return _send_direct( _get_manager(self, index), &task );
+		return _send_direct( self, _get_manager(self, index), &task );
 	}
 
 	// 跨线程提交发送任务
@@ -682,14 +697,24 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 	return 0;
 }
 
-int32_t _send_direct( struct session_manager * manager, struct task_send * task )
+int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task )
 {
 	int32_t rc = -1;
 	struct session * session = session_manager_get( manager, task->id );
 
 	if ( session )
 	{
-		rc = session_send( session, task->buf, task->nbytes );
+		// 数据统一改造
+		uint32_t nbytes = task->nbytes;
+		char * buffer = self->transform( self->context, task->buf, &nbytes );
+
+		rc = session_send( session, buffer, nbytes );
+		
+		// 销毁改造后的数据
+		if ( buffer != task->buf )
+		{
+			free( buffer );
+		}
 	}
 	else
 	{
@@ -705,10 +730,25 @@ int32_t _send_direct( struct session_manager * manager, struct task_send * task 
 	return rc;
 }
 
-int32_t _broadcast_direct( uint8_t index, struct session_manager * manager, struct message * msg )
+int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg )
 {
 	uint32_t i = 0;
 	int32_t count = 0;
+	
+	// 数据改造
+	uint32_t nbytes = message_get_length( msg );
+	char * buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
+	if ( buffer == NULL )
+	{
+		// 数据改造失败
+		message_destroy( msg );
+		return -1;
+	}
+	if ( buffer != message_get_buffer(msg) )
+	{
+		// 数据改造成功
+		message_set_buffer( msg, buffer, nbytes );
+	}
 
 	for ( i = 0; i < sidlist_count(msg->tolist); ++i )
 	{
@@ -821,14 +861,14 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 		case eIOTaskType_Send :
 			{
 				// 发送数据
-				_send_direct( manager, (struct task_send *)task );
+				_send_direct( layer, manager, (struct task_send *)task );
 			}
 			break;
 
 		case eIOTaskType_Broadcast :
 			{
 				// 广播数据
-				_broadcast_direct( index, manager, (struct message *)task );
+				_broadcast_direct( layer, index, manager, (struct message *)task );
 			}
 			break;
 

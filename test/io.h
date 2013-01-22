@@ -33,8 +33,8 @@ public :
 	//
 	
 	virtual int32_t onStart() { return 0; }
-	virtual int32_t	onProcess( const char * buf, uint32_t nbytes ) { return 0; } 
-	virtual char *	onTransform( const char * buf, uint32_t & nbytes ) { return const_cast<char *>(buf); }
+	virtual int32_t	onProcess( const char * buffer, uint32_t nbytes ) { return 0; } 
+	virtual char *	onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
 	virtual int32_t	onTimeout() { return 0; }
 	virtual int32_t onKeepalive() { return 0; }
 	virtual int32_t onError( int32_t result ) { return 0; }
@@ -67,8 +67,8 @@ private :
 
 	// 内部回调函数
 	static int32_t	onStartSession( void * context );
-	static int32_t	onProcessSession( void * context, const char * buf, uint32_t nbytes );
-	static char *	onTransformSession( void * context, const char * buf, uint32_t * nbytes );	
+	static int32_t	onProcessSession( void * context, const char * buffer, uint32_t nbytes );
+	static char *	onTransformSession( void * context, const char * buffer, uint32_t * nbytes );	
 	static int32_t	onTimeoutSession( void * context ); 
 	static int32_t	onKeepaliveSession( void * context ); 
 	static int32_t	onErrorSession( void * context, int32_t result ); 
@@ -97,6 +97,8 @@ public :
 	{}
 
 public :
+	// 数据改造
+	virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
 
 	// 接受/连接事件
 	// 需要调用者自己实现
@@ -138,8 +140,8 @@ public :
 	void attach( sid_t id, IIOSession * session );
 	
 private :
+	static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
 	
-	// 内部函数
 	static int32_t onAcceptSession( void * context, sid_t id, const char * host, uint16_t port );
 	static int32_t onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id );
 

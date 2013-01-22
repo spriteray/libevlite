@@ -21,6 +21,10 @@ struct iolayer
 
 	// 会话管理器
 	void **		managers;
+
+	// 数据改造接口
+	void *		context;
+	char *		(*transform)( void *, const char *, uint32_t * );
 };
 
 // 接收器
