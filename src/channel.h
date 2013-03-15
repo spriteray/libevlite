@@ -3,8 +3,8 @@
 #define SRC_CHANNEL_H
 
 /*
- * channel ÍøÂçÍ¨µÀ
- * Ìá¹©»ùÓÚsessionµÄÒ»ÇĞÍøÂç²Ù×÷
+ * channel ç½‘ç»œé€šé“
+ * æä¾›åŸºäºsessionçš„ä¸€åˆ‡ç½‘ç»œæ“ä½œ
  */
 
 #include <stdint.h>
@@ -13,15 +13,15 @@
 //
 int32_t channel_send( struct session * session, char * buf, uint32_t nbytes );
 
-// »á»°³ö´í
-// ¶ªÆú·¢ËÍ¶ÓÁĞÖĞµÄÊı¾İ
+// ä¼šè¯å‡ºé”™
+// ä¸¢å¼ƒå‘é€é˜Ÿåˆ—ä¸­çš„æ•°æ®
 int32_t channel_error( struct session * session, int32_t result );
 
-// »á»°¹Ø±Õ
-// ¶ªÆú·¢ËÍ¶ÓÁĞÖĞµÄÊı¾İ
+// ä¼šè¯å…³é—­
+// ä¸¢å¼ƒå‘é€é˜Ÿåˆ—ä¸­çš„æ•°æ®
 int32_t channel_shutdown( struct session * session );
 
-// ÊÂ¼şµÄ»Øµ÷º¯Êı¼¯ºÏ
+// äº‹ä»¶çš„å›è°ƒå‡½æ•°é›†åˆ
 void channel_on_read( int32_t fd, int16_t ev, void * arg );
 void channel_on_write( int32_t fd, int16_t ev, void * arg );
 void channel_on_accept( int32_t fd, int16_t ev, void * arg );

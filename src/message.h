@@ -12,25 +12,25 @@ extern "C"
 #include "utils.h"
 
 //
-// »º³åÇø
+// ç¼“å†²åŒº
 //
 struct buffer
 {
-	uint32_t length;		// ÓÐÐ§Êý¾Ý¶ÎµÄ³¤¶È
-	uint32_t capacity;		// ÄÚ´æ¿éµÄ×Ü³¤¶È
+	uint32_t length;		// æœ‰æ•ˆæ•°æ®æ®µçš„é•¿åº¦
+	uint32_t capacity;		// å†…å­˜å—çš„æ€»é•¿åº¦
 
-	char * buffer;			// ÓÐÐ§Êý¾Ý¶Î
-	char * orignbuffer;		// Ô­Ê¼Êý¾Ý¶Î
+	char * buffer;			// æœ‰æ•ˆæ•°æ®æ®µ
+	char * orignbuffer;		// åŽŸå§‹æ•°æ®æ®µ
 };
 
 int32_t buffer_init( struct buffer * self );
 #define buffer_clear( self )	buffer_set( (self), NULL, 0 )
 
-// ÉèÖÃ»º³åÇø
-// ËÙ¶È¿ì, ²»´æÔÚÄÚ´æcopy, bufÒ»¶¨ÊÇmalloc()³öÀ´µÄÄÚ´æµØÖ·
+// è®¾ç½®ç¼“å†²åŒº
+// é€Ÿåº¦å¿«, ä¸å­˜åœ¨å†…å­˜copy, bufä¸€å®šæ˜¯malloc()å‡ºæ¥çš„å†…å­˜åœ°å€
 int32_t buffer_set( struct buffer * self, char * buf, uint32_t length );
 
-// »ñÈ¡ÍøÂç»º³åÇøµÃ´óÐ¡ºÍÊý¾Ý
+// èŽ·å–ç½‘ç»œç¼“å†²åŒºå¾—å¤§å°å’Œæ•°æ®
 #define buffer_data( self )			(self)->buffer
 #define buffer_length( self )		(self)->length
 
@@ -39,21 +39,21 @@ int32_t buffer_erase( struct buffer * self, uint32_t length );
 int32_t buffer_append( struct buffer * self, char * buf, uint32_t length );
 uint32_t buffer_take( struct buffer * self, char * buf, uint32_t length );
 
-// Á½¸ö»º³åÇøÏà»¥½»»»
+// ä¸¤ä¸ªç¼“å†²åŒºç›¸äº’äº¤æ¢
 void buffer_swap( struct buffer * buf1, struct buffer * buf2 );
 
-// -1, ÏµÍ³µ÷ÓÃread()·µ»Ø³ö´í; -2, ·µ»Øexpand()Ê§°Ü
+// -1, ç³»ç»Ÿè°ƒç”¨read()è¿”å›žå‡ºé”™; -2, è¿”å›žexpand()å¤±è´¥
 int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes );
 
 
 //
-// »º³åÇø³Ø
+// ç¼“å†²åŒºæ± 
 //
 
-// TODO: ÊÇ·ñÓÐ±ØÒªÐ´Ò»¸ö¶ÔÏó³ØÀ´¹ÜÀíËùÓÐ»º³åÇøµÄ·ÖÅäÓëÊÍ·Å
+// TODO: æ˜¯å¦æœ‰å¿…è¦å†™ä¸€ä¸ªå¯¹è±¡æ± æ¥ç®¡ç†æ‰€æœ‰ç¼“å†²åŒºçš„åˆ†é…ä¸Žé‡Šæ”¾
 
 //
-// ÏûÏ¢
+// æ¶ˆæ¯
 //
 struct message
 {
@@ -66,29 +66,29 @@ struct message
 	struct buffer 	buffer;
 };
 
-// ´´½¨/Ïú»Ù ÏûÏ¢
+// åˆ›å»º/é”€æ¯ æ¶ˆæ¯
 struct message * message_create();
 void message_destroy( struct message * self );
 
-// Ôö¼ÓÏûÏ¢µÄ½ÓÊÕÕß
-// ÉèÖÃÏûÏ¢µÄ½ÓÊÕÁÐ±í
+// å¢žåŠ æ¶ˆæ¯çš„æŽ¥æ”¶è€…
+// è®¾ç½®æ¶ˆæ¯çš„æŽ¥æ”¶åˆ—è¡¨
 int32_t message_add_receiver( struct message * self, sid_t id );
 int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t count );
 int32_t message_set_receivers( struct message * self, struct sidlist * ids );
 
-// Ôö¼ÓÏûÏ¢¼ÆÊýÆ÷
+// å¢žåŠ æ¶ˆæ¯è®¡æ•°å™¨
 //int32_t message_add_failure( struct message * self, sid_t id );
 #define message_add_failure( self, id )				++((self)->nfailure)
 #define message_add_success( self )					++((self)->nsuccess)
 
-// Ìí¼Ó/ÉèÖÃ ÏûÏ¢µÄÊý¾Ý
+// æ·»åŠ /è®¾ç½® æ¶ˆæ¯çš„æ•°æ®
 #define message_set_buffer( self, buf, nbytes ) 	buffer_set( &((self)->buffer), (buf), (nbytes) )
 #define message_add_buffer( self, buf, nbytes ) 	buffer_append( &((self)->buffer), (buf), (nbytes) )
 
-// ÏûÏ¢ÊÇ·ñÍêÈ«·¢ËÍ
+// æ¶ˆæ¯æ˜¯å¦å®Œå…¨å‘é€
 int32_t message_is_complete( struct message * self );
 
-// »ñÈ¡ÏûÏ¢Êý¾ÝµÄ³¤¶ÈÒÔ¼°ÄÚÈÝ
+// èŽ·å–æ¶ˆæ¯æ•°æ®çš„é•¿åº¦ä»¥åŠå†…å®¹
 #define message_get_buffer( self )					buffer_data( &((self)->buffer) )
 #define message_get_length( self ) 					buffer_length( &((self)->buffer) )
 

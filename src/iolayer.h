@@ -12,68 +12,68 @@
 
 struct iolayer
 {
-	// »ù´¡ÅäÖÃ
+	// åŸºç¡€é…ç½®
 	uint8_t		nthreads;
 	uint32_t	nclients;
 	
-	// ÍøÂçÏß³Ì×é
+	// ç½‘ç»œçº¿ç¨‹ç»„
 	iothreads_t group;
 
-	// »á»°¹ÜÀíÆ÷
+	// ä¼šè¯ç®¡ç†å™¨
 	void **		managers;
 
-	// Êı¾İ¸ÄÔì½Ó¿Ú
+	// æ•°æ®æ”¹é€ æ¥å£
 	void *		context;
 	char *		(*transform)( void *, const char *, uint32_t * );
 };
 
-// ½ÓÊÕÆ÷
+// æ¥æ”¶å™¨
 struct acceptor
 {
 	int32_t 	fd;
 
-	// ½ÓÊÕÊÂ¼ş
+	// æ¥æ”¶äº‹ä»¶
 	event_t		event;
 	
-	// °ó¶¨µÄµØÖ·ÒÔ¼°¼àÌıµÄ¶Ë¿ÚºÅ
+	// ç»‘å®šçš„åœ°å€ä»¥åŠç›‘å¬çš„ç«¯å£å·
 	char		host[INET_ADDRSTRLEN];
 	uint16_t	port;
 
-	// Âß¼­
+	// é€»è¾‘
 	void * 		context;
 	int32_t 	(*cb)(void *, sid_t, const char *, uint16_t);
 
-	// Í¨ĞÅ²ã¾ä±ú
+	// é€šä¿¡å±‚å¥æŸ„
 	struct iolayer * parent;
 };
 
-// Á¬½ÓÆ÷
+// è¿æ¥å™¨
 struct connector
 {
 	int32_t		fd;
 
-	// Á¬½ÓÊÂ¼ş
+	// è¿æ¥äº‹ä»¶
 	event_t		event;
 	evsets_t	evsets;
 
-	// Á¬½Ó·şÎñÆ÷µÄµØÖ·ºÍ¶Ë¿ÚºÅ
+	// è¿æ¥æœåŠ¡å™¨çš„åœ°å€å’Œç«¯å£å·
 	char		host[INET_ADDRSTRLEN];
 	uint16_t	port;
 
-	// Âß¼­
+	// é€»è¾‘
 	int32_t		mseconds;
 	void *		context;
 	int32_t		(*cb)( void *, int32_t, const char *, uint16_t, sid_t);
 
-	// Í¨ĞÅ²ã¾ä±ú
+	// é€šä¿¡å±‚å¥æŸ„
 	struct iolayer * parent;
 };
 
 //
-// NOTICE: ÍøÂçÈÎÎñµÄ×î´ó³¤¶È²»³¬¹ı56
+// NOTICE: ç½‘ç»œä»»åŠ¡çš„æœ€å¤§é•¿åº¦ä¸è¶…è¿‡56
 //
 
-// NOTICE: task_assign³¤¶ÈÒÑ¾­´ïµ½48bytes
+// NOTICE: task_assigné•¿åº¦å·²ç»è¾¾åˆ°48bytes
 struct task_assign
 {
 	int32_t		fd;							// 4bytes
@@ -93,24 +93,24 @@ struct task_send
 	int32_t						isfree;		// 4bytes
 };
 
-// ¿´Ñù×ÓÄÚ´æ¶ÔÆë²»ĞèÒªÊ¹ÓÃÁË
+// çœ‹æ ·å­å†…å­˜å¯¹é½ä¸éœ€è¦ä½¿ç”¨äº†
 #pragma pack(1)
 #pragma pack()
 
-// socketÑ¡Ïî
+// socketé€‰é¡¹
 void iolayer_server_option( int32_t fd );
 void iolayer_client_option( int32_t fd );
 
-// ·ÖÅäÒ»¸ö»á»°
+// åˆ†é…ä¸€ä¸ªä¼šè¯
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key );
 
-// ÖØĞÂÁ¬½ÓÔ¶³Ì·şÎñÆ÷
+// é‡æ–°è¿æ¥è¿œç¨‹æœåŠ¡å™¨
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector );
 
-// Ïú»ÙÁ¬½ÓÆ÷ 
+// é”€æ¯è¿æ¥å™¨ 
 int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector );
 
-// ¸øµ±Ç°Ïß³Ì·Ö·¢Ò»¸ö»á»°
+// ç»™å½“å‰çº¿ç¨‹åˆ†å‘ä¸€ä¸ªä¼šè¯
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );
 
 #endif

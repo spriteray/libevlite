@@ -13,8 +13,8 @@
 #include "event-internal.h"
 
 //
-// epoll��ע����������, ���Ƕ�д�¼�
-// Ϊ��ģ���д�¼�, ����������һ���¼���
+// epoll关注的是描述符, 而非读写事件
+// 为了模拟读写事件, 所以增加了一个事件对
 //
 struct eventpair
 {
@@ -24,15 +24,15 @@ struct eventpair
 
 struct epoller
 {
-	// �����������¼���, ����ǻ�����������
+	// 管理的所有事件对, 这个是基于描述符的
 	int32_t npairs;
 	struct eventpair * evpairs;
 
-	// �����̶���Ŀ�ļ����¼�
+	// 管理固定数目的激活事件
 	int32_t nevents;
 	struct epoll_event * events;
 
-	// epoll������
+	// epoll描述符
 	int32_t epollfd;
 };
 
@@ -60,7 +60,7 @@ void * epoll_init()
 	int32_t epollfd = -1;
 	struct epoller * poller = NULL;
 
-	epollfd = epoll_create(64000);      // �ò��������ں����Ѿ�ȡ��
+	epollfd = epoll_create(64000);      // 该参数在新内核中已经取消
 	if ( epollfd == -1 )
 	{
 		return NULL;
@@ -212,7 +212,7 @@ int32_t epoll_del( void * arg, struct event * ev )
 		return -1;
 	}
 
-	// �򵥵�ɾ��ָ�����¼�
+	// 简单的删除指定的事件
 	events = 0;
 	op = EPOLL_CTL_DEL;
 	eventpair = &( poller->evpairs[fd] );
@@ -226,22 +226,22 @@ int32_t epoll_del( void * arg, struct event * ev )
 		events |= EPOLLOUT;
 	}
 
-	// ɾ����ͬʱ�鿴���������Ƿ�֧���������¼�
-	// ����, ����ֱ�Ӽ򵥵�ɾ��
+	// 删除的同时查看该描述符是否支持了其他事件
+	// 如有, 则不能直接简单的删除
 	if ( (events & (EPOLLIN|EPOLLOUT)) != (EPOLLIN|EPOLLOUT) )
 	{
 		if ( (events & EPOLLIN) && eventpair->evwrite != NULL )
 		{
-			// ɾ�����Ƕ��¼�, д�¼���ȻҪ����
-			// ���һ���Ҫ��д�¼��в鿴�Ƿ�֧���˱�Ե����ģʽ
+			// 删除的是读事件, 写事件仍然要监听
+			// 并且还需要从写事件中查看是否支持了边缘触发模式
 			delwrite = 0;
 			events = EPOLLOUT;
 			op = EPOLL_CTL_MOD;
 		}
 		else if ( (events & EPOLLOUT) && eventpair->evread != NULL )
 		{
-			// ɾ������д�¼�, ���¼���ȻҪ����
-			// ���һ���Ҫ�Ӷ��¼��в鿴�Ƿ�֧���˱�Ե����ģʽ
+			// 删除的是写事件, 读事件仍然要监听
+			// 并且还需要从读事件中查看是否支持了边缘触发模式
 			delread = 0;
 			events = EPOLLIN;
 			op = EPOLL_CTL_MOD;

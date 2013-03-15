@@ -46,9 +46,9 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
 		return -1;
 	}
 
-	// °ÑÍ°µÄË÷ÒıºÅĞ´ÈëÊÂ¼ş¾ä±úÖĞ, ±ãÓÚ²éÕÒÒÔ¼°É¾³ı
-	// Èç¹û¶¨Ê±Æ÷³¬Ê±Ê±¼ä¹ı³¤, Éè¶¨Æä¶¨Ê±Æ÷ÖÜÆÚÊı
-	index = EVTIMER_INDEX(self, tv/self->max_precision+self->dispatch_refer+1);
+	// æŠŠæ¡¶çš„ç´¢å¼•å·å†™å…¥äº‹ä»¶å¥æŸ„ä¸­, ä¾¿äºæŸ¥æ‰¾ä»¥åŠåˆ é™¤
+	// å¦‚æœå®šæ—¶å™¨è¶…æ—¶æ—¶é—´è¿‡é•¿, è®¾å®šå…¶å®šæ—¶å™¨å‘¨æœŸæ•°
+	index = EVTIMER_INDEX(self, tv/self->max_precision+self->dispatch_refer-1);
 
 	ev->timer_index = index;
 	ev->timer_stepcnt = tv / ( self->max_precision * self->bucket_count ) + 1;
@@ -61,7 +61,7 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
 
 int32_t evtimer_remove( struct evtimer * self, struct event * ev )
 {
-	// ¸ù¾İ¾ä±úÖĞµÄË÷ÒıºÅ, ¿ìËÙ¶¨Î»Í°
+	// æ ¹æ®å¥æŸ„ä¸­çš„ç´¢å¼•å·, å¿«é€Ÿå®šä½æ¡¶
 	int32_t index = EVENT_TIMERINDEX(ev);
 
 	if ( index < 0 || index >= self->bucket_count )
@@ -90,21 +90,21 @@ int32_t evtimer_dispatch( struct evtimer * self )
 	++self->dispatch_refer;
 	head = &( self->bucket_array[index] );
 
-	// ¸ÃÍ°ÖĞÃ»ÓĞ¶¨Ê±µÄÊÂ¼ş
+	// è¯¥æ¡¶ä¸­æ²¡æœ‰å®šæ—¶çš„äº‹ä»¶
 	if ( TAILQ_EMPTY(head) )
 	{
 		return 0;
 	}
 
-	// ±éÀú³¬Ê±ÊÂ¼şÁ´±í
+	// éå†è¶…æ—¶äº‹ä»¶é“¾è¡¨
 	laster = TAILQ_LAST( head, event_list );
 	while ( !done )
 	{
 		struct event * ev = TAILQ_FIRST(head);
 
-		// ÓÉÓÚÄ³Ğ©ÊÂ¼şµÄ³¬Ê±Ê±¼ä¹ı³¤
-		// ËùÒÔ»¹ÊÇĞèÒª¼ÌĞøÌí¼Óµ½ÊÂ¼şÁ´±íÖĞµÄ
-		// ±ØĞëÅĞ¶Ïµ±Ç°½ÚµãÊÇ·ñÊÇÁ´±íµÄÎ²²¿ÔªËØ
+		// ç”±äºæŸäº›äº‹ä»¶çš„è¶…æ—¶æ—¶é—´è¿‡é•¿
+		// æ‰€ä»¥è¿˜æ˜¯éœ€è¦ç»§ç»­æ·»åŠ åˆ°äº‹ä»¶é“¾è¡¨ä¸­çš„
+		// å¿…é¡»åˆ¤æ–­å½“å‰èŠ‚ç‚¹æ˜¯å¦æ˜¯é“¾è¡¨çš„å°¾éƒ¨å…ƒç´ 
 		if ( ev == laster )
 		{
 			done = 1;
@@ -113,21 +113,21 @@ int32_t evtimer_dispatch( struct evtimer * self )
 		--ev->timer_stepcnt;
 		if ( ev->timer_stepcnt > 0 )
 		{
-			// Î´³¬Ê±
+			// æœªè¶…æ—¶
 			TAILQ_REMOVE( head, ev, timerlink );
 			TAILQ_INSERT_TAIL( head, ev, timerlink );
 		}
 		else if ( ev->timer_stepcnt == 0 )
 		{
-			// ³¬Ê±ÁË
-			// ´Ó¶ÓÁĞÖĞÉ¾³ı, ²¢Ìí¼Óµ½¼¤»î¶ÓÁĞÖĞ
+			// è¶…æ—¶äº†
+			// ä»é˜Ÿåˆ—ä¸­åˆ é™¤, å¹¶æ·»åŠ åˆ°æ¿€æ´»é˜Ÿåˆ—ä¸­
 			++rc;
 			evsets_del( event_get_sets((event_t)ev), (event_t)ev );
 			event_active( ev, EV_TIMEOUT );
 		}
 		else
 		{
-			// ³ö´íÁË
+			// å‡ºé”™äº†
 			evsets_del( event_get_sets((event_t)ev), (event_t)ev );
 		}
 	}

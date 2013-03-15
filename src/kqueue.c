@@ -1,5 +1,5 @@
 
-// ±ÜÃâsys/event.hÖĞÖØ¸´°üº¬queue.h
+// é¿å…sys/event.hä¸­é‡å¤åŒ…å«queue.h
 #if defined(__APPLE__) || defined(__darwin__)
 #define _SYS_QUEUE_H_
 #endif
@@ -183,7 +183,7 @@ int32_t kqueue_del( void * arg, struct event * ev )
 	if ( !(ev->status & EVSTATUS_X_KQINKERNEL) )
 	{
 		//
-		// ¸ÃÊÂ¼şÒÑ¾­²»ÔÚKQUEUEÖĞÁË, Ö±½Ó·µ»Ø³É¹¦
+		// è¯¥äº‹ä»¶å·²ç»ä¸åœ¨KQUEUEä¸­äº†, ç›´æ¥è¿”å›æˆåŠŸ
 		//
 		return 0;
 	}
@@ -230,8 +230,8 @@ int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv )
 
 	if ( tv >= 0 )
 	{
-		// tv - µ¥Î»ÎªºÁÃë
-		// ±ØĞë»»Ëã³ÉÃë£¬ÒÔ¼°ÄÉÃë
+		// tv - å•ä½ä¸ºæ¯«ç§’
+		// å¿…é¡»æ¢ç®—æˆç§’ï¼Œä»¥åŠçº³ç§’
 		tsp.tv_sec = tv/1000;
 		tsp.tv_nsec = (tv%1000) * 1000000;
 		ptsp = &tsp;

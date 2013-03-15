@@ -11,7 +11,7 @@ namespace Utils
 {
 
 //
-// »á»°, ·ÇÏß³Ì°²È«µÄ 
+// ä¼šè¯, éçº¿ç¨‹å®‰å…¨çš„ 
 //
 
 class IIOService;
@@ -28,8 +28,8 @@ public :
 
 public :
 	//	
-	// ÍøÂçÊÂ¼ş	
-	// ¶à¸öÍøÂçÏß³ÌÖĞ±»´¥·¢
+	// ç½‘ç»œäº‹ä»¶	
+	// å¤šä¸ªç½‘ç»œçº¿ç¨‹ä¸­è¢«è§¦å‘
 	//
 	
 	virtual int32_t onStart() { return 0; }
@@ -42,30 +42,30 @@ public :
 
 public :
 	//	
-	// ÔÚÍøÂçÏß³ÌÖĞ¶Ô»á»°µÄ²Ù×÷
+	// åœ¨ç½‘ç»œçº¿ç¨‹ä¸­å¯¹ä¼šè¯çš„æ“ä½œ
 	//
 	
-	// »ñÈ¡»á»°ID	
+	// è·å–ä¼šè¯ID	
 	sid_t id() const;
 
-	// ÉèÖÃ³¬Ê±/±£»îÊ±¼ä
+	// è®¾ç½®è¶…æ—¶/ä¿æ´»æ—¶é—´
 	void setTimeout( int32_t seconds );
 	void setKeepalive( int32_t seconds );
 
-	// ·¢ËÍÊı¾İ
+	// å‘é€æ•°æ®
 	int32_t send( const std::string & buffer );
 	int32_t send( const char * buffer, uint32_t nbytes, bool isfree = false );
 
-	// ¹Ø±Õ»á»°	
+	// å…³é—­ä¼šè¯	
 	int32_t shutdown();
 
 private :
 	friend class IIOService;
 
-	// ³õÊ¼»¯»á»°
+	// åˆå§‹åŒ–ä¼šè¯
 	void init( sid_t id, iolayer_t layer );
 
-	// ÄÚ²¿»Øµ÷º¯Êı
+	// å†…éƒ¨å›è°ƒå‡½æ•°
 	static int32_t	onStartSession( void * context );
 	static int32_t	onProcessSession( void * context, const char * buffer, uint32_t nbytes );
 	static char *	onTransformSession( void * context, const char * buffer, uint32_t * nbytes );	
@@ -80,7 +80,7 @@ private :
 };
 
 //
-// ÍøÂçÍ¨ĞÅ²ã
+// ç½‘ç»œé€šä¿¡å±‚
 //
 
 class IIOService
@@ -97,12 +97,12 @@ public :
 	{}
 
 public :
-	// Êı¾İ¸ÄÔì
+	// æ•°æ®æ”¹é€ 
 	virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
 
-	// ½ÓÊÜ/Á¬½ÓÊÂ¼ş
-	// ĞèÒªµ÷ÓÃÕß×Ô¼ºÊµÏÖ
-	// ÓĞ¿ÉÄÜÔÚIIOServiceµÄ¶à¸öÍøÂçÏß³ÌÖĞ±»´¥·¢
+	// æ¥å—/è¿æ¥äº‹ä»¶
+	// éœ€è¦è°ƒç”¨è€…è‡ªå·±å®ç°
+	// æœ‰å¯èƒ½åœ¨IIOServiceçš„å¤šä¸ªç½‘ç»œçº¿ç¨‹ä¸­è¢«è§¦å‘
 	
 	virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port ) { return NULL; }
 	virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port ) { return NULL; } 
@@ -110,28 +110,28 @@ public :
 public :
 
 	//
-	// Ïß³Ì°²È«µÄAPI
+	// çº¿ç¨‹å®‰å…¨çš„API
 	//
 	
-	// ¿ªÆô·şÎñ
+	// å¼€å¯æœåŠ¡
 	bool start();
 
-	// Í£Ö¹·şÎñ
+	// åœæ­¢æœåŠ¡
 	void stop();
 	
-	// Á¬½Ó/¼àÌı
+	// è¿æ¥/ç›‘å¬
 	bool listen( const char * host, uint16_t port );
 	bool connect( const char * host, uint16_t port, int32_t seconds );
 
-	// ·¢ËÍÊı¾İ
+	// å‘é€æ•°æ®
 	int32_t send( sid_t id, const std::string & buffer );
 	int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree = false );
 
-	// ¹ã²¥Êı¾İ	
+	// å¹¿æ’­æ•°æ®	
 	int32_t broadcast( const std::vector<sid_t> & ids, const std::string & buffer );
 	int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes );	
 
-	// ÖÕÖ¹»á»°
+	// ç»ˆæ­¢ä¼šè¯
 	int32_t shutdown( sid_t id );
 	int32_t shutdown( const std::vector<sid_t> & ids );
 

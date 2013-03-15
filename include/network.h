@@ -38,26 +38,26 @@ extern "C"
 #include <stdint.h>
 
 //
-// ÍøÂç²ã 
+// ç½‘ç»œå±‚ 
 //
 typedef uint64_t	sid_t;
 typedef void *		iolayer_t;
 
 //
-// IO·şÎñ
-//		start()		- »á»°¿ªÊ¼µÄ»Øµ÷
-//		process()	- ÊÕµ½Êı¾İ°üµÄ»Øµ÷
-//						·µ»ØÖµÎª´¦ÀíµôµÄÊı¾İ°ü, <0: ´¦Àí³ö´í
-//		transform()	- ·¢ËÍÊı¾İ°üÇ°µÄ»Øµ÷
-//						·µ»ØĞèÒª·¢ËÍµÄÊı¾İ°ü, È·±£Êı¾İ°üÊÇmalloc()³öÀ´µÄ
-//		keepalive()	- ±£»î¶¨Ê±Æ÷³¬Ê±µÄ»Øµ÷
+// IOæœåŠ¡
+//		start()		- ä¼šè¯å¼€å§‹çš„å›è°ƒ
+//		process()	- æ”¶åˆ°æ•°æ®åŒ…çš„å›è°ƒ
+//						è¿”å›å€¼ä¸ºå¤„ç†æ‰çš„æ•°æ®åŒ…, <0: å¤„ç†å‡ºé”™
+//		transform()	- å‘é€æ•°æ®åŒ…å‰çš„å›è°ƒ
+//						è¿”å›éœ€è¦å‘é€çš„æ•°æ®åŒ…, ç¡®ä¿æ•°æ®åŒ…æ˜¯malloc()å‡ºæ¥çš„
+//		keepalive()	- ä¿æ´»å®šæ—¶å™¨è¶…æ—¶çš„å›è°ƒ
 //
-//		timeout()	- ³¬Ê±µÄ»Øµ÷
-//		error()		- ³ö´íµÄ»Øµ÷
-//						¶ÔÓÚaccept()³öÀ´µÄ¿Í»§¶Ë, Ö±½Ó»Øµ÷shutdown();
-//						¶ÔÓÚconnect()³öÈ¥µÄ¿Í»§¶Ë, ==0, ³¢ÊÔÖØÁ¬, !=0, Ö±½Ó»Øµ÷shutdown() .
+//		timeout()	- è¶…æ—¶çš„å›è°ƒ
+//		error()		- å‡ºé”™çš„å›è°ƒ
+//						å¯¹äºaccept()å‡ºæ¥çš„å®¢æˆ·ç«¯, ç›´æ¥å›è°ƒshutdown();
+//						å¯¹äºconnect()å‡ºå»çš„å®¢æˆ·ç«¯, ==0, å°è¯•é‡è¿, !=0, ç›´æ¥å›è°ƒshutdown() .
 //
-//		shutdown()	- »á»°ÖÕÖ¹Ê±µÄ»Øµ÷, ²»ÂÛ·µ»ØÖµ, Ö±½ÓÏú»Ù»á»°
+//		shutdown()	- ä¼šè¯ç»ˆæ­¢æ—¶çš„å›è°ƒ, ä¸è®ºè¿”å›å€¼, ç›´æ¥é”€æ¯ä¼šè¯
 //
 typedef struct
 {
@@ -70,62 +70,62 @@ typedef struct
 	int32_t (*shutdown)( void * context );
 }ioservice_t;
 
-// ´´½¨ÍøÂç²ã 
+// åˆ›å»ºç½‘ç»œå±‚ 
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
 
-// ·şÎñÆ÷¿ªÆô
-//		host		- °ó¶¨µÄµØÖ·
-//		port		- ¼àÌıµÄ¶Ë¿ÚºÅ
-//		cb			- ĞÂ»á»°´´½¨³É¹¦ºóµÄ»Øµ÷,»á±»¶à¸öÍøÂçÏß³Ìµ÷ÓÃ 
-//							²ÎÊı1: ÉÏÏÂÎÄ²ÎÊı; 
-//							²ÎÊı2: ĞÂ»á»°ID; 
-//							²ÎÊı3: »á»°µÄIPµØÖ·; 
-//							²ÎÊı4: »á»°µÄ¶Ë¿ÚºÅ
-//		context		- ÉÏÏÂÎÄ²ÎÊı
+// æœåŠ¡å™¨å¼€å¯
+//		host		- ç»‘å®šçš„åœ°å€
+//		port		- ç›‘å¬çš„ç«¯å£å·
+//		cb			- æ–°ä¼šè¯åˆ›å»ºæˆåŠŸåçš„å›è°ƒ,ä¼šè¢«å¤šä¸ªç½‘ç»œçº¿ç¨‹è°ƒç”¨ 
+//							å‚æ•°1: ä¸Šä¸‹æ–‡å‚æ•°; 
+//							å‚æ•°2: æ–°ä¼šè¯ID; 
+//							å‚æ•°3: ä¼šè¯çš„IPåœ°å€; 
+//							å‚æ•°4: ä¼šè¯çš„ç«¯å£å·
+//		context		- ä¸Šä¸‹æ–‡å‚æ•°
 int32_t iolayer_listen( iolayer_t self,
 		const char * host, uint16_t port, 
 		int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context );
 
-// ¿Í»§¶Ë¿ªÆô
-//		host		- Ô¶³Ì·şÎñÆ÷µÄµØÖ·
-//		port		- Ô¶³Ì·şÎñÆ÷µÄ¶Ë¿Ú
-//		seconds		- Á¬½Ó³¬Ê±Ê±¼ä
-//		cb			- Á¬½Ó½á¹ûµÄ»Øµ÷
-//							²ÎÊı1: ÉÏÏÂÎÄ²ÎÊı
-//							²ÎÊı2: Á¬½Ó½á¹û
-//							²ÎÊı3: Á¬½ÓµÄÔ¶³Ì·şÎñÆ÷µÄµØÖ·
-//							²ÎÊı4: Á¬½ÓµÄÔ¶³Ì·şÎñÆ÷µÄ¶Ë¿Ú
-//							²ÎÊı5: Á¬½Ó³É¹¦ºó·µ»ØµÄ»á»°ID
-//		context		- ÉÏÏÂÎÄ²ÎÊı
+// å®¢æˆ·ç«¯å¼€å¯
+//		host		- è¿œç¨‹æœåŠ¡å™¨çš„åœ°å€
+//		port		- è¿œç¨‹æœåŠ¡å™¨çš„ç«¯å£
+//		seconds		- è¿æ¥è¶…æ—¶æ—¶é—´
+//		cb			- è¿æ¥ç»“æœçš„å›è°ƒ
+//							å‚æ•°1: ä¸Šä¸‹æ–‡å‚æ•°
+//							å‚æ•°2: è¿æ¥ç»“æœ
+//							å‚æ•°3: è¿æ¥çš„è¿œç¨‹æœåŠ¡å™¨çš„åœ°å€
+//							å‚æ•°4: è¿æ¥çš„è¿œç¨‹æœåŠ¡å™¨çš„ç«¯å£
+//							å‚æ•°5: è¿æ¥æˆåŠŸåè¿”å›çš„ä¼šè¯ID
+//		context		- ä¸Šä¸‹æ–‡å‚æ•°
 int32_t iolayer_connect( iolayer_t self, 
 		const char * host, uint16_t port, int32_t seconds, 
 		int32_t (*cb)( void *, int32_t, const char *, uint16_t, sid_t), void * context );
 
-// ÍøÂç²ãÉèÖÃÊı¾İ°ü¸ÄÔì·½·¨, ¸ÃÍøÂç²ãµÄÍ³Ò»µÄÊı¾İ°ü¸ÄÔì·½·¨
+// ç½‘ç»œå±‚è®¾ç½®æ•°æ®åŒ…æ”¹é€ æ–¹æ³•, è¯¥ç½‘ç»œå±‚çš„ç»Ÿä¸€çš„æ•°æ®åŒ…æ”¹é€ æ–¹æ³•
 //		self		-
-//		transform	- Êı¾İ°ü¸ÄÔì·½·¨
-//							²ÎÊı1: ÉÏÏÂÎÄ²ÎÊı
-//							²ÎÊı2: Óû·¢ËÍ»òÕß¹ã²¥µÄÏûÏ¢ÄÚÈİ
-//							²ÎÊı3: Ö¸ÏòÏûÏ¢³¤¶ÈµÄÖ¸Õë, ·µ»Ø¸ÄÔìºóµÄÊı¾İ°ü³¤¶È
+//		transform	- æ•°æ®åŒ…æ”¹é€ æ–¹æ³•
+//							å‚æ•°1: ä¸Šä¸‹æ–‡å‚æ•°
+//							å‚æ•°2: æ¬²å‘é€æˆ–è€…å¹¿æ’­çš„æ¶ˆæ¯å†…å®¹
+//							å‚æ•°3: æŒ‡å‘æ¶ˆæ¯é•¿åº¦çš„æŒ‡é’ˆ, è¿”å›æ”¹é€ åçš„æ•°æ®åŒ…é•¿åº¦
 int32_t iolayer_set_transform( iolayer_t self, 
 		char * (*transform)(void *, const char *, uint32_t *), void * context );
 
-// »á»°²ÎÊıµÄÉèÖÃ, Ö»ÄÜÔÚioservice_tÖĞÊ¹ÓÃ
+// ä¼šè¯å‚æ•°çš„è®¾ç½®, åªèƒ½åœ¨ioservice_tä¸­ä½¿ç”¨
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 
-// ·¢ËÍÊı¾İµ½»á»°
+// å‘é€æ•°æ®åˆ°ä¼šè¯
 int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
 
-// ¹ã²¥Êı¾İµ½Ö¸¶¨µÄ»á»°
+// å¹¿æ’­æ•°æ®åˆ°æŒ‡å®šçš„ä¼šè¯
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
 
-// ÖÕÖ¹Ö¸¶¨µÄ»á»°
+// ç»ˆæ­¢æŒ‡å®šçš„ä¼šè¯
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
-// Ïú»ÙÍøÂç²ã
+// é”€æ¯ç½‘ç»œå±‚
 void iolayer_destroy( iolayer_t self );
 
 #ifdef __cplusplus

@@ -30,7 +30,7 @@ struct session * _new_session()
 		return NULL;
 	}
 
-	// ³õÊ¼»¯ÍøÂçÊÂ¼þ
+	// åˆå§‹åŒ–ç½‘ç»œäº‹ä»¶
 	self->evread = event_create();
 	self->evwrite = event_create();
 	self->evkeepalive = event_create();
@@ -41,7 +41,7 @@ struct session * _new_session()
 		return NULL;
 	}
 
-	// ³õÊ¼»¯·¢ËÍ¶ÓÁÐ
+	// åˆå§‹åŒ–å‘é€é˜Ÿåˆ—
 	if ( QUEUE_INIT(sendqueue)(&self->sendqueue, DEFAULT_SENDQUEUE_SIZE) != 0 )
 	{
 		_del_session( self );
@@ -53,7 +53,7 @@ struct session * _new_session()
 
 int32_t _del_session( struct session * self )
 {
-	// Ïú»ÙÍøÂçÊÂ¼þ
+	// é”€æ¯ç½‘ç»œäº‹ä»¶
 	if ( self->evread )
 	{
 		event_destroy( self->evread );
@@ -77,12 +77,12 @@ int32_t _del_session( struct session * self )
 	return 0;
 }
 
-// »á»°Í£Ö¹(É¾³ýÍøÂçÊÂ¼þÒÔ¼°¹Ø±ÕÃèÊö·û)
+// ä¼šè¯åœæ­¢(åˆ é™¤ç½‘ç»œäº‹ä»¶ä»¥åŠå…³é—­æè¿°ç¬¦)
 void _stop( struct session * self )
 {
 	evsets_t sets = self->evsets;
 
-	// É¾³ýÍøÂçÊÂ¼þ
+	// åˆ é™¤ç½‘ç»œäº‹ä»¶
 	if ( self->status&SESSION_READING )
 	{
 		evsets_del( sets, self->evread );
@@ -99,10 +99,10 @@ void _stop( struct session * self )
 		self->status &= ~SESSION_KEEPALIVING;
 	}
 
-	// Çå¿Õ½ÓÊÕ»º³åÇø
+	// æ¸…ç©ºæŽ¥æ”¶ç¼“å†²åŒº
 	buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
 
-	// ¹Ø±ÕÃèÊö·û
+	// å…³é—­æè¿°ç¬¦
 	if ( self->fd > 0 )
 	{
 		close( self->fd );
@@ -117,27 +117,27 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 
 	if ( self->status&SESSION_EXITING )
 	{
-		// µÈ´ý¹Ø±ÕµÄÁ¬½Ó
+		// ç­‰å¾…å…³é—­çš„è¿žæŽ¥
 		return -1;
 	}
 
-	// ÅÐ¶ÏsessionÊÇ·ñ·±Ã¦
+	// åˆ¤æ–­sessionæ˜¯å¦ç¹å¿™
 	if ( !(self->status&SESSION_WRITING) 
 			&& session_sendqueue_count(self) == 0 )
 	{
-		// Ö±½Ó·¢ËÍ
+		// ç›´æŽ¥å‘é€
 		rc = channel_send( self, buf, nbytes ); 
 		if ( rc == nbytes )
 		{
-			// È«²¿·¢ËÍ³öÈ¥
+			// å…¨éƒ¨å‘é€å‡ºåŽ»
 			return rc;
 		}
 
-		// ÎªÊ²Ã´·¢ËÍ´íÎóÃ»ÓÐÖ±½ÓÖÕÖ¹»á»°ÄØ£¿
-		// ¸Ã½Ó¿ÚÓÐ¿ÉÄÜÔÚioservice_tÖÐµ÷ÓÃ, Ö±½ÓÖÕÖ¹»á»°ºó, »áÒý·¢ºóÐø¶Ô»á»°µÄ²Ù×÷±ÀÀ£
+		// ä¸ºä»€ä¹ˆå‘é€é”™è¯¯æ²¡æœ‰ç›´æŽ¥ç»ˆæ­¢ä¼šè¯å‘¢ï¼Ÿ
+		// è¯¥æŽ¥å£æœ‰å¯èƒ½åœ¨ioservice_tä¸­è°ƒç”¨, ç›´æŽ¥ç»ˆæ­¢ä¼šè¯åŽ, ä¼šå¼•å‘åŽç»­å¯¹ä¼šè¯çš„æ“ä½œå´©æºƒ
 	}
 
-	// ´´½¨message, Ìí¼Óµ½·¢ËÍ¶ÓÁÐÖÐ
+	// åˆ›å»ºmessage, æ·»åŠ åˆ°å‘é€é˜Ÿåˆ—ä¸­
 	struct message * message = message_create();
 	if ( message == NULL )
 	{
@@ -166,14 +166,14 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	self->type		= type;
 	self->evsets	= sets;
 
-	// TODO: ÉèÖÃÄ¬ÈÏµÄ×î´ó½ÓÊÕ»º³åÇø
+	// TODO: è®¾ç½®é»˜è®¤çš„æœ€å¤§æŽ¥æ”¶ç¼“å†²åŒº
 
-	// ²»ÐèÒªÃ¿´Î¿ªÊ¼»á»°µÄÊ±ºò³õÊ¼»¯
-	// Ö»ÐèÒªÔÚmanager´´½¨»á»°µÄÊ±ºò³õÊ¼»¯Ò»´Î£¬¼´¿É	
+	// ä¸éœ€è¦æ¯æ¬¡å¼€å§‹ä¼šè¯çš„æ—¶å€™åˆå§‹åŒ–
+	// åªéœ€è¦åœ¨manageråˆ›å»ºä¼šè¯çš„æ—¶å€™åˆå§‹åŒ–ä¸€æ¬¡ï¼Œå³å¯	
 
 	self->service.start( self->context );
 
-	// ¹Ø×¢¶ÁÊÂ¼þ, °´Ðè¿ªÆô±£»îÐÄÌø
+	// å…³æ³¨è¯»äº‹ä»¶, æŒ‰éœ€å¼€å¯ä¿æ´»å¿ƒè·³
 	session_add_event( self, EV_READ );
 	session_start_keepalive( self );
 
@@ -191,19 +191,19 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 	int32_t rc = -1;
 	ioservice_t * service = &self->service;
 
-	// Êý¾Ý¸ÄÔì(¼ÓÃÜ or Ñ¹Ëõ)
+	// æ•°æ®æ”¹é€ (åŠ å¯† or åŽ‹ç¼©)
 	uint32_t _nbytes = nbytes;
 	char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
 
 	if ( _buf != NULL )
 	{
-		// ·¢ËÍÊý¾Ý
-		// TODO: _send()¿ÉÒÔ¸ù¾Ý¾ßÌåÇé¿ö¾ö¶¨ÊÇ·ñcopyÄÚ´æ
+		// å‘é€æ•°æ®
+		// TODO: _send()å¯ä»¥æ ¹æ®å…·ä½“æƒ…å†µå†³å®šæ˜¯å¦copyå†…å­˜
 		rc = _send( self, _buf, _nbytes );
 
 		if ( _buf != buf )
 		{
-			// Ïú»Ù¸ÄÔìµÄÏûÏ¢
+			// é”€æ¯æ”¹é€ çš„æ¶ˆæ¯
 			free( _buf );
 		}
 	}
@@ -220,29 +220,29 @@ int32_t session_append( struct session * self, struct message * message )
 	char * buf = message_get_buffer( message );
 	uint32_t nbytes = message_get_length( message );
 
-	// Êý¾Ý¸ÄÔì(¼ÓÃÜ or Ñ¹Ëõ)
+	// æ•°æ®æ”¹é€ (åŠ å¯† or åŽ‹ç¼©)
 	char * buffer = service->transform( self->context, (const char *)buf, &nbytes );
 
 	if ( buffer == buf )
 	{
-		// ÏûÏ¢Î´½øÐÐ¸ÄÔì
+		// æ¶ˆæ¯æœªè¿›è¡Œæ”¹é€ 
 
-		// Ìí¼Óµ½»á»°µÄ·¢ËÍÁÐ±íÖÐ
+		// æ·»åŠ åˆ°ä¼šè¯çš„å‘é€åˆ—è¡¨ä¸­
 		rc = QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
 		if ( rc == 0 )
 		{
-			// ×¢²áÐ´ÊÂ¼þ, ´¦Àí·¢ËÍ¶ÓÁÐ
+			// æ³¨å†Œå†™äº‹ä»¶, å¤„ç†å‘é€é˜Ÿåˆ—
 			session_add_event( self, EV_WRITE );
 		}
 	}
 	else if ( buffer != NULL )
 	{
-		// ÏûÏ¢¸ÄÔì³É¹¦
+		// æ¶ˆæ¯æ”¹é€ æˆåŠŸ
 
 		rc = _send( self, buffer, nbytes );
 		if ( rc >= 0 )
 		{
-			// ¸ÄÔìºóµÄÏûÏ¢ÒÑ¾­µ¥¶À·¢ËÍ
+			// æ”¹é€ åŽçš„æ¶ˆæ¯å·²ç»å•ç‹¬å‘é€
 			message_add_success( message );
 		}
 
@@ -257,14 +257,14 @@ int32_t session_append( struct session * self, struct message * message )
 	return rc;
 }
 
-// ×¢²áÍøÂçÊÂ¼þ 
+// æ³¨å†Œç½‘ç»œäº‹ä»¶ 
 void session_add_event( struct session * self, int16_t ev )
 {
 	int8_t status = self->status;
 	evsets_t sets = self->evsets;
 
-	// ×¢²á¶ÁÊÂ¼þ
-	// ²»ÔÚµÈ´ý¶ÁÊÂ¼þµÄÕý³£»á»°
+	// æ³¨å†Œè¯»äº‹ä»¶
+	// ä¸åœ¨ç­‰å¾…è¯»äº‹ä»¶çš„æ­£å¸¸ä¼šè¯
 	if ( !(status&SESSION_EXITING)
 			&& (ev&EV_READ) && !(status&SESSION_READING) )
 	{
@@ -275,16 +275,16 @@ void session_add_event( struct session * self, int16_t ev )
 		self->status |= SESSION_READING;
 	}
 
-	// ×¢²áÐ´ÊÂ¼þ
+	// æ³¨å†Œå†™äº‹ä»¶
 	if ( (ev&EV_WRITE) && !(status&SESSION_WRITING) )
 	{
 		int32_t wait_for_shutdown = 0;
 
-		// ÔÚµÈ´ýÍË³öµÄ»á»°ÉÏ×ÜÊÇ»áÌí¼Ó10sµÄ¶¨Ê±Æ÷
+		// åœ¨ç­‰å¾…é€€å‡ºçš„ä¼šè¯ä¸Šæ€»æ˜¯ä¼šæ·»åŠ 10sçš„å®šæ—¶å™¨
 		if ( status&SESSION_EXITING )
 		{
-			// ¶Ô¶ËÖ÷»ú±ÀÀ£ + Socket»º³åÇøÂúµÄÇé¿öÏÂ
-			// »áÒ»Ö±µÈ²»µ½EV_WRITE·¢Éú, ÕâÊ±libevlite¾Í³öÏÖÁË»á»°Ð¹Â©
+			// å¯¹ç«¯ä¸»æœºå´©æºƒ + Socketç¼“å†²åŒºæ»¡çš„æƒ…å†µä¸‹
+			// ä¼šä¸€ç›´ç­‰ä¸åˆ°EV_WRITEå‘ç”Ÿ, è¿™æ—¶libevliteå°±å‡ºçŽ°äº†ä¼šè¯æ³„æ¼
 			wait_for_shutdown = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
 		}
 
@@ -298,7 +298,7 @@ void session_add_event( struct session * self, int16_t ev )
 	return;
 }
 
-// ·´×¢²áÍøÂçÊÂ¼þ
+// åæ³¨å†Œç½‘ç»œäº‹ä»¶
 void session_del_event( struct session * self, int16_t ev )
 {
 	int8_t status = self->status;
@@ -342,24 +342,24 @@ int32_t session_start_reconnect( struct session * self )
 
 	if ( self->status&SESSION_EXITING )
 	{
-		// »á»°µÈ´ýÍË³ö,
+		// ä¼šè¯ç­‰å¾…é€€å‡º,
 		return -1;
 	}
 
 	if ( self->status&SESSION_WRITING )
 	{
-		// ÕýÔÚµÈ´ýÐ´ÊÂ¼þµÄÇé¿öÏÂ
+		// æ­£åœ¨ç­‰å¾…å†™äº‹ä»¶çš„æƒ…å†µä¸‹
 		return -2;
 	}
 
-	// Í£Ö¹»á»°
+	// åœæ­¢ä¼šè¯
 	_stop( self );
 
-	// 2Ãëºó³¢ÊÔÖØÁ¬, ±ÜÃâÃ¦µÈ
+	// 2ç§’åŽå°è¯•é‡è¿ž, é¿å…å¿™ç­‰
 	event_set( self->evwrite, -1, 0 );
 	event_set_callback( self->evwrite, channel_on_reconnect, self );
 	evsets_add( sets, self->evwrite, TRY_RECONNECT_INTERVAL );
-	self->status |= SESSION_WRITING;			// ÈÃsessionÃ¦ÆðÀ´
+	self->status |= SESSION_WRITING;			// è®©sessionå¿™èµ·æ¥
 
 	return 0;
 }
@@ -369,11 +369,11 @@ int32_t session_shutdown( struct session * self )
 	if ( !(self->status&SESSION_EXITING)
 			&& session_sendqueue_count(self) > 0 )
 	{
-		// »á»°×´Ì¬Õý³£, ²¢ÇÒ·¢ËÍ¶ÓÁÐ²»Îª¿Õ
-		// ³¢ÊÔ¼ÌÐø°ÑÎ´·¢ËÍµÄÊý¾Ý·¢ËÍ³öÈ¥, ÔÚÖÕÖ¹»á»°
+		// ä¼šè¯çŠ¶æ€æ­£å¸¸, å¹¶ä¸”å‘é€é˜Ÿåˆ—ä¸ä¸ºç©º
+		// å°è¯•ç»§ç»­æŠŠæœªå‘é€çš„æ•°æ®å‘é€å‡ºåŽ», åœ¨ç»ˆæ­¢ä¼šè¯
 		self->status |= SESSION_EXITING;
 
-		// ÓÅÏÈ°ÑÊý¾Ý·¢³öÈ¥
+		// ä¼˜å…ˆæŠŠæ•°æ®å‘å‡ºåŽ»
 		session_del_event( self, EV_READ );
 		session_add_event( self, EV_WRITE );
 
@@ -385,10 +385,10 @@ int32_t session_shutdown( struct session * self )
 
 int32_t session_end( struct session * self, sid_t id )
 {
-	// ÓÉÓÚ»á»°ÒÑ¾­´Ó¹ÜÀíÆ÷ÖÐÉ¾³ýÁË
-	// »á»°ÖÐµÄIDÒÑ¾­·Ç·¨
+	// ç”±äºŽä¼šè¯å·²ç»ä»Žç®¡ç†å™¨ä¸­åˆ é™¤äº†
+	// ä¼šè¯ä¸­çš„IDå·²ç»éžæ³•
 
-	// Çå¿Õ·¢ËÍ¶ÓÁÐ
+	// æ¸…ç©ºå‘é€é˜Ÿåˆ—
 	uint32_t count = session_sendqueue_count(self);
 	if ( count > 0 )
 	{
@@ -400,7 +400,7 @@ int32_t session_end( struct session * self, sid_t id )
 			struct message * msg = NULL;
 			QUEUE_POP(sendqueue)( &self->sendqueue, &msg );
 
-			// ¼ì²éÏûÏ¢ÊÇ·ñ¿ÉÒÔÏú»ÙÁË
+			// æ£€æŸ¥æ¶ˆæ¯æ˜¯å¦å¯ä»¥é”€æ¯äº†
 			message_add_failure( msg, id );
 			if ( message_is_complete(msg) )
 			{
@@ -409,7 +409,7 @@ int32_t session_end( struct session * self, sid_t id )
 		}
 	}
 
-	// Í£Ö¹»á»°
+	// åœæ­¢ä¼šè¯
 	_stop( self );
 	_del_session( self );
 
@@ -590,7 +590,7 @@ struct session * session_manager_alloc( struct session_manager * self )
 	sid_t id = 0;
 	struct session * session = NULL;
 
-	// Éú³Ésid
+	// ç”Ÿæˆsid
 	id = self->index+1;
 	id <<= 32;
 	id |= self->autoseq++;
@@ -602,8 +602,8 @@ struct session * session_manager_alloc( struct session_manager * self )
 		session->id = id;
 		session->manager = self;
 
-		// Ìí¼Ó»á»°
-		// TODO: ÊÇ·ñ¿ÉÒÔ²ð·Ö, generate() and session_start()
+		// æ·»åŠ ä¼šè¯
+		// TODO: æ˜¯å¦å¯ä»¥æ‹†åˆ†, generate() and session_start()
 		if ( _append_session(self->table, session) != 0 )
 		{
 			_del_session( session );
@@ -626,7 +626,7 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 		return -1;
 	}
 
-	// »á»°Êý¾ÝÇå¿Õ
+	// ä¼šè¯æ•°æ®æ¸…ç©º
 	session->id = 0;
 	session->manager = NULL;
 

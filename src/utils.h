@@ -8,7 +8,7 @@ extern "C"
 #endif
 
 /*
- * ¹¤¾ßËã·¨Ä£¿é
+ * å·¥å…·ç®—æ³•æ¨¡å—
  */
 
 #include <stdint.h>
@@ -25,13 +25,13 @@ extern "C"
 #include "network.h"
 
 //
-// ÏµÍ³Ïà¹ØµÄ²Ù×÷
+// ç³»ç»Ÿç›¸å…³çš„æ“ä½œ
 //
 
-// Ê±¼äº¯Êı, ·µ»ØºÁÃëÊı
+// æ—¶é—´å‡½æ•°, è¿”å›æ¯«ç§’æ•°
 int64_t mtime();
 
-// socket»ù±¾²Ù×÷
+// socketåŸºæœ¬æ“ä½œ
 int32_t is_connected( int32_t fd );
 int32_t set_non_block( int32_t fd );
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport );
@@ -39,7 +39,7 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) );
 int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) );
 
 //
-// »ù´¡Ëã·¨Àà
+// åŸºç¡€ç®—æ³•ç±»
 //
 uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
@@ -63,18 +63,18 @@ int32_t sidlist_adds( struct sidlist * self, sid_t * ids, uint32_t count );
 sid_t sidlist_del( struct sidlist * self, int32_t index );
 void sidlist_destroy( struct sidlist * self );
 
-// ÈÎÎñÀàĞÍ
+// ä»»åŠ¡ç±»å‹
 enum
 {
-	eTaskType_Null		= 0,	// ¿ÕÈÎÎñ
-	eTaskType_User		= 1,	// ÓÃ»§ÈÎÎñ
-	eTaskType_Data		= 2,	// Êı¾İÈÎÎñ
+	eTaskType_Null		= 0,	// ç©ºä»»åŠ¡
+	eTaskType_User		= 1,	// ç”¨æˆ·ä»»åŠ¡
+	eTaskType_Data		= 2,	// æ•°æ®ä»»åŠ¡
 };
 
-// ÈÎÎñÌî³ä³¤¶È
+// ä»»åŠ¡å¡«å……é•¿åº¦
 #define TASK_PADDING_SIZE		56	
 
-// ÈÎÎñÊı¾İ
+// ä»»åŠ¡æ•°æ®
 struct task
 {
 	int16_t type;				// 2bytes
@@ -90,8 +90,8 @@ QUEUE_PADDING_HEAD(taskqueue, struct task);
 QUEUE_PROTOTYPE(taskqueue, struct task)
 
 /* 
- * ÏûÏ¢¶ÓÁĞ
- * Ïß³Ì°²È«µÄÏûÏ¢¶ÓÁĞ, ÓĞÍ¨ÖªµÄ¹¦ÄÜ
+ * æ¶ˆæ¯é˜Ÿåˆ—
+ * çº¿ç¨‹å®‰å…¨çš„æ¶ˆæ¯é˜Ÿåˆ—, æœ‰é€šçŸ¥çš„åŠŸèƒ½
  */
 struct msgqueue
 {
@@ -102,26 +102,26 @@ struct msgqueue
 	pthread_mutex_t lock; 
 };
 
-// ´´½¨ÏûÏ¢¶ÓÁĞ
+// åˆ›å»ºæ¶ˆæ¯é˜Ÿåˆ—
 struct msgqueue * msgqueue_create( uint32_t size );
 
-// Éú²úÕß·¢ËÍÈÎÎñ
-// isnotify - ÊÇ·ñĞèÒªÍ¨ÖªÏû·ÑÕß
+// ç”Ÿäº§è€…å‘é€ä»»åŠ¡
+// isnotify - æ˜¯å¦éœ€è¦é€šçŸ¥æ¶ˆè´¹è€…
 int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnotify );
 
-// Ïû·ÑÕß´ÓÏûÏ¢¶ÓÁĞÖĞÈ¡Ò»¶¨Á¿µÄÈÎÎñ
+// æ¶ˆè´¹è€…ä»æ¶ˆæ¯é˜Ÿåˆ—ä¸­å–ä¸€å®šé‡çš„ä»»åŠ¡
 int32_t msgqueue_pop( struct msgqueue * self, struct task * task );
 
-// ½»»»
+// äº¤æ¢
 int32_t msgqueue_swap( struct msgqueue * self, struct taskqueue * queue );
 
-// ÏûÏ¢¶ÓÁĞµÄ³¤¶È
+// æ¶ˆæ¯é˜Ÿåˆ—çš„é•¿åº¦
 uint32_t msgqueue_count( struct msgqueue * self );
 
-// Ïû·ÑÕß¹ÜµÀfd
+// æ¶ˆè´¹è€…ç®¡é“fd
 int32_t msgqueue_popfd( struct msgqueue * self );
 
-// Ïú»ÙÏûÏ¢¶ÓÁĞ
+// é”€æ¯æ¶ˆæ¯é˜Ÿåˆ—
 int32_t msgqueue_destroy( struct msgqueue * self );
 
 #ifdef __cplusplus

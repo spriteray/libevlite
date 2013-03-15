@@ -40,29 +40,29 @@ extern "C"
 
 #include "event.h"
 
-// ÍøÂçÏß³Ì×é
+// ç½‘ç»œçº¿ç¨‹ç»„
 typedef void * iothreads_t;
 
-// ´´½¨ÍøÂçÏß³Ì×é
-// nthreads		- ÍøÂçÏß³Ì×éÖĞµÄÏß³ÌÊı
-// method		- ÈÎÎñ´¦Àíº¯Êı
+// åˆ›å»ºç½‘ç»œçº¿ç¨‹ç»„
+// nthreads		- ç½‘ç»œçº¿ç¨‹ç»„ä¸­çš„çº¿ç¨‹æ•°
+// method		- ä»»åŠ¡å¤„ç†å‡½æ•°
 iothreads_t iothreads_start( uint8_t nthreads, 
 					void (*method)(void *, uint8_t, int16_t, void *), void * context );
 
-// »ñÈ¡ÍøÂçÏß³Ì×éÖĞÖ¸¶¨Ïß³ÌµÄID
+// è·å–ç½‘ç»œçº¿ç¨‹ç»„ä¸­æŒ‡å®šçº¿ç¨‹çš„ID
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index );
 
-// »ñÈ¡ÍøÂçÏß³Ì×éÖĞÖ¸¶¨Ïß³ÌµÄÊÂ¼ş¼¯
+// è·å–ç½‘ç»œçº¿ç¨‹ç»„ä¸­æŒ‡å®šçº¿ç¨‹çš„äº‹ä»¶é›†
 evsets_t iothreads_get_sets( iothreads_t self, uint8_t index );
 
-// ÏòÍøÂçÏß³Ì×éÖĞÖ¸¶¨µÄÏß³ÌÌá½»ÈÎÎñ
-// index	- Ö¸¶¨ÍøÂçÏß³ÌµÄ±àºÅ
-// type		- Ìá½»µÄÈÎÎñÀàĞÍ, NOTE:0xffÄÚÖÃµÄÈÎÎñÀàĞÍ
-// task		- Ìá½»µÄÈÎÎñÊı¾İ
-// size		- ÈÎÎñÊı¾İµÄ³¤¶È, Ä¬ÈÏÉèÖÃÎª0
+// å‘ç½‘ç»œçº¿ç¨‹ç»„ä¸­æŒ‡å®šçš„çº¿ç¨‹æäº¤ä»»åŠ¡
+// index	- æŒ‡å®šç½‘ç»œçº¿ç¨‹çš„ç¼–å·
+// type		- æäº¤çš„ä»»åŠ¡ç±»å‹, NOTE:0xffå†…ç½®çš„ä»»åŠ¡ç±»å‹
+// task		- æäº¤çš„ä»»åŠ¡æ•°æ®
+// size		- ä»»åŠ¡æ•°æ®çš„é•¿åº¦, é»˜è®¤è®¾ç½®ä¸º0
 int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * task, uint8_t size );
 
-// ÍøÂçÏß³Ì×éÍ£Ö¹
+// ç½‘ç»œçº¿ç¨‹ç»„åœæ­¢
 void iothreads_stop( iothreads_t self );
 
 #ifdef __cplusplus
