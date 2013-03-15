@@ -4,19 +4,19 @@
 
 #include "threads.h"
 
-// �ύ����ʱ�Ƿ���Ҫ�첽֪ͨ������
-// ��ʱ�Ժ�ǿ������Ӧ����Ҫ�����ѡ��
+// 提交任务时是否需要异步通知消费者
+// 即时性很强的网络应用需要打开这个选项
 #define POST_IOTASK_AND_NOTIFY		0
 
-// ����Ĭ�ϴ�С
-// ���ѡ����Ҫ�����ڼ䲻�ϵ�������Ӧ��������Ҫ
+// 队列默认大小
+// 这个选项需要测试期间不断调整以适应场景的需要
 #define MSGQUEUE_DEFAULT_SIZE		8192
 
-// �߳�Ĭ��ջ��С
+// 线程默认栈大小
 #define THREAD_DEFAULT_STACK_SIZE	(8*1024)
 
 //
-// �����߳�
+// 网络线程
 // 
 
 struct iothread
@@ -37,7 +37,7 @@ int32_t iothread_post( struct iothread * self,
 int32_t iothread_stop( struct iothread * self );
 
 //
-// �����߳���
+// 网络线程组
 //
 
 struct iothreads

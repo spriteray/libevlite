@@ -11,12 +11,12 @@
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-// °æ±¾
+// ç‰ˆæœ¬
 #ifndef __EVENT_VERSION__
 #define __EVENT_VERSION__ "libevlite-X.X.X"
 #endif
 
-// linuxºÍfreebsdµÄ¼æÈÝÐÔ¶¨Òå
+// linuxå’Œfreebsdçš„å…¼å®¹æ€§å®šä¹‰
 #if defined (__linux__)
 extern const struct eventop epollops;
 const struct eventop * evsel = &epollops;
@@ -27,7 +27,7 @@ const struct eventop * evsel = &kqueueops;
 const struct eventop * evsel = NULL;
 #endif
 
-// event.cÖÐµÄ¹¤¾ß¶¨Òå
+// event.cä¸­çš„å·¥å…·å®šä¹‰
 
 static inline int32_t evsets_process_active( struct eventset * self );
 static inline int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type );
@@ -44,7 +44,7 @@ int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t ty
 {
 	if ( ev->status & type )
 	{
-		// ÊÂ¼þÒÑ¾­´¦ÓÚ¸ÃÁÐ±íÖÐ
+		// äº‹ä»¶å·²ç»å¤„äºŽè¯¥åˆ—è¡¨ä¸­
 		return 1;
 	}
 
@@ -210,7 +210,7 @@ evsets_t evsets_create()
 	struct eventset * self = NULL;
 
 	//
-	// ¼æÈÝÐÔ¼ì²é
+	// å…¼å®¹æ€§æ£€æŸ¥
 	//
 	assert( evsel != NULL );
 
@@ -279,17 +279,17 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 
 	if ( rc >= 0 && tv > 0 )
 	{
-		// Èç¹ûÒÑ¾­ÔÚ¶¨Ê±Æ÷ÖÐÁË,
-		// Ò»¶¨ÒªÉ¾³ý£¬ÒÔµ±Ç°Ê±¼äµ±Ç°Ë÷ÒýÖØÐÂ¼ÓÈë¶¨Ê±Æ÷ÖÐ
-		// ÕâÑù±È½Ï×¼È·
+		// å¦‚æžœå·²ç»åœ¨å®šæ—¶å™¨ä¸­äº†,
+		// ä¸€å®šè¦åˆ é™¤ï¼Œä»¥å½“å‰æ—¶é—´å½“å‰ç´¢å¼•é‡æ–°åŠ å…¥å®šæ—¶å™¨ä¸­
+		// è¿™æ ·æ¯”è¾ƒå‡†ç¡®
 		if ( e->status & EVSTATUS_TIMER )
 		{
 			event_list_remove( sets, e, EVSTATUS_TIMER );
 		}
 
-		// ÒÑ¾­³¬Ê±ÁË
-		// ±ØÐë´Ó¼¤»î¶ÓÁÐÖÐÉ¾³ý£¬
-		// ÖØÐÂ¼ÓÈë¶¨Ê±Æ÷ÖÐ
+		// å·²ç»è¶…æ—¶äº†
+		// å¿…é¡»ä»Žæ¿€æ´»é˜Ÿåˆ—ä¸­åˆ é™¤ï¼Œ
+		// é‡æ–°åŠ å…¥å®šæ—¶å™¨ä¸­
 		if ( (e->results & EV_TIMEOUT)
 				&& (e->status & EVSTATUS_ACTIVE) )
 		{
@@ -340,13 +340,13 @@ int32_t evsets_dispatch( evsets_t self )
 	int32_t seconds4wait = 0;
 	struct eventset * sets = (struct eventset *)self;
 
-	// Çå¿ÕÊ±¼ä»º´æ
+	// æ¸…ç©ºæ—¶é—´ç¼“å­˜
 	evsets_clear_now( sets );
 
-	// Ã»ÓÐ¼¤»îÊÂ¼þµÄÇé¿öÏÂµÈ´ý³¬Ê±Ê±¼ä	
+	// æ²¡æœ‰æ¿€æ´»äº‹ä»¶çš„æƒ…å†µä¸‹ç­‰å¾…è¶…æ—¶æ—¶é—´	
 	if ( TAILQ_EMPTY(&sets->activelist) )
 	{
-		// ¸ù¾Ý¶¨Ê±Æ÷µÄ³¬Ê±Ê±¼ä, È·ÈÏIOµÄµÈ´ýÊ±¼ä
+		// æ ¹æ®å®šæ—¶å™¨çš„è¶…æ—¶æ—¶é—´, ç¡®è®¤IOçš„ç­‰å¾…æ—¶é—´
 		seconds4wait = (int32_t)( sets->expire_time - evsets_get_now(sets) );
 		if ( seconds4wait < 0 )
 		{
@@ -358,23 +358,23 @@ int32_t evsets_dispatch( evsets_t self )
 		}
 	}
 
-	// ´¦ÀíIOÊÂ¼þ
+	// å¤„ç†IOäº‹ä»¶
 	res = sets->evselect->dispatch( sets, sets->evsets, seconds4wait );
 	if ( res < 0 )
 	{
 		return -1;
 	}
 
-	// ÊÂ¼þ¼¯µÄ³¬Ê±Ê±¼äÊÇÒª¼°Ê±¸üÐÂµÄ
+	// äº‹ä»¶é›†çš„è¶…æ—¶æ—¶é—´æ˜¯è¦åŠæ—¶æ›´æ–°çš„
 	evsets_clear_now( sets );
 	if ( sets->expire_time <= evsets_get_now(sets) )
 	{
-		// ¶¨Ê±Æ÷Ê±¼äµ½ÁË, ·Ö·¢ÊÂ¼þ
+		// å®šæ—¶å™¨æ—¶é—´åˆ°äº†, åˆ†å‘äº‹ä»¶
 		res += evtimer_dispatch( sets->core_timer );
 		sets->expire_time = evsets_get_now(sets) + sets->timer_precision;
 	}
 
-	// ´¦ÀíËùÓÐÊÂ¼þ, ²¢»Øµ÷¶¨ÒåºÃµÄº¯Êý
+	// å¤„ç†æ‰€æœ‰äº‹ä»¶, å¹¶å›žè°ƒå®šä¹‰å¥½çš„å‡½æ•°
 	return evsets_process_active( sets );
 }
 
@@ -398,7 +398,7 @@ void evsets_destroy( evsets_t self )
 	struct event * ev = NULL;
 	struct eventset * sets = (struct eventset *)self;
 
-	// É¾³ýËùÓÐÊÂ¼þ
+	// åˆ é™¤æ‰€æœ‰äº‹ä»¶
 	for ( ev = TAILQ_FIRST( &(sets->eventlist) ); ev; )
 	{
 		struct event * next = TAILQ_NEXT( ev, eventlink );
@@ -411,13 +411,13 @@ void evsets_destroy( evsets_t self )
 		ev = next;
 	}
 
-	// Çå³ý¶¨Ê±Æ÷
+	// æ¸…é™¤å®šæ—¶å™¨
 	if ( sets->core_timer )
 	{
 		evtimer_clean( sets->core_timer );
 	}
 
-	// É¾³ý¼¤»îÊÂ¼þ
+	// åˆ é™¤æ¿€æ´»äº‹ä»¶
 	for ( ev = TAILQ_FIRST( &(sets->activelist) ); ev; )
 	{
 		struct event * next = TAILQ_NEXT( ev, activelink );
@@ -430,13 +430,13 @@ void evsets_destroy( evsets_t self )
 		ev = next;
 	}
 
-	// Ïú»Ù¶¨Ê±Æ÷
+	// é”€æ¯å®šæ—¶å™¨
 	if ( sets->core_timer )
 	{
 		evtimer_destroy( sets->core_timer );
 	}
 
-	// Ïú»ÙIOÊµÀý
+	// é”€æ¯IOå®žä¾‹
 	sets->evselect->final( sets->evsets );
 	free( sets );
 
@@ -466,7 +466,7 @@ int32_t evsets_process_active( struct eventset * self )
 			}
 		}
 
-		// »Øµ÷
+		// å›žè°ƒ
 		++rc;
 		(*ev->cb)( event_get_fd((event_t)ev), ev->results, ev->arg );
 	}

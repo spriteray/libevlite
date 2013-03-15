@@ -11,12 +11,12 @@
 #include "network-internal.h"
 #include "channel.h"
 
-// ·¢ËÍ½ÓÊÕÊı¾İ
+// å‘é€æ¥æ”¶æ•°æ®
 static int32_t _receive( struct session * session );
 static int32_t _transmit( struct session * session );
 static inline int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
-// Âß¼­²Ù×÷  
+// é€»è¾‘æ“ä½œ  
 static int32_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
 
@@ -26,7 +26,7 @@ static int32_t _timeout( struct session * session );
 
 int32_t _receive( struct session * session )
 {
-	// ¾¡Á¿¶ÁÊı¾İ
+	// å°½é‡è¯»æ•°æ®
 	return buffer_read( &session->inbuffer, session->fd, -1 );
 }
 
@@ -158,7 +158,7 @@ int32_t _process( struct session * session )
 		char * buffer = buffer_data( &session->inbuffer );
 		uint32_t nbytes = buffer_length( &session->inbuffer );
 
-		// »Øµ÷Âß¼­²ã
+		// å›è°ƒé€»è¾‘å±‚
 		nprocess = service->process(
 				session->context, buffer, nbytes );
 		if ( nprocess > 0 )
@@ -173,8 +173,8 @@ int32_t _process( struct session * session )
 int32_t _timeout( struct session * session )
 {
 	/*
-	 * ³¬Ê±, »á³¢ÊÔ°²È«µÄÖÕÖ¹»á»°
-	 * ¸ù¾İÂß¼­²ãµÄ·µ»ØÖµÈ·¶¨ÊÇ·ñÖÕÖ¹»á»°
+	 * è¶…æ—¶, ä¼šå°è¯•å®‰å…¨çš„ç»ˆæ­¢ä¼šè¯
+	 * æ ¹æ®é€»è¾‘å±‚çš„è¿”å›å€¼ç¡®å®šæ˜¯å¦ç»ˆæ­¢ä¼šè¯
 	 */
 	int32_t rc = 0;
 	ioservice_t * service = &session->service;
@@ -184,22 +184,22 @@ int32_t _timeout( struct session * session )
 	if ( rc != 0
 			|| ( session->status&SESSION_EXITING ) )
 	{
-		// µÈ´ıÖÕÖ¹µÄ»á»°
-		// Âß¼­²ãĞèÒªÖÕÖ¹µÄ»á»°
-		// NOTICE: ´Ë´¦»á³¢ÊÔÖÕÖ¹»á»°
+		// ç­‰å¾…ç»ˆæ­¢çš„ä¼šè¯
+		// é€»è¾‘å±‚éœ€è¦ç»ˆæ­¢çš„ä¼šè¯
+		// NOTICE: æ­¤å¤„ä¼šå°è¯•ç»ˆæ­¢ä¼šè¯
 		return session_shutdown( session );
 	}
 
 	if ( session->type == eSessionType_Persist )
 	{
-		// ³¢ÊÔÖØÁ¬µÄÓÀ¾Ã»á»°
+		// å°è¯•é‡è¿çš„æ°¸ä¹…ä¼šè¯
 		session_start_reconnect( session );
 	}
 	else
 	{
-		// ÁÙÊ±»á»°, Ìí¼Ó¶ÁÊÂ¼ş
+		// ä¸´æ—¶ä¼šè¯, æ·»åŠ è¯»äº‹ä»¶
 		session_add_event( session, EV_READ );
-		// TODO: ÊÇ·ñĞèÒª´ò¿ªkeepalive
+		// TODO: æ˜¯å¦éœ€è¦æ‰“å¼€keepalive
 		session_start_keepalive( session );
 	}
 
@@ -208,12 +208,12 @@ int32_t _timeout( struct session * session )
 
 int32_t channel_error( struct session * session, int32_t result )
 {
-	/* ³ö´í
-	 * ³ö´íÊ±, libevlite»áÖ±½ÓÖÕÖ¹»á»°, ¶ªÆú·¢ËÍ¶ÓÁĞÖĞµÄÊı¾İ 
+	/* å‡ºé”™
+	 * å‡ºé”™æ—¶, libevliteä¼šç›´æ¥ç»ˆæ­¢ä¼šè¯, ä¸¢å¼ƒå‘é€é˜Ÿåˆ—ä¸­çš„æ•°æ® 
 	 *
-	 * ¸ù¾İ»á»°µÄÀàĞÍ
-	 *		1. ÁÙÊ±»á»°, Ö±½ÓÖÕÖ¹»á»°
-	 *		2. ÓÀ¾Ã»á»°, ÖÕÖ¹socket, ³¢ÊÔÖØĞÂÁ¬½Ó
+	 * æ ¹æ®ä¼šè¯çš„ç±»å‹
+	 *		1. ä¸´æ—¶ä¼šè¯, ç›´æ¥ç»ˆæ­¢ä¼šè¯
+	 *		2. æ°¸ä¹…ä¼šè¯, ç»ˆæ­¢socket, å°è¯•é‡æ–°è¿æ¥
 	 */
 	int32_t rc = 0;
 	ioservice_t * service = &session->service;
@@ -224,14 +224,14 @@ int32_t channel_error( struct session * session, int32_t result )
 			|| ( session->status&SESSION_EXITING )
 			|| ( session->type == eSessionType_Persist && rc != 0 ) )
 	{
-		// ÁÙÊ±»á»°
-		// µÈ´ıÖÕÖ¹µÄ»á»°
-		// Âß¼­²ãĞèÒªÖÕÖ¹µÄÓÀ¾Ã»á»°
-		// Ö±½ÓÖÕÖ¹»á»°, µ¼ÖÂ·¢ËÍ¶ÓÁĞÖĞµÄÊı¾İ¶ªÊ§
+		// ä¸´æ—¶ä¼šè¯
+		// ç­‰å¾…ç»ˆæ­¢çš„ä¼šè¯
+		// é€»è¾‘å±‚éœ€è¦ç»ˆæ­¢çš„æ°¸ä¹…ä¼šè¯
+		// ç›´æ¥ç»ˆæ­¢ä¼šè¯, å¯¼è‡´å‘é€é˜Ÿåˆ—ä¸­çš„æ•°æ®ä¸¢å¤±
 		return channel_shutdown( session );
 	}
 
-	// ³¢ÊÔÖØÁ¬µÄÓÀ¾Ã»á»°
+	// å°è¯•é‡è¿çš„æ°¸ä¹…ä¼šè¯
 	session_start_reconnect( session );
 
 	return 0;
@@ -243,7 +243,7 @@ int32_t channel_shutdown( struct session * session )
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
 
-	// »á»°ÖÕÖ¹
+	// ä¼šè¯ç»ˆæ­¢
 	service->shutdown( session->context );
 	session_manager_remove( manager, session );
 	session_end( session, id );
@@ -273,14 +273,14 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
 		if ( nprocess < 0 )
 		{
-			// ´¦Àí³ö´í, ³¢ÊÔÖÕÖ¹»á»°
+			// å¤„ç†å‡ºé”™, å°è¯•ç»ˆæ­¢ä¼šè¯
 			session_shutdown( session );
 			return;
 		}
 
 		if ( nread > 0 || (nread == -1 && errno == EAGAIN) )
 		{
-			// »á»°Õı³£
+			// ä¼šè¯æ­£å¸¸
 			session_add_event( session, EV_READ );
 			return;
 		}
@@ -319,7 +319,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 	{
 		if ( session_sendqueue_count(session) > 0 )
 		{
-			// ·¢ËÍÊı¾İ
+			// å‘é€æ•°æ®
 			int32_t writen = _transmit( session );
 			if ( writen < 0 && errno != EAGAIN )
 			{
@@ -327,21 +327,21 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 			}
 			else
 			{
-				// Õı³£·¢ËÍ »òÕß socket»º³åÇøÒÑÂú
+				// æ­£å¸¸å‘é€ æˆ–è€… socketç¼“å†²åŒºå·²æ»¡
 
 				if ( session_sendqueue_count(session) > 0 )
 				{
-					// NOTICE: ÎªÊ²Ã´²»ÅĞ¶Ï»á»°ÊÇ·ñÕıÔÚÖÕÖ¹ÄØ?
-					// ÎªÁË¾¡Á¿°ÑÊı¾İ·¢ËÍÍêÈ«, ËùÒÔÖ»Òª²»³ö´íµÄÇé¿öÏÂ, »áÒ»Ö±·¢ËÍ
-					// Ö±µ½·¢ËÍ¶ÓÁĞÎª¿Õ
+					// NOTICE: ä¸ºä»€ä¹ˆä¸åˆ¤æ–­ä¼šè¯æ˜¯å¦æ­£åœ¨ç»ˆæ­¢å‘¢?
+					// ä¸ºäº†å°½é‡æŠŠæ•°æ®å‘é€å®Œå…¨, æ‰€ä»¥åªè¦ä¸å‡ºé”™çš„æƒ…å†µä¸‹, ä¼šä¸€ç›´å‘é€
+					// ç›´åˆ°å‘é€é˜Ÿåˆ—ä¸ºç©º
 					session_add_event( session, EV_WRITE );
 				}
 				else
 				{
 					if ( session->status&SESSION_EXITING )
 					{
-						// µÈ´ı¹Ø±ÕµÄ»á»°, Ö±½ÓÖÕÖ¹»á»°
-						// ºóĞøµÄĞĞÎªÓÉSO_LINGER¾ö¶¨
+						// ç­‰å¾…å…³é—­çš„ä¼šè¯, ç›´æ¥ç»ˆæ­¢ä¼šè¯
+						// åç»­çš„è¡Œä¸ºç”±SO_LINGERå†³å®š
 						channel_shutdown( session );
 					}
 				}
@@ -349,13 +349,13 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 		}
 		else
 		{
-			// TODO: ¶ÓÁĞÎª¿ÕµÄÇé¿ö
+			// TODO: é˜Ÿåˆ—ä¸ºç©ºçš„æƒ…å†µ
 		}
 	}
 	else
 	{
-		// µÈ´ı¹Ø±ÕµÄ»á»°Ğ´ÊÂ¼ş³¬Ê±µÄÇé¿öÏÂ
-		// ²»¹Ü·¢ËÍ¶ÓÁĞÈçºÎ, Ö±½ÓÖÕÖ¹»á»°
+		// ç­‰å¾…å…³é—­çš„ä¼šè¯å†™äº‹ä»¶è¶…æ—¶çš„æƒ…å†µä¸‹
+		// ä¸ç®¡å‘é€é˜Ÿåˆ—å¦‚ä½•, ç›´æ¥ç»ˆæ­¢ä¼šè¯
 
 		assert( session->status&SESSION_EXITING );
 		channel_shutdown( session );
@@ -380,7 +380,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 			uint8_t index = 0;
 
 #if !defined(__FreeBSD__)
-			// FreeBSD»á¼Ì³ĞlistenfdµÄNON BlockÊôĞÔ
+			// FreeBSDä¼šç»§æ‰¿listenfdçš„NON Blockå±æ€§
 			set_non_block( cfd );
 #endif
 
@@ -388,7 +388,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 			task.cb = acceptor->cb;
 			task.context = acceptor->context;
 
-			// ·Ö·¢²ßÂÔ
+			// åˆ†å‘ç­–ç•¥
 			index = cfd % (layer->nthreads);
 			iolayer_assign_session( layer, index, &(task) );
 		}
@@ -406,7 +406,7 @@ void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
 
 	if ( service->keepalive( session->context ) == 0 )
 	{
-		// Âß¼­²ãĞèÒª¼ÌĞø·¢ËÍ±£»î°ü
+		// é€»è¾‘å±‚éœ€è¦ç»§ç»­å‘é€ä¿æ´»åŒ…
 		session_start_keepalive( session );
 	}
 
@@ -419,7 +419,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 
 	session->status &= ~SESSION_WRITING;
 
-	// Á¬½ÓÔ¶³Ì·şÎñÆ÷
+	// è¿æ¥è¿œç¨‹æœåŠ¡å™¨
 	session->fd = tcp_connect( session->host, session->port, iolayer_client_option );
 	if ( session->fd < 0 )
 	{
@@ -427,7 +427,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 		return;
 	}
 
-	// ×¢²áĞ´ÊÂ¼ş, ÒÔÖØĞÂ¼¤»î»á»°
+	// æ³¨å†Œå†™äº‹ä»¶, ä»¥é‡æ–°æ¿€æ´»ä¼šè¯
 	event_set( session->evwrite, session->fd, EV_WRITE );
 	event_set_callback( session->evwrite, channel_on_reconnected, session );
 	evsets_add( session->evsets, session->evwrite, 0 );
@@ -449,7 +449,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 	if ( ev & EV_WRITE )
 	{
 #if defined (__linux__)
-		// linuxĞèÒª½øÒ»²½¼ì²éÁ¬½ÓÊÇ·ñ³É¹¦
+		// linuxéœ€è¦è¿›ä¸€æ­¥æ£€æŸ¥è¿æ¥æ˜¯å¦æˆåŠŸ
 		if ( is_connected( fd ) != 0 )
 		{
 			result = eIOError_ConnectStatus;
@@ -463,7 +463,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 
 	if ( result == 0 )
 	{
-		// Á¬½Ó³É¹¦µÄÇé¿öÏÂ, ´´½¨»á»°
+		// è¿æ¥æˆåŠŸçš„æƒ…å†µä¸‹, åˆ›å»ºä¼šè¯
 		session = iolayer_alloc_session( layer, connector->fd );
 		if ( session == NULL )
 		{
@@ -475,19 +475,19 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 		}
 	}
 
-	// °ÑÁ¬½Ó½á¹û»Øµ÷¸øÂß¼­²ã
+	// æŠŠè¿æ¥ç»“æœå›è°ƒç»™é€»è¾‘å±‚
 	rc = connector->cb( connector->context, result, connector->host, connector->port, id );
 
 	if ( rc == 0 )
 	{
 		if ( result != 0 )
 		{
-			// Âß¼­²ãĞèÒª¼ÌĞøÁ¬½Ó
+			// é€»è¾‘å±‚éœ€è¦ç»§ç»­è¿æ¥
 			iolayer_reconnect( layer, connector );
 		}
 		else
 		{
-			// Á¬½Ó³É¹¦
+			// è¿æ¥æˆåŠŸ
 			set_non_block( connector->fd );
 			session_set_endpoint( session, connector->host, connector->port );
 			session_start( session, eSessionType_Persist, connector->fd, connector->evsets );
@@ -524,13 +524,13 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 			return;
 		}
 #endif
-		// ×ÜËãÊÇÁ¬½ÓÉÏÁË
+		// æ€»ç®—æ˜¯è¿æ¥ä¸Šäº†
 
 		set_non_block( fd );
 		session->service.start( session->context );
 
-		// ×¢²á¶ÁĞ´ÊÂ¼ş
-		// °Ñ»ıÀÛÏÂÀ´µÄÊı¾İÈ«²¿·¢ËÍ³öÈ¥
+		// æ³¨å†Œè¯»å†™äº‹ä»¶
+		// æŠŠç§¯ç´¯ä¸‹æ¥çš„æ•°æ®å…¨éƒ¨å‘é€å‡ºå»
 		session_add_event( session, EV_READ );
 		session_add_event( session, EV_WRITE );
 		session_start_keepalive( session );

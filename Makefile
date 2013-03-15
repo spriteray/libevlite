@@ -14,7 +14,7 @@ REALNAME= $(LIBNAME).7.3.0
 OS		= $(shell uname)
 
 #
-# ÀûÓÃgit tag·¢²¼Èí¼ş°æ±¾
+# åˆ©ç”¨git tagå‘å¸ƒè½¯ä»¶ç‰ˆæœ¬
 #
 #APPNAME=`git describe | awk -F- '{print $$1}'`
 #VERSION=`git describe | awk -F- '{print $$2}'`
@@ -105,7 +105,7 @@ clean :
 	
 # --------------------------------------------------------
 #
-# gmakeµÄ¹æÔò
+# gmakeçš„è§„åˆ™
 #
 %.o : %.c
 	$(CC) $(CFLAGS) -c $^ -o $@

@@ -4,25 +4,25 @@
 
 #include <stdint.h>
 
-// ÊÇ·ñ°²È«µÄÖÕÖ¹»á»°
+// æ˜¯å¦å®‰å…¨çš„ç»ˆæ­¢ä¼šè¯
 #define SAFE_SHUTDOWN					0	
 
-// ·¢ËÍ¶ÓÁĞµÄÄ¬ÈÏ´óĞ¡
+// å‘é€é˜Ÿåˆ—çš„é»˜è®¤å¤§å°
 #define DEFAULT_SENDQUEUE_SIZE			128
 
-// ¹Ø±ÕÇ°×î´óµÈ´ıÊ±¼ä,Ä¬ÈÏ10s
+// å…³é—­å‰æœ€å¤§ç­‰å¾…æ—¶é—´,é»˜è®¤10s
 #define MAX_SECONDS_WAIT_FOR_SHUTDOWN	(10*1000)	
 
-// ³¢ÊÔÖØÁ¬µÄ¼ä¸ôÊ±¼ä,Ä¬ÈÏÎª20ms
-// Çë²Î¿¼event-internal.hÖĞ×î´ó¾«¶È TIMER_MAX_PRECISION
+// å°è¯•é‡è¿çš„é—´éš”æ—¶é—´,é»˜è®¤ä¸º20ms
+// è¯·å‚è€ƒevent-internal.hä¸­æœ€å¤§ç²¾åº¦ TIMER_MAX_PRECISION
 #define TRY_RECONNECT_INTERVAL			20
 
-// ·¢ËÍ½ÓÊÕ»º³åÇøÉèÖÃ
+// å‘é€æ¥æ”¶ç¼“å†²åŒºè®¾ç½®
 #define SEND_BUFFER_SIZE				0
 #define RECV_BUFFER_SIZE				4096
 
 
-// ÈÎÎñÀàĞÍ
+// ä»»åŠ¡ç±»å‹
 enum
 {
 	eIOTaskType_Invalid		= 0,
@@ -35,18 +35,18 @@ enum
 	eIOTaskType_Shutdowns	= 7,	
 };
 
-// ÍøÂç·şÎñ´íÎóÂë¶¨Òå
+// ç½‘ç»œæœåŠ¡é”™è¯¯ç å®šä¹‰
 enum
 {
 	eIOError_OutMemory 			= 0x00010001,
-	eIOError_ConnectStatus		= 0x00010002,	// ·Ç·¨µÄÁ¬½Ó×´Ì¬
-	eIOError_ConflictSid		= 0x00010003,	// ³åÍ»µÄSID
-	eIOError_InBufferFull		= 0x00010004,	// »º³åÇøÂúÁË
-	eIOError_ReadFailure		= 0x00010005,	// read()Ê§°Ü
-	eIOError_PeerShutdown		= 0x00010006,	// ¶Ô¶Ë¹Ø±ÕÁËÁ¬½Ó
-	eIOError_WriteFailure		= 0x00010007, 	// write()Ê§°Ü
-	eIOError_ConnectFailure		= 0x00010008,	// Á¬½ÓÊ§°Ü
-	eIOError_Timeout			= 0x00010009,	// Á¬½Ó³¬Ê±ÁË
+	eIOError_ConnectStatus		= 0x00010002,	// éæ³•çš„è¿æ¥çŠ¶æ€
+	eIOError_ConflictSid		= 0x00010003,	// å†²çªçš„SID
+	eIOError_InBufferFull		= 0x00010004,	// ç¼“å†²åŒºæ»¡äº†
+	eIOError_ReadFailure		= 0x00010005,	// read()å¤±è´¥
+	eIOError_PeerShutdown		= 0x00010006,	// å¯¹ç«¯å…³é—­äº†è¿æ¥
+	eIOError_WriteFailure		= 0x00010007, 	// write()å¤±è´¥
+	eIOError_ConnectFailure		= 0x00010008,	// è¿æ¥å¤±è´¥
+	eIOError_Timeout			= 0x00010009,	// è¿æ¥è¶…æ—¶äº†
 };
 
 

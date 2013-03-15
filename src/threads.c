@@ -13,9 +13,9 @@
 #include "threads.h"
 #include "threads-internal.h"
 
-// ´´½¨ÍøÂçÏß³Ì×é
-// nthreads		- ÍøÂçÏß³Ì×éÖĞµÄÏß³ÌÊı
-// method		- ÈÎÎñ´¦Àíº¯Êı
+// åˆ›å»ºç½‘ç»œçº¿ç¨‹ç»„
+// nthreads		- ç½‘ç»œçº¿ç¨‹ç»„ä¸­çš„çº¿ç¨‹æ•°
+// method		- ä»»åŠ¡å¤„ç†å‡½æ•°
 iothreads_t iothreads_start( uint8_t nthreads, 
 		void (*method)(void *, uint8_t, int16_t, void *), void * context )
 {
@@ -41,7 +41,7 @@ iothreads_t iothreads_start( uint8_t nthreads,
 	pthread_cond_init( &iothreads->cond, NULL );
 	pthread_mutex_init( &iothreads->lock, NULL );
 
-	// ¿ªÆôÍøÂçÏß³Ì
+	// å¼€å¯ç½‘ç»œçº¿ç¨‹
 	iothreads->runflags = 1;
 	iothreads->nrunthreads = nthreads;
 	for ( i = 0; i < nthreads; ++i )
@@ -66,11 +66,11 @@ evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
 	return iothreads->threadgroup[index].sets;
 }
 
-// ÏòÍøÂçÏß³Ì×éÖĞÖ¸¶¨µÄÏß³ÌÌá½»ÈÎÎñ
-// index	- Ö¸¶¨ÍøÂçÏß³ÌµÄ±àºÅ
-// type		- Ìá½»µÄÈÎÎñÀàĞÍ
-// task		- Ìá½»µÄÈÎÎñÊı¾İ
-// size		- ÈÎÎñÊı¾İµÄ³¤¶È, Ä¬ÈÏÉèÖÃÎª0
+// å‘ç½‘ç»œçº¿ç¨‹ç»„ä¸­æŒ‡å®šçš„çº¿ç¨‹æäº¤ä»»åŠ¡
+// index	- æŒ‡å®šç½‘ç»œçº¿ç¨‹çš„ç¼–å·
+// type		- æäº¤çš„ä»»åŠ¡ç±»å‹
+// task		- æäº¤çš„ä»»åŠ¡æ•°æ®
+// size		- ä»»åŠ¡æ•°æ®çš„é•¿åº¦, é»˜è®¤è®¾ç½®ä¸º0
 int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * task, uint8_t size )
 {
 	struct iothreads * iothreads = (struct iothreads *)(self);
@@ -91,14 +91,14 @@ void iothreads_stop( iothreads_t self )
 	uint8_t i = 0;
 	struct iothreads * iothreads = (struct iothreads *)(self);
 
-	// ÏòËùÓĞÏß³Ì·¢ËÍÍ£Ö¹ÃüÁî
+	// å‘æ‰€æœ‰çº¿ç¨‹å‘é€åœæ­¢å‘½ä»¤
 	iothreads->runflags = 0;
 	for ( i = 0; i < iothreads->nthreads; ++i )
 	{
 		iothread_post( iothreads->threadgroup+i, eTaskType_Null, 0, NULL, 0 );
 	}
 
-	// µÈ´ıÏß³ÌÍË³ö
+	// ç­‰å¾…çº¿ç¨‹é€€å‡º
 	pthread_mutex_lock( &iothreads->lock );
 	while ( iothreads->nrunthreads > 0 )
 	{
@@ -106,7 +106,7 @@ void iothreads_stop( iothreads_t self )
 	}
 	pthread_mutex_unlock( &iothreads->lock );
 
-	// Ïú»ÙËùÓĞÍøÂçÏß³Ì
+	// é”€æ¯æ‰€æœ‰ç½‘ç»œçº¿ç¨‹
 	for ( i = 0; i < iothreads->nthreads; ++i )
 	{
 		iothread_stop( iothreads->threadgroup + i );
@@ -152,12 +152,12 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 		return -2;
 	}
 
-	// ³õÊ¼»¯ÃüÁîÊÂ¼ş
+	// åˆå§‹åŒ–å‘½ä»¤äº‹ä»¶
 	event_set( self->cmdevent, msgqueue_popfd(self->queue), EV_READ|EV_PERSIST );
 	event_set_callback( self->cmdevent, iothread_on_command, self );
 	evsets_add( self->sets, self->cmdevent, 0 );
 
-	// Æô¶¯Ïß³Ì
+	// å¯åŠ¨çº¿ç¨‹
 	pthread_attr_t attr;
 	pthread_attr_init( &attr );
 	//	assert( pthread_attr_setstacksize( &attr, THREAD_DEFAULT_STACK_SIZE ) );
@@ -191,7 +191,7 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
 		memcpy( &(inter_task.data), task, size );
 	}
 
-	// Ä¬ÈÏ: Ìá½»ÈÎÎñ²»ÌáĞÑÏû·ÑÕß
+	// é»˜è®¤: æäº¤ä»»åŠ¡ä¸æé†’æ¶ˆè´¹è€…
 	return msgqueue_push( self->queue, &inter_task, POST_IOTASK_AND_NOTIFY );
 }
 
@@ -228,19 +228,19 @@ void * iothread_main( void * arg )
 	sigfillset(&mask);
 	pthread_sigmask(SIG_SETMASK, &mask, NULL);
 
-	// ³õÊ¼»¯¶ÓÁĞ	
+	// åˆå§‹åŒ–é˜Ÿåˆ—	
 	struct taskqueue doqueue;
 	QUEUE_INIT(taskqueue)( &doqueue, MSGQUEUE_DEFAULT_SIZE );
 
 	while ( parent->runflags )
 	{
-		// ÂÖÑ¯ÍøÂçÊÂ¼ş
+		// è½®è¯¢ç½‘ç»œäº‹ä»¶
 		evsets_dispatch( thread->sets );
 
-		// ½»»»ÈÎÎñ¶ÓÁĞ
+		// äº¤æ¢ä»»åŠ¡é˜Ÿåˆ—
 		msgqueue_swap( thread->queue, &doqueue );
 
-		// ´¦ÀíÈÎÎñ
+		// å¤„ç†ä»»åŠ¡
 		while ( QUEUE_COUNT(taskqueue)(&doqueue) > 0 )
 		{
 			struct task task;
@@ -251,33 +251,33 @@ void * iothread_main( void * arg )
 			{
 				case eTaskType_Null :
 					{
-						// ¿ÕÃüÁî
+						// ç©ºå‘½ä»¤
 						continue;
 					}
 					break;
 
 				case eTaskType_User :
 					{
-						// ÓÃ»§ÃüÁî
+						// ç”¨æˆ·å‘½ä»¤
 						data = task.taskdata;
 					}
 					break;
 
 				case eTaskType_Data :
 					{
-						// Êı¾İÃüÁî
+						// æ•°æ®å‘½ä»¤
 						data = (void *)(task.data);
 					}
 					break;
 			}
-			// »Øµ÷
+			// å›è°ƒ
 			parent->method( parent->context, thread->index, task.utype, data );
 		}
 	}
 
 	QUEUE_CLEAR(taskqueue)( &doqueue );
 
-	// ÏòÖ÷Ïß³Ì·¢ËÍÖÕÖ¹ĞÅºÅ
+	// å‘ä¸»çº¿ç¨‹å‘é€ç»ˆæ­¢ä¿¡å·
 	pthread_mutex_lock( &parent->lock );
 	--parent->nrunthreads;
 	pthread_cond_signal( &parent->cond );

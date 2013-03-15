@@ -7,7 +7,7 @@
 #include "io.h"
 
 //
-// 回显服务实例
+// 鍥炴樉鏈嶅姟瀹炰緥
 //
 
 class CEchoSession : public Utils::IIOSession

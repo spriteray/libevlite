@@ -3,8 +3,8 @@
 #define SRC_SESSION_H
 
 /*
- * session »á»°
- * Ò»¸öTCPÁ¬½ÓµÄ»ù±¾µ¥Ôª
+ * session ä¼šè¯
+ * ä¸€ä¸ªTCPè¿æ¥çš„åŸºæœ¬å•å…ƒ
  */
 
 #include <stdint.h>
@@ -16,7 +16,7 @@
 #include "utils.h"
 #include "message.h"
 
-// 64Î»SIDµÄ¹¹³É
+// 64ä½SIDçš„æ„æˆ
 // |XXXXXX	|XX		|XXXXXXXX	|
 // |RES		|INDEX	|SEQ		|
 // |24		|8		|32			|
@@ -28,15 +28,15 @@
 #define SID_SEQ(sid)		( (sid)&SEQ_MASK )
 #define SID_INDEX(sid)		( ( ((sid)&INDEX_MASK) >> 32 ) - 1 )
 
-#define SESSION_READING		0x01	// µÈ´ı¶ÁÊÂ¼ş
-#define SESSION_WRITING		0x02	// µÈ´ıĞ´ÊÂ¼ş, [Á¬½Ó, ÖØÁ¬, ·¢ËÍ]
-#define SESSION_KEEPALIVING	0x04	// µÈ´ı±£»îÊÂ¼ş
-#define SESSION_EXITING		0x10	// µÈ´ıÍË³ö, Êı¾İÈ«²¿·¢ËÍÍê±Ïºó, ¼´¿ÉÖÕÖ¹
+#define SESSION_READING		0x01	// ç­‰å¾…è¯»äº‹ä»¶
+#define SESSION_WRITING		0x02	// ç­‰å¾…å†™äº‹ä»¶, [è¿æ¥, é‡è¿, å‘é€]
+#define SESSION_KEEPALIVING	0x04	// ç­‰å¾…ä¿æ´»äº‹ä»¶
+#define SESSION_EXITING		0x10	// ç­‰å¾…é€€å‡º, æ•°æ®å…¨éƒ¨å‘é€å®Œæ¯•å, å³å¯ç»ˆæ­¢
 
 enum SessionType
 {
-	eSessionType_Once 		= 1,	// ÁÙÊ±»á»°
-	eSessionType_Persist	= 2,	// ÓÀ¾Ã»á»°, ÓĞ¶ÏÏßÖØÁ¬µÄ¹¦ÄÜ
+	eSessionType_Once 		= 1,	// ä¸´æ—¶ä¼šè¯
+	eSessionType_Persist	= 2,	// æ°¸ä¹…ä¼šè¯, æœ‰æ–­çº¿é‡è¿çš„åŠŸèƒ½
 };
 
 struct session_setting
@@ -60,61 +60,61 @@ struct session
 	uint16_t	port;
 	char 		host[INET_ADDRSTRLEN];
 
-	// ¶ÁĞ´ÒÔ¼°³¬Ê±ÊÂ¼ş
+	// è¯»å†™ä»¥åŠè¶…æ—¶äº‹ä»¶
 	event_t 	evread;
 	event_t 	evwrite;
 	event_t		evkeepalive;
 
-	// ÊÂ¼ş¼¯ºÍ¹ÜÀíÆ÷
+	// äº‹ä»¶é›†å’Œç®¡ç†å™¨
 	evsets_t	evsets;
 	void *		manager;
 
-	// Âß¼­
+	// é€»è¾‘
 	void *		context;
 	ioservice_t service;
 	
-	// ½ÓÊÕ»º³åÇø
+	// æ¥æ”¶ç¼“å†²åŒº
 	struct buffer		inbuffer;
 
-	// ·¢ËÍ¶ÓÁĞÒÔ¼°ÏûÏ¢Æ«ÒÆÁ¿
+	// å‘é€é˜Ÿåˆ—ä»¥åŠæ¶ˆæ¯åç§»é‡
 	int32_t 			msgoffsets;
 	struct sendqueue 	sendqueue;
 
-	// »á»°µÄÉèÖÃ
+	// ä¼šè¯çš„è®¾ç½®
 	struct session_setting setting;
 };
 
-// »á»°¿ªÊ¼
+// ä¼šè¯å¼€å§‹
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
 
 // 
 void session_set_endpoint( struct session * self, char * host, uint16_t port );
 
-// ·¢ËÍ¶ÓÁĞµÄ³¤¶È
+// å‘é€é˜Ÿåˆ—çš„é•¿åº¦
 #define session_sendqueue_count( self )		QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )
 
-// Ïòsession·¢ËÍÊı¾İ
+// å‘sessionå‘é€æ•°æ®
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
 
-// ÏòsessionµÄ·¢ËÍ¶ÓÁĞÖĞÌí¼ÓÒ»ÌõÏûÏ¢
+// å‘sessionçš„å‘é€é˜Ÿåˆ—ä¸­æ·»åŠ ä¸€æ¡æ¶ˆæ¯
 int32_t session_append( struct session * self, struct message * message );
 
-// »á»°×¢²á/·´×¢²áÍøÂçÊÂ¼ş
+// ä¼šè¯æ³¨å†Œ/åæ³¨å†Œç½‘ç»œäº‹ä»¶
 void session_add_event( struct session * self, int16_t ev );
 void session_del_event( struct session * self, int16_t ev );
 
-// ¿ªÊ¼·¢ËÍĞÄÌø
+// å¼€å§‹å‘é€å¿ƒè·³
 int32_t session_start_keepalive( struct session * self );
 
-// ÖØÁ¬Ô¶³Ì·şÎñÆ÷
+// é‡è¿è¿œç¨‹æœåŠ¡å™¨
 int32_t session_start_reconnect( struct session * self );
 
-// ³¢ÊÔÖÕÖ¹»á»°
-// ¸ÃAPI»á¾¡Á¿°Ñ·¢ËÍ¶ÓÁĞÖĞµÄÊı¾İ·¢ËÍ³öÈ¥
-// libevlite°²È«ÖÕÖ¹»á»°µÄºËĞÄÄ£¿é
+// å°è¯•ç»ˆæ­¢ä¼šè¯
+// è¯¥APIä¼šå°½é‡æŠŠå‘é€é˜Ÿåˆ—ä¸­çš„æ•°æ®å‘é€å‡ºå»
+// libevliteå®‰å…¨ç»ˆæ­¢ä¼šè¯çš„æ ¸å¿ƒæ¨¡å—
 int32_t session_shutdown( struct session * self );
 
-// »á»°½áÊø
+// ä¼šè¯ç»“æŸ
 int32_t session_end( struct session * self, sid_t id );
 
 // -----------------------------------------------------------------------------
@@ -125,26 +125,26 @@ struct hashtable;
 struct session_manager
 {
 	uint8_t		index;
-	uint32_t	autoseq;		// ×ÔÔöµÄĞòºÅ
+	uint32_t	autoseq;		// è‡ªå¢çš„åºå·
 	
 	struct hashtable * table;	
 };
 
-// ´´½¨»á»°¹ÜÀíÆ÷
-// index	- »á»°¹ÜÀíÆ÷Ë÷ÒıºÅ
-// count	- »á»°¹ÜÀíÆ÷ÖĞ¹ÜÀí¶àÉÙ¸ö»á»°
+// åˆ›å»ºä¼šè¯ç®¡ç†å™¨
+// index	- ä¼šè¯ç®¡ç†å™¨ç´¢å¼•å·
+// count	- ä¼šè¯ç®¡ç†å™¨ä¸­ç®¡ç†å¤šå°‘ä¸ªä¼šè¯
 struct session_manager * session_manager_create( uint8_t index, uint32_t size );
 
-// ·ÖÅäÒ»¸ö»á»°
+// åˆ†é…ä¸€ä¸ªä¼šè¯
 struct session * session_manager_alloc( struct session_manager * self );
 
-// ´Ó»á»°¹ÜÀíÆ÷ÖĞÈ¡³öÒ»¸ö»á»°
+// ä»ä¼šè¯ç®¡ç†å™¨ä¸­å–å‡ºä¸€ä¸ªä¼šè¯
 struct session * session_manager_get( struct session_manager * self, sid_t id );
 
-// ´Ó»á»°¹ÜÀíÆ÷ÖĞÒÆ³ö»á»°
+// ä»ä¼šè¯ç®¡ç†å™¨ä¸­ç§»å‡ºä¼šè¯
 int32_t session_manager_remove( struct session_manager * self, struct session * session );
 
-// Ïú»Ù»á»°¹ÜÀíÆ÷
+// é”€æ¯ä¼šè¯ç®¡ç†å™¨
 void session_manager_destroy( struct session_manager * self );
 
 #endif

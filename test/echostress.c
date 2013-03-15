@@ -235,14 +235,14 @@ int main( int argc, char ** argv )
     }
 
     //
-    // ×¢²áĞÅºÅ
+    // æ³¨å†Œä¿¡å·
     //
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, stress_signal );
     signal( SIGINT, stress_signal );
 
     //
-    // ³õÊ¼»¯ÊÂ¼ş¼¯
+    // åˆå§‹åŒ–äº‹ä»¶é›†
     //
     base = event_base_new();
     if ( base == NULL )
@@ -252,7 +252,7 @@ int main( int argc, char ** argv )
     }
 
     //
-    // ÎªËùÓĞµÄ¿Í»§¶Ë·ÖÅäÄÚ´æ
+    // ä¸ºæ‰€æœ‰çš„å®¢æˆ·ç«¯åˆ†é…å†…å­˜
     //
     g_clients = calloc( g_clients_count, sizeof(struct stress_client) );
     if ( g_clients == NULL )
@@ -262,7 +262,7 @@ int main( int argc, char ** argv )
     }
 
     //
-    // ´ò¿ªËùÓĞ¿Í»§¶Ë
+    // æ‰“å¼€æ‰€æœ‰å®¢æˆ·ç«¯
     //
     g_running = 1;
     start_clients( base );

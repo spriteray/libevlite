@@ -83,7 +83,7 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) )
 		return -1;
 	}
 
-	// ¶ÔÃèÊö·ûµÄÑ¡Ïî²Ù×÷
+	// å¯¹æè¿°ç¬¦çš„é€‰é¡¹æ“ä½œ
 	options( fd );
 
 	memset( &addr, 0, sizeof(addr) );
@@ -125,7 +125,7 @@ int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) )
 		return -1;
 	}
 
-	// ¶ÔÃèÊö·ûµÄÑ¡Ïî²Ù×÷
+	// å¯¹æè¿°ç¬¦çš„é€‰é¡¹æ“ä½œ
 	options( fd );
 
 	memset( &addr, 0, sizeof(addr) );
@@ -136,7 +136,7 @@ int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) )
 	rc = connect( fd, (struct sockaddr *)&addr, sizeof(struct sockaddr) );
 	if ( rc == -1 && errno != EINPROGRESS )
 	{
-		// Á¬½Ó³ö´í
+		// è¿žæŽ¥å‡ºé”™
 		close( fd );
 		fd = -1;
 	}
@@ -329,7 +329,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
 				self->pushfd = fds[1];
 
 #ifdef O_NOATIME
-				// linuxÔÚ¶ÁpipeµÄÊ±ºò»á¸üÐÂ·ÃÎÊÊ±¼ä, touch_atime(), Õâ¸öµÄ¿ªÏúÒ²²»Ð¡
+				// linuxåœ¨è¯»pipeçš„æ—¶å€™ä¼šæ›´æ–°è®¿é—®æ—¶é—´, touch_atime(), è¿™ä¸ªçš„å¼€é”€ä¹Ÿä¸å°
 				fcntl( self->popfd, F_SETFL, O_NOATIME );
 #endif
 			}

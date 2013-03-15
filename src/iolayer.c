@@ -36,7 +36,7 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-// ´´½¨ÍøÂçÍ¨ĞÅ²ã
+// åˆ›å»ºç½‘ç»œé€šä¿¡å±‚
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 {
 	struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
@@ -50,14 +50,14 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 	self->nthreads = nthreads;
 	self->nclients = nclients;
 
-	// ³õÊ¼»¯»á»°¹ÜÀíÆ÷
+	// åˆå§‹åŒ–ä¼šè¯ç®¡ç†å™¨
 	if ( _new_managers( self ) != 0 )
 	{
 		iolayer_destroy( self );
 		return NULL;
 	}
 
-	// ´´½¨ÍøÂçÏß³Ì×é
+	// åˆ›å»ºç½‘ç»œçº¿ç¨‹ç»„
 	self->group = iothreads_start( self->nthreads, _io_methods, self );
 	if ( self->group == NULL )
 	{
@@ -68,19 +68,19 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 	return self;
 }
 
-// Ïú»ÙÍøÂçÍ¨ĞÅ²ã
+// é”€æ¯ç½‘ç»œé€šä¿¡å±‚
 void iolayer_destroy( iolayer_t self )
 {
 	uint8_t i = 0;
 	struct iolayer * layer = (struct iolayer *)self;
 
-	// Í£Ö¹ÍøÂçÏß³Ì×é
+	// åœæ­¢ç½‘ç»œçº¿ç¨‹ç»„
 	if ( layer->group )
 	{
 		iothreads_stop( layer->group );
 	}
 
-	// Ïú»Ù¹ÜÀíÆ÷
+	// é”€æ¯ç®¡ç†å™¨
 	if ( layer->managers )
 	{
 		for ( i = 0; i < layer->nthreads; ++i )
@@ -100,15 +100,15 @@ void iolayer_destroy( iolayer_t self )
 	return; 
 }
 
-// ·şÎñÆ÷¿ªÆô
-//		host		- °ó¶¨µÄµØÖ·
-//		port		- ¼àÌıµÄ¶Ë¿ÚºÅ
-//		cb			- ĞÂ»á»°´´½¨³É¹¦ºóµÄ»Øµ÷,»á±»¶à¸öÍøÂçÏß³Ìµ÷ÓÃ 
-//							²ÎÊı1: ÉÏÏÂÎÄ²ÎÊı; 
-//							²ÎÊı2: ĞÂ»á»°ID; 
-//							²ÎÊı3: »á»°µÄIPµØÖ·; 
-//							²ÎÊı4: »á»°µÄ¶Ë¿ÚºÅ
-//		context		- ÉÏÏÂÎÄ²ÎÊı
+// æœåŠ¡å™¨å¼€å¯
+//		host		- ç»‘å®šçš„åœ°å€
+//		port		- ç›‘å¬çš„ç«¯å£å·
+//		cb			- æ–°ä¼šè¯åˆ›å»ºæˆåŠŸåçš„å›è°ƒ,ä¼šè¢«å¤šä¸ªç½‘ç»œçº¿ç¨‹è°ƒç”¨ 
+//							å‚æ•°1: ä¸Šä¸‹æ–‡å‚æ•°; 
+//							å‚æ•°2: æ–°ä¼šè¯ID; 
+//							å‚æ•°3: ä¼šè¯çš„IPåœ°å€; 
+//							å‚æ•°4: ä¼šè¯çš„ç«¯å£å·
+//		context		- ä¸Šä¸‹æ–‡å‚æ•°
 int32_t iolayer_listen( iolayer_t self, 
 		const char * host, uint16_t port, 
 		int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context )
@@ -153,17 +153,17 @@ int32_t iolayer_listen( iolayer_t self,
 	return 0;
 }
 
-// ¿Í»§¶Ë¿ªÆô
-//		host		- Ô¶³Ì·şÎñÆ÷µÄµØÖ·
-//		port		- Ô¶³Ì·şÎñÆ÷µÄ¶Ë¿Ú
-//		seconds		- Á¬½Ó³¬Ê±Ê±¼ä
-//		cb			- Á¬½Ó½á¹ûµÄ»Øµ÷
-//							²ÎÊı1: ÉÏÏÂÎÄ²ÎÊı
-//							²ÎÊı2: Á¬½Ó½á¹û
-//							²ÎÊı3: Á¬½ÓµÄÔ¶³Ì·şÎñÆ÷µÄµØÖ·
-//							²ÎÊı4: Á¬½ÓµÄÔ¶³Ì·şÎñÆ÷µÄ¶Ë¿Ú
-//							²ÎÊı5: Á¬½Ó³É¹¦ºó·µ»ØµÄ»á»°ID
-//		context		- ÉÏÏÂÎÄ²ÎÊı
+// å®¢æˆ·ç«¯å¼€å¯
+//		host		- è¿œç¨‹æœåŠ¡å™¨çš„åœ°å€
+//		port		- è¿œç¨‹æœåŠ¡å™¨çš„ç«¯å£
+//		seconds		- è¿æ¥è¶…æ—¶æ—¶é—´
+//		cb			- è¿æ¥ç»“æœçš„å›è°ƒ
+//							å‚æ•°1: ä¸Šä¸‹æ–‡å‚æ•°
+//							å‚æ•°2: è¿æ¥ç»“æœ
+//							å‚æ•°3: è¿æ¥çš„è¿œç¨‹æœåŠ¡å™¨çš„åœ°å€
+//							å‚æ•°4: è¿æ¥çš„è¿œç¨‹æœåŠ¡å™¨çš„ç«¯å£
+//							å‚æ•°5: è¿æ¥æˆåŠŸåè¿”å›çš„ä¼šè¯ID
+//		context		- ä¸Šä¸‹æ–‡å‚æ•°
 int32_t iolayer_connect( iolayer_t self,
 		const char * host, uint16_t port, int32_t seconds, 
 		int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context	)
@@ -333,12 +333,12 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 
 		if ( threadid == iothreads_get_id( layer->group, i ) )
 		{
-			// ±¾Ïß³ÌÄÚÖ±½Ó¹ã²¥
+			// æœ¬çº¿ç¨‹å†…ç›´æ¥å¹¿æ’­
 			_broadcast_direct( layer, i, _get_manager(layer, i), msg );
 		}
 		else
 		{
-			// ¿çÏß³ÌÌá½»¹ã²¥ÈÎÎñ
+			// è·¨çº¿ç¨‹æäº¤å¹¿æ’­ä»»åŠ¡
 			int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
 			if ( result != 0 )
 			{
@@ -364,17 +364,17 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 		return -1;
 	}
 
-	// ±ÜÃâÔÚ»Øµ÷º¯ÊıÖĞÖ±½ÓÖÕÖ¹»á»°
-	// ÕâÑù»áÒı·¢ºóĞø¶Ô»á»°µÄ²Ù×÷¶¼·Ç·¨ÁË
+	// é¿å…åœ¨å›è°ƒå‡½æ•°ä¸­ç›´æ¥ç»ˆæ­¢ä¼šè¯
+	// è¿™æ ·ä¼šå¼•å‘åç»­å¯¹ä¼šè¯çš„æ“ä½œéƒ½éæ³•äº†
 #if 0
 	if ( pthread_self() == iothreads_get_id( layer->group, index ) )
 	{
-		// ±¾Ïß³ÌÄÚÖ±½ÓÖÕÖ¹
+		// æœ¬çº¿ç¨‹å†…ç›´æ¥ç»ˆæ­¢
 		return _shutdown_direct( _get_manager(layer, index), &task );
 	}
 #endif
 
-	// ¿çÏß³ÌÌá½»ÖÕÖ¹ÈÎÎñ
+	// è·¨çº¿ç¨‹æäº¤ç»ˆæ­¢ä»»åŠ¡
 	return iothreads_post( layer->group, index, eIOTaskType_Shutdown, (void *)&id, sizeof(id) );
 
 }
@@ -394,9 +394,9 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 		}
 		sidlist_adds( list, ids, count );
 
-		// ²ÎÕÕiolayer_shutdown()
+		// å‚ç…§iolayer_shutdown()
 
-		// ¿çÏß³ÌÌá½»ÅúÁ¿ÖÕÖ¹ÈÎÎñ
+		// è·¨çº¿ç¨‹æäº¤æ‰¹é‡ç»ˆæ­¢ä»»åŠ¡
 		int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, list, 0 );
 		if ( result != 0 )
 		{
@@ -420,7 +420,7 @@ void iolayer_server_option( int32_t fd )
 	int32_t flag = 0;
 	struct linger ling;
 
-	// Socket·Ç×èÈû
+	// Socketéé˜»å¡
 	set_non_block( fd );
 
 	flag = 1;
@@ -438,7 +438,7 @@ void iolayer_server_option( int32_t fd )
 #endif
 	setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
 
-	// ·¢ËÍ½ÓÊÕ»º³åÇø
+	// å‘é€æ¥æ”¶ç¼“å†²åŒº
 #if SEND_BUFFER_SIZE > 0
 	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
 	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
@@ -455,13 +455,13 @@ void iolayer_client_option( int32_t fd )
 {
 	int32_t flag = 0;
 
-	// Socket·Ç×èÈû
+	// Socketéé˜»å¡
 	set_non_block( fd );
 
 	flag = 1;
 	setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
-	// ·¢ËÍ½ÓÊÕ»º³åÇø
+	// å‘é€æ¥æ”¶ç¼“å†²åŒº
 #if SEND_BUFFER_SIZE > 0
 	//	int32_t sendbuf_size = SEND_BUFFER_SIZE;
 	//	setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
@@ -495,14 +495,14 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 {
-	// Ê×ÏÈ±ØĞëÏÈ¹Ø±ÕÒÔÇ°µÄÃèÊö·û
+	// é¦–å…ˆå¿…é¡»å…ˆå…³é—­ä»¥å‰çš„æè¿°ç¬¦
 	if ( connector->fd > 0 )
 	{
 		close( connector->fd );
 		connector->fd = -1;
 	}
 
-	// 2Ãëºó³¢ÊÔÖØÁ¬, ±ÜÃâÃ¦µÈ
+	// 2ç§’åå°è¯•é‡è¿, é¿å…å¿™ç­‰
 	event_set( connector->event, -1, 0 );
 	event_set_callback( connector->event, _reconnect_direct, connector );
 	evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
@@ -539,7 +539,7 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
 		return _assign_direct( _get_manager(self, index), sets, task );
 	}
 
-	// ¿çÏß³ÌÌá½»·¢ËÍÈÎÎñ
+	// è·¨çº¿ç¨‹æäº¤å‘é€ä»»åŠ¡
 	return iothreads_post( self->group, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
 }
 
@@ -552,8 +552,8 @@ int32_t _new_managers( struct iolayer * self )
 	uint8_t i = 0;
 	uint32_t sessions_per_thread = self->nclients/self->nthreads; 
 
-	// »á»°¹ÜÀíÆ÷, 
-	// ²ÉÓÃcacheline¶ÔÆëÒÔÌá¸ß·ÃÎÊËÙ¶È
+	// ä¼šè¯ç®¡ç†å™¨, 
+	// é‡‡ç”¨cachelineå¯¹é½ä»¥æé«˜è®¿é—®é€Ÿåº¦
 	self->managers = calloc( (self->nthreads)<<3, sizeof(void *) );
 	if ( self->managers == NULL )
 	{
@@ -605,7 +605,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 		return _send_direct( self, _get_manager(self, index), &task );
 	}
 
-	// ¿çÏß³ÌÌá½»·¢ËÍÈÎÎñ
+	// è·¨çº¿ç¨‹æäº¤å‘é€ä»»åŠ¡
 
 	if ( isfree == 0 )
 	{
@@ -631,7 +631,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 
 int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 {
-	// ¿ªÊ¼¹Ø×¢acceptÊÂ¼ş
+	// å¼€å§‹å…³æ³¨acceptäº‹ä»¶
 
 	event_set( acceptor->event, acceptor->fd, EV_READ|EV_PERSIST );
 	event_set_callback( acceptor->event, channel_on_accept, acceptor );
@@ -642,7 +642,7 @@ int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 
 int32_t _connect_direct( evsets_t sets, struct connector * connector )
 {
-	// ¿ªÊ¼¹Ø×¢Á¬½ÓÊÂ¼ş
+	// å¼€å§‹å…³æ³¨è¿æ¥äº‹ä»¶
 	connector->evsets = sets;
 
 	event_set( connector->event, connector->fd, EV_WRITE );
@@ -656,7 +656,7 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
 {
 	struct connector * connector = (struct connector *)arg;
 
-	// ³¢ÊÔÖØĞÂÁ¬½Ó
+	// å°è¯•é‡æ–°è¿æ¥
 	connector->fd = tcp_connect( connector->host, connector->port, iolayer_client_option );
 	if ( connector->fd < 0 )
 	{
@@ -671,7 +671,7 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 {
 	int32_t rc = 0;
 
-	// »á»°¹ÜÀíÆ÷·ÖÅä»á»°
+	// ä¼šè¯ç®¡ç†å™¨åˆ†é…ä¼šè¯
 	struct session * session = session_manager_alloc( manager );
 	if ( session == NULL )
 	{
@@ -681,11 +681,11 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
 		return -1;
 	}
 
-	// »Øµ÷Âß¼­²ã, È·¶¨ÊÇ·ñ½ÓÊÕÕâ¸ö»á»°
+	// å›è°ƒé€»è¾‘å±‚, ç¡®å®šæ˜¯å¦æ¥æ”¶è¿™ä¸ªä¼šè¯
 	rc = task->cb( task->context, session->id, task->host, task->port );
 	if ( rc != 0 )
 	{
-		// Âß¼­²ã²»½ÓÊÜÕâ¸ö»á»°
+		// é€»è¾‘å±‚ä¸æ¥å—è¿™ä¸ªä¼šè¯
 		session_manager_remove( manager, session );
 		close( task->fd );
 		return 1;
@@ -704,13 +704,13 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
 
 	if ( session )
 	{
-		// Êı¾İÍ³Ò»¸ÄÔì
+		// æ•°æ®ç»Ÿä¸€æ”¹é€ 
 		uint32_t nbytes = task->nbytes;
 		char * buffer = self->transform( self->context, task->buf, &nbytes );
 
 		rc = session_send( session, buffer, nbytes );
 		
-		// Ïú»Ù¸ÄÔìºóµÄÊı¾İ
+		// é”€æ¯æ”¹é€ åçš„æ•°æ®
 		if ( buffer != task->buf )
 		{
 			free( buffer );
@@ -723,7 +723,7 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
 
 	if ( task->isfree != 0 ) 
 	{
-		// Ö¸¶¨µ×²ãÊÍ·Å
+		// æŒ‡å®šåº•å±‚é‡Šæ”¾
 		free( task->buf );
 	}
 
@@ -735,18 +735,18 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
 	uint32_t i = 0;
 	int32_t count = 0;
 	
-	// Êı¾İ¸ÄÔì
+	// æ•°æ®æ”¹é€ 
 	uint32_t nbytes = message_get_length( msg );
 	char * buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
 	if ( buffer == NULL )
 	{
-		// Êı¾İ¸ÄÔìÊ§°Ü
+		// æ•°æ®æ”¹é€ å¤±è´¥
 		message_destroy( msg );
 		return -1;
 	}
 	if ( buffer != message_get_buffer(msg) )
 	{
-		// Êı¾İ¸ÄÔì³É¹¦
+		// æ•°æ®æ”¹é€ æˆåŠŸ
 		message_set_buffer( msg, buffer, nbytes );
 	}
 
@@ -769,13 +769,13 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
 
 		if ( session_append(session, msg) >= 0 )
 		{
-			// ³¢ÊÔµ¥¶À·¢ËÍ
-			// Ìí¼Óµ½·¢ËÍ¶ÓÁĞ³É¹¦
+			// å°è¯•å•ç‹¬å‘é€
+			// æ·»åŠ åˆ°å‘é€é˜Ÿåˆ—æˆåŠŸ
 			++count;
 		}
 	}
 
-	// ÏûÏ¢·¢ËÍÍê±Ï, Ö±½ÓÏú»Ù
+	// æ¶ˆæ¯å‘é€å®Œæ¯•, ç›´æ¥é”€æ¯
 	if ( message_is_complete(msg) )
 	{
 		message_destroy( msg );
@@ -817,7 +817,7 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
 			continue;
 		}
 
-		// Ö±½ÓÖÕÖ¹
+		// ç›´æ¥ç»ˆæ­¢
 		++count;
 		session_shutdown( session );
 	}
@@ -831,7 +831,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 {
 	struct iolayer * layer = (struct iolayer *)context;
 
-	// »ñÈ¡ÊÂ¼ş¼¯ÒÔ¼°»á»°¹ÜÀíÆ÷
+	// è·å–äº‹ä»¶é›†ä»¥åŠä¼šè¯ç®¡ç†å™¨
 	evsets_t sets = iothreads_get_sets( layer->group, index );
 	struct session_manager * manager = _get_manager( layer, index );
 
@@ -839,49 +839,49 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 	{
 		case eIOTaskType_Listen :
 			{
-				// ´ò¿ªÒ»¸ö·şÎñÆ÷
+				// æ‰“å¼€ä¸€ä¸ªæœåŠ¡å™¨
 				_listen_direct( sets, (struct acceptor *)task );
 			}
 			break;
 
 		case eIOTaskType_Connect :
 			{
-				// Á¬½ÓÔ¶³Ì·şÎñÆ÷
+				// è¿æ¥è¿œç¨‹æœåŠ¡å™¨
 				_connect_direct( sets, (struct connector *)task );
 			}
 			break;
 
 		case eIOTaskType_Assign :
 			{
-				// ·ÖÅäÒ»¸öÃèÊö·û
+				// åˆ†é…ä¸€ä¸ªæè¿°ç¬¦
 				_assign_direct( manager, sets, (struct task_assign *)task );
 			}
 			break;
 
 		case eIOTaskType_Send :
 			{
-				// ·¢ËÍÊı¾İ
+				// å‘é€æ•°æ®
 				_send_direct( layer, manager, (struct task_send *)task );
 			}
 			break;
 
 		case eIOTaskType_Broadcast :
 			{
-				// ¹ã²¥Êı¾İ
+				// å¹¿æ’­æ•°æ®
 				_broadcast_direct( layer, index, manager, (struct message *)task );
 			}
 			break;
 
 		case eIOTaskType_Shutdown :
 			{
-				// ÖÕÖ¹Ò»¸ö»á»°
+				// ç»ˆæ­¢ä¸€ä¸ªä¼šè¯
 				_shutdown_direct( manager, *( (sid_t *)task ) );
 			}
 			break;
 
 		case eIOTaskType_Shutdowns :
 			{
-				// ÅúÁ¿ÖÕÖ¹¶à¸ö»á»°
+				// æ‰¹é‡ç»ˆæ­¢å¤šä¸ªä¼šè¯
 				_shutdowns_direct( index, manager, (struct sidlist *)task );
 			}
 			break;

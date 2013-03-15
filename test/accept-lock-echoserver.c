@@ -259,7 +259,7 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
     if ( ev & EV_READ )
     {
         //
-        // 接收新连接完毕后
+        // 鎺ユ敹鏂拌繛鎺ュ畬姣曞悗
         //
         char srchost[20];
         char dsthost[20];
@@ -406,12 +406,12 @@ void * iothread_main( void * arg )
     while ( thr->running )
     {
         //
-        // 尝试加锁
+        // 灏濊瘯鍔犻攣
         //
         trylock_accept_mutex( thr );
 
         //
-        // 分发IO事件
+        // 鍒嗗彂IO浜嬩欢
         //
         evsets_dispatch( thr->core_sets );
     }

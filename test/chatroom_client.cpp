@@ -40,7 +40,7 @@ public :
 
 	enum
 	{
-		e_SendIntervalMicroSeconds	= 100,		// Ã¿¸ö100ms·¢ËÍÒ»¸öÇëÇó
+		e_SendIntervalMicroSeconds	= 100,		// æ¯ä¸ª100mså‘é€ä¸€ä¸ªè¯·æ±‚
 	};
 
 public :
@@ -293,10 +293,10 @@ int main( int argc, char ** argv )
 	evsets_t sets = evsets_create();
 	assert( sets != NULL && "evsets_create() failed" );
 
-	// Á¬½ÓÔ¶³Ì·şÎñÆ÷
+	// è¿æ¥è¿œç¨‹æœåŠ¡å™¨
 	start_clients( clients, sets );
 	
-	// ÔËĞĞ
+	// è¿è¡Œ
 	g_Running = true;
 	g_Waiting = true;
 	uint64_t nStartTime, nEndTime;
@@ -315,7 +315,7 @@ int main( int argc, char ** argv )
 		pause();
 	}
 
-	// Í³¼Æ
+	// ç»Ÿè®¡
 	statics( clients, nEndTime-nStartTime );
 	
 	free( clients );

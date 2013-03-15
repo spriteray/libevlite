@@ -5,18 +5,18 @@
 #include "queue.h"
 #include "event.h"
 
-// ³õÊ¼»¯µÄÊÂ¼şÊı, ¸Ã¿ò¼ÜÍ¬ÑùÊÊÓÃÓÚÄÚÍø·şÎñÆ÷
+// åˆå§‹åŒ–çš„äº‹ä»¶æ•°, è¯¥æ¡†æ¶åŒæ ·é€‚ç”¨äºå†…ç½‘æœåŠ¡å™¨
 #define INIT_EVENTS			1024
 
 //
-// ÊÂ¼şµÄ×´Ì¬
+// äº‹ä»¶çš„çŠ¶æ€
 // 0000 0000 0000 0000
-// ±£Áô Ë½ÓĞ ÏµÍ³ Á´±í
+// ä¿ç•™ ç§æœ‰ ç³»ç»Ÿ é“¾è¡¨
 //
-// Á´±í: 	1 - ÔÚÈ«¾ÖÁ´±íÖĞ
-//			2 - ÔÚ¶¨Ê±Æ÷ÖĞ
-//			3 - ¼¤»îÁ´±íÖĞ
-//			4 - ±£Áô
+// é“¾è¡¨: 	1 - åœ¨å…¨å±€é“¾è¡¨ä¸­
+//			2 - åœ¨å®šæ—¶å™¨ä¸­
+//			3 - æ¿€æ´»é“¾è¡¨ä¸­
+//			4 - ä¿ç•™
 //
 
 #define EVSTATUS_INSERTED	0x01
@@ -42,7 +42,7 @@ struct eventop
 };
 
 //
-// ÊÂ¼ş
+// äº‹ä»¶
 //
 struct event
 {
@@ -52,20 +52,20 @@ struct event
 	int32_t status;
 	int32_t results;
 
-	// cb Ò»¶¨ÒªºÏ·¨
+	// cb ä¸€å®šè¦åˆæ³•
 	void * arg;
 	void (*cb)( int32_t, int16_t, void * ); 
 
 	void * evsets;
 
-	// ¶¨Ê±Æ÷µÄ³¬Ê±Ê±¼ä
+	// å®šæ—¶å™¨çš„è¶…æ—¶æ—¶é—´
 	int32_t timer_msecs;        
 
-	// ÊÂ¼şÔÚ¶¨Ê±Æ÷Êı×éÖĞµÄË÷Òı
-	// É¾³ıÊ±, ¿ìËÙ¶¨Î»µ½Ä³Ò»¸öÍ°
+	// äº‹ä»¶åœ¨å®šæ—¶å™¨æ•°ç»„ä¸­çš„ç´¢å¼•
+	// åˆ é™¤æ—¶, å¿«é€Ÿå®šä½åˆ°æŸä¸€ä¸ªæ¡¶
 	int32_t timer_index; 
 
-	// ÊÂ¼şµÄÖÜÆÚÊı
+	// äº‹ä»¶çš„å‘¨æœŸæ•°
 	int32_t timer_stepcnt;     
 
 	TAILQ_ENTRY(event) timerlink;
@@ -82,19 +82,19 @@ TAILQ_HEAD( event_list, event );
 inline int32_t event_active( struct event * self, int16_t res );
 
 //
-// event¶¨Ê±Æ÷Ä£¿é
+// eventå®šæ—¶å™¨æ¨¡å—
 //
-#define TIMER_MAX_PRECISION 20			// ¶¨Ê±Æ÷×î´ó¾«¶ÈÎª20ms
-#define TIMER_BUCKET_COUNT  4096		// ±ØĞëÊÇ2µÄN´Î·½ 
+#define TIMER_MAX_PRECISION 20			// å®šæ—¶å™¨æœ€å¤§ç²¾åº¦ä¸º20ms
+#define TIMER_BUCKET_COUNT  4096		// å¿…é¡»æ˜¯2çš„Næ¬¡æ–¹ 
 
 struct evtimer
 {
-	int32_t event_count;                // ¹ÜÀíµÄÊÂ¼ş¸öÊı
-	int32_t bucket_count;               // Í°µÄ¸öÊı
-	int32_t max_precision;              // ×î´ó¾«¶È, ¾«È·µ½1ºÁÃë
+	int32_t event_count;                // ç®¡ç†çš„äº‹ä»¶ä¸ªæ•°
+	int32_t bucket_count;               // æ¡¶çš„ä¸ªæ•°
+	int32_t max_precision;              // æœ€å¤§ç²¾åº¦, ç²¾ç¡®åˆ°1æ¯«ç§’
 
 	int32_t dispatch_refer;             //
-	struct event_list * bucket_array;   // Í°µÄÊı×é
+	struct event_list * bucket_array;   // æ¡¶çš„æ•°ç»„
 };
 
 #define EVTIMER_INDEX(t,c) 				( (c) & ((t)->bucket_count-1) )
@@ -108,7 +108,7 @@ int32_t evtimer_clean( struct evtimer * self );
 void evtimer_destroy( struct evtimer * self );
 
 //
-// ÊÂ¼ş¼¯Ä£¿é
+// äº‹ä»¶é›†æ¨¡å—
 //
 
 struct eventset

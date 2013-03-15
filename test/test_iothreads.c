@@ -20,7 +20,7 @@ void task_method( void * context, uint8_t index, int16_t type, void * task )
 {
 	struct iothread_args * arg = (struct iothread_args *)task;
 
-	// TODO: ÈÎÎñ
+	// TODO: ä»»åŠ¡
 	++arg->taskcount;
 	
 	if ( rand()%10 == 0 )
