@@ -4,8 +4,9 @@
 CC	= gcc
 CXX	= g++
 CFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
+CXXFLAGS= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread 
-SOFLAGS	= -shared 
+SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).7
@@ -111,7 +112,7 @@ clean :
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 %.o : %.cpp
-	$(CXX) $(CFLAGS) -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
 VPATH = src:include:test
 	
