@@ -12,6 +12,10 @@ LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).7
 REALNAME= $(LIBNAME).7.3.0
 
+PREFIX		= /usr/local
+LIBPATH		= $(PREFIX)/lib
+INCLUDEPATH	= $(PREFIX)/include
+
 OS		= $(shell uname)
 
 #
@@ -45,11 +49,15 @@ endif
 # -----------------------------------------------------------
 
 install : all
+	rm -rf $(INCLUDEPATH)/evlite
+	cp -a include $(INCLUDEPATH)/evlite
+	rm -rf $(LIBPATH)/$(REALNAME); cp $(REALNAME) $(LIBPATH)
+	rm -rf $(LIBPATH)/$(SONAME); ln -s $(REALNAME) $(LIBPATH)/$(SONAME)
+	rm -rf $(LIBPATH)/$(LIBNAME); ln -s $(REALNAME) $(LIBPATH)/$(LIBNAME)
 
 all : $(REALNAME)
 
 $(REALNAME) : $(OBJS)
-
 	$(CC) $(SOFLAGS) $(LFLAGS) $^ -o $@
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
