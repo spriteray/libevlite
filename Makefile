@@ -4,12 +4,17 @@
 CC		= gcc
 CXX		= g++
 CFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
+CXXFLAGS= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
 LFLAGS	= -ggdb -lpthread 
-SOFLAGS	= -shared 
+SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).7
 REALNAME= $(LIBNAME).7.3.0
+
+PREFIX		= /usr/local
+LIBPATH		= $(PREFIX)/lib
+INCLUDEPATH	= $(PREFIX)/include
 
 OS		= $(shell uname)
 
@@ -44,11 +49,15 @@ endif
 # -----------------------------------------------------------
 
 install : all
+	rm -rf $(INCLUDEPATH)/evlite
+	cp -a include $(INCLUDEPATH)/evlite
+	rm -rf $(LIBPATH)/$(REALNAME); cp $(REALNAME) $(LIBPATH)
+	rm -rf $(LIBPATH)/$(SONAME); ln -s $(REALNAME) $(LIBPATH)/$(SONAME)
+	rm -rf $(LIBPATH)/$(LIBNAME); ln -s $(REALNAME) $(LIBPATH)/$(LIBNAME)
 
 all : $(REALNAME)
 
 $(REALNAME) : $(OBJS)
-
 	$(CC) $(SOFLAGS) $(LFLAGS) $^ -o $@
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
@@ -111,7 +120,7 @@ clean :
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 %.o : %.cpp
-	$(CXX) $(CFLAGS) -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
 VPATH = src:include:test
 	
