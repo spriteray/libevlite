@@ -794,7 +794,7 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 		return -1;
 	}
 
-	return session_shutdown( session );
+	return session_shutdown( session, 0 );
 }
 
 int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids )
@@ -819,7 +819,7 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
 
 		// 直接终止
 		++count;
-		session_shutdown( session );
+		session_shutdown( session, 0 );
 	}
 
 	sidlist_destroy( ids );

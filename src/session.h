@@ -112,7 +112,7 @@ int32_t session_start_reconnect( struct session * self );
 // 尝试终止会话
 // 该API会尽量把发送队列中的数据发送出去
 // libevlite安全终止会话的核心模块
-int32_t session_shutdown( struct session * self );
+int32_t session_shutdown( struct session * self, int32_t way );
 
 // 会话结束
 int32_t session_end( struct session * self, sid_t id );

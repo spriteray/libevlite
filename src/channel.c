@@ -187,7 +187,7 @@ int32_t _timeout( struct session * session )
 		// 等待终止的会话
 		// 逻辑层需要终止的会话
 		// NOTICE: 此处会尝试终止会话
-		return session_shutdown( session );
+		return session_shutdown( session, 1 );
 	}
 
 	if ( session->type == eSessionType_Persist )
@@ -228,7 +228,7 @@ int32_t channel_error( struct session * session, int32_t result )
 		// 等待终止的会话
 		// 逻辑层需要终止的永久会话
 		// 直接终止会话, 导致发送队列中的数据丢失
-		return channel_shutdown( session );
+		return channel_shutdown( session, 0 );
 	}
 
 	// 尝试重连的永久会话
@@ -237,14 +237,14 @@ int32_t channel_error( struct session * session, int32_t result )
 	return 0;
 }
 
-int32_t channel_shutdown( struct session * session )
+int32_t channel_shutdown( struct session * session, int32_t way )
 {
 	sid_t id = session->id;
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
 
 	// 会话终止
-	service->shutdown( session->context );
+	service->shutdown( session->context, way );
 	session_manager_remove( manager, session );
 	session_end( session, id );
 
@@ -274,7 +274,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 		if ( nprocess < 0 )
 		{
 			// 处理出错, 尝试终止会话
-			session_shutdown( session );
+			session_shutdown( session, 1 );
 			return;
 		}
 
@@ -342,7 +342,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 					{
 						// 等待关闭的会话, 直接终止会话
 						// 后续的行为由SO_LINGER决定
-						channel_shutdown( session );
+						channel_shutdown( session, 1 );
 					}
 				}
 			}
@@ -358,7 +358,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 		// 不管发送队列如何, 直接终止会话
 
 		assert( session->status&SESSION_EXITING );
-		channel_shutdown( session );
+		channel_shutdown( session, 1 );
 	}
 
 	return;

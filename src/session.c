@@ -364,7 +364,7 @@ int32_t session_start_reconnect( struct session * self )
 	return 0;
 }
 
-int32_t session_shutdown( struct session * self )
+int32_t session_shutdown( struct session * self, int32_t way )
 {
 	if ( !(self->status&SESSION_EXITING)
 			&& session_sendqueue_count(self) > 0 )
@@ -379,8 +379,9 @@ int32_t session_shutdown( struct session * self )
 
 		return 1;
 	}
-
-	return channel_shutdown( self );
+    
+    // 主动关闭连接
+	return channel_shutdown( self, way );
 }
 
 int32_t session_end( struct session * self, sid_t id )
