@@ -70,7 +70,7 @@ typedef struct
 	int32_t (*keepalive)( void * context );
 	int32_t (*timeout)( void * context );
 	int32_t (*error)( void * context, int32_t result );
-	int32_t (*shutdown)( void * context, int32_t way );
+	void (*shutdown)( void * context, int32_t way );
 }ioservice_t;
 
 // 创建网络层 
