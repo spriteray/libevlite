@@ -19,7 +19,7 @@ int32_t channel_error( struct session * session, int32_t result );
 
 // 会话关闭
 // 丢弃发送队列中的数据
-int32_t channel_shutdown( struct session * session, int32_t way );
+int32_t channel_shutdown( struct session * session );
 
 // 事件的回调函数集合
 void channel_on_read( int32_t fd, int16_t ev, void * arg );
