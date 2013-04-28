@@ -31,6 +31,7 @@
 #define SESSION_READING		0x01	// 等待读事件
 #define SESSION_WRITING		0x02	// 等待写事件, [连接, 重连, 发送]
 #define SESSION_KEEPALIVING	0x04	// 等待保活事件
+#define SESSION_SHUTDOWNING 0x08    // 正在终止中..., 被逻辑层终止的会话
 #define SESSION_EXITING		0x10	// 等待退出, 数据全部发送完毕后, 即可终止
 
 enum SessionType
@@ -108,6 +109,9 @@ int32_t session_start_keepalive( struct session * self );
 
 // 重连远程服务器
 int32_t session_start_reconnect( struct session * self );
+
+// 设置被终止的标志
+#define session_close( self )               ( (self)->status |= SESSION_SHUTDOWNING )
 
 // 尝试终止会话
 // 该API会尽量把发送队列中的数据发送出去

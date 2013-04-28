@@ -58,6 +58,9 @@ typedef void *		iolayer_t;
 //						对于connect()出去的客户端, ==0, 尝试重连, !=0, 直接回调shutdown() .
 //
 //		shutdown()	- 会话终止时的回调, 不论返回值, 直接销毁会话
+//		                way - 0, 逻辑层主动终止会话的情况, 
+//		                            也就是直接调用iolayer_shutdown()或者iolayer_shutdowns();
+//		                      1, 逻辑层被动终止会话的情况.
 //
 typedef struct
 {
@@ -67,7 +70,7 @@ typedef struct
 	int32_t (*keepalive)( void * context );
 	int32_t (*timeout)( void * context );
 	int32_t (*error)( void * context, int32_t result );
-	int32_t (*shutdown)( void * context );
+	void (*shutdown)( void * context, int32_t way );
 }ioservice_t;
 
 // 创建网络层 
@@ -122,6 +125,7 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
 
 // 终止指定的会话
+// 此处需要注意, 主动终止会话的情况下,也会收到shutdown()的回调, 只是way==0
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 

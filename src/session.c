@@ -380,6 +380,7 @@ int32_t session_shutdown( struct session * self )
 		return 1;
 	}
 
+    // 主动关闭连接
 	return channel_shutdown( self );
 }
 

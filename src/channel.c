@@ -242,9 +242,10 @@ int32_t channel_shutdown( struct session * session )
 	sid_t id = session->id;
 	ioservice_t * service = &session->service;
 	struct session_manager * manager = session->manager;
+    int32_t way = (session->status&SESSION_SHUTDOWNING ? 0 : 1);
 
 	// 会话终止
-	service->shutdown( session->context );
+	service->shutdown( session->context, way );
 	session_manager_remove( manager, session );
 	session_end( session, id );
 

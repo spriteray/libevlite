@@ -77,14 +77,11 @@ int32_t IIOSession::onErrorSession( void * context, int32_t result )
 	return static_cast<IIOSession *>(context)->onError( result );
 }
 
-int32_t IIOSession::onShutdownSession( void * context ) 
+void IIOSession::onShutdownSession( void * context, int32_t way ) 
 {
 	IIOSession * session = static_cast<IIOSession *>( context );
-
-	int32_t rc = session->onShutdown();
+	session->onShutdown( way );
 	delete session;
-
-	return rc;
 }
 
 // ----------------------------------------------------------------------------

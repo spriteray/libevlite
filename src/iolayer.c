@@ -793,7 +793,9 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 		syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__,id );
 		return -1;
 	}
-
+    
+    // 设置会话被逻辑层终止了
+    session_close( session );
 	return session_shutdown( session );
 }
 
@@ -819,6 +821,7 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
 
 		// 直接终止
 		++count;
+        session_close( session );
 		session_shutdown( session );
 	}
 

@@ -10,7 +10,7 @@ SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).7
-REALNAME= $(LIBNAME).7.3.0
+REALNAME= $(LIBNAME).7.4.1
 
 PREFIX		= /usr/local
 LIBPATH		= $(PREFIX)/lib

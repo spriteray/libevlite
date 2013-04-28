@@ -38,7 +38,7 @@ public :
 	virtual int32_t	onTimeout() { return 0; }
 	virtual int32_t onKeepalive() { return 0; }
 	virtual int32_t onError( int32_t result ) { return 0; }
-	virtual int32_t onShutdown() { return 0; }
+	virtual void onShutdown( int32_t way ) {}
 
 public :
 	//	
@@ -72,7 +72,7 @@ private :
 	static int32_t	onTimeoutSession( void * context ); 
 	static int32_t	onKeepaliveSession( void * context ); 
 	static int32_t	onErrorSession( void * context, int32_t result ); 
-	static int32_t	onShutdownSession( void * context ); 
+	static void onShutdownSession( void * context, int32_t way ); 
 
 private :
 	sid_t		m_Sid;

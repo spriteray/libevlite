@@ -86,12 +86,10 @@ int32_t onError( void * context, int32_t result )
 	return 0;
 }
 
-int32_t onShutdown( void * context ) 
+void onShutdown( void * context, int32_t way ) 
 {
 	struct session * s = (struct session *)context;
-	
 	free( s );
-	return 0;
 }
 
 char * onLayerTransform( void * context, const char * buf, uint32_t * nbytes )

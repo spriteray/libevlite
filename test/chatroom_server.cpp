@@ -26,7 +26,7 @@ public:
 public :
 	virtual int32_t onStart();
 	virtual int32_t	onProcess( const char * buf, uint32_t nbytes );
-	virtual int32_t onShutdown();
+	virtual void onShutdown( int32_t way );
 
 public :	
 	void setService( CChatRoomService * s );
@@ -125,14 +125,12 @@ int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
 	return nprocess;
 }
 
-int32_t CChatRoomSession::onShutdown()
+void CChatRoomSession::onShutdown( int32_t way )
 {
 	CSHead head;
 	head.msgid = 3;
 	head.length = sizeof(head);
 	m_Service->post( id(), &head );
-
-	return 0;
 }
 
 void CChatRoomSession::setService( CChatRoomService * s )
