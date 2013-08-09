@@ -45,10 +45,11 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 		return NULL;
 	}
 
-	self->context  = NULL;
-	self->transform= NULL;
-	self->nthreads = nthreads;
-	self->nclients = nclients;
+	self->context   = NULL;
+	self->transform = NULL;
+	self->nthreads  = nthreads;
+	self->nclients  = nclients;
+    self->status    = eLayerStatus_Running;
 
 	// 初始化会话管理器
 	if ( _new_managers( self ) != 0 )
@@ -68,11 +69,21 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 	return self;
 }
 
+// 停止网络服务
+void iolayer_stop( iolayer_t self )
+{
+	struct iolayer * layer = (struct iolayer *)self;
+    layer->status = eLayerStatus_Stopped;
+}
+
 // 销毁网络通信层
 void iolayer_destroy( iolayer_t self )
 {
 	uint8_t i = 0;
 	struct iolayer * layer = (struct iolayer *)self;
+    
+    // 设置停止状态
+    layer->status = eLayerStatus_Stopped;
 
 	// 停止网络线程组
 	if ( layer->group )
