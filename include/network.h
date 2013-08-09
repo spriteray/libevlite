@@ -129,6 +129,9 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
+// 停止网络服务
+void iolayer_stop( iolayer_t self );
+
 // 销毁网络层
 void iolayer_destroy( iolayer_t self );
 

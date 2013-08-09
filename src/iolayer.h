@@ -10,8 +10,17 @@
 
 #include "session.h"
 
+enum
+{
+    eLayerStatus_Running        = 1,    // 运行
+    eLayerStatus_Stopped        = 2,    // 停止
+};
+
 struct iolayer
 {
+    // 网络层状态
+    uint8_t     status;     
+
 	// 基础配置
 	uint8_t		nthreads;
 	uint32_t	nclients;

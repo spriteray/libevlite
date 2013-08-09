@@ -370,6 +370,11 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 	struct acceptor * acceptor = (struct acceptor *)arg;
 	struct iolayer * layer = (struct iolayer *)(acceptor->parent);
 
+    if ( layer->status == eLayerStatus_Stopped )
+    {
+        return;
+    }
+
 	if ( ev & EV_READ )
 	{
 		int32_t cfd = -1;
