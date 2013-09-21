@@ -55,14 +55,22 @@ iothreads_t iothreads_start( uint8_t nthreads,
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 {
 	struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
 	assert( index < iothreads->nthreads );
+    assert( iothreads->threadgroup != NULL );
+
 	return iothreads->threadgroup[index].id;
 }
 
 evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
 {
 	struct iothreads * iothreads = (struct iothreads *)(self);
+	
+    assert( iothreads != NULL );
 	assert( index < iothreads->nthreads );
+    assert( iothreads->threadgroup != NULL );
+
 	return iothreads->threadgroup[index].sets;
 }
 

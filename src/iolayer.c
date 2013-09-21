@@ -89,6 +89,7 @@ void iolayer_destroy( iolayer_t self )
 	if ( layer->group )
 	{
 		iothreads_stop( layer->group );
+        layer->group = NULL;
 	}
 
 	// 销毁管理器
