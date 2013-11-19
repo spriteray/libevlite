@@ -19,12 +19,12 @@ enum
 struct iolayer
 {
     // 网络层状态
-    uint8_t     status;     
+    uint8_t     status;
 
 	// 基础配置
 	uint8_t		nthreads;
 	uint32_t	nclients;
-	
+
 	// 网络线程组
 	iothreads_t group;
 
@@ -43,7 +43,7 @@ struct acceptor
 
 	// 接收事件
 	event_t		event;
-	
+
 	// 绑定的地址以及监听的端口号
 	char		host[INET_ADDRSTRLEN];
 	uint16_t	port;
@@ -116,11 +116,10 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key );
 // 重新连接远程服务器
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector );
 
-// 销毁连接器 
+// 销毁连接器
 int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector );
 
 // 给当前线程分发一个会话
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );
 
 #endif
-

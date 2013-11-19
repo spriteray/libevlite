@@ -50,7 +50,6 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
 	// 如果定时器超时时间过长, 设定其定时器周期数
 	index = EVTIMER_INDEX(self, tv/self->max_precision+self->dispatch_refer);
 
-	// 
 	ev->timer_index = index;
 	ev->timer_stepcnt = tv / ( self->max_precision * self->bucket_count );
 	if ( tv % (self->max_precision * self->bucket_count) != 0 )
@@ -85,12 +84,14 @@ int32_t evtimer_remove( struct evtimer * self, struct event * ev )
 
 int32_t evtimer_dispatch( struct evtimer * self )
 {
+    int32_t index = 0;
 	int32_t rc = 0, done = 0;
 
 	struct event * laster = NULL;
 	struct event_list * head = NULL;
 
-	head = &( self->bucket_array[EVTIMER_INDEX(self, self->dispatch_refer)] );
+    index = self->dispatch_refer++;
+	head = &( self->bucket_array[EVTIMER_INDEX(self, index)] );
 
 	// 该桶中没有定时的事件
 	if ( TAILQ_EMPTY(head) )
@@ -133,8 +134,6 @@ int32_t evtimer_dispatch( struct evtimer * self )
 			evsets_del( event_get_sets((event_t)ev), (event_t)ev );
 		}
 	}
-	
-	++self->dispatch_refer;
 
 	return rc;
 }
@@ -181,4 +180,3 @@ void evtimer_destroy( struct evtimer * self )
 
 	return;
 }
-

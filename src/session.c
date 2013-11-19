@@ -34,7 +34,7 @@ struct session * _new_session()
 	self->evread = event_create();
 	self->evwrite = event_create();
 	self->evkeepalive = event_create();
-	if ( self->evkeepalive == NULL 
+	if ( self->evkeepalive == NULL
 			|| self->evread == NULL || self->evwrite == NULL )
 	{
 		_del_session( self );
@@ -122,11 +122,11 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 	}
 
 	// 判断session是否繁忙
-	if ( !(self->status&SESSION_WRITING) 
+	if ( !(self->status&SESSION_WRITING)
 			&& session_sendqueue_count(self) == 0 )
 	{
 		// 直接发送
-		rc = channel_send( self, buf, nbytes ); 
+		rc = channel_send( self, buf, nbytes );
 		if ( rc == nbytes )
 		{
 			// 全部发送出去
@@ -169,7 +169,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 	// TODO: 设置默认的最大接收缓冲区
 
 	// 不需要每次开始会话的时候初始化
-	// 只需要在manager创建会话的时候初始化一次，即可	
+	// 只需要在manager创建会话的时候初始化一次，即可
 
 	self->service.start( self->context );
 
@@ -257,7 +257,7 @@ int32_t session_append( struct session * self, struct message * message )
 	return rc;
 }
 
-// 注册网络事件 
+// 注册网络事件
 void session_add_event( struct session * self, int16_t ev )
 {
 	int8_t status = self->status;
@@ -331,7 +331,7 @@ int32_t session_start_keepalive( struct session * self )
 		evsets_add( sets, self->evkeepalive, self->setting.keepalive_msecs );
 
 		self->status |= SESSION_KEEPALIVING;
-	}	
+	}
 
 	return 0;
 }
@@ -393,7 +393,7 @@ int32_t session_end( struct session * self, sid_t id )
 	uint32_t count = session_sendqueue_count(self);
 	if ( count > 0 )
 	{
-		syslog(LOG_WARNING, 
+		syslog(LOG_WARNING,
 				"%s(SID=%ld)'s Out-Message-List (%d) is not empty .", __FUNCTION__, id, count );
 
 		for ( ; count > 0; --count )
@@ -462,7 +462,7 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 
 	struct hashnode * node = NULL;
 	struct hashnode * entries = table->entries + bucket;
-	
+
 	do
 	{
 		if ( entries->session != NULL )
@@ -558,7 +558,7 @@ int32_t _remove_session( struct hashtable * table, struct session * s )
 	--table->count;
 	node->session = NULL;
 
-	return 0;	
+	return 0;
 }
 
 struct session_manager * session_manager_create( uint8_t index, uint32_t size )
@@ -581,7 +581,7 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 	{
 		free( self );
 		self = NULL;
-	}		
+	}
 
 	return self;
 }
@@ -610,7 +610,7 @@ struct session * session_manager_alloc( struct session_manager * self )
 			_del_session( session );
 			session = NULL;
 		}
-	}	
+	}
 
 	return session;
 }
@@ -640,7 +640,7 @@ void session_manager_destroy( struct session_manager * self )
 
 	if ( self->table->count > 0 )
 	{
-		syslog( LOG_WARNING, 
+		syslog( LOG_WARNING,
 				"%s(Index=%u): the number of residual active session is %d .", __FUNCTION__, self->index, self->table->count );
 	}
 
@@ -676,4 +676,3 @@ void session_manager_destroy( struct session_manager * self )
 	free( self );
 	return;
 }
-

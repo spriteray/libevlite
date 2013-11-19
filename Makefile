@@ -5,7 +5,7 @@ CC		= gcc
 CXX		= g++
 CFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
 CXXFLAGS= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
-LFLAGS	= -ggdb -lpthread 
+LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 
 LIBNAME	= libevlite.so
@@ -111,7 +111,7 @@ clean :
 	rm -rf test_events event.fifo
 	rm -rf test_addtimer echoclient echostress echoserver pingpong echoserver-lock iothreads_dispatcher
 	rm -rf chatroom_client chatroom_server
-	
+
 # --------------------------------------------------------
 #
 # gmake的规则
@@ -123,4 +123,3 @@ clean :
 	$(CXX) $(CXXFLAGS) -c $^ -o $@
 
 VPATH = src:include:test
-	

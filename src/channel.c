@@ -16,7 +16,7 @@ static int32_t _receive( struct session * session );
 static int32_t _transmit( struct session * session );
 static inline int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
-// 逻辑操作  
+// 逻辑操作
 static int32_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
 
@@ -209,7 +209,7 @@ int32_t _timeout( struct session * session )
 int32_t channel_error( struct session * session, int32_t result )
 {
 	/* 出错
-	 * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据 
+	 * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据
 	 *
 	 * 根据会话的类型
 	 *		1. 临时会话, 直接终止会话
@@ -370,7 +370,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 	struct acceptor * acceptor = (struct acceptor *)arg;
 	struct iolayer * layer = (struct iolayer *)(acceptor->parent);
 
-	if ( (ev & EV_READ) 
+	if ( (ev & EV_READ)
 		&& layer->status == eLayerStatus_Running )
 	{
 		int32_t cfd = -1;
@@ -544,4 +544,3 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 
 	return;
 }
-
