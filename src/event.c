@@ -267,7 +267,9 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 
 	e->evsets = self;
 
-	if ( (e->events & (EV_READ|EV_WRITE))
+	// 监听fd的网络事件的前提是fd合法
+	if ( (e->fd > 0)
+			&& (e->events & (EV_READ|EV_WRITE))
 			&& !(e->status & (EVSTATUS_ACTIVE|EVSTATUS_INSERTED)) )
 	{
 		rc = sets->evselect->add( sets->evsets, e );
