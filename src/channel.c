@@ -223,13 +223,13 @@ int32_t channel_error( struct session * session, int32_t result )
 	if ( session->type == eSessionType_Once
 			|| ( session->status&SESSION_EXITING )
 			|| ( session->type == eSessionType_Persist && rc != 0 ) )
-	{
-		// 临时会话
-		// 等待终止的会话
-		// 逻辑层需要终止的永久会话
-		// 直接终止会话, 导致发送队列中的数据丢失
-		return channel_shutdown( session );
-	}
+    {
+        // 临时会话
+        // 等待终止的会话
+        // 逻辑层需要终止的永久会话
+        // 直接终止会话, 导致发送队列中的数据丢失
+        return channel_shutdown( session );
+    }
 
 	// 尝试重连的永久会话
 	session_start_reconnect( session );

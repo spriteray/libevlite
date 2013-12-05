@@ -50,6 +50,7 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
 	// 如果定时器超时时间过长, 设定其定时器周期数
 	index = EVTIMER_INDEX(self, tv/self->max_precision+self->dispatch_refer);
 
+	//
 	ev->timer_index = index;
 	ev->timer_stepcnt = tv / ( self->max_precision * self->bucket_count );
 	if ( tv % (self->max_precision * self->bucket_count) != 0 )

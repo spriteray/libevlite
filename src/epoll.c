@@ -144,7 +144,11 @@ int32_t epoll_add( void * arg, struct event * ev )
 	struct epoller * poller = (struct epoller *)arg;
 
 	fd = event_get_fd( (event_t)ev );
-	if ( fd >= poller->npairs )
+	if ( fd < 0 )
+	{
+		return -3;
+	}
+	else if ( fd >= poller->npairs )
 	{
 		if ( epoll_insert( poller, fd ) != 0 )
 		{
@@ -364,4 +368,3 @@ void epoll_final( void * arg )
 	free( poller );
 	return;
 }
-
