@@ -279,7 +279,10 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 			return;
 		}
 
-		if ( nread > 0 || (nread == -1 && errno == EAGAIN) )
+        if ( nread > 0
+                || (nread == -1 && errno == EINTR)
+                || (nread == -1 && errno == EAGAIN)
+                || (nread == -1 && errno == EWOULDBLOCK) )
 		{
 			// 会话正常
 			session_add_event( session, EV_READ );
