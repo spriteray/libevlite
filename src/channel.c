@@ -297,7 +297,28 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 		else if ( nread == -1 )
 		{
 			// read() failure
-			channel_error( session, eIOError_ReadFailure );
+            switch ( errno )
+            {
+                case EBADF :
+                    channel_error( session, eIOError_SocketInvalid );
+                    break;
+
+                case EFAULT :
+                    channel_error( session, eIOError_InBufferInvalid );
+                    break;
+
+                case EINVAL :
+                    channel_error( session, eIOError_ReadInvalid );
+                    break;
+
+                case EIO :
+                    channel_error( session, eIOError_ReadIOError );
+                    break;
+
+                default :
+			        channel_error( session, eIOError_ReadFailure );
+                    break;
+            }
 		}
 		else if ( nread == 0 )
 		{
