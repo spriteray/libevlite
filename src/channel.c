@@ -300,6 +300,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
             switch ( errno )
             {
                 case EBADF :
+                case EISDIR :
                     channel_error( session, eIOError_SocketInvalid );
                     break;
 

@@ -254,7 +254,7 @@ const char * evsets_get_version()
 
 int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 {
-	int32_t rc = 1;
+	int32_t rc = 0x00;
 	struct event * e = (struct event *)ev;
 	struct eventset * sets = (struct eventset *)self;
 
@@ -272,14 +272,14 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 			&& (e->events & (EV_READ|EV_WRITE))
 			&& !(e->status & (EVSTATUS_ACTIVE|EVSTATUS_INSERTED)) )
 	{
-		rc = sets->evselect->add( sets->evsets, e );
-		if ( rc == 0 )
+		if ( sets->evselect->add( sets->evsets, e ) == 0 )
 		{
+			rc |= 0x01;
 			event_list_insert( sets, e, EVSTATUS_INSERTED );
 		}
 	}
 
-	if ( rc >= 0 && tv > 0 )
+	if ( tv > 0 )
 	{
 		// 如果已经在定时器中了,
 		// 一定要删除，以当前时间当前索引重新加入定时器中
@@ -298,7 +298,7 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 			event_list_remove( sets, e, EVSTATUS_ACTIVE );
 		}
 
-		rc = 0;
+		rc |= 0x02;
 		e->timer_msecs = tv < sets->timer_precision ? sets->timer_precision : tv;
 		event_list_insert( sets, e, EVSTATUS_TIMER );
 	}

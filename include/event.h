@@ -89,9 +89,10 @@ evsets_t evsets_create();
 const char * evsets_get_version();
 
 // 向事件集中添加事件
-// 返回0, 参数指定的事件成功的添加到事件集中
-// 返回1, 参数指定的事件非法, 没有添加到事件集中
 // 返回<0, 添加事件失败
+// 返回 1, 添加IO事件成功
+// 返回 2, 添加超时事件成功
+// 返回 3, IO事件和超时事件添加成功
 int32_t evsets_add( evsets_t self, event_t ev, int32_t tv );
 
 // 从事件集中删除事件
