@@ -45,18 +45,18 @@ uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
 
 /*
- * sidlist 
+ * sidlist
  */
 struct sidlist
 {
-	uint32_t	count;
-	uint32_t	size;
+    uint32_t    count;
+    uint32_t    size;
 
-	sid_t *		entries;
+    sid_t *     entries;
 };
 
 struct sidlist * sidlist_create( uint32_t size );
-#define sidlist_count( self )	( (self)->count )
+#define sidlist_count( self )    ( (self)->count )
 sid_t sidlist_get( struct sidlist * self, int32_t index );
 int32_t sidlist_add( struct sidlist * self, sid_t id );
 int32_t sidlist_adds( struct sidlist * self, sid_t * ids, uint32_t count );
@@ -66,40 +66,40 @@ void sidlist_destroy( struct sidlist * self );
 // 任务类型
 enum
 {
-	eTaskType_Null		= 0,	// 空任务
-	eTaskType_User		= 1,	// 用户任务
-	eTaskType_Data		= 2,	// 数据任务
+    eTaskType_Null        = 0,  // 空任务
+    eTaskType_User        = 1,  // 用户任务
+    eTaskType_Data        = 2,  // 数据任务
 };
 
 // 任务填充长度
-#define TASK_PADDING_SIZE		56	
+#define TASK_PADDING_SIZE       56
 
 // 任务数据
 struct task
 {
-	int16_t type;				// 2bytes
-	int16_t utype;				// 2bytes
-	union
-	{
-		void *	taskdata;			 
-		char	data[TASK_PADDING_SIZE];
-	};
+    int16_t type;               // 2bytes
+    int16_t utype;              // 2bytes
+    union
+    {
+        void *  taskdata;
+        char    data[TASK_PADDING_SIZE];
+    };
 };
 
 QUEUE_PADDING_HEAD(taskqueue, struct task);
 QUEUE_PROTOTYPE(taskqueue, struct task)
 
-/* 
+/*
  * 消息队列
  * 线程安全的消息队列, 有通知的功能
  */
 struct msgqueue
 {
-	struct taskqueue queue;
-	int32_t popfd;
-	int32_t pushfd;
+    struct taskqueue queue;
+    int32_t popfd;
+    int32_t pushfd;
 
-	pthread_mutex_t lock; 
+    pthread_mutex_t lock;
 };
 
 // 创建消息队列
@@ -129,4 +129,3 @@ int32_t msgqueue_destroy( struct msgqueue * self );
 #endif
 
 #endif
-
