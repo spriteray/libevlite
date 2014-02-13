@@ -854,18 +854,11 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
 
 void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 {
-    void * local = NULL;
     struct iolayer * layer = (struct iolayer *)context;
 
     // 获取事件集以及会话管理器
     evsets_t sets = iothreads_get_sets( layer->group, index );
     struct session_manager * manager = _get_manager( layer, index );
-
-    // 取出线程本地数据
-    if ( layer->locals )
-    {
-        local = layer->locals[index];
-    }
 
     switch ( type )
     {
@@ -886,6 +879,13 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
         case eIOTaskType_Assign :
             {
                 // 分配一个描述符
+
+                // 取出线程本地数据
+                void * local = NULL;
+                if ( layer->locals )
+                {
+                    local = layer->locals[index];
+                }
                 _assign_direct( manager, local, sets, (struct task_assign *)task );
             }
             break;
