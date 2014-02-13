@@ -74,7 +74,10 @@ typedef struct
 }ioservice_t;
 
 // 创建网络层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
+//        nthreads      - 网络线程数
+//        nclients      - 网络层服务的连接数
+//        locals        - 网络线程的本地数据集
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, void ** locals );
 
 // 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法
 //        self          -
@@ -90,13 +93,14 @@ int32_t iolayer_set_transform( iolayer_t self,
 //        port          - 监听的端口号
 //        cb            - 新会话创建成功后的回调,会被多个网络线程调用
 //                            参数1: 上下文参数;
-//                            参数2: 新会话ID;
-//                            参数3: 会话的IP地址;
-//                            参数4: 会话的端口号
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 新会话ID;
+//                            参数4: 会话的IP地址;
+//                            参数5: 会话的端口号
 //        context       - 上下文参数
 int32_t iolayer_listen( iolayer_t self,
         const char * host, uint16_t port,
-        int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context );
+        int32_t (*cb)(void *, void *, sid_t, const char * , uint16_t), void * context );
 
 // 客户端开启
 //        host          - 远程服务器的地址
@@ -104,14 +108,15 @@ int32_t iolayer_listen( iolayer_t self,
 //        seconds       - 连接超时时间
 //        cb            - 连接结果的回调
 //                            参数1: 上下文参数
-//                            参数2: 连接结果
-//                            参数3: 连接的远程服务器的地址
-//                            参数4: 连接的远程服务器的端口
-//                            参数5: 连接成功后返回的会话ID
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 连接结果
+//                            参数4: 连接的远程服务器的地址
+//                            参数5: 连接的远程服务器的端口
+//                            参数6: 连接成功后返回的会话ID
 //        context       - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
-        int32_t (*cb)( void *, int32_t, const char *, uint16_t, sid_t), void * context );
+        int32_t (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t), void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );

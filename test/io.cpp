@@ -51,7 +51,7 @@ int32_t IIOSession::onStartSession( void * context )
 	return static_cast<IIOSession *>(context)->onStart();
 }
 
-int32_t IIOSession::onProcessSession( void * context, const char * buffer, uint32_t nbytes ) 
+int32_t IIOSession::onProcessSession( void * context, const char * buffer, uint32_t nbytes )
 {
 	return static_cast<IIOSession *>(context)->onProcess( buffer, nbytes );
 }
@@ -62,7 +62,7 @@ char * IIOSession::onTransformSession( void * context, const char * buffer, uint
 	return static_cast<IIOSession *>(context)->onTransform( buffer, _nbytes );
 }
 
-int32_t IIOSession::onTimeoutSession( void * context ) 
+int32_t IIOSession::onTimeoutSession( void * context )
 {
 	return static_cast<IIOSession *>(context)->onTimeout();
 }
@@ -70,14 +70,14 @@ int32_t IIOSession::onTimeoutSession( void * context )
 int32_t IIOSession::onKeepaliveSession( void * context )
 {
 	return static_cast<IIOSession *>(context)->onKeepalive();
-} 
+}
 
-int32_t IIOSession::onErrorSession( void * context, int32_t result ) 
+int32_t IIOSession::onErrorSession( void * context, int32_t result )
 {
 	return static_cast<IIOSession *>(context)->onError( result );
 }
 
-void IIOSession::onShutdownSession( void * context, int32_t way ) 
+void IIOSession::onShutdownSession( void * context, int32_t way )
 {
 	IIOSession * session = static_cast<IIOSession *>( context );
 	session->onShutdown( way );
@@ -90,7 +90,7 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
 
 bool IIOService::start()
 {
-	m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount );
+	m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount, NULL );
 
 	if ( m_IOLayer != NULL )
 	{
@@ -133,7 +133,7 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string
 
 int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
 {
-	std::vector<sid_t>::const_iterator start = ids.begin();	
+	std::vector<sid_t>::const_iterator start = ids.begin();
 
 	uint32_t count = (uint32_t)ids.size();
 	sid_t * idlist = const_cast<sid_t *>( &(*start) );
@@ -179,7 +179,7 @@ char * IIOService::onTransformService( void * context, const char * buffer, uint
     return service->onTransform( buffer, _nbytes );
 }
 
-int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host, uint16_t port )
+int32_t IIOService::onAcceptSession( void * context, void * local, sid_t id, const char * host, uint16_t port )
 {
 	IIOSession * session = NULL;
 	IIOService * service = static_cast<IIOService*>( context );
@@ -194,13 +194,13 @@ int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host
 	return 0;
 }
 
-int32_t IIOService::onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id )
+int32_t IIOService::onConnectSession( void * context, void * local, int32_t result, const char * host, uint16_t port, sid_t id )
 {
 	if ( result != 0 )
 	{
 		return 0;
 	}
-	
+
 	IIOSession * session = NULL;
 	IIOService * service = static_cast<IIOService *>( context );
 
@@ -215,5 +215,3 @@ int32_t IIOService::onConnectSession( void * context, int32_t result, const char
 }
 
 }
-
-

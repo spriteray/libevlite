@@ -24,7 +24,7 @@ static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
-static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
+static int32_t _assign_direct( struct session_manager * manager, void * local, evsets_t sets, struct task_assign * task );
 static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
@@ -37,7 +37,7 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 // -----------------------------------------------------------------------------
 
 // 创建网络通信层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, void ** locals )
 {
     struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
     if ( self == NULL )
@@ -49,6 +49,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
+    self->locals    = locals;
     self->status    = eLayerStatus_Running;
 
     // 初始化会话管理器
@@ -117,13 +118,14 @@ void iolayer_destroy( iolayer_t self )
 //        port        - 监听的端口号
 //        cb            - 新会话创建成功后的回调,会被多个网络线程调用
 //                            参数1: 上下文参数;
-//                            参数2: 新会话ID;
-//                            参数3: 会话的IP地址;
-//                            参数4: 会话的端口号
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 新会话ID;
+//                            参数4: 会话的IP地址;
+//                            参数5: 会话的端口号
 //        context        - 上下文参数
 int32_t iolayer_listen( iolayer_t self,
         const char * host, uint16_t port,
-        int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context )
+        int32_t (*cb)( void *, void *, sid_t, const char * , uint16_t ), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -171,14 +173,15 @@ int32_t iolayer_listen( iolayer_t self,
 //        seconds        - 连接超时时间
 //        cb            - 连接结果的回调
 //                            参数1: 上下文参数
-//                            参数2: 连接结果
-//                            参数3: 连接的远程服务器的地址
-//                            参数4: 连接的远程服务器的端口
-//                            参数5: 连接成功后返回的会话ID
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 连接结果
+//                            参数4: 连接的远程服务器的地址
+//                            参数5: 连接的远程服务器的端口
+//                            参数6: 连接成功后返回的会话ID
 //        context        - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
-        int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context    )
+        int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context    )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -548,7 +551,14 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
 
     if ( pthread_self() == threadid )
     {
-        return _assign_direct( _get_manager(self, index), sets, task );
+        void * local = NULL;
+
+        if ( self->locals )
+        {
+            local = self->locals[ index ];
+        }
+
+        return _assign_direct( _get_manager(self, index), local, sets, task );
     }
 
     // 跨线程提交发送任务
@@ -679,7 +689,7 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
     return;
 }
 
-int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task )
+int32_t _assign_direct( struct session_manager * manager, void * local, evsets_t sets, struct task_assign * task )
 {
     int32_t rc = 0;
 
@@ -694,7 +704,7 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
     }
 
     // 回调逻辑层, 确定是否接收这个会话
-    rc = task->cb( task->context, session->id, task->host, task->port );
+    rc = task->cb( task->context, local, session->id, task->host, task->port );
     if ( rc != 0 )
     {
         // 逻辑层不接受这个会话
@@ -844,11 +854,18 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
 
 void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 {
+    void * local = NULL;
     struct iolayer * layer = (struct iolayer *)context;
 
     // 获取事件集以及会话管理器
     evsets_t sets = iothreads_get_sets( layer->group, index );
     struct session_manager * manager = _get_manager( layer, index );
+
+    // 取出线程本地数据
+    if ( layer->locals )
+    {
+        local = layer->locals[index];
+    }
 
     switch ( type )
     {
@@ -869,7 +886,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
         case eIOTaskType_Assign :
             {
                 // 分配一个描述符
-                _assign_direct( manager, sets, (struct task_assign *)task );
+                _assign_direct( manager, local, sets, (struct task_assign *)task );
             }
             break;
 
