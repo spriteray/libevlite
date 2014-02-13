@@ -41,7 +41,7 @@ extern "C"
 // 网络层
 //
 typedef uint64_t    sid_t;
-typedef void *        iolayer_t;
+typedef void *      iolayer_t;
 
 //
 // IO服务
@@ -76,6 +76,15 @@ typedef struct
 // 创建网络层
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
 
+// 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法
+//        self          -
+//        transform     - 数据包改造方法
+//                            参数1: 上下文参数
+//                            参数2: 欲发送或者广播的消息内容
+//                            参数3: 指向消息长度的指针, 返回改造后的数据包长度
+int32_t iolayer_set_transform( iolayer_t self,
+        char * (*transform)(void *, const char *, uint32_t *), void * context );
+
 // 服务器开启
 //        host          - 绑定的地址
 //        port          - 监听的端口号
@@ -103,15 +112,6 @@ int32_t iolayer_listen( iolayer_t self,
 int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
         int32_t (*cb)( void *, int32_t, const char *, uint16_t, sid_t), void * context );
-
-// 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法
-//        self          -
-//        transform     - 数据包改造方法
-//                            参数1: 上下文参数
-//                            参数2: 欲发送或者广播的消息内容
-//                            参数3: 指向消息长度的指针, 返回改造后的数据包长度
-int32_t iolayer_set_transform( iolayer_t self,
-        char * (*transform)(void *, const char *, uint32_t *), void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
