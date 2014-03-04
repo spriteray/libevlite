@@ -180,7 +180,7 @@ void IIOService::attach( sid_t id, IIOSession * session, void * local )
 
 void * IIOService::getThreadLocalData( void * context, uint8_t index )
 {
-    return static_cast<IIOService *>(context)->getThreadData( index );
+    return static_cast<IIOService *>(context)->getLocalData( index );
 }
 
 char * IIOService::onTransformService( void * context, const char * buffer, uint32_t * nbytes )

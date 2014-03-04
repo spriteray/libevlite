@@ -102,7 +102,9 @@ public :
 
 public :
     // 获取网络线程本地数据
-    virtual void * getThreadData( uint8_t index ) { return NULL; }
+	// 实现者确保线程安全，不建议使用同步原语
+ 	// 推荐用数组管理对应线程的本地数据
+	virtual void * getLocalData( uint8_t index ) { return NULL; }
 
 	// 数据改造
 	virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
