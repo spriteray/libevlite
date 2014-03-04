@@ -62,7 +62,7 @@ $(REALNAME) : $(OBJS)
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : test_events test_addtimer test_queue echoserver-lock echoserver iothreads_dispatcher
+test : test_events test_addtimer test_queue test_sidlist echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
@@ -71,6 +71,9 @@ test_addtimer : test_addtimer.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
 
 test_queue : test_queue.o
+	$(CC) $^ -o $@ $(LFLAGS)
+
+test_sidlist : test_sidlist.o utils.o
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echoserver-lock : accept-lock-echoserver.o $(OBJS)
