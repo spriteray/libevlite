@@ -130,8 +130,6 @@ int32_t iolayer_listen( iolayer_t self,
 {
     struct iolayer * layer = (struct iolayer *)self;
 
-    assert( layer->transform != NULL );
-
     struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
     if ( acceptor == NULL )
     {
@@ -185,8 +183,6 @@ int32_t iolayer_connect( iolayer_t self,
         int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context    )
 {
     struct iolayer * layer = (struct iolayer *)self;
-
-    assert( layer->transform != NULL );
 
     struct connector * connector = calloc( 1, sizeof(struct connector) );
     if ( connector == NULL )
@@ -737,15 +733,23 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
     if ( session )
     {
         // 数据统一改造
+        char * buffer = task->buf;
         uint32_t nbytes = task->nbytes;
-        char * buffer = self->transform( self->context, task->buf, &nbytes );
 
-        rc = session_send( session, buffer, nbytes );
-
-        // 销毁改造后的数据
-        if ( buffer != task->buf )
+        if ( self->transform != NULL )
         {
-            free( buffer );
+            buffer = self->transform( self->context, task->buf, &nbytes );
+        }
+
+        if ( buffer != NULL )
+        {
+            rc = session_send( session, buffer, nbytes );
+
+            // 销毁改造后的数据
+            if ( buffer != task->buf )
+            {
+                free( buffer );
+            }
         }
     }
     else
@@ -768,18 +772,23 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
     int32_t count = 0;
 
     // 数据改造
-    uint32_t nbytes = message_get_length( msg );
-    char * buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
-    if ( buffer == NULL )
+    if ( self->transform != NULL )
     {
-        // 数据改造失败
-        message_destroy( msg );
-        return -1;
-    }
-    if ( buffer != message_get_buffer(msg) )
-    {
-        // 数据改造成功
-        message_set_buffer( msg, buffer, nbytes );
+        // 数据需要改造
+        char * buffer = NULL;
+        uint32_t nbytes = message_get_length( msg );
+        buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
+        if ( buffer == NULL )
+        {
+            // 数据改造失败
+            message_destroy( msg );
+            return -1;
+        }
+        if ( buffer != message_get_buffer(msg) )
+        {
+            // 数据改造成功
+            message_set_buffer( msg, buffer, nbytes );
+        }
     }
 
     for ( i = 0; i < sidlist_count(msg->tolist); ++i )
