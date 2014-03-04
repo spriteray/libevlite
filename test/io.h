@@ -20,6 +20,7 @@ class IIOSession
 public :
 	IIOSession()
 		: m_Sid( 0 ),
+		  m_LocalData( NULL ),
 		  m_Layer( NULL )
 	{}
 
@@ -48,6 +49,9 @@ public :
 	// 获取会话ID
 	sid_t id() const;
 
+	// 获取线程本地数据
+	void * localdata() const;
+
 	// 设置超时/保活时间
 	void setTimeout( int32_t seconds );
 	void setKeepalive( int32_t seconds );
@@ -63,7 +67,7 @@ private :
 	friend class IIOService;
 
 	// 初始化会话
-	void init( sid_t id, iolayer_t layer );
+	void init( sid_t id, void * local, iolayer_t layer );
 
 	// 内部回调函数
 	static int32_t	onStartSession( void * context );
@@ -76,6 +80,7 @@ private :
 
 private :
 	sid_t		m_Sid;
+	void *      m_LocalData;
 	iolayer_t	m_Layer;
 };
 
@@ -86,7 +91,6 @@ private :
 class IIOService
 {
 public :
-
 	IIOService( uint8_t nthreads, uint32_t nclients )
 		: m_IOLayer(NULL),
 		  m_ThreadsCount( nthreads ),
@@ -97,6 +101,9 @@ public :
 	{}
 
 public :
+    // 获取网络线程本地数据
+    virtual void * getThreadData( uint8_t index ) { return NULL; }
+
 	// 数据改造
 	virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
 
@@ -108,7 +115,6 @@ public :
 	virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port ) { return NULL; }
 
 public :
-
 	//
 	// 线程安全的API
 	//
@@ -136,17 +142,16 @@ public :
 	int32_t shutdown( const std::vector<sid_t> & ids );
 
 public :
-
-	void attach( sid_t id, IIOSession * session );
+	void attach( sid_t id, IIOSession * session, void * local );
 
 private :
+	static void * getThreadLocalData( void * context, uint8_t index );
 	static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
 
 	static int32_t onAcceptSession( void * context, void * local, sid_t id, const char * host, uint16_t port );
 	static int32_t onConnectSession( void * context, void * local, int32_t result, const char * host, uint16_t port, sid_t id );
 
 private :
-
 	iolayer_t	m_IOLayer;
 
 	uint8_t		m_ThreadsCount;

@@ -10,7 +10,7 @@ SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 
 LIBNAME	= libevlite.so
 SONAME	= $(LIBNAME).8
-REALNAME= $(LIBNAME).8.0.0
+REALNAME= $(LIBNAME).8.0.1
 
 PREFIX		= /usr/local
 LIBPATH		= $(PREFIX)/lib
@@ -115,6 +115,7 @@ clean :
 	rm -rf $(REALNAME)
 
 	rm -rf test_events event.fifo
+	rm -rf test_queue test_sidlist
 	rm -rf test_addtimer echoclient echostress echoserver pingpong echoserver-lock iothreads_dispatcher
 	rm -rf chatroom_client chatroom_server
 

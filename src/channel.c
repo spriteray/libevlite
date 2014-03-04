@@ -503,9 +503,9 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         }
     }
 
-    if ( layer->locals )
+    if ( layer->localfunc )
     {
-        local = layer->locals[ fd % layer->nthreads ];
+        local = layer->localfunc( layer->localdata, fd % layer->nthreads );
     }
 
     // 把连接结果回调给逻辑层

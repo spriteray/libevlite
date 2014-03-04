@@ -76,8 +76,16 @@ typedef struct
 // 创建网络层
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
-//        locals        - 网络线程的本地数据集
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, void ** locals );
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
+
+// 网络层设置线程本地数据
+//        self          -
+//        localfunc     - 获取网络线程的本地数据集
+//                            参数1: localdata
+//                            参数2: 线程索引号
+//        localdata     - localdata
+int32_t iolayer_set_localdata( iolayer_t self,
+        void * (*localfunc)(void *, uint8_t), void * localdata );
 
 // 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法
 //        self          -

@@ -37,7 +37,7 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 // -----------------------------------------------------------------------------
 
 // 创建网络通信层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, void ** locals )
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 {
     struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
     if ( self == NULL )
@@ -49,7 +49,8 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, void ** locals )
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
-    self->locals    = locals;
+    self->localfunc = NULL;
+    self->localdata = NULL;
     self->status    = eLayerStatus_Running;
 
     // 初始化会话管理器
@@ -217,6 +218,15 @@ int32_t iolayer_connect( iolayer_t self,
 
     iothreads_post( layer->group, (connector->fd%layer->nthreads), eIOTaskType_Connect, connector, 0 );
 
+    return 0;
+}
+
+int32_t iolayer_set_localdata( iolayer_t self,
+        void * (*localfunc)(void *, uint8_t), void * localdata )
+{
+    struct iolayer * layer = (struct iolayer *)self;
+    layer->localdata = localdata;
+    layer->localfunc = localfunc;
     return 0;
 }
 
@@ -553,9 +563,9 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
     {
         void * local = NULL;
 
-        if ( self->locals )
+        if ( self->localfunc )
         {
-            local = self->locals[ index ];
+            local = self->localfunc( self->localdata, index );
         }
 
         return _assign_direct( _get_manager(self, index), local, sets, task );
@@ -882,9 +892,10 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 
                 // 取出线程本地数据
                 void * local = NULL;
-                if ( layer->locals )
+
+                if ( layer->localfunc != NULL )
                 {
-                    local = layer->locals[index];
+                    local = layer->localfunc( layer->localdata, index );
                 }
                 _assign_direct( manager, local, sets, (struct task_assign *)task );
             }
