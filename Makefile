@@ -89,7 +89,7 @@ pingpong : pingpong.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echostress :
-	$(CC) -I/usr/local/include -L/usr/local/lib -levent test/echostress.c -o $@
+	$(CC) test/echostress.c -o $@ -I/usr/local/include -L/usr/local/lib -levent
 
 iothreads_dispatcher : test_iothreads.o $(OBJS)
 	$(CC) $(LFLAGS) $^ -o $@
