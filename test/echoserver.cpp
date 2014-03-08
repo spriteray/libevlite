@@ -104,7 +104,7 @@ int main()
 
 	service->start();
 
-	if ( !service->listen( "127.0.0.1", 9030 ) )
+	if ( !service->listen( "127.0.0.1", 9029 ) )
 	{
 		printf("service start failed \n");
 		delete service;

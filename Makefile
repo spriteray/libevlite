@@ -85,6 +85,9 @@ echoclient : io.o echoclient.o $(OBJS)
 echoserver : io.o echoserver.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
+raw_echoserver : raw_echoserver.o $(OBJS)
+	$(CC) $^ -o $@ $(LFLAGS)
+
 pingpong : pingpong.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
 
@@ -116,7 +119,7 @@ clean :
 
 	rm -rf test_events event.fifo
 	rm -rf test_queue test_sidlist
-	rm -rf test_addtimer echoclient echostress echoserver pingpong echoserver-lock iothreads_dispatcher
+	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher
 	rm -rf chatroom_client chatroom_server
 
 # --------------------------------------------------------
