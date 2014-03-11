@@ -569,7 +569,7 @@ struct {                                                \
 struct name                     \
 {                               \
     uint32_t    size;           \
-    type *        entries;      \
+    type *      entries;        \
     uint32_t    head;           \
     uint32_t    tail;           \
 }
@@ -578,7 +578,7 @@ struct name                     \
 struct name                             \
 {                                       \
     uint32_t    size;                   \
-    type *        entries;              \
+    type *      entries;                \
     uint32_t    padding1[12];           \
     uint32_t    head;                   \
     uint32_t    padding2[15];           \
