@@ -24,7 +24,7 @@ static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
-static int32_t _assign_direct( struct session_manager * manager, void * local, evsets_t sets, struct task_assign * task );
+static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct task_assign * task );
 static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
@@ -557,14 +557,7 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
 
     if ( pthread_self() == threadid )
     {
-        void * local = NULL;
-
-        if ( self->localfunc )
-        {
-            local = self->localfunc( self->localdata, index );
-        }
-
-        return _assign_direct( _get_manager(self, index), local, sets, task );
+        return _assign_direct( self, index, sets, task );
     }
 
     // 跨线程提交发送任务
@@ -695,9 +688,16 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
     return;
 }
 
-int32_t _assign_direct( struct session_manager * manager, void * local, evsets_t sets, struct task_assign * task )
+int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, struct task_assign * task )
 {
     int32_t rc = 0;
+    void * local = NULL;
+    struct session_manager * manager = _get_manager( layer, index );
+
+    if ( layer->localfunc != NULL )
+    {
+        local = layer->localfunc( layer->localdata, index );
+    }
 
     // 会话管理器分配会话
     struct session * session = session_manager_alloc( manager );
@@ -900,13 +900,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
                 // 分配一个描述符
 
                 // 取出线程本地数据
-                void * local = NULL;
-
-                if ( layer->localfunc != NULL )
-                {
-                    local = layer->localfunc( layer->localdata, index );
-                }
-                _assign_direct( manager, local, sets, (struct task_assign *)task );
+                _assign_direct( layer, index, sets, (struct task_assign *)task );
             }
             break;
 
