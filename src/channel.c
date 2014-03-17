@@ -259,6 +259,7 @@ int32_t channel_shutdown( struct session * session )
 void channel_on_read( int32_t fd, int16_t ev, void * arg )
 {
     struct session * session = (struct session *)arg;
+    struct iolayer * iolayer = (struct iolayer *)session->iolayer;
 
     session->status &= ~SESSION_READING;
 
@@ -276,6 +277,14 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
         {
             // 处理出错, 尝试终止会话
             session_shutdown( session );
+            return;
+        }
+
+        // 只要确保停止的那个时刻起, 最新的包处理完毕,
+        // 收到的数据包全部处理完毕的情况下不再接收新的数据
+        if ( nprocess > 0
+                && iolayer->status != eLayerStatus_Running )
+        {
             return;
         }
 

@@ -719,6 +719,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
         return 1;
     }
 
+    session_set_iolayer( session, layer );
     session_set_endpoint( session, task->host, task->port );
     session_start( session, eSessionType_Once, task->fd, sets );
 

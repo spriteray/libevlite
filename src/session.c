@@ -180,6 +180,11 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     return 0;
 }
 
+void session_set_iolayer( struct session * self, void * iolayer )
+{
+    self->iolayer = iolayer;
+}
+
 void session_set_endpoint( struct session * self, char * host, uint16_t port )
 {
     self->port = port;
