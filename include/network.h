@@ -143,6 +143,10 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
 // 停止网络服务
+// 行为定义:
+//      1. 停止对外提供接入服务, 不再接受新的连接;
+//      2. 停止已经接入连接的接收服务, 不再接收新的数据包(接收但不回调ioservice::process())
+//      3. 一切发送行为都正常进行
 void iolayer_stop( iolayer_t self );
 
 // 销毁网络层
