@@ -200,7 +200,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
     uint32_t _nbytes = nbytes;
     char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
 
-    if ( _buf != NULL )
+    if ( likely( _buf != NULL ) )
     {
         // 发送数据
         // TODO: _send()可以根据具体情况决定是否copy内存

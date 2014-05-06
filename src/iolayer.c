@@ -345,14 +345,14 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
     for ( i = 0; i < layer->nthreads; ++i )
     {
         struct message * msg = message_create();
-        if ( msg == NULL )
+        if ( unlikely(msg == NULL) )
         {
             continue;
         }
         message_add_receivers( msg, ids, count );
         message_add_buffer( msg, (char *)buf, nbytes );
 
-        if ( threadid == iothreads_get_id( layer->group, i ) )
+        if ( unlikely( threadid == iothreads_get_id( layer->group, i ) ) )
         {
             // 本线程内直接广播
             _broadcast_direct( layer, i, _get_manager(layer, i), msg );
@@ -596,7 +596,7 @@ int32_t _new_managers( struct iolayer * self )
 
 struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
 {
-    if ( index >= self->nthreads )
+    if ( unlikely(index >= self->nthreads) )
     {
         return NULL;
     }
@@ -609,7 +609,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     int32_t result = 0;
     uint8_t index = SID_INDEX(id);
 
-    if ( index >= self->nthreads )
+    if ( unlikely(index >= self->nthreads) )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
         return -1;
@@ -621,7 +621,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     task.isfree    = isfree;
     task.buf    = (char *)buf;
 
-    if ( pthread_self() == iothreads_get_id( self->group, index ) )
+    if ( unlikely(pthread_self() == iothreads_get_id( self->group, index )) )
     {
         return _send_direct( self, _get_manager(self, index), &task );
     }
@@ -731,7 +731,7 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
     int32_t rc = -1;
     struct session * session = session_manager_get( manager, task->id );
 
-    if ( session )
+    if ( likely(session != NULL) )
     {
         // 数据统一改造
         char * buffer = task->buf;
@@ -742,7 +742,7 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
             buffer = self->transform( self->context, task->buf, &nbytes );
         }
 
-        if ( buffer != NULL )
+        if ( likely(buffer != NULL) )
         {
             rc = session_send( session, buffer, nbytes );
 
@@ -803,7 +803,7 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
         }
 
         struct session * session = session_manager_get( manager, id );
-        if ( session == NULL )
+        if ( unlikely(session == NULL) )
         {
             message_add_failure( msg, id );
             continue;
