@@ -361,7 +361,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
         {
             // 跨线程提交广播任务
             int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
-            if ( result != 0 )
+            if ( unlikely(result != 0) )
             {
                 message_destroy( msg );
                 continue;
@@ -419,7 +419,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 
         // 跨线程提交批量终止任务
         int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, list, 0 );
-        if ( result != 0 )
+        if ( unlikely(result != 0) )
         {
             sidlist_destroy( list );
             continue;

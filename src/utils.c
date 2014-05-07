@@ -202,7 +202,7 @@ struct sidlist * sidlist_create( uint32_t size )
         self->count = 0;
         self->size = size;
         self->entries = (sid_t *)malloc( self->size*sizeof(sid_t) );
-        if ( self->entries == NULL )
+        if ( unlikely(self->entries == NULL) )
         {
             free( self );
             self = NULL;

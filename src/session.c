@@ -511,12 +511,12 @@ int32_t _append_session( struct hashtable * table, struct session * s )
 {
     struct hashnode * node = _find_table( table, s->id, 1 );
 
-    if ( node == NULL )
+    if ( unlikely(node == NULL) )
     {
         return -1;
     }
 
-    if ( node->session != NULL && node->session->id == s->id )
+    if ( unlikely( node->session != NULL && node->session->id == s->id ) )
     {
         syslog(LOG_WARNING, "%s(Index=%d): the SID (Seq=%u, Sid=%ld) conflict !",
                 __FUNCTION__, (int32_t)SID_INDEX(s->id), (uint32_t)SID_SEQ(s->id), s->id );

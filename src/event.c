@@ -260,7 +260,7 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 
     assert( e->cb != NULL );
 
-    if ( e->status & ~EVSTATUS_ALL )
+    if ( unlikely(e->status & ~EVSTATUS_ALL) )
     {
         return -1;
     }
@@ -313,7 +313,7 @@ int32_t evsets_del( evsets_t self, event_t ev )
 
     assert ( e->evsets == sets );
 
-    if ( e->status & ~EVSTATUS_ALL )
+    if ( unlikely( e->status & ~EVSTATUS_ALL ) )
     {
         return -2;
     }
