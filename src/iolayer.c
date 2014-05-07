@@ -352,7 +352,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
         message_add_receivers( msg, ids, count );
         message_add_buffer( msg, (char *)buf, nbytes );
 
-        if ( unlikely( threadid == iothreads_get_id( layer->group, i ) ) )
+        if ( threadid == iothreads_get_id( layer->group, i ) )
         {
             // 本线程内直接广播
             _broadcast_direct( layer, i, _get_manager(layer, i), msg );
@@ -621,7 +621,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     task.isfree    = isfree;
     task.buf    = (char *)buf;
 
-    if ( unlikely(pthread_self() == iothreads_get_id( self->group, index )) )
+    if ( pthread_self() == iothreads_get_id( self->group, index ) )
     {
         return _send_direct( self, _get_manager(self, index), &task );
     }
@@ -631,7 +631,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     if ( isfree == 0 )
     {
         task.buf = (char *)malloc( nbytes );
-        if ( task.buf == NULL )
+        if ( unlikely( task.buf == NULL ) )
         {
             syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for '_buf' .", __FUNCTION__, id );
             return -2;
@@ -642,7 +642,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     }
 
     result = iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
-    if ( result != 0 )
+    if ( unlikely( result != 0 ) )
     {
         free( task.buf );
     }
@@ -701,7 +701,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
 
     // 会话管理器分配会话
     struct session * session = session_manager_alloc( manager );
-    if ( session == NULL )
+    if ( unlikely( session == NULL ) )
     {
         syslog(LOG_WARNING,
                 "%s(fd:%d, host:'%s', port:%d) failed .", __FUNCTION__, task->fd, task->host, task->port );
@@ -742,7 +742,7 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
             buffer = self->transform( self->context, task->buf, &nbytes );
         }
 
-        if ( likely(buffer != NULL) )
+        if ( buffer != NULL )
         {
             rc = session_send( session, buffer, nbytes );
 
