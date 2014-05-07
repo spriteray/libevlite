@@ -278,7 +278,7 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
     int32_t i, res = -1;
     struct epoller * poller = (struct epoller *)arg;
 
-    if ( tv > MAX_EPOLL_WAIT )
+    if ( unlikely( tv > MAX_EPOLL_WAIT ) )
     {
         tv = MAX_EPOLL_WAIT;
     }

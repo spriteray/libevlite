@@ -14,6 +14,7 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
+#include "utils.h"
 #include "event-internal.h"
 
 struct kqueuer
@@ -88,7 +89,7 @@ int32_t kqueue_expand( struct kqueuer * self )
     nevents <<= 1;
 
     newevents = realloc( self->events, nevents*sizeof(struct kevent) );
-    if ( newevents == NULL )
+    if ( unlikely(newevents == NULL) )
     {
         return -1;
     }
@@ -110,7 +111,7 @@ int32_t kqueue_insert( struct kqueuer * self, struct kevent * ev )
         changessize <<= 1;
 
         newchanges = realloc( self->changes, changessize*sizeof(struct kevent) );
-        if ( newchanges == NULL )
+        if ( unlikely(newchanges == NULL) )
         {
             return -1;
         }
