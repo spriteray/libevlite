@@ -27,7 +27,7 @@ int32_t onStart( void * context )
 	return 0;
 }
 
-int32_t onProcess( void * context, const char * buf, uint32_t nbytes ) 
+int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
 {
 	int32_t nprocess = 0;
 	struct session * s = (struct session *)context;
@@ -37,7 +37,7 @@ int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
 	iolayer_send( s->layer, s->id, buf, nbytes, 0 );
 	nprocess = nbytes;
 
-#else	
+#else
 
 	while ( 1 )
 	{
@@ -48,17 +48,17 @@ int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
 		{
 			break;
 		}
-		
+
 		struct PacketHead * head = (struct PacketHead *)buffer;
 		uint32_t size = head->len+sizeof(struct PacketHead);
 
-		if ( nleft < size ) 
+		if ( nleft < size )
 		{
 			break;
 		}
 
 		iolayer_send( s->layer, s->id, buffer, size, 0 );
-		nprocess += size; 
+		nprocess += size;
 	}
 
 #endif
@@ -71,7 +71,7 @@ char * onTransform( void * context, const char * buf, uint32_t * nbytes )
 	return (char *)buf;
 }
 
-int32_t onTimeout( void * context ) 
+int32_t onTimeout( void * context )
 {
 	return 0;
 }
@@ -79,14 +79,14 @@ int32_t onTimeout( void * context )
 int32_t onKeepalive( void * context )
 {
 	return 0;
-} 
+}
 
-int32_t onError( void * context, int32_t result ) 
+int32_t onError( void * context, int32_t result )
 {
 	return 0;
 }
 
-void onShutdown( void * context, int32_t way ) 
+void onShutdown( void * context, int32_t way )
 {
 	struct session * s = (struct session *)context;
 	free( s );
@@ -97,16 +97,16 @@ char * onLayerTransform( void * context, const char * buf, uint32_t * nbytes )
 	return (char *)buf;
 }
 
-int32_t onLayerAccept( void * context, sid_t id, const char * host, uint16_t port )
+int32_t onLayerAccept( void * context, void * local, sid_t id, const char * host, uint16_t port )
 {
 	iolayer_t layer = (iolayer_t)context;
 	struct session * session = malloc( sizeof(struct session) );
-	
+
 	if ( session )
 	{
 		session->id = id;
 		session->layer = layer;
-		
+
 		ioservice_t ioservice;
 		ioservice.start		= onStart;
 		ioservice.process	= onProcess;
@@ -152,16 +152,15 @@ int main( int32_t argc, char ** argv )
 
 	iolayer_set_transform( layer, onLayerTransform, layer );
 	iolayer_listen( layer, host, port, onLayerAccept, layer) ;
-	
-	g_Running = 1;	
+
+	g_Running = 1;
 
 	while ( g_Running )
 	{
 		sleep(10);
 	}
-	
+
 	iolayer_destroy( layer );
 
 	return 0;
 }
-

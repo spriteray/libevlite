@@ -9,8 +9,8 @@ LFLAGS	= -ggdb -lpthread
 SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 
 LIBNAME	= libevlite.so
-SONAME	= $(LIBNAME).7
-REALNAME= $(LIBNAME).7.4.5
+SONAME	= $(LIBNAME).8
+REALNAME= $(LIBNAME).8.0.4
 
 PREFIX		= /usr/local
 LIBPATH		= $(PREFIX)/lib
@@ -62,12 +62,18 @@ $(REALNAME) : $(OBJS)
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : test_events test_addtimer echoserver-lock echoserver iothreads_dispatcher
+test : test_events test_addtimer test_queue test_sidlist echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
 
 test_addtimer : test_addtimer.o $(OBJS)
+	$(CC) $^ -o $@ $(LFLAGS)
+
+test_queue : test_queue.o
+	$(CC) $^ -o $@ $(LFLAGS)
+
+test_sidlist : test_sidlist.o utils.o
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echoserver-lock : accept-lock-echoserver.o $(OBJS)
@@ -79,11 +85,14 @@ echoclient : io.o echoclient.o $(OBJS)
 echoserver : io.o echoserver.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
+raw_echoserver : raw_echoserver.o $(OBJS)
+	$(CC) $^ -o $@ $(LFLAGS)
+
 pingpong : pingpong.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echostress :
-	$(CC) -I/usr/local/include -L/usr/local/lib -levent test/echostress.c -o $@
+	$(CC) test/echostress.c -o $@ -I/usr/local/include -L/usr/local/lib -levent
 
 iothreads_dispatcher : test_iothreads.o $(OBJS)
 	$(CC) $(LFLAGS) $^ -o $@
@@ -109,7 +118,8 @@ clean :
 	rm -rf $(REALNAME)
 
 	rm -rf test_events event.fifo
-	rm -rf test_addtimer echoclient echostress echoserver pingpong echoserver-lock iothreads_dispatcher
+	rm -rf test_queue test_sidlist
+	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher
 	rm -rf chatroom_client chatroom_server
 
 # --------------------------------------------------------

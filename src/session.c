@@ -180,6 +180,11 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     return 0;
 }
 
+void session_set_iolayer( struct session * self, void * iolayer )
+{
+    self->iolayer = iolayer;
+}
+
 void session_set_endpoint( struct session * self, char * host, uint16_t port )
 {
     self->port = port;
@@ -195,7 +200,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
     uint32_t _nbytes = nbytes;
     char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
 
-    if ( _buf != NULL )
+    if ( likely( _buf != NULL ) )
     {
         // 发送数据
         // TODO: _send()可以根据具体情况决定是否copy内存
@@ -506,12 +511,12 @@ int32_t _append_session( struct hashtable * table, struct session * s )
 {
     struct hashnode * node = _find_table( table, s->id, 1 );
 
-    if ( node == NULL )
+    if ( unlikely(node == NULL) )
     {
         return -1;
     }
 
-    if ( node->session != NULL && node->session->id == s->id )
+    if ( unlikely( node->session != NULL && node->session->id == s->id ) )
     {
         syslog(LOG_WARNING, "%s(Index=%d): the SID (Seq=%u, Sid=%ld) conflict !",
                 __FUNCTION__, (int32_t)SID_INDEX(s->id), (uint32_t)SID_SEQ(s->id), s->id );

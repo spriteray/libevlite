@@ -25,7 +25,7 @@ public :
 
 	virtual int32_t onStart()
 	{
-		setTimeout( 60 );
+//		setTimeout( 60 );
 		return 0;
 	}
 
@@ -34,7 +34,7 @@ public :
 		send( buf, nbytes );
 		return nbytes;
 	}
-	
+
 	virtual int32_t onTimeout()
 	{
 	#if DEBUG_OUTPUT
@@ -42,8 +42,8 @@ public :
 	#endif
 		return -1;
 	}
-	
-	virtual int32_t onError( int32_t result ) 
+
+	virtual int32_t onError( int32_t result )
 	{
 	#if DEBUG_OUTPUT
 		printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
@@ -92,11 +92,11 @@ void signal_handle( int32_t signo )
 int main()
 {
 	CEchoService * service = NULL;
-	
+
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	service = new CEchoService( 1, 200000 ); 
+	service = new CEchoService( 1, 200000 );
 	if ( service == NULL )
 	{
 		return -1;
@@ -112,7 +112,7 @@ int main()
 		return -2;
 	}
 
-	g_Running = true;	
+	g_Running = true;
 
 	while ( g_Running )
 	{
@@ -127,4 +127,3 @@ int main()
 	return 0;
 
 }
-

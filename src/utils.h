@@ -24,6 +24,10 @@ extern "C"
 #include "queue.h"
 #include "network.h"
 
+// 分支预测
+#define likely(x)       __builtin_expect( (x), 1 )
+#define unlikely(x)     __builtin_expect( (x), 0 )
+
 //
 // 系统相关的操作
 //
@@ -41,6 +45,7 @@ int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) );
 //
 // 基础算法类
 //
+
 uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
 

@@ -10,6 +10,7 @@
 #include <sys/epoll.h>
 #include <sys/resource.h>
 
+#include "utils.h"
 #include "event-internal.h"
 
 //
@@ -99,7 +100,7 @@ int32_t epoll_expand( struct epoller * self )
     nevents <<= 1;
 
     newevents = realloc( self->events, nevents*sizeof(struct epoll_event) );
-    if ( newevents == NULL )
+    if ( unlikely(newevents == NULL) )
     {
         return -1;
     }
@@ -122,7 +123,7 @@ int32_t epoll_insert( struct epoller * self, int32_t max )
     }
 
     pairs = realloc( self->evpairs, npairs*sizeof(struct eventpair) );
-    if ( pairs == NULL )
+    if ( unlikely(pairs == NULL) )
     {
         return -1;
     }
@@ -277,7 +278,7 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
     int32_t i, res = -1;
     struct epoller * poller = (struct epoller *)arg;
 
-    if ( tv > MAX_EPOLL_WAIT )
+    if ( unlikely( tv > MAX_EPOLL_WAIT ) )
     {
         tv = MAX_EPOLL_WAIT;
     }

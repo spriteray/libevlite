@@ -259,6 +259,7 @@ int32_t channel_shutdown( struct session * session )
 void channel_on_read( int32_t fd, int16_t ev, void * arg )
 {
     struct session * session = (struct session *)arg;
+    struct iolayer * iolayer = (struct iolayer *)session->iolayer;
 
     session->status &= ~SESSION_READING;
 
@@ -269,8 +270,15 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
          * -1    - read() failure
          * -2    - expand() failure
          */
+        int32_t nprocess = 0;
         int32_t nread = _receive( session );
-        int32_t nprocess = _process( session );
+
+        // 只有iolayer处于运行状态下的时候
+        // 才会回调逻辑层处理数据
+        if ( iolayer->status == eLayerStatus_Running )
+        {
+            nprocess = _process( session );
+        }
 
         if ( nprocess < 0 )
         {
@@ -470,6 +478,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     struct connector * connector = (struct connector *)arg;
 
     sid_t id = 0;
+    void * local = NULL;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( connector->parent );
 
@@ -502,8 +511,13 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         }
     }
 
+    if ( layer->localfunc )
+    {
+        local = layer->localfunc( layer->localdata, fd % layer->nthreads );
+    }
+
     // 把连接结果回调给逻辑层
-    rc = connector->cb( connector->context, result, connector->host, connector->port, id );
+    rc = connector->cb( connector->context, local, result, connector->host, connector->port, id );
 
     if ( rc == 0 )
     {

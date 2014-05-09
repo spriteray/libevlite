@@ -33,6 +33,10 @@ struct iolayer
     // 数据改造接口
     void *      context;
     char *      (*transform)( void *, const char *, uint32_t * );
+
+    // 本地数据
+    void *      localdata;
+    void *      (*localfunc)( void *, uint8_t );
 };
 
 // 接收器
@@ -49,7 +53,7 @@ struct acceptor
 
     // 逻辑
     void *      context;
-    int32_t     (*cb)(void *, sid_t, const char *, uint16_t);
+    int32_t     (*cb)(void *, void *, sid_t, const char *, uint16_t);
 
     // 通信层句柄
     struct iolayer * parent;
@@ -71,7 +75,7 @@ struct connector
     // 逻辑
     int32_t     mseconds;
     void *      context;
-    int32_t     (*cb)( void *, int32_t, const char *, uint16_t, sid_t);
+    int32_t     (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t);
 
     // 通信层句柄
     struct iolayer * parent;
@@ -90,7 +94,7 @@ struct task_assign
     char        host[INET_ADDRSTRLEN];          // 16bytes + 2bytes
 
     void *      context;                        // 8bytes
-    int32_t     (*cb)(void *, sid_t, const char *, uint16_t);    // 8bytes
+    int32_t     (*cb)(void *, void *, sid_t, const char *, uint16_t);    // 8bytes
 };
 
 struct task_send

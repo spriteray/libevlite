@@ -86,7 +86,7 @@ int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * ta
     assert( size <= TASK_PADDING_SIZE );
     assert( index < iothreads->nthreads );
 
-    if ( iothreads->runflags != 1 )
+    if ( unlikely( iothreads->runflags != 1 ) )
     {
         return -1;
     }

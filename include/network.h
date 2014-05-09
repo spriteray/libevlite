@@ -41,7 +41,7 @@ extern "C"
 // 网络层
 //
 typedef uint64_t    sid_t;
-typedef void *        iolayer_t;
+typedef void *      iolayer_t;
 
 //
 // IO服务
@@ -74,35 +74,18 @@ typedef struct
 }ioservice_t;
 
 // 创建网络层
+//        nthreads      - 网络线程数
+//        nclients      - 网络层服务的连接数
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
 
-// 服务器开启
-//        host          - 绑定的地址
-//        port          - 监听的端口号
-//        cb            - 新会话创建成功后的回调,会被多个网络线程调用
-//                            参数1: 上下文参数;
-//                            参数2: 新会话ID;
-//                            参数3: 会话的IP地址;
-//                            参数4: 会话的端口号
-//        context       - 上下文参数
-int32_t iolayer_listen( iolayer_t self,
-        const char * host, uint16_t port,
-        int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context );
-
-// 客户端开启
-//        host          - 远程服务器的地址
-//        port          - 远程服务器的端口
-//        seconds       - 连接超时时间
-//        cb            - 连接结果的回调
-//                            参数1: 上下文参数
-//                            参数2: 连接结果
-//                            参数3: 连接的远程服务器的地址
-//                            参数4: 连接的远程服务器的端口
-//                            参数5: 连接成功后返回的会话ID
-//        context       - 上下文参数
-int32_t iolayer_connect( iolayer_t self,
-        const char * host, uint16_t port, int32_t seconds,
-        int32_t (*cb)( void *, int32_t, const char *, uint16_t, sid_t), void * context );
+// 网络层设置线程本地数据
+//        self          -
+//        localfunc     - 获取网络线程的本地数据集
+//                            参数1: localdata
+//                            参数2: 线程索引号
+//        localdata     - localdata
+int32_t iolayer_set_localdata( iolayer_t self,
+        void * (*localfunc)(void *, uint8_t), void * localdata );
 
 // 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法
 //        self          -
@@ -112,6 +95,36 @@ int32_t iolayer_connect( iolayer_t self,
 //                            参数3: 指向消息长度的指针, 返回改造后的数据包长度
 int32_t iolayer_set_transform( iolayer_t self,
         char * (*transform)(void *, const char *, uint32_t *), void * context );
+
+// 服务器开启
+//        host          - 绑定的地址
+//        port          - 监听的端口号
+//        cb            - 新会话创建成功后的回调,会被多个网络线程调用
+//                            参数1: 上下文参数;
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 新会话ID;
+//                            参数4: 会话的IP地址;
+//                            参数5: 会话的端口号
+//        context       - 上下文参数
+int32_t iolayer_listen( iolayer_t self,
+        const char * host, uint16_t port,
+        int32_t (*cb)(void *, void *, sid_t, const char * , uint16_t), void * context );
+
+// 客户端开启
+//        host          - 远程服务器的地址
+//        port          - 远程服务器的端口
+//        seconds       - 连接超时时间
+//        cb            - 连接结果的回调
+//                            参数1: 上下文参数
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 连接结果
+//                            参数4: 连接的远程服务器的地址
+//                            参数5: 连接的远程服务器的端口
+//                            参数6: 连接成功后返回的会话ID
+//        context       - 上下文参数
+int32_t iolayer_connect( iolayer_t self,
+        const char * host, uint16_t port, int32_t seconds,
+        int32_t (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t), void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
@@ -130,6 +143,10 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
 // 停止网络服务
+// 行为定义:
+//      1. 停止对外提供接入服务, 不再接受新的连接;
+//      2. 停止已经接入连接的接收服务, 不再接收新的数据包(接收但不回调ioservice::process())
+//      3. 一切发送行为都正常进行
 void iolayer_stop( iolayer_t self );
 
 // 销毁网络层

@@ -213,7 +213,7 @@ int32_t message_add_receiver( struct message * self, sid_t id )
     if ( self->tolist == NULL )
     {
         self->tolist = sidlist_create(8);
-        if ( self->tolist == NULL )
+        if ( unlikely(self->tolist == NULL) )
         {
             return -1;
         }
@@ -227,7 +227,7 @@ int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t coun
     if ( self->tolist == NULL )
     {
         self->tolist = sidlist_create(count);
-        if ( self->tolist == NULL )
+        if ( unlikely(self->tolist == NULL) )
         {
             return -1;
         }

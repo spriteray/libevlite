@@ -24,7 +24,7 @@ static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
-static int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task );
+static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct task_assign * task );
 static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
@@ -49,6 +49,8 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
+    self->localfunc = NULL;
+    self->localdata = NULL;
     self->status    = eLayerStatus_Running;
 
     // 初始化会话管理器
@@ -117,17 +119,16 @@ void iolayer_destroy( iolayer_t self )
 //        port        - 监听的端口号
 //        cb            - 新会话创建成功后的回调,会被多个网络线程调用
 //                            参数1: 上下文参数;
-//                            参数2: 新会话ID;
-//                            参数3: 会话的IP地址;
-//                            参数4: 会话的端口号
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 新会话ID;
+//                            参数4: 会话的IP地址;
+//                            参数5: 会话的端口号
 //        context        - 上下文参数
 int32_t iolayer_listen( iolayer_t self,
         const char * host, uint16_t port,
-        int32_t (*cb)( void *, sid_t, const char * , uint16_t ), void * context )
+        int32_t (*cb)( void *, void *, sid_t, const char * , uint16_t ), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
-
-    assert( layer->transform != NULL );
 
     struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
     if ( acceptor == NULL )
@@ -171,18 +172,17 @@ int32_t iolayer_listen( iolayer_t self,
 //        seconds        - 连接超时时间
 //        cb            - 连接结果的回调
 //                            参数1: 上下文参数
-//                            参数2: 连接结果
-//                            参数3: 连接的远程服务器的地址
-//                            参数4: 连接的远程服务器的端口
-//                            参数5: 连接成功后返回的会话ID
+//                            参数2: 网络线程本地数据(线程安全)
+//                            参数3: 连接结果
+//                            参数4: 连接的远程服务器的地址
+//                            参数5: 连接的远程服务器的端口
+//                            参数6: 连接成功后返回的会话ID
 //        context        - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
-        int32_t (*cb)( void *, int32_t, const char *, uint16_t , sid_t), void * context    )
+        int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context    )
 {
     struct iolayer * layer = (struct iolayer *)self;
-
-    assert( layer->transform != NULL );
 
     struct connector * connector = calloc( 1, sizeof(struct connector) );
     if ( connector == NULL )
@@ -214,6 +214,15 @@ int32_t iolayer_connect( iolayer_t self,
 
     iothreads_post( layer->group, (connector->fd%layer->nthreads), eIOTaskType_Connect, connector, 0 );
 
+    return 0;
+}
+
+int32_t iolayer_set_localdata( iolayer_t self,
+        void * (*localfunc)(void *, uint8_t), void * localdata )
+{
+    struct iolayer * layer = (struct iolayer *)self;
+    layer->localdata = localdata;
+    layer->localfunc = localfunc;
     return 0;
 }
 
@@ -336,7 +345,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
     for ( i = 0; i < layer->nthreads; ++i )
     {
         struct message * msg = message_create();
-        if ( msg == NULL )
+        if ( unlikely(msg == NULL) )
         {
             continue;
         }
@@ -352,7 +361,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
         {
             // 跨线程提交广播任务
             int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
-            if ( result != 0 )
+            if ( unlikely(result != 0) )
             {
                 message_destroy( msg );
                 continue;
@@ -410,7 +419,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 
         // 跨线程提交批量终止任务
         int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, list, 0 );
-        if ( result != 0 )
+        if ( unlikely(result != 0) )
         {
             sidlist_destroy( list );
             continue;
@@ -548,7 +557,7 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
 
     if ( pthread_self() == threadid )
     {
-        return _assign_direct( _get_manager(self, index), sets, task );
+        return _assign_direct( self, index, sets, task );
     }
 
     // 跨线程提交发送任务
@@ -587,7 +596,7 @@ int32_t _new_managers( struct iolayer * self )
 
 struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
 {
-    if ( index >= self->nthreads )
+    if ( unlikely(index >= self->nthreads) )
     {
         return NULL;
     }
@@ -600,7 +609,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     int32_t result = 0;
     uint8_t index = SID_INDEX(id);
 
-    if ( index >= self->nthreads )
+    if ( unlikely(index >= self->nthreads) )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
         return -1;
@@ -622,7 +631,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     if ( isfree == 0 )
     {
         task.buf = (char *)malloc( nbytes );
-        if ( task.buf == NULL )
+        if ( unlikely( task.buf == NULL ) )
         {
             syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for '_buf' .", __FUNCTION__, id );
             return -2;
@@ -633,7 +642,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     }
 
     result = iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
-    if ( result != 0 )
+    if ( unlikely( result != 0 ) )
     {
         free( task.buf );
     }
@@ -679,13 +688,20 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
     return;
 }
 
-int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct task_assign * task )
+int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, struct task_assign * task )
 {
     int32_t rc = 0;
+    void * local = NULL;
+    struct session_manager * manager = _get_manager( layer, index );
+
+    if ( layer->localfunc != NULL )
+    {
+        local = layer->localfunc( layer->localdata, index );
+    }
 
     // 会话管理器分配会话
     struct session * session = session_manager_alloc( manager );
-    if ( session == NULL )
+    if ( unlikely( session == NULL ) )
     {
         syslog(LOG_WARNING,
                 "%s(fd:%d, host:'%s', port:%d) failed .", __FUNCTION__, task->fd, task->host, task->port );
@@ -694,7 +710,7 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
     }
 
     // 回调逻辑层, 确定是否接收这个会话
-    rc = task->cb( task->context, session->id, task->host, task->port );
+    rc = task->cb( task->context, local, session->id, task->host, task->port );
     if ( rc != 0 )
     {
         // 逻辑层不接受这个会话
@@ -703,6 +719,7 @@ int32_t _assign_direct( struct session_manager * manager, evsets_t sets, struct 
         return 1;
     }
 
+    session_set_iolayer( session, layer );
     session_set_endpoint( session, task->host, task->port );
     session_start( session, eSessionType_Once, task->fd, sets );
 
@@ -714,18 +731,26 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
     int32_t rc = -1;
     struct session * session = session_manager_get( manager, task->id );
 
-    if ( session )
+    if ( likely(session != NULL) )
     {
         // 数据统一改造
+        char * buffer = task->buf;
         uint32_t nbytes = task->nbytes;
-        char * buffer = self->transform( self->context, task->buf, &nbytes );
 
-        rc = session_send( session, buffer, nbytes );
-
-        // 销毁改造后的数据
-        if ( buffer != task->buf )
+        if ( self->transform != NULL )
         {
-            free( buffer );
+            buffer = self->transform( self->context, task->buf, &nbytes );
+        }
+
+        if ( buffer != NULL )
+        {
+            rc = session_send( session, buffer, nbytes );
+
+            // 销毁改造后的数据
+            if ( buffer != task->buf )
+            {
+                free( buffer );
+            }
         }
     }
     else
@@ -748,18 +773,23 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
     int32_t count = 0;
 
     // 数据改造
-    uint32_t nbytes = message_get_length( msg );
-    char * buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
-    if ( buffer == NULL )
+    if ( self->transform != NULL )
     {
-        // 数据改造失败
-        message_destroy( msg );
-        return -1;
-    }
-    if ( buffer != message_get_buffer(msg) )
-    {
-        // 数据改造成功
-        message_set_buffer( msg, buffer, nbytes );
+        // 数据需要改造
+        char * buffer = NULL;
+        uint32_t nbytes = message_get_length( msg );
+        buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
+        if ( buffer == NULL )
+        {
+            // 数据改造失败
+            message_destroy( msg );
+            return -1;
+        }
+        if ( buffer != message_get_buffer(msg) )
+        {
+            // 数据改造成功
+            message_set_buffer( msg, buffer, nbytes );
+        }
     }
 
     for ( i = 0; i < sidlist_count(msg->tolist); ++i )
@@ -773,7 +803,7 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
         }
 
         struct session * session = session_manager_get( manager, id );
-        if ( session == NULL )
+        if ( unlikely(session == NULL) )
         {
             message_add_failure( msg, id );
             continue;
@@ -869,7 +899,8 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
         case eIOTaskType_Assign :
             {
                 // 分配一个描述符
-                _assign_direct( manager, sets, (struct task_assign *)task );
+                // 取出线程本地数据
+                _assign_direct( layer, index, sets, (struct task_assign *)task );
             }
             break;
 

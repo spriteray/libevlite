@@ -13,6 +13,11 @@ sid_t IIOSession::id() const
 	return m_Sid;
 }
 
+void * IIOSession::localdata() const
+{
+    return m_LocalData;
+}
+
 void IIOSession::setTimeout( int32_t seconds )
 {
 	assert( m_Sid != 0 && m_Layer != NULL );
@@ -40,10 +45,11 @@ int32_t IIOSession::shutdown()
 	return iolayer_shutdown( m_Layer, m_Sid );
 }
 
-void IIOSession::init( sid_t id, iolayer_t layer )
+void IIOSession::init( sid_t id, void * local, iolayer_t layer )
 {
-	m_Sid = id;
-	m_Layer = layer;
+	m_Sid       = id;
+	m_LocalData = local;
+	m_Layer     = layer;
 }
 
 int32_t IIOSession::onStartSession( void * context )
@@ -51,7 +57,7 @@ int32_t IIOSession::onStartSession( void * context )
 	return static_cast<IIOSession *>(context)->onStart();
 }
 
-int32_t IIOSession::onProcessSession( void * context, const char * buffer, uint32_t nbytes ) 
+int32_t IIOSession::onProcessSession( void * context, const char * buffer, uint32_t nbytes )
 {
 	return static_cast<IIOSession *>(context)->onProcess( buffer, nbytes );
 }
@@ -62,7 +68,7 @@ char * IIOSession::onTransformSession( void * context, const char * buffer, uint
 	return static_cast<IIOSession *>(context)->onTransform( buffer, _nbytes );
 }
 
-int32_t IIOSession::onTimeoutSession( void * context ) 
+int32_t IIOSession::onTimeoutSession( void * context )
 {
 	return static_cast<IIOSession *>(context)->onTimeout();
 }
@@ -70,14 +76,14 @@ int32_t IIOSession::onTimeoutSession( void * context )
 int32_t IIOSession::onKeepaliveSession( void * context )
 {
 	return static_cast<IIOSession *>(context)->onKeepalive();
-} 
+}
 
-int32_t IIOSession::onErrorSession( void * context, int32_t result ) 
+int32_t IIOSession::onErrorSession( void * context, int32_t result )
 {
 	return static_cast<IIOSession *>(context)->onError( result );
 }
 
-void IIOSession::onShutdownSession( void * context, int32_t way ) 
+void IIOSession::onShutdownSession( void * context, int32_t way )
 {
 	IIOSession * session = static_cast<IIOSession *>( context );
 	session->onShutdown( way );
@@ -94,6 +100,7 @@ bool IIOService::start()
 
 	if ( m_IOLayer != NULL )
 	{
+	    iolayer_set_localdata( m_IOLayer, getThreadLocalData, this );
         iolayer_set_transform( m_IOLayer, onTransformService, this );
         return true;
 	}
@@ -133,7 +140,7 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string
 
 int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
 {
-	std::vector<sid_t>::const_iterator start = ids.begin();	
+	std::vector<sid_t>::const_iterator start = ids.begin();
 
 	uint32_t count = (uint32_t)ids.size();
 	sid_t * idlist = const_cast<sid_t *>( &(*start) );
@@ -156,9 +163,9 @@ int32_t IIOService::shutdown( const std::vector<sid_t> & ids )
 	return iolayer_shutdowns( m_IOLayer, idlist, count );
 }
 
-void IIOService::attach( sid_t id, IIOSession * session )
+void IIOService::attach( sid_t id, IIOSession * session, void * local )
 {
-	session->init( id, m_IOLayer );
+	session->init( id, local, m_IOLayer );
 
 	ioservice_t ioservice;
 	ioservice.start		= IIOSession::onStartSession;
@@ -171,6 +178,11 @@ void IIOService::attach( sid_t id, IIOSession * session )
 	iolayer_set_service( m_IOLayer, id, &ioservice, session );
 }
 
+void * IIOService::getThreadLocalData( void * context, uint8_t index )
+{
+    return static_cast<IIOService *>(context)->getLocalData( index );
+}
+
 char * IIOService::onTransformService( void * context, const char * buffer, uint32_t * nbytes )
 {
     uint32_t & _nbytes = *nbytes;
@@ -179,7 +191,7 @@ char * IIOService::onTransformService( void * context, const char * buffer, uint
     return service->onTransform( buffer, _nbytes );
 }
 
-int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host, uint16_t port )
+int32_t IIOService::onAcceptSession( void * context, void * local, sid_t id, const char * host, uint16_t port )
 {
 	IIOSession * session = NULL;
 	IIOService * service = static_cast<IIOService*>( context );
@@ -189,18 +201,18 @@ int32_t IIOService::onAcceptSession( void * context, sid_t id, const char * host
 	{
 		return -1;
 	}
-	service->attach( id, session );
+	service->attach( id, session, local );
 
 	return 0;
 }
 
-int32_t IIOService::onConnectSession( void * context, int32_t result, const char * host, uint16_t port, sid_t id )
+int32_t IIOService::onConnectSession( void * context, void * local, int32_t result, const char * host, uint16_t port, sid_t id )
 {
 	if ( result != 0 )
 	{
 		return 0;
 	}
-	
+
 	IIOSession * session = NULL;
 	IIOService * service = static_cast<IIOService *>( context );
 
@@ -209,11 +221,9 @@ int32_t IIOService::onConnectSession( void * context, int32_t result, const char
 	{
 		return -1;
 	}
-	service->attach( id, session );
+	service->attach( id, session, local );
 
 	return 0;
 }
 
 }
-
-

@@ -69,6 +69,7 @@ struct session
     // 事件集和管理器
     evsets_t    evsets;
     void *      manager;
+    void *      iolayer;
 
     // 逻辑
     void *      context;
@@ -89,6 +90,7 @@ struct session
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
 
 //
+void session_set_iolayer( struct session * self, void * iolayer );
 void session_set_endpoint( struct session * self, char * host, uint16_t port );
 
 // 发送队列的长度
