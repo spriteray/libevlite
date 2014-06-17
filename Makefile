@@ -15,17 +15,16 @@ CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_
 
 ifneq ($(OS),Darwin)
 	LIBNAME	= libevlite.so
-	SONAME	= $(LIBNAME).8
-	REALNAME= $(LIBNAME).8.0.4
 	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 	CFLAGS 	+= -finline-limit=1000
 	CXXFLAGS+= -finline-limit=1000
 else
-	LIBNAME	= libevlite.dylib
-	SONAME	= libevlite.8.dylib
-	REALNAME= libevlite.8.0.4.dylib
 	SOFLAGS	= -dynamiclib
+	LIBNAME	= libevlite.dylib
 endif
+
+SONAME	= $(LIBNAME).8
+REALNAME= $(LIBNAME).8.0.4
 
 #
 # 利用git tag发布软件版本
