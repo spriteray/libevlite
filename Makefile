@@ -1,22 +1,30 @@
 
 # -----------------------------------------------------------
-
-CC		= gcc
-CXX		= g++
-CFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
-CXXFLAGS= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -finline-limit=1000 -D__EVENT_VERSION__=\"$(REALNAME)\"
-LFLAGS	= -ggdb -lpthread
-SOFLAGS	= -shared -Wl,-soname,$(SONAME)
-
-LIBNAME	= libevlite.so
-SONAME	= $(LIBNAME).8
-REALNAME= $(LIBNAME).8.0.4
+OS			= $(shell uname)
 
 PREFIX		= /usr/local
 LIBPATH		= $(PREFIX)/lib
 INCLUDEPATH	= $(PREFIX)/include
 
-OS		= $(shell uname)
+# -----------------------------------------------------------
+CC			= gcc
+CXX			= g++
+LFLAGS		= -ggdb -lpthread
+CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
+CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
+
+ifneq ($(OS),Darwin)
+	LIBNAME	= libevlite.so
+	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
+	CFLAGS 	+= -finline-limit=1000
+	CXXFLAGS+= -finline-limit=1000
+else
+	SOFLAGS	= -dynamiclib
+	LIBNAME	= libevlite.dylib
+endif
+
+SONAME	= $(LIBNAME).8
+REALNAME= $(LIBNAME).8.0.5
 
 #
 # 利用git tag发布软件版本

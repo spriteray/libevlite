@@ -1,9 +1,4 @@
 
-// 避免sys/event.h中重复包含queue.h
-#if defined(__APPLE__) || defined(__darwin__)
-#define _SYS_QUEUE_H_
-#endif
-
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>

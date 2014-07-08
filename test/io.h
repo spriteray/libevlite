@@ -7,9 +7,6 @@
 
 #include "network.h"
 
-namespace Utils
-{
-
 //
 // 会话, 非线程安全的
 //
@@ -39,7 +36,7 @@ public :
 	virtual int32_t	onTimeout() { return 0; }
 	virtual int32_t onKeepalive() { return 0; }
 	virtual int32_t onError( int32_t result ) { return 0; }
-	virtual void onShutdown( int32_t way ) {}
+	virtual void    onShutdown( int32_t way ) {}
 
 public :
 	//
@@ -76,7 +73,7 @@ private :
 	static int32_t	onTimeoutSession( void * context );
 	static int32_t	onKeepaliveSession( void * context );
 	static int32_t	onErrorSession( void * context, int32_t result );
-	static void onShutdownSession( void * context, int32_t way );
+	static void     onShutdownSession( void * context, int32_t way );
 
 private :
 	sid_t		m_Sid;
@@ -91,14 +88,8 @@ private :
 class IIOService
 {
 public :
-	IIOService( uint8_t nthreads, uint32_t nclients )
-		: m_IOLayer(NULL),
-		  m_ThreadsCount( nthreads ),
-		  m_SessionsCount( nclients )
-	{}
-
-	virtual ~IIOService()
-	{}
+	IIOService( uint8_t nthreads, uint32_t nclients );
+	virtual ~IIOService();
 
 public :
     // 获取网络线程本地数据
@@ -121,15 +112,12 @@ public :
 	// 线程安全的API
 	//
 
-	// 开启服务
-	bool start();
-
-	// 停止服务
-	void stop();
-
 	// 连接/监听
 	bool listen( const char * host, uint16_t port );
 	bool connect( const char * host, uint16_t port, int32_t seconds );
+
+	// 停止服务
+	void stop();
 
 	// 发送数据
 	int32_t send( sid_t id, const std::string & buffer );
@@ -159,7 +147,5 @@ private :
 	uint8_t		m_ThreadsCount;
 	uint32_t	m_SessionsCount;
 };
-
-}
 
 #endif

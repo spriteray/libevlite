@@ -79,7 +79,7 @@ TAILQ_HEAD( event_list, event );
 #define EVENT_TIMERINDEX(ev)    (int32_t)( (ev)->timer_index )
 #define EVENT_TIMERSTEP(ev)     (int32_t)( (ev)->timer_stepcnt )
 
-inline int32_t event_active( struct event * self, int16_t res );
+int32_t event_active( struct event * self, int16_t res );
 
 //
 // event定时器模块

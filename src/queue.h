@@ -2,8 +2,11 @@
 #ifndef SRC_QUEUE_H
 #define SRC_QUEUE_H
 
+// FIX: OSX有可能的重复定义
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+#include <sys/queue.h>
+#else
 #include <sys/cdefs.h>
-
 /*
  * This file defines four types of data structures: singly-linked lists,
  * singly-linked tail queues, lists and tail queues.
@@ -554,6 +557,7 @@ struct {                                                \
     TRASHIT(*oldprev);                                  \
     QMD_TRACE_ELEM(&(elm)->field);                      \
 } while (0)
+#endif /* #if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__) */
 
 /*
  * 队列

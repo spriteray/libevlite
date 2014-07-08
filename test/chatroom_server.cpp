@@ -14,8 +14,6 @@
 #include "io.h"
 #include "chatroom.h"
 
-using namespace Utils;
-
 class CChatRoomService;
 class CChatRoomSession : public IIOSession
 {
@@ -28,7 +26,7 @@ public :
 	virtual int32_t	onProcess( const char * buf, uint32_t nbytes );
 	virtual void onShutdown( int32_t way );
 
-public :	
+public :
 	void setService( CChatRoomService * s );
 
 private :
@@ -65,7 +63,6 @@ private :
 			message = NULL;
 		}
 	};
-	
 	pthread_mutex_t		m_TaskLock;
 	std::deque<Task>	m_TaskQueue;
 	std::vector<sid_t>	m_SessionMap;
@@ -90,7 +87,7 @@ int32_t CChatRoomSession::onStart()
 	head.length = sizeof(head);
 
 	m_Service->post( id(), &head );
-	
+
 	return 0;
 }
 
@@ -107,21 +104,21 @@ int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
 		{
 			break;
 		}
-		
+
 		CSHead * head = (CSHead *)buffer;
 
 		assert( head->length == CHATROOM_MESSAGE_SIZE+sizeof(CSHead));
 		assert( head->msgid == 1 || head->msgid == 2 );
 
-		if ( nleft < head->length ) 
+		if ( nleft < head->length )
 		{
 			break;
 		}
-		
+
 		m_Service->post( id(), head );
 		nprocess += head->length;
 	}
-	
+
 	return nprocess;
 }
 
@@ -166,20 +163,13 @@ bool CChatRoomService::init( const char * host, uint16_t port )
 {
 	bool rc = false;
 
-	rc = start();
-	if ( !rc )
-	{
-		printf( "CChatRoomService::start() failed .\n" );
-		return false;
-	}
-
 	rc = listen( host, port );
 	if ( !rc )
 	{
 		printf( "CChatRoomService::listen(%s::%d) failed .\n", host, port );
 		return false;
 	}
-	
+
 	return true;
 }
 
@@ -228,7 +218,7 @@ void CChatRoomService::run()
 					head->length = length;
 					memcpy( head+1, task->message, task->length );
 					buffer.resize( length );
-					
+
 					broadcast( m_SessionMap, buffer );
 					free( task->message );
 				}
@@ -237,7 +227,7 @@ void CChatRoomService::run()
 			case 3 :
 				{
 					std::vector<sid_t>::iterator it;
-				   
+
 					it = std::find( m_SessionMap.begin(), m_SessionMap.end(), task->sid );
 					if ( it != m_SessionMap.end() )
 					{
@@ -306,7 +296,7 @@ int main( int argc, char ** argv )
 	{
 		return -2;
 	}
-	
+
 	g_Running = true;
 	while ( g_Running )
 	{
@@ -317,5 +307,3 @@ int main( int argc, char ** argv )
 	service.stop();
 	return 0;
 }
-
-

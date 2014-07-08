@@ -5,9 +5,6 @@
 
 #include "io.h"
 
-namespace Utils
-{
-
 sid_t IIOSession::id() const
 {
 	return m_Sid;
@@ -94,7 +91,10 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-bool IIOService::start()
+IIOService::IIOService( uint8_t nthreads, uint32_t nclients )
+    : m_IOLayer(NULL),
+      m_ThreadsCount( nthreads ),
+      m_SessionsCount( nclients )
 {
 	m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount );
 
@@ -102,15 +102,16 @@ bool IIOService::start()
 	{
 	    iolayer_set_localdata( m_IOLayer, getThreadLocalData, this );
         iolayer_set_transform( m_IOLayer, onTransformService, this );
-        return true;
 	}
-
-	return false;
 }
 
-void IIOService::stop()
+IIOService::~IIOService()
 {
-	return iolayer_destroy( m_IOLayer );
+    if ( m_IOLayer != NULL )
+    {
+        iolayer_destroy( m_IOLayer );
+        m_IOLayer = NULL;
+    }
 }
 
 bool IIOService::listen( const char * host, uint16_t port )
@@ -121,6 +122,14 @@ bool IIOService::listen( const char * host, uint16_t port )
 bool IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 {
 	return ( iolayer_connect( m_IOLayer, host, port, seconds, onConnectSession, this ) == 0 );
+}
+
+void IIOService::stop()
+{
+    if ( m_IOLayer != NULL )
+    {
+        iolayer_stop( m_IOLayer );
+    }
 }
 
 int32_t IIOService::send( sid_t id, const std::string & buffer )
@@ -224,6 +233,4 @@ int32_t IIOService::onConnectSession( void * context, void * local, int32_t resu
 	service->attach( id, session, local );
 
 	return 0;
-}
-
 }
