@@ -63,6 +63,7 @@ private :
 			message = NULL;
 		}
 	};
+
 	pthread_mutex_t		m_TaskLock;
 	std::deque<Task>	m_TaskQueue;
 	std::vector<sid_t>	m_SessionMap;
