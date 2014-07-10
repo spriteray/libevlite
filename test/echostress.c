@@ -107,7 +107,7 @@ void client_on_read( int32_t fd, int16_t ev, void * arg )
         }
 
         client->recv_nbytes += nread;
- 
+
         if ( g_running == 0
             && client->recv_nbytes == client->send_nbytes )
         {
@@ -135,10 +135,10 @@ void client_on_write( int32_t fd, int16_t ev, void * arg )
         }
 
         client->send_nbytes += nwrite;
-        
+
         if ( g_running == 0 )
         {
-            event_del( &client->evwrite );  
+            event_del( &client->evwrite );
         }
     }
 
@@ -267,7 +267,7 @@ int main( int argc, char ** argv )
     g_running = 1;
     start_clients( base );
     printf("IO Test Begin, you can press Ctrl-C to break, and see the IOTestReport ... \n");
-    
+
     gettimeofday( &g_start, NULL );
     while ( g_running )
     {
@@ -291,7 +291,7 @@ int main( int argc, char ** argv )
 
         total_sendlen += client->send_nbytes;
         total_recvlen += client->recv_nbytes;
-        
+
         stress_client_close( client );
     }
 
@@ -299,7 +299,6 @@ int main( int argc, char ** argv )
     printf( "average[KBytes/sec] : \t%.0f\t\t\t%.0f\n", total_sendlen / total_time / 1000.0f, total_recvlen / total_time / 1000.0f );
 
     free( g_clients );
-    
+
     return 0;
 }
-

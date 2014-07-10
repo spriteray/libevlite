@@ -48,7 +48,7 @@ public :
 	bool connect( const char * host, uint16_t port )
 	{
 		struct sockaddr_in addr;
-		
+
 		memset( &addr, 0, sizeof(addr) );
 		addr.sin_family = AF_INET;
 		addr.sin_addr.s_addr = inet_addr( host );
@@ -58,7 +58,7 @@ public :
 		if ( m_Fd < 0 )
 		{
 			return false;
-		}	
+		}
 		if ( ::connect(m_Fd, (struct sockaddr *)&addr, sizeof(addr)) != 0 )
 		{
 			close( m_Fd );
@@ -90,7 +90,7 @@ public :
 		{
 			m_RecvBytes += nread;
 		}
-		
+
 		return nread;
 	}
 
@@ -150,14 +150,14 @@ public :
 
 			CSHead * head = (CSHead *)buffer;
 
-			if ( nleft < head->length ) 
+			if ( nleft < head->length )
 			{
 				break;
 			}
 
 			assert( head->length == CHATROOM_MESSAGE_SIZE+sizeof(CSHead) );
 			assert( head->msgid == 1 || head->msgid == 2 );
-			
+
 			m_RecvBytes += head->length;
 			nprocess += head->length;
 		}
@@ -178,7 +178,7 @@ public :
 	uint64_t getRecvBytes() const { return m_RecvBytes; }
 
 public :
-	
+
 	static void onRead( int32_t fd, int16_t ev, void * arg );
 	static void onTimer( int32_t fd, int16_t ev, void * arg );
 
@@ -190,7 +190,7 @@ private :
 	event_t			m_ReadEvent;
 	event_t			m_TimerEvent;
 	struct buffer	m_InBuffer;
-	
+
 	uint32_t		m_SendInterval;
 
 	uint64_t		m_SendBytes;
@@ -206,7 +206,7 @@ void ChatRoomClient::onRead( int32_t fd, int16_t ev, void * arg )
 		int32_t nread = client->recv();
 		if ( nread <= 0 )
 		{
-			if ( nread == 0 
+			if ( nread == 0
 					|| ( nread < 0 && errno == EAGAIN ) )
 			{
 				client->shutdown();
@@ -241,14 +241,14 @@ void start_clients( ChatRoomClient ** clients, evsets_t sets )
 	{
 		ChatRoomClient * client = new ChatRoomClient;
 		clients[ i ] = client;
-		
+
 		if ( client )
 		{
 			if ( !client->connect(g_Host, g_Port) )
 			{
 				delete client;
 			}
-			
+
 			client->start( sets );
 		}
 	}
@@ -284,30 +284,30 @@ int main( int argc, char ** argv )
 	signal( SIGINT, signal_handle );
 	signal( SIGPIPE, SIG_IGN );
 	srand( time(NULL) );
-	
+
 	//
-	ChatRoomClient ** clients = (ChatRoomClient **)malloc( sizeof(ChatRoomClient *) * g_ClientsCount ); 
+	ChatRoomClient ** clients = (ChatRoomClient **)malloc( sizeof(ChatRoomClient *) * g_ClientsCount );
 
 	assert( clients != NULL && "malloc() failed " );
-	
+
 	evsets_t sets = evsets_create();
 	assert( sets != NULL && "evsets_create() failed" );
 
 	// 连接远程服务器
 	start_clients( clients, sets );
-	
+
 	// 运行
 	g_Running = true;
 	g_Waiting = true;
 	uint64_t nStartTime, nEndTime;
-	
+
 	nStartTime = mtime();
 	while ( g_Running )
 	{
 		evsets_dispatch( sets );
 	}
 	nEndTime = mtime();
-	
+
 	printf("chatroom_client stopped .\n");
 	g_Waiting = true;
 	while ( g_Waiting )
@@ -317,8 +317,7 @@ int main( int argc, char ** argv )
 
 	// 统计
 	statics( clients, nEndTime-nStartTime );
-	
+
 	free( clients );
 	return 0;
 }
-

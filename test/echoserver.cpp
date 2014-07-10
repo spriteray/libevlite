@@ -12,7 +12,7 @@
 // 回显服务实例
 //
 
-class CEchoSession : public Utils::IIOSession
+class CEchoSession : public IIOSession
 {
 public :
 	CEchoSession()
@@ -57,12 +57,12 @@ public :
 	}
 };
 
-class CEchoService : public Utils::IIOService
+class CEchoService : public IIOService
 {
 public :
 
 	CEchoService( uint8_t nthreads, uint32_t nclients )
-		: Utils::IIOService( nthreads, nclients )
+		: IIOService( nthreads, nclients )
 	{
 	}
 
@@ -72,7 +72,7 @@ public :
 
 public :
 
-	Utils::IIOSession * onAccept( sid_t id, const char * host, uint16_t port )
+    IIOSession * onAccept( sid_t id, const char * host, uint16_t port )
 	{
 		return new CEchoSession;
 	}
@@ -101,8 +101,6 @@ int main()
 	{
 		return -1;
 	}
-
-	service->start();
 
 	if ( !service->listen( "127.0.0.1", 9029 ) )
 	{

@@ -29,8 +29,8 @@ public :
 
 		return nbytes;
 	}
-	
-	virtual int32_t onError( int32_t result ) 
+
+	virtual int32_t onError( int32_t result )
 	{
 		printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
 		return 0;
@@ -60,7 +60,7 @@ public :
 	Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
 	{
 		m_ClientSid = id;
-		return new CEchoSession(); 
+		return new CEchoSession();
 	}
 
 public :
@@ -96,11 +96,11 @@ int main( int argc, char ** argv )
 		printf("Usage: echoclient [host] [port] \n");
 		return -1;
 	}
-	
+
 	signal( SIGPIPE, SIG_IGN );
 	signal( SIGINT, signal_handle );
 
-	service = new CEchoService( 1, 200 ); 
+	service = new CEchoService( 1, 200 );
 	if ( service == NULL )
 	{
 		return -1;
@@ -118,11 +118,11 @@ int main( int argc, char ** argv )
 
 	g_Running = true;
 
-	while ( g_Running ) 
+	while ( g_Running )
 	{
 		int ch = getc(stdin);
 		line.push_back( (char)ch );
-		
+
 		if ( ch == '\n' )
 		{
 			if ( strcmp( line.c_str(), "quit\n" ) == 0 )
@@ -145,4 +145,3 @@ int main( int argc, char ** argv )
 	return 0;
 
 }
-
