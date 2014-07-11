@@ -85,13 +85,7 @@ public :
 
 	int32_t recv()
 	{
-		int32_t nread = buffer_read( &m_InBuffer, m_Fd, -1 );
-		if ( nread > 0 )
-		{
-			m_RecvBytes += nread;
-		}
-
-		return nread;
+		return buffer_read( &m_InBuffer, m_Fd, -1 );
 	}
 
 	int32_t send()
