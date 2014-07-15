@@ -4,14 +4,14 @@
 
 #include <stdint.h>
 
-#define CHATROOM_MESSAGE_SIZE		100
+#define CHATROOM_MESSAGE_SIZE       100
 
 #pragma pack(1)
 
 struct CSHead
 {
-	uint16_t msgid;
-	uint16_t length;
+    uint16_t msgid;
+    uint16_t length;
 };
 
 #pragma pack()

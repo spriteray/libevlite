@@ -22,7 +22,7 @@
 
 #define __DEBUG         0
 #define MAGIC_NUM       9
-#define USE_LIBEVENT   	1
+#define USE_LIBEVENT    1
 #define TIMEOUT_MSECS   2000
 
 #if USE_LIBEVENT
@@ -92,8 +92,8 @@ int32_t tcp_listen( const char * host, uint16_t port )
     setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
 
 #if defined (__linux__)
-	flags = 1;
-	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
+    flags = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
 #endif
 
     set_fd_nonblock( fd );

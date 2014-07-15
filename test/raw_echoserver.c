@@ -35,8 +35,8 @@ void listenfd_options( int32_t fd )
     setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
 
 #if defined (__linux__)
-	flags = 1;
-	setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
+    flags = 1;
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
 #endif
 
     set_non_block( fd );

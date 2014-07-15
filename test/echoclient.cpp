@@ -13,66 +13,66 @@
 class CEchoSession : public Utils::IIOSession
 {
 public :
-	CEchoSession()
-	{}
+    CEchoSession()
+    {}
 
-	virtual ~CEchoSession()
-	{}
+    virtual ~CEchoSession()
+    {}
 
 public :
 
-	virtual int32_t onProcess( const char * buf, uint32_t nbytes )
-	{
-		std::string line( buf, buf+nbytes );
-		printf("%s", line.c_str() );
-		fflush(stdout);
+    virtual int32_t onProcess( const char * buf, uint32_t nbytes )
+    {
+        std::string line( buf, buf+nbytes );
+        printf("%s", line.c_str() );
+        fflush(stdout);
 
-		return nbytes;
-	}
-	
-	virtual int32_t onError( int32_t result ) 
-	{
-		printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
-		return 0;
-	}
+        return nbytes;
+    }
 
-	virtual int32_t onShutdown()
-	{
-		return 0;
-	}
+    virtual int32_t onError( int32_t result )
+    {
+        printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
+        return 0;
+    }
+
+    virtual int32_t onShutdown()
+    {
+        return 0;
+    }
 };
 
 class CEchoService : public Utils::IIOService
 {
 public :
 
-	CEchoService( uint8_t nthreads, uint32_t nclients )
-		: Utils::IIOService( nthreads, nclients )
-	{
-	}
+    CEchoService( uint8_t nthreads, uint32_t nclients )
+        : Utils::IIOService( nthreads, nclients )
+    {
+    }
 
-	virtual ~CEchoService()
-	{
-	}
-
-public :
-
-	Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
-	{
-		m_ClientSid = id;
-		return new CEchoSession(); 
-	}
+    virtual ~CEchoService()
+    {
+    }
 
 public :
 
-	int32_t send2( const std::string & buffer )
-	{
-		return send( m_ClientSid, buffer );
-	}
+    Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
+    {
+        m_ClientSid = id;
+        return new CEchoSession();
+    }
+
+public :
+
+    int32_t send2( const std::string & buffer )
+    {
+        return send( m_ClientSid, buffer );
+    }
 
 private :
 
-	sid_t	m_ClientSid;
+    sid_t    m_ClientSid;
 };
 
 // -------------------------------------------------------------------------------
@@ -83,66 +83,62 @@ bool g_Running;
 
 void signal_handle( int32_t signo )
 {
-	g_Running = false;
+    g_Running = false;
 }
 
 int main( int argc, char ** argv )
 {
-	std::string line;
-	CEchoService * service = NULL;
+    std::string line;
+    CEchoService * service = NULL;
 
-	if ( argc != 3 )
-	{
-		printf("Usage: echoclient [host] [port] \n");
-		return -1;
-	}
-	
-	signal( SIGPIPE, SIG_IGN );
-	signal( SIGINT, signal_handle );
+    if ( argc != 3 )
+    {
+        printf("Usage: echoclient [host] [port] \n");
+        return -1;
+    }
 
-	service = new CEchoService( 1, 200 ); 
-	if ( service == NULL )
-	{
-		return -1;
-	}
+    signal( SIGPIPE, SIG_IGN );
+    signal( SIGINT, signal_handle );
 
-	service->start();
+    service = new CEchoService( 1, 200 );
+    if ( service == NULL )
+    {
+        return -1;
+    }
 
-	if ( !service->connect( argv[1], atoi(argv[2]), 10 ) )
-	{
-		printf("service start failed \n");
-		delete service;
+    service->start();
 
-		return -2;
-	}
+    if ( !service->connect( argv[1], atoi(argv[2]), 10 ) )
+    {
+        printf("service start failed \n");
+        delete service;
 
-	g_Running = true;
+        return -2;
+    }
 
-	while ( g_Running ) 
-	{
-		int ch = getc(stdin);
-		line.push_back( (char)ch );
-		
-		if ( ch == '\n' )
-		{
-			if ( strcmp( line.c_str(), "quit\n" ) == 0 )
-			{
-				g_Running = false;
-				continue;
-			}
+    g_Running = true;
 
-			service->send2( line );
-			line.clear();
-		}
-		fflush(stdin);
-	}
+    while ( g_Running )
+    {
+        int ch = getc(stdin);
+        line.push_back( (char)ch );
 
-	printf("EchoClient stoping ...\n");
-	service->stop();
+        if ( ch == '\n' )
+        {
+            if ( strcmp( line.c_str(), "quit\n" ) == 0 )
+            {
+                g_Running = false;
+                continue;
+            }
 
-	delete service;
+            service->send2( line );
+            line.clear();
+        }
+        fflush(stdin);
+    }
 
-	return 0;
-
+    printf("EchoClient stoping ...\n");
+    service->stop();
+    delete service;
+    return 0;
 }
-

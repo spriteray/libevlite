@@ -899,6 +899,7 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
         case eIOTaskType_Assign :
             {
                 // 分配一个描述符
+
                 // 取出线程本地数据
                 _assign_direct( layer, index, sets, (struct task_assign *)task );
             }
