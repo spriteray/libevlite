@@ -44,8 +44,8 @@ OBJS 	= utils.o timer.o event.o \
 			iolayer.o
 
 ifeq ($(OS),Linux)
-#	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
 	LFLAGS += -lrt
+#	LFLAGS += -L/usr/local/lib -ltcmalloc_minimal
 	OBJS += epoll.o
 else
 	OBJS += kqueue.o
