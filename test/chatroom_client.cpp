@@ -40,7 +40,7 @@ public :
 
     enum
     {
-        e_SendIntervalMicroSeconds    = 10000,        // 每个100ms发送一个请求
+        e_SendIntervalMicroSeconds    = 500,        // 每个100ms发送一个请求
     };
 
 public :
@@ -94,7 +94,7 @@ public :
         std::string msg( length, 0 );
 
         CSHead * head = (CSHead *)msg.data();
-        head->msgid = (rand()%1000) > 50 ? 1 : 2;
+        head->msgid = 1;// (rand()%1000) > 50 ? 1 : 2;
         head->length = length;
         msg.resize( length );
 
@@ -177,12 +177,12 @@ public :
 
 private :
 
-    int32_t            m_Fd;
+    int32_t         m_Fd;
     evsets_t        m_EventSets;
 
-    event_t            m_ReadEvent;
-    event_t            m_TimerEvent;
-    struct buffer    m_InBuffer;
+    event_t         m_ReadEvent;
+    event_t         m_TimerEvent;
+    struct buffer   m_InBuffer;
 
     uint32_t        m_SendInterval;
 

@@ -18,7 +18,7 @@
 #define TRY_RECONNECT_INTERVAL          20
 
 // 发送接收缓冲区设置
-#define SEND_BUFFER_SIZE                0
+#define SEND_BUFFER_SIZE                4096
 #define RECV_BUFFER_SIZE                4096
 
 
