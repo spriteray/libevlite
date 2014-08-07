@@ -299,8 +299,6 @@ void session_add_event( struct session * self, int16_t ev )
 
         self->status |= SESSION_WRITING;
     }
-
-    return;
 }
 
 // 反注册网络事件
