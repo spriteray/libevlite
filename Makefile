@@ -38,17 +38,15 @@ REALNAME= $(LIBNAME).8.0.6
 #REALNAME=$(APPNAME).so.$(VERSION)
 #
 
-OBJS 	= utils.o timer.o event.o \
+OBJS 	= utils.o \
+		  	epoll.o kqueue.o timer.o \
+			event.o \
 			threads.o \
 			message.o channel.o session.o \
 			iolayer.o
 
 ifeq ($(OS),Linux)
 	LFLAGS += -lrt
-#	LFLAGS += -L/usr/local/lib -ltcmalloc_minimal
-	OBJS += epoll.o
-else
-	OBJS += kqueue.o
 endif
 
 # Release, open it

@@ -1,4 +1,6 @@
 
+#if defined (__linux__)
+
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -369,3 +371,5 @@ void epoll_final( void * arg )
     free( poller );
     return;
 }
+
+#endif
