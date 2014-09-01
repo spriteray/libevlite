@@ -366,7 +366,7 @@ int32_t evsets_dispatch( evsets_t self )
     if ( res < 0 )
     {
         // IO事件出错
-        syslog(LOG_WARNING, "event sets dispatch error <%d>", res);
+        syslog(LOG_WARNING, "%s() event sets dispatch error <%d>", __FUNCTION__, res);
     }
 
     // 事件集的超时时间是要及时更新的
