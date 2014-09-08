@@ -35,6 +35,9 @@ extern "C"
 // 时间函数, 返回毫秒数
 int64_t mtime();
 
+// 获取线程ID
+pid_t threadid();
+
 // socket基本操作
 int32_t is_connected( int32_t fd );
 int32_t set_non_block( int32_t fd );

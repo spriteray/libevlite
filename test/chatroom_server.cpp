@@ -196,8 +196,8 @@ void CChatRoomService::run()
             case 1 :
                 {
                     uint16_t length = task->length+sizeof(CSHead);
+#if 0
                     std::string buffer( length, 0 );
-
                     CSHead * head = (CSHead *)buffer.data();
                     head->msgid = task->msgid;
                     head->length = length;
@@ -205,6 +205,14 @@ void CChatRoomService::run()
                     buffer.resize( length );
 
                     send( task->sid, buffer );
+#endif
+                    char * buffer = (char *)malloc( length );
+                    CSHead * head = (CSHead *)buffer;
+                    head->msgid = task->msgid;
+                    head->length = length;
+                    memcpy( head+1, task->message, task->length );
+                    send( task->sid, buffer, length, true );
+
                     free( task->message );
                 }
                 break;

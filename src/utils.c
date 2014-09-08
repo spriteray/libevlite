@@ -7,8 +7,11 @@
 #include <errno.h>
 
 #include <sys/time.h>
+#include <sys/syscall.h>
 
 #include "utils.h"
+
+__thread pid_t t_cached_threadid = 0;
 
 int64_t mtime()
 {
@@ -21,6 +24,16 @@ int64_t mtime()
     }
 
     return now;
+}
+
+pid_t threadid()
+{
+    if ( t_cached_threadid == 0 )
+    {
+        t_cached_threadid = syscall( SYS_gettid );
+    }
+
+    return t_cached_threadid;
 }
 
 int32_t is_connected( int32_t fd )
@@ -288,7 +301,6 @@ void sidlist_destroy( struct sidlist * self )
     }
 
     free(self);
-    return;
 }
 
 // -----------------------------------------------------------------------------------------------------------------

@@ -275,7 +275,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
         // 只有iolayer处于运行状态下的时候
         // 才会回调逻辑层处理数据
-        if ( iolayer->status == eLayerStatus_Running )
+        if ( likely(iolayer->status == eLayerStatus_Running) )
         {
             nprocess = _process( session );
         }
@@ -339,8 +339,6 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
     {
         _timeout( session );
     }
-
-    return;
 }
 
 void channel_on_write( int32_t fd, int16_t ev, void * arg )
@@ -394,8 +392,6 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
         assert( session->status&SESSION_EXITING );
         channel_shutdown( session );
     }
-
-    return;
 }
 
 void channel_on_accept( int32_t fd, int16_t ev, void * arg )
@@ -403,8 +399,8 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
     struct acceptor * acceptor = (struct acceptor *)arg;
     struct iolayer * layer = (struct iolayer *)(acceptor->parent);
 
-    if ( (ev & EV_READ)
-        && layer->status == eLayerStatus_Running )
+    if ( likely( (ev & EV_READ)
+                && layer->status == eLayerStatus_Running) )
     {
         int32_t cfd = -1;
         struct task_assign task;
@@ -428,8 +424,6 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             iolayer_assign_session( layer, index, &(task) );
         }
     }
-
-    return;
 }
 
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
@@ -444,8 +438,6 @@ void channel_on_keepalive( int32_t fd, int16_t ev, void * arg )
         // 逻辑层需要继续发送保活包
         session_start_keepalive( session );
     }
-
-    return;
 }
 
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
@@ -468,8 +460,6 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     evsets_add( session->evsets, session->evwrite, 0 );
 
     session->status |= SESSION_WRITING;
-
-    return;
 }
 
 void channel_on_connected( int32_t fd, int16_t ev, void * arg )
@@ -547,8 +537,6 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         }
         iolayer_free_connector( layer, connector );
     }
-
-    return;
 }
 
 void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
@@ -581,6 +569,4 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
     {
         _timeout( session );
     }
-
-    return;
 }

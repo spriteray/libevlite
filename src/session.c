@@ -299,8 +299,6 @@ void session_add_event( struct session * self, int16_t ev )
 
         self->status |= SESSION_WRITING;
     }
-
-    return;
 }
 
 // 反注册网络事件
@@ -320,8 +318,6 @@ void session_del_event( struct session * self, int16_t ev )
         evsets_del( sets, self->evwrite );
         self->status &= ~SESSION_WRITING;
     }
-
-    return;
 }
 
 int32_t session_start_keepalive( struct session * self )
@@ -680,5 +676,4 @@ void session_manager_destroy( struct session_manager * self )
     }
 
     free( self );
-    return;
 }

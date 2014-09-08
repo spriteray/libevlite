@@ -2,6 +2,7 @@
 #include <time.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <syslog.h>
 #include <assert.h>
 
 #include "utils.h"
@@ -364,7 +365,8 @@ int32_t evsets_dispatch( evsets_t self )
     res = sets->evselect->dispatch( sets, sets->evsets, seconds4wait );
     if ( res < 0 )
     {
-        return -1;
+        // IO事件出错
+        syslog(LOG_WARNING, "%s() event sets dispatch error <%d>", __FUNCTION__, res);
     }
 
     // 事件集的超时时间是要及时更新的
@@ -372,7 +374,7 @@ int32_t evsets_dispatch( evsets_t self )
     if ( sets->expire_time <= evsets_get_now(sets) )
     {
         // 定时器时间到了, 分发事件
-        res += evtimer_dispatch( sets->core_timer );
+        evtimer_dispatch( sets->core_timer );
         sets->expire_time = evsets_get_now(sets) + sets->timer_precision;
     }
 

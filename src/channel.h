@@ -31,4 +31,3 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnected( int32_t fd, int16_t ev, void * arg );
 
 #endif
-

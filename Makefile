@@ -24,7 +24,7 @@ else
 endif
 
 SONAME	= $(LIBNAME).8
-REALNAME= $(LIBNAME).8.0.5
+REALNAME= $(LIBNAME).8.0.6
 
 #
 # 利用git tag发布软件版本
@@ -38,17 +38,15 @@ REALNAME= $(LIBNAME).8.0.5
 #REALNAME=$(APPNAME).so.$(VERSION)
 #
 
-OBJS 	= utils.o timer.o event.o \
+OBJS 	= utils.o \
+		  	epoll.o kqueue.o timer.o \
+			event.o \
 			threads.o \
 			message.o channel.o session.o \
 			iolayer.o
 
 ifeq ($(OS),Linux)
-#	LFLAGS += -lrt -L/usr/local/lib -ltcmalloc_minimal
 	LFLAGS += -lrt
-	OBJS += epoll.o
-else
-	OBJS += kqueue.o
 endif
 
 # Release, open it

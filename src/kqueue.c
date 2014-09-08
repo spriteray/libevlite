@@ -1,4 +1,6 @@
 
+#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
@@ -316,3 +318,5 @@ void kqueue_final( void * arg )
     free( poller );
     return ;
 }
+
+#endif
