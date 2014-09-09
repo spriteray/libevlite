@@ -114,8 +114,6 @@ void client_on_read( int32_t fd, int16_t ev, void * arg )
              stress_client_close( client );
         }
     }
-
-    return;
 }
 
 void client_on_write( int32_t fd, int16_t ev, void * arg )
@@ -141,8 +139,6 @@ void client_on_write( int32_t fd, int16_t ev, void * arg )
             event_del( &client->evwrite );
         }
     }
-
-    return;
 }
 
 void start_clients( struct event_base * base )
@@ -199,8 +195,6 @@ void start_clients( struct event_base * base )
     mseconds = (double) (
     (connect_end.tv_sec-connect_start.tv_sec)*1000 + (connect_end.tv_usec-connect_start.tv_usec)/1000 );
     printf("start_clients(CLIENTS=%d) ExecTimes: %.6f mseconds\n", g_clients_count, mseconds );
-
-    return;
 }
 
 int main( int argc, char ** argv )

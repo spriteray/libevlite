@@ -129,8 +129,6 @@ void iothreads_stop( iothreads_t self )
     }
 
     free ( iothreads );
-
-    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -309,6 +307,4 @@ void iothread_on_command( int32_t fd, int16_t ev, void * arg )
             //
         }
     }
-
-    return;
 }

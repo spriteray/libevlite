@@ -316,7 +316,6 @@ void kqueue_final( void * arg )
     }
 
     free( poller );
-    return ;
 }
 
 #endif

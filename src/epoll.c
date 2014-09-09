@@ -369,7 +369,6 @@ void epoll_final( void * arg )
     }
 
     free( poller );
-    return;
 }
 
 #endif

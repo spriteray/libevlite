@@ -178,6 +178,4 @@ void evtimer_destroy( struct evtimer * self )
     }
 
     free( self );
-
-    return;
 }

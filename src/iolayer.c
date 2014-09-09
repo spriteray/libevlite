@@ -110,8 +110,6 @@ void iolayer_destroy( iolayer_t self )
     }
 
     free( layer );
-
-    return;
 }
 
 // 服务器开启
@@ -468,8 +466,6 @@ void iolayer_server_option( int32_t fd )
     //    int32_t recvbuf_size = RECV_BUFFER_SIZE;
     //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
-
-    return;
 }
 
 void iolayer_client_option( int32_t fd )
@@ -491,8 +487,6 @@ void iolayer_client_option( int32_t fd )
     //    int32_t recvbuf_size = RECV_BUFFER_SIZE;
     //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
-
-    return;
 }
 
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
@@ -685,7 +679,6 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
     }
 
     _connect_direct( connector->evsets, connector );
-    return;
 }
 
 int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, struct task_assign * task )
@@ -933,6 +926,4 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
             }
             break;
     }
-
-    return;
 }

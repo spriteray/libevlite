@@ -204,8 +204,6 @@ void message_destroy( struct message * self )
 
     buffer_clear( &self->buffer );
     free( self );
-
-    return;
 }
 
 int32_t message_add_receiver( struct message * self, sid_t id )
