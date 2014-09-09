@@ -31,9 +31,9 @@ public :
     //
 
     virtual int32_t onStart() { return 0; }
-    virtual int32_t    onProcess( const char * buffer, uint32_t nbytes ) { return 0; }
-    virtual char *    onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
-    virtual int32_t    onTimeout() { return 0; }
+    virtual int32_t onProcess( const char * buffer, uint32_t nbytes ) { return 0; }
+    virtual char *  onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
+    virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
     virtual void    onShutdown( int32_t way ) {}
@@ -67,12 +67,12 @@ private :
     void init( sid_t id, void * local, iolayer_t layer );
 
     // 内部回调函数
-    static int32_t    onStartSession( void * context );
-    static int32_t    onProcessSession( void * context, const char * buffer, uint32_t nbytes );
-    static char *    onTransformSession( void * context, const char * buffer, uint32_t * nbytes );
-    static int32_t    onTimeoutSession( void * context );
-    static int32_t    onKeepaliveSession( void * context );
-    static int32_t    onErrorSession( void * context, int32_t result );
+    static int32_t  onStartSession( void * context );
+    static int32_t  onProcessSession( void * context, const char * buffer, uint32_t nbytes );
+    static char *   onTransformSession( void * context, const char * buffer, uint32_t * nbytes );
+    static int32_t  onTimeoutSession( void * context );
+    static int32_t  onKeepaliveSession( void * context );
+    static int32_t  onErrorSession( void * context, int32_t result );
     static void     onShutdownSession( void * context, int32_t way );
 
 private :

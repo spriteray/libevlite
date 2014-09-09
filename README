@@ -7,7 +7,7 @@ libevlite网络通信库
             读事件(EV_READ),
             写事件(EV_WRITE),
             超时事件(EV_TIMEOUT)
-            在三种事件类型的基础上, 添加了一种事件驻留在事件集中的永久模式(EV_PERSIST)
+            在三种事件类型的基础上, 支持事件永久驻留在事件集中的模式(EV_PERSIST)
         2> 网络事件event_t
         3> 网络事件集evsets_t
 
