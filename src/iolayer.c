@@ -178,7 +178,7 @@ int32_t iolayer_listen( iolayer_t self,
 //        context        - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
-        int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context    )
+        int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 

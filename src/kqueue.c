@@ -263,7 +263,7 @@ int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv )
                 continue;
             }
 
-            errno = poller->events[i].data;
+            errno = (int32_t)poller->events[i].data;
             return -2;
         }
 

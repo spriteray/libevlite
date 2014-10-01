@@ -118,7 +118,7 @@ int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
     setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
 #endif
 
-    writen = writev( fd, array, count );
+    writen = (int32_t)writev( fd, array, count );
 
 #if defined (TCP_CORK)
     corked = 0;
@@ -132,7 +132,7 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 {
     int32_t writen = 0;
 
-    writen = write( session->fd, buf, nbytes );
+    writen = (int32_t)write( session->fd, buf, nbytes );
     if ( writen < 0 )
     {
         if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )

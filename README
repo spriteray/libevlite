@@ -7,7 +7,7 @@ libevlite网络通信库
             读事件(EV_READ),
             写事件(EV_WRITE),
             超时事件(EV_TIMEOUT)
-            在三种事件类型的基础上, 支持事件永久驻留在事件集中的模式(EV_PERSIST)
+            在三种事件类型的基础上, 支持事件驻留在事件集中的永久模式(EV_PERSIST)
         2> 网络事件event_t
         3> 网络事件集evsets_t
 
@@ -45,6 +45,6 @@ libevlite网络通信库
     9) 停止服务 iolayer_stop()
         停止行为定义:
             1> 停止对外提供接入服务, 不再接受新的连接;
-            2> 停止一切连接的接收服务, 不再接收新的数据, 不回调ioservice_t::process()
+            2> 停止所有连接的接收服务, 不再回调ioservice_t::process()
 
     10) 销毁网络层 iolayer_destroy()
