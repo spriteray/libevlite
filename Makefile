@@ -24,7 +24,7 @@ else
 endif
 
 SONAME	= $(LIBNAME).8
-REALNAME= $(LIBNAME).8.0.6
+REALNAME= $(LIBNAME).8.0.7
 
 #
 # 利用git tag发布软件版本

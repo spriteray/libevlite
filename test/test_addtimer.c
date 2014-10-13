@@ -23,9 +23,7 @@
 #define NTEST   1000000
 
 void ev_callback( int32_t fd, int16_t ev, void * arg )
-{
-    return;
-}
+{}
 
 void ev_timer_callback( int32_t fd, int16_t ev, void * arg )
 {
@@ -35,8 +33,6 @@ void ev_timer_callback( int32_t fd, int16_t ev, void * arg )
     printf("ev_timer_callback(handler=%p, fd=%d, ev=%d) : %d \n", e, fd, ev, time(NULL) );
 
     evsets_add( sets, e, 2*1000 );
-
-    return;
 }
 
 int32_t test_addtimer( evsets_t sets, event_t * events )

@@ -139,7 +139,7 @@ int main( int argc, char ** argv )
 
     printf("EchoClient stoping ...\n");
     service->stop();
-
     delete service;
+
     return 0;
 }

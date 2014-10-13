@@ -7,9 +7,10 @@
 #include "network-internal.h"
 #include "message.h"
 
-#define MIN_BUFFER_LENGTH        64
+#define MIN_BUFFER_LENGTH       64
 
 static void _align( struct buffer * self );
+static inline uint32_t _offset( struct buffer * self );
 static int32_t _expand( struct buffer * self, uint32_t length );
 
 void _align( struct buffer * self )
@@ -18,9 +19,14 @@ void _align( struct buffer * self )
     self->buffer = self->orignbuffer;
 }
 
+uint32_t _offset( struct buffer * self )
+{
+    return (uint32_t)( self->buffer - self->orignbuffer );
+}
+
 int32_t _expand( struct buffer * self, uint32_t length )
 {
-    uint32_t offset = self->buffer - self->orignbuffer;
+    int32_t offset = _offset( self );
     uint32_t needlength = offset + self->length + length;
 
     if ( needlength <= self->capacity )
@@ -104,7 +110,7 @@ int32_t buffer_erase( struct buffer * self, uint32_t length )
 
 int32_t buffer_append( struct buffer * self, char * buf, uint32_t length )
 {
-    uint32_t offset = self->buffer - self->orignbuffer;
+    uint32_t offset = _offset(self);
     uint32_t needlength = offset + self->length + length;
 
     if ( needlength > self->capacity )
@@ -161,7 +167,7 @@ int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )
         return -2;
     }
 
-    nread = read( fd, self->buffer+self->length, nbytes );
+    nread = (int32_t)read( fd, self->buffer+self->length, nbytes );
     if ( nread > 0 )
     {
         self->length += nread;
@@ -204,8 +210,6 @@ void message_destroy( struct message * self )
 
     buffer_clear( &self->buffer );
     free( self );
-
-    return;
 }
 
 int32_t message_add_receiver( struct message * self, sid_t id )

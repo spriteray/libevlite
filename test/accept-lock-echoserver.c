@@ -20,10 +20,10 @@
 
 #include "utils.h"
 
-#define __DEBUG             0
-#define MAGIC_NUM           9
-#define USE_LIBEVENT        1
-#define TIMEOUT_MSECS       2000
+#define __DEBUG         0
+#define MAGIC_NUM       9
+#define USE_LIBEVENT    1
+#define TIMEOUT_MSECS   2000
 
 #if USE_LIBEVENT
 
@@ -246,9 +246,6 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
     }
 
 PROCESS_END :
-
-    return;
-
 }
 
 void accept_new_session( int32_t fd, int16_t ev, void * arg )
@@ -319,8 +316,6 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
     }
 
 ACCEPT_END :
-
-    return;
 }
 
 void trylock_accept_mutex( struct iothread * thr )
@@ -345,8 +340,6 @@ void trylock_accept_mutex( struct iothread * thr )
 
         //pthread_mutex_unlock( &(a->lock) );
     }
-
-    return;
 }
 
 void acceptor_destroy( struct acceptor * self )

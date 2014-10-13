@@ -157,8 +157,6 @@ void event_set( event_t self, int32_t fd, int16_t ev )
 
     e->fd = fd;
     e->events = ev;
-
-    return;
 }
 
 void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), void * arg )
@@ -167,8 +165,6 @@ void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), voi
 
     e->cb = cb;
     e->arg = arg;
-
-    return;
 }
 
 int32_t event_get_fd( event_t self )
@@ -443,8 +439,6 @@ void evsets_destroy( evsets_t self )
     // 销毁IO实例
     sets->evselect->final( sets->evsets );
     free( sets );
-
-    return ;
 }
 
 int32_t evsets_process_active( struct eventset * self )

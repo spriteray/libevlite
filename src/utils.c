@@ -369,10 +369,8 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
     if ( rc == 0 && isbc == 1 )
     {
         char buf[1] = {0};
-        int32_t nwrite = 0;
 
-        nwrite = write( self->pushfd, buf, 1 );
-        if ( nwrite != 1 )
+        if ( write( self->pushfd, buf, 1 ) != 1 )
         {
             //
         }

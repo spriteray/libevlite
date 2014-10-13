@@ -2,49 +2,49 @@
 libevlite网络通信库
 
 1. 基础事件模块( include/event.h )
-	1) 类型说明:
-		1> 事件类型说明:
-			读事件(EV_READ),
-			写事件(EV_WRITE),
-			超时事件(EV_TIMEOUT)
-			在三种事件类型的基础上, 添加了一种事件驻留在事件集中的永久模式(EV_PERSIST)
-		2> 网络事件event_t
-		3> 网络事件集evsets_t
+    1) 类型说明:
+        1> 事件类型说明:
+            读事件(EV_READ),
+            写事件(EV_WRITE),
+            超时事件(EV_TIMEOUT)
+            在三种事件类型的基础上, 支持事件驻留在事件集中的永久模式(EV_PERSIST)
+        2> 网络事件event_t
+        3> 网络事件集evsets_t
 
-	2) 基于事件(event_t)的方法说明:
+    2) 基于事件(event_t)的方法说明:
 
-	3) 基于事件集(evsets_t)的方法说明:
+    3) 基于事件集(evsets_t)的方法说明:
 
 
 2. 网络线程模块( include/threads.h )
 
 
-3. 通信模块( include/networks.h	)
+3. 通信模块( include/networks.h )
 
-	1) 创建网络通信层 iolayer_create()
-		网关应用: 网络线程个数>1, 客户端个数>10000;
-		其他应用: 网络线程个数==1, 客户端个数<=1000;
+    1) 创建网络通信层 iolayer_create()
+        网关应用: 网络线程个数>1, 客户端个数>10000;
+        其他应用: 网络线程个数==1, 客户端个数<=1000;
 
-	2) 设置网络通信层的方法
-		设置线程本地数据: iolayer_set_localdata(),
-		设置网络层数据改造方法: iolayer_set_transform()
+    2) 设置网络通信层的方法
+        设置线程本地数据: iolayer_set_localdata(),
+        设置网络层数据改造方法: iolayer_set_transform()
 
-	3) 监听端口, 开启服务端 iolayer_listen()
+    3) 监听端口, 开启服务端 iolayer_listen()
 
-	4) 连接远程服务端, 开启客户端 iolayer_connect()
+    4) 连接远程服务端, 开启客户端 iolayer_connect()
 
-	5) 设置回话的方法
-		设置会话的超时时间 iolayer_set_timeout()
-		设置会话的保活时间 iolayer_set_keepalive()
-		设置会话的IO服务逻辑 iolayer_set_service()
+    5) 设置回话的方法
+        设置会话的超时时间 iolayer_set_timeout()
+        设置会话的保活时间 iolayer_set_keepalive()
+        设置会话的IO服务逻辑 iolayer_set_service()
 
-	6) 发送数据 iolayer_send()
-	7) 广播数据 iolayer_broadcast()
-	8) 关闭会话 iolayer_shutdown(), iolayer_shutdowns()
+    6) 发送数据 iolayer_send()
+    7) 广播数据 iolayer_broadcast()
+    8) 关闭会话 iolayer_shutdown(), iolayer_shutdowns()
 
-	9) 停止服务 iolayer_stop()
-		停止行为定义:
-			1> 停止对外提供接入服务, 不再接受新的连接;
-			2> 停止一切连接的接收服务, 不再接收新的数据, 不回调ioservice_t::process()
+    9) 停止服务 iolayer_stop()
+        停止行为定义:
+            1> 停止对外提供接入服务, 不再接受新的连接;
+            2> 停止所有连接的接收服务, 不再回调ioservice_t::process()
 
-	10) 销毁网络层 iolayer_destroy()
+    10) 销毁网络层 iolayer_destroy()

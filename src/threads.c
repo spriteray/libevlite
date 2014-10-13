@@ -129,8 +129,6 @@ void iothreads_stop( iothreads_t self )
     }
 
     free ( iothreads );
-
-    return;
 }
 
 // -----------------------------------------------------------------------------
@@ -301,14 +299,10 @@ void iothread_on_command( int32_t fd, int16_t ev, void * arg )
     if ( ev & EV_READ )
     {
         char buf[ 64 ];
-        int32_t nread = 0;
 
-        nread = read( fd, buf, sizeof(buf) );
-        if ( nread == -1 )
+        if ( read( fd, buf, sizeof(buf) ) == -1 )
         {
             //
         }
     }
-
-    return;
 }

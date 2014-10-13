@@ -19,12 +19,11 @@ int32_t done;
 
 void signal_handler( int32_t signo )
 {
-    done = 1;    
+    done = 1;
 }
 
 void fifo_read( int32_t fd, int16_t ev, void * arg )
 {
-    
     char buf[255];
     int32_t len = 0;
     int32_t rc = 0;
@@ -33,7 +32,7 @@ void fifo_read( int32_t fd, int16_t ev, void * arg )
     evsets_t evsets = event_get_sets( evfifo );
 
     rc = evsets_add( evsets, evfifo, 0 );
-    
+
     printf("fifo_read called with fd: %d, event: %d, arg: %p\n", fd, ev, arg);
 
     len = read(fd, buf, sizeof(buf)-1 );
@@ -51,22 +50,20 @@ void fifo_read( int32_t fd, int16_t ev, void * arg )
     buf[len] = '\0';
 
     printf("Read: %s\n", buf);
-
-    return;
 }
 
 int32_t main()
 {
     int32_t socketfd;
-    
+
     event_t evfifo = NULL;
     evsets_t evsets = NULL;
 
     struct stat st;
     const char * fifo = "event.fifo";
-    
+
     done = 0;
-    
+
     printf("VERSION : %s\n", evsets_get_version() );
 
     signal( SIGINT, signal_handler );
@@ -124,7 +121,7 @@ int32_t main()
 
     evsets_add( evsets, evfifo, 0 );
     printf("evsets_add() succeed .\n");
-    
+
     while( !done )
     {
         evsets_dispatch( evsets );
