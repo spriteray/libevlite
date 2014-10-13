@@ -22,7 +22,7 @@
 
 #define __DEBUG         0
 #define MAGIC_NUM       9
-#define USE_LIBEVENT       1
+#define USE_LIBEVENT    1
 #define TIMEOUT_MSECS   2000
 
 #if USE_LIBEVENT

@@ -76,9 +76,9 @@ private :
     static void     onShutdownSession( void * context, int32_t way );
 
 private :
-    sid_t        m_Sid;
+    sid_t       m_Sid;
     void *      m_LocalData;
-    iolayer_t    m_Layer;
+    iolayer_t   m_Layer;
 };
 
 //
@@ -142,9 +142,9 @@ private :
     static int32_t onConnectSession( void * context, void * local, int32_t result, const char * host, uint16_t port, sid_t id );
 
 private :
-    iolayer_t    m_IOLayer;
+    iolayer_t   m_IOLayer;
 
-    uint8_t        m_ThreadsCount;
+    uint8_t     m_ThreadsCount;
     uint32_t    m_SessionsCount;
 };
 
