@@ -610,9 +610,9 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     }
 
     struct task_send task;
-    task.id        = id;
-    task.nbytes    = nbytes;
-    task.isfree    = isfree;
+    task.id     = id;
+    task.nbytes = nbytes;
+    task.isfree = isfree;
     task.buf    = (char *)buf;
 
     if ( pthread_self() == iothreads_get_id( self->group, index ) )

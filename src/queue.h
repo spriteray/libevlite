@@ -585,8 +585,8 @@ struct name                                         \
 {                                                   \
     uint32_t    size;                               \
     type *      entries;                            \
-    __attribute__((aligned(64))) uint32_t  head;    \
-    __attribute__((aligned(64))) uint32_t  tail;    \
+    uint32_t    head __attribute__((aligned(64)));  \
+    uint32_t    tail __attribute__((aligned(64)));  \
 }
 
 #define QUEUE_INIT(name)        name##_QUEUE_INIT
