@@ -11,7 +11,21 @@
 
 #include "utils.h"
 
+#if defined(__linux__)
+
 __thread pid_t t_cached_threadid = 0;
+
+pid_t threadid()
+{
+    if ( t_cached_threadid == 0 )
+    {
+        t_cached_threadid = syscall( SYS_gettid );
+    }
+
+    return t_cached_threadid;
+}
+
+#endif
 
 int64_t mtime()
 {
@@ -24,16 +38,6 @@ int64_t mtime()
     }
 
     return now;
-}
-
-pid_t threadid()
-{
-    if ( t_cached_threadid == 0 )
-    {
-        t_cached_threadid = syscall( SYS_gettid );
-    }
-
-    return t_cached_threadid;
 }
 
 int32_t is_connected( int32_t fd )
@@ -369,7 +373,7 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
     if ( rc == 0 && isbc == 1 )
     {
         char buf[1] = {0};
-        
+
         if ( write( self->pushfd, buf, 1 ) != 1 )
         {
             //

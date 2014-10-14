@@ -36,7 +36,9 @@ extern "C"
 int64_t mtime();
 
 // 获取线程ID
+#if defined(__linux__)
 pid_t threadid();
+#endif
 
 // socket基本操作
 int32_t is_connected( int32_t fd );

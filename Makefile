@@ -13,18 +13,29 @@ LFLAGS		= -ggdb -lpthread
 CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 
-ifneq ($(OS),Darwin)
+ifeq ($(OS),Darwin)
+	LIBNAME	= libevlite.dylib
+	SOFLAGS	= -dynamiclib -Wl,-install_name,$(SONAME)
+else
 	LIBNAME	= libevlite.so
 	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
-	CFLAGS 	+= -finline-limit=1000
-	CXXFLAGS+= -finline-limit=1000
-else
-	SOFLAGS	= -dynamiclib
-	LIBNAME	= libevlite.dylib
+	# FreeBSD定制
+	ifeq ($(OS),FreeBSD)
+		CC 		= clang
+		CXX 	= clang++
+	else
+		CFLAGS 	+= -finline-limit=1000
+		CXXFLAGS+= -finline-limit=1000
+	endif
+endif
+
+# Linux定制rt参数
+ifeq ($(OS),Linux)
+	LFLAGS += -lrt
 endif
 
 SONAME	= $(LIBNAME).8
-REALNAME= $(LIBNAME).8.0.6
+REALNAME= $(LIBNAME).8.0.8
 
 #
 # 利用git tag发布软件版本
@@ -44,10 +55,6 @@ OBJS 	= utils.o \
 			threads.o \
 			message.o channel.o session.o \
 			iolayer.o
-
-ifeq ($(OS),Linux)
-	LFLAGS += -lrt
-endif
 
 # Release, open it
 # CFLAGS += DNDEBUG
