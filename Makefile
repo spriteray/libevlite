@@ -2,6 +2,7 @@
 # -----------------------------------------------------------
 OS			= $(shell uname)
 
+VERSION 	= 8.0.8
 PREFIX		= /usr/local
 LIBPATH		= $(PREFIX)/lib
 INCLUDEPATH	= $(PREFIX)/include
@@ -34,8 +35,10 @@ ifeq ($(OS),Linux)
 	LFLAGS += -lrt
 endif
 
-SONAME	= $(LIBNAME).8
-REALNAME= $(LIBNAME).8.0.8
+# 主版本号
+MAJOR	= $(firstword $(subst ., ,$(VERSION)))
+SONAME	= $(LIBNAME).$(MAJOR)
+REALNAME= $(LIBNAME).$(VERSION)
 
 #
 # 利用git tag发布软件版本
