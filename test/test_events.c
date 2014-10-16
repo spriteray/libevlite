@@ -24,7 +24,6 @@ void signal_handler( int32_t signo )
 
 void fifo_read( int32_t fd, int16_t ev, void * arg )
 {
-
     char buf[255];
     int32_t len = 0;
     int32_t rc = 0;

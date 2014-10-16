@@ -44,7 +44,6 @@ public :
     };
 
 public :
-
     bool connect( const char * host, uint16_t port )
     {
         struct sockaddr_in addr;
@@ -171,12 +170,10 @@ public :
     uint64_t getRecvBytes() const { return m_RecvBytes; }
 
 public :
-
     static void onRead( int32_t fd, int16_t ev, void * arg );
     static void onTimer( int32_t fd, int16_t ev, void * arg );
 
 private :
-
     int32_t         m_Fd;
     evsets_t        m_EventSets;
 

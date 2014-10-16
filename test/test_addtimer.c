@@ -23,8 +23,7 @@
 #define NTEST   1000000
 
 void ev_callback( int32_t fd, int16_t ev, void * arg )
-{
-}
+{}
 
 void ev_timer_callback( int32_t fd, int16_t ev, void * arg )
 {
