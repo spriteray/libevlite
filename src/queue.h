@@ -578,16 +578,15 @@ struct name                     \
     uint32_t    tail;           \
 }
 
-#define QUEUE_PADDING_HEAD(name, type)  \
-struct name                             \
-{                                       \
-    uint32_t    size;                   \
-    type *      entries;                \
-    uint32_t    padding1[12];           \
-    uint32_t    head;                   \
-    uint32_t    padding2[15];           \
-    uint32_t    tail;                   \
-    uint32_t    padding3[15];           \
+// CACHELINE对齐
+// __attribute__((aligned(64))), 相当于c++11中的alignas(64)
+#define QUEUE_PADDING_HEAD(name, type)              \
+struct name                                         \
+{                                                   \
+    uint32_t    size;                               \
+    type *      entries;                            \
+    uint32_t    head __attribute__((aligned(64)));  \
+    uint32_t    tail __attribute__((aligned(64)));  \
 }
 
 #define QUEUE_INIT(name)        name##_QUEUE_INIT
