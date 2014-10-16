@@ -1,44 +1,52 @@
 
-# -----------------------------------------------------------
+# ------------------------------------------------------------------------------
 OS			= $(shell uname)
 
 VERSION 	= 8.0.8
 PREFIX		= /usr/local
-LIBPATH		= $(PREFIX)/lib
-INCLUDEPATH	= $(PREFIX)/include
 
-# -----------------------------------------------------------
-CC			= gcc
-CXX			= g++
+# ------------------------------------------------------------------------------
+# FreeBSD采用clang做为编译器
+ifeq ($(OS),FreeBSD)
+	CC 		= clang
+	CXX 	= clang++
+else
+	CC		= gcc
+	CXX		= g++
+endif
+
+# 默认选项
 LFLAGS		= -ggdb -lpthread
 CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 
+# 动态库编译选项
 ifeq ($(OS),Darwin)
 	LIBNAME	= libevlite.dylib
 	SOFLAGS	= -dynamiclib -Wl,-install_name,$(SONAME)
 else
 	LIBNAME	= libevlite.so
 	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
-	# FreeBSD定制
-	ifeq ($(OS),FreeBSD)
-		CC 		= clang
-		CXX 	= clang++
-	else
-		CFLAGS 	+= -finline-limit=1000
-		CXXFLAGS+= -finline-limit=1000
-	endif
 endif
 
-# Linux定制rt参数
+# Linux定制参数
 ifeq ($(OS),Linux)
-	LFLAGS += -lrt
+	LFLAGS 	+= -lrt
+	CFLAGS 	+= -finline-limit=1000
+	CXXFLAGS+= -finline-limit=1000
 endif
+
+# ------------------------------------------------------------------------------
+# 安装目录lib, include
+LIBPATH		= $(PREFIX)/lib
+INCLUDEPATH	= $(PREFIX)/include
 
 # 主版本号
-MAJOR	= $(firstword $(subst ., ,$(VERSION)))
-SONAME	= $(LIBNAME).$(MAJOR)
-REALNAME= $(LIBNAME).$(VERSION)
+MAJORVER 	= $(firstword $(subst ., ,$(VERSION)))
+
+# 动态库的名字
+SONAME		= $(LIBNAME).$(MAJORVER)
+REALNAME	= $(LIBNAME).$(VERSION)
 
 #
 # 利用git tag发布软件版本
@@ -52,6 +60,7 @@ REALNAME= $(LIBNAME).$(VERSION)
 #REALNAME=$(APPNAME).so.$(VERSION)
 #
 
+# ------------------------------------------------------------------------------
 OBJS 	= utils.o \
 		  	epoll.o kqueue.o timer.o \
 			event.o \
@@ -59,11 +68,7 @@ OBJS 	= utils.o \
 			message.o channel.o session.o \
 			iolayer.o
 
-# Release, open it
-# CFLAGS += DNDEBUG
-
-# -----------------------------------------------------------
-
+# ------------------------------------------------------------------------------
 install : all
 	rm -rf $(INCLUDEPATH)/evlite
 	cp -a include $(INCLUDEPATH)/evlite
@@ -122,17 +127,14 @@ chatroom_client: io.o chatroom_client.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
 clean :
-
 	rm -rf *.o
 	rm -rf *.log
 	rm -rf *.core
 	rm -rf core.*
 	rm -rf vgcore.*
-
 	rm -rf $(SONAME)
 	rm -rf $(LIBNAME)
 	rm -rf $(REALNAME)
-
 	rm -rf test_events event.fifo
 	rm -rf test_queue test_sidlist
 	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher
