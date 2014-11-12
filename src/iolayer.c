@@ -113,15 +113,15 @@ void iolayer_destroy( iolayer_t self )
 }
 
 // 服务器开启
-//        host        - 绑定的地址
-//        port        - 监听的端口号
-//        cb            - 新会话创建成功后的回调,会被多个网络线程调用
-//                            参数1: 上下文参数;
-//                            参数2: 网络线程本地数据(线程安全)
-//                            参数3: 新会话ID;
-//                            参数4: 会话的IP地址;
-//                            参数5: 会话的端口号
-//        context        - 上下文参数
+//      host        - 绑定的地址
+//      port        - 监听的端口号
+//      cb          - 新会话创建成功后的回调,会被多个网络线程调用
+//                          参数1: 上下文参数;
+//                          参数2: 网络线程本地数据(线程安全)
+//                          参数3: 新会话ID;
+//                          参数4: 会话的IP地址;
+//                          参数5: 会话的端口号
+//      context     - 上下文参数
 int32_t iolayer_listen( iolayer_t self,
         const char * host, uint16_t port,
         int32_t (*cb)( void *, void *, sid_t, const char * , uint16_t ), void * context )
@@ -165,17 +165,17 @@ int32_t iolayer_listen( iolayer_t self,
 }
 
 // 客户端开启
-//        host        - 远程服务器的地址
-//        port        - 远程服务器的端口
-//        seconds        - 连接超时时间
-//        cb            - 连接结果的回调
-//                            参数1: 上下文参数
-//                            参数2: 网络线程本地数据(线程安全)
-//                            参数3: 连接结果
-//                            参数4: 连接的远程服务器的地址
-//                            参数5: 连接的远程服务器的端口
-//                            参数6: 连接成功后返回的会话ID
-//        context        - 上下文参数
+//      host        - 远程服务器的地址
+//      port        - 远程服务器的端口
+//      seconds     - 连接超时时间
+//      cb          - 连接结果的回调
+//                          参数1: 上下文参数
+//                          参数2: 网络线程本地数据(线程安全)
+//                          参数3: 连接结果
+//                          参数4: 连接的远程服务器的地址
+//                          参数5: 连接的远程服务器的端口
+//                          参数6: 连接成功后返回的会话ID
+//      context     - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
         int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context )
@@ -609,11 +609,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
         return -1;
     }
 
-    struct task_send task;
-    task.id     = id;
-    task.nbytes = nbytes;
-    task.isfree = isfree;
-    task.buf    = (char *)buf;
+    struct task_send task = { id, (char *)buf, nbytes, isfree };
 
     if ( pthread_self() == iothreads_get_id( self->group, index ) )
     {
