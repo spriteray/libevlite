@@ -35,8 +35,8 @@ iothreads_t iothreads_start( uint8_t nthreads,
         iothreads = NULL;
     }
 
-    iothreads->method     = method;
-    iothreads->context    = context;
+    iothreads->method   = method;
+    iothreads->context  = context;
     iothreads->nthreads = nthreads;
     pthread_cond_init( &iothreads->cond, NULL );
     pthread_mutex_init( &iothreads->lock, NULL );
@@ -183,10 +183,7 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 
 int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void * task, uint8_t size )
 {
-    struct task inter_task;
-
-    inter_task.type        = type;
-    inter_task.utype    = utype;
+    struct task inter_task = { .type=type, .utype=utype };
 
     if ( size == 0 )
     {
