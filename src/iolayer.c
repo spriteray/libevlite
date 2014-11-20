@@ -74,8 +74,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 // 停止网络服务
 void iolayer_stop( iolayer_t self )
 {
-    struct iolayer * layer = (struct iolayer *)self;
-    layer->status = eLayerStatus_Stopped;
+    ( (struct iolayer *)self )->status = eLayerStatus_Stopped;
 }
 
 // 销毁网络通信层
@@ -871,55 +870,39 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 
     switch ( type )
     {
+            // 打开一个服务器
         case eIOTaskType_Listen :
-            {
-                // 打开一个服务器
-                _listen_direct( sets, (struct acceptor *)task );
-            }
+            _listen_direct( sets, (struct acceptor *)task );
             break;
 
+            // 连接远程服务器
         case eIOTaskType_Connect :
-            {
-                // 连接远程服务器
-                _connect_direct( sets, (struct connector *)task );
-            }
+            _connect_direct( sets, (struct connector *)task );
             break;
 
+            // 分配一个描述符
         case eIOTaskType_Assign :
-            {
-                // 分配一个描述符
-
-                // 取出线程本地数据
-                _assign_direct( layer, index, sets, (struct task_assign *)task );
-            }
+            _assign_direct( layer, index, sets, (struct task_assign *)task );
             break;
 
+            // 发送数据
         case eIOTaskType_Send :
-            {
-                // 发送数据
-                _send_direct( layer, manager, (struct task_send *)task );
-            }
+            _send_direct( layer, manager, (struct task_send *)task );
             break;
 
+            // 广播数据
         case eIOTaskType_Broadcast :
-            {
-                // 广播数据
-                _broadcast_direct( layer, index, manager, (struct message *)task );
-            }
+            _broadcast_direct( layer, index, manager, (struct message *)task );
             break;
 
+            // 终止一个会话
         case eIOTaskType_Shutdown :
-            {
-                // 终止一个会话
-                _shutdown_direct( manager, *( (sid_t *)task ) );
-            }
+            _shutdown_direct( manager, *( (sid_t *)task ) );
             break;
 
+            // 批量终止多个会话
         case eIOTaskType_Shutdowns :
-            {
-                // 批量终止多个会话
-                _shutdowns_direct( index, manager, (struct sidlist *)task );
-            }
+            _shutdowns_direct( index, manager, (struct sidlist *)task );
             break;
     }
 }

@@ -1,7 +1,8 @@
 
 libevlite网络通信库
 
-1. 基础事件模块( include/event.h )
+1. 基础事件模块( include/event.h ), 支持的IO复用机制: epoll和kqueue
+
     1) 类型说明:
         1> 事件类型说明:
             读事件(EV_READ),
@@ -12,9 +13,13 @@ libevlite网络通信库
         3> 网络事件集evsets_t
 
     2) 基于事件(event_t)的方法说明:
+        1> 设置事件属性 event_set()
+        2> 设置事件回调函数 event_set_callback()
 
     3) 基于事件集(evsets_t)的方法说明:
-
+        1> 向事件集中添加事件 evsets_add()
+        2> 从事件集中删除事件 evsets_del()
+        3> 分发并处理事件 evsets_dispatch()
 
 2. 网络线程模块( include/threads.h )
 
