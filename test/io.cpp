@@ -134,7 +134,7 @@ void IIOService::stop()
 
 int32_t IIOService::send( sid_t id, const std::string & buffer )
 {
-    return send( id, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
+    return send( id, static_cast<const char *>(buffer.data()), static_cast<uint32_t>(buffer.size()) );
 }
 
 int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree )
@@ -142,19 +142,23 @@ int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool i
     return iolayer_send( m_IOLayer, id, buffer, nbytes, isfree );
 }
 
-int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string & buffer )
+int32_t IIOService::broadcast( const std::string & buffer )
 {
-    return broadcast( ids, buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
+    uint32_t nbytes = buffer.size();
+    const char * buf = static_cast<const char *>( buffer.data() );
+
+    return iolayer_broadcast2( m_IOLayer, buf, nbytes );
 }
 
-int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
+int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string & buffer )
 {
-    std::vector<sid_t>::const_iterator start = ids.begin();
+    uint32_t nbytes = buffer.size();
+    const char * buf = static_cast<const char *>( buffer.data() );
 
     uint32_t count = (uint32_t)ids.size();
-    sid_t * idlist = const_cast<sid_t *>( &(*start) );
+    std::vector<sid_t>::const_iterator start = ids.begin();
 
-    return iolayer_broadcast( m_IOLayer, idlist, count, buffer, nbytes );
+    return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buf, nbytes );
 }
 
 int32_t IIOService::shutdown( sid_t id )

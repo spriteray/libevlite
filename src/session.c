@@ -622,6 +622,34 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
     return _find_session( self->table, id );
 }
 
+int32_t session_manager_foreach( struct session_manager * self, int32_t (*func)(void *, struct session *), void * context )
+{
+    int32_t i = 0, rc = 0;
+
+    for ( i = 0; i < self->table->size; ++i )
+    {
+        struct hashnode * node = self->table->entries + i;
+
+        while ( node )
+        {
+            struct session * s = node->session;
+            if ( s != NULL )
+            {
+                if ( func( context, s ) != 0 )
+                {
+                    return rc;
+                }
+
+                ++rc;
+            }
+
+            node = node->next;
+        }
+    }
+
+    return rc;
+}
+
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
 {
     if ( _remove_session(self->table, session) != 0 )
@@ -648,24 +676,26 @@ void session_manager_destroy( struct session_manager * self )
 
     for ( i = 0; i < self->table->size; ++i )
     {
-        int32_t nlist = 0;
+        struct hashnode * head = self->table->entries + i;
         struct hashnode * node = self->table->entries + i;
 
         while ( node )
         {
-            struct session * s = node->session;
+            struct hashnode * n = node;
+            struct session * s = n->session;
+
+            // 下个节点
+            node = n->next;
+
+            // 销毁会话
             if ( s != NULL )
             {
                 session_end( s, s->id );
-                node->session = NULL;
+                n->session = NULL;
             }
 
-            struct hashnode * _node = node;
-            node = node->next;
-            if ( nlist++ != 0 )
-            {
-                free( _node );
-            }
+            // head是table创建的, 所以不需要销毁
+            if ( head != n ) free( n );
         }
     }
 

@@ -137,6 +137,10 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 // 广播数据到指定的会话
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
 
+// 广播数据到IO层的所有会话
+// 非常高效的接口, 从设计上来说, 比较丑陋
+int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes );
+
 // 终止指定的会话
 // 此处需要注意, 主动终止会话的情况下,也会收到shutdown()的回调, 只是way==0
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );

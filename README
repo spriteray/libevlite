@@ -45,7 +45,7 @@ libevlite网络通信库
         设置会话的IO服务逻辑 iolayer_set_service()
 
     6) 发送数据 iolayer_send()
-    7) 广播数据 iolayer_broadcast()
+    7) 广播数据 iolayer_broadcast(), iolayer_broadcast2()
     8) 关闭会话 iolayer_shutdown(), iolayer_shutdowns()
 
     9) 停止服务 iolayer_stop()

@@ -33,6 +33,7 @@ enum
     eIOTaskType_Broadcast       = 5,
     eIOTaskType_Shutdown        = 6,
     eIOTaskType_Shutdowns       = 7,
+    eIOTaskType_Broadcast2      = 8,
 };
 
 // 网络服务错误码定义
