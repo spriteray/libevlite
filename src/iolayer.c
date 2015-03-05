@@ -901,6 +901,7 @@ int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session
 
     return count;
 }
+
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 {
     struct session * session = session_manager_get( manager, id );

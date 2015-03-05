@@ -228,7 +228,7 @@ void CChatRoomService::run()
                     memcpy( head+1, task->message, task->length );
                     buffer.resize( length );
 
-                    broadcast( m_SessionMap, buffer );
+                    broadcast( /*m_SessionMap, */buffer );
                     free( task->message );
                 }
                 break;
