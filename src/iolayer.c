@@ -20,6 +20,7 @@
 static inline int32_t _new_managers( struct iolayer * self );
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
+static inline int32_t _broadcast2_loop( void * context, struct session * s );
 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
@@ -27,6 +28,7 @@ static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct task_assign * task );
 static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
+static int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 
@@ -74,8 +76,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
 // 停止网络服务
 void iolayer_stop( iolayer_t self )
 {
-    struct iolayer * layer = (struct iolayer *)self;
-    layer->status = eLayerStatus_Stopped;
+    ( (struct iolayer *)self )->status = eLayerStatus_Stopped;
 }
 
 // 销毁网络通信层
@@ -372,6 +373,42 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
     return rc;
 }
 
+int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
+{
+    uint8_t i = 0;
+
+    pthread_t threadid = pthread_self();
+    struct iolayer * layer = (struct iolayer *)self;
+
+    for ( i = 0; i < layer->nthreads; ++i )
+    {
+        struct message * msg = message_create();
+        if ( unlikely(msg == NULL) )
+        {
+            continue;
+        }
+        message_add_buffer( msg, (char *)buf, nbytes );
+
+        if ( threadid == iothreads_get_id( layer->group, i ) )
+        {
+            // 本线程内直接广播
+            _broadcast2_direct( layer, i, _get_manager(layer, i), msg );
+        }
+        else
+        {
+            // 跨线程提交广播任务
+            int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast2, msg, 0 );
+            if ( unlikely(result != 0) )
+            {
+                message_destroy( msg );
+                continue;
+            }
+        }
+    }
+
+    return 0;
+}
+
 int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 {
     uint8_t index = SID_INDEX(id);
@@ -640,6 +677,19 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     return result;
 }
 
+int32_t _broadcast2_loop( void * context, struct session * s )
+{
+    struct message * msg = ( struct message * )context;
+
+    // 添加接收者
+    message_add_receiver( msg, s->id );
+
+    // 尝试发送消息
+    session_append( s, msg );
+
+    return 0;
+}
+
 int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 {
     // 开始关注accept事件
@@ -815,6 +865,42 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
     return count;
 }
 
+int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg )
+{
+    int32_t count = 0;
+
+    // 数据改造
+    if ( self->transform != NULL )
+    {
+        // 数据需要改造
+        char * buffer = NULL;
+        uint32_t nbytes = message_get_length( msg );
+        buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
+        if ( buffer == NULL )
+        {
+            // 数据改造失败
+            message_destroy( msg );
+            return -1;
+        }
+        if ( buffer != message_get_buffer(msg) )
+        {
+            // 数据改造成功
+            message_set_buffer( msg, buffer, nbytes );
+        }
+    }
+
+    // 遍历在线会话
+    count = session_manager_foreach( manager, _broadcast2_loop, msg );
+
+    // 消息发送完毕, 直接销毁
+    if ( message_is_complete(msg) )
+    {
+        message_destroy( msg );
+    }
+
+    return count;
+}
+
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 {
     struct session * session = session_manager_get( manager, id );
@@ -871,55 +957,44 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 
     switch ( type )
     {
+            // 打开一个服务器
         case eIOTaskType_Listen :
-            {
-                // 打开一个服务器
-                _listen_direct( sets, (struct acceptor *)task );
-            }
+            _listen_direct( sets, (struct acceptor *)task );
             break;
 
+            // 连接远程服务器
         case eIOTaskType_Connect :
-            {
-                // 连接远程服务器
-                _connect_direct( sets, (struct connector *)task );
-            }
+            _connect_direct( sets, (struct connector *)task );
             break;
 
+            // 分配一个描述符
         case eIOTaskType_Assign :
-            {
-                // 分配一个描述符
-
-                // 取出线程本地数据
-                _assign_direct( layer, index, sets, (struct task_assign *)task );
-            }
+            _assign_direct( layer, index, sets, (struct task_assign *)task );
             break;
 
+            // 发送数据
         case eIOTaskType_Send :
-            {
-                // 发送数据
-                _send_direct( layer, manager, (struct task_send *)task );
-            }
+            _send_direct( layer, manager, (struct task_send *)task );
             break;
 
+            // 广播数据
         case eIOTaskType_Broadcast :
-            {
-                // 广播数据
-                _broadcast_direct( layer, index, manager, (struct message *)task );
-            }
+            _broadcast_direct( layer, index, manager, (struct message *)task );
             break;
 
+            // 终止一个会话
         case eIOTaskType_Shutdown :
-            {
-                // 终止一个会话
-                _shutdown_direct( manager, *( (sid_t *)task ) );
-            }
+            _shutdown_direct( manager, *( (sid_t *)task ) );
             break;
 
+            // 批量终止多个会话
         case eIOTaskType_Shutdowns :
-            {
-                // 批量终止多个会话
-                _shutdowns_direct( index, manager, (struct sidlist *)task );
-            }
+            _shutdowns_direct( index, manager, (struct sidlist *)task );
+            break;
+
+            // 广播数据
+        case eIOTaskType_Broadcast2 :
+            _broadcast2_direct( layer, index, manager, (struct message *)task );
             break;
     }
 }

@@ -147,6 +147,10 @@ struct session * session_manager_alloc( struct session_manager * self );
 // 从会话管理器中取出一个会话
 struct session * session_manager_get( struct session_manager * self, sid_t id );
 
+// 遍历
+int32_t session_manager_foreach( struct session_manager * self,
+        int32_t (*func)( void *, struct session * ), void * context );
+
 // 从会话管理器中移出会话
 int32_t session_manager_remove( struct session_manager * self, struct session * session );
 

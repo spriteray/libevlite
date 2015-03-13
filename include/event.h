@@ -62,11 +62,14 @@ typedef void * evsets_t;
 event_t event_create();
 
 // 设置事件的一些基础属性
-// fd - 关注的描述符; ev - 关注的事件,即以上定义的那五种
+//      fd      - 关注的描述符;
+//      ev      - 关注的事件,即以上定义的那四种
 void event_set( event_t self, int32_t fd, int16_t ev );
 
 // 设置事件的回调函数
-// 设置发生事件后的回调函数
+//      self    -
+//      cb      - 回调函数
+//      arg     - 回调函数的参数
 void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), void * arg );
 
 // 获取事件关注的描述符FD
@@ -89,10 +92,14 @@ evsets_t evsets_create();
 const char * evsets_get_version();
 
 // 向事件集中添加事件
-// 返回<0, 添加事件失败
-// 返回 1, 添加IO事件成功
-// 返回 2, 添加超时事件成功
-// 返回 3, IO事件和超时事件添加成功
+//      self    -
+//      ev      - 事件
+//      tv      - 超时时间(ms)
+//      返回值定义:
+//          返回<0, 添加事件失败
+//          返回 1, 添加IO事件成功
+//          返回 2, 添加超时事件成功
+//          返回 3, IO事件和超时事件添加成功
 int32_t evsets_add( evsets_t self, event_t ev, int32_t tv );
 
 // 从事件集中删除事件
