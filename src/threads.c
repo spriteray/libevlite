@@ -7,6 +7,7 @@
 
 #include <sys/types.h>
 #include <sys/uio.h>
+#include <syslog.h>
 #include <unistd.h>
 
 #include "utils.h"
@@ -224,6 +225,8 @@ int32_t iothread_stop( struct iothread * self )
 
 void * iothread_main( void * arg )
 {
+    uint32_t maxtasks = 0;
+
     struct iothread * thread = (struct iothread *)arg;
     struct iothreads * parent = (struct iothreads *)(thread->parent);
 
@@ -242,6 +245,9 @@ void * iothread_main( void * arg )
 
         // 交换任务队列
         msgqueue_swap( thread->queue, &doqueue );
+
+        // 获取最大任务数
+        maxtasks = MAX( maxtasks, QUEUE_COUNT(taskqueue)(&doqueue) );
 
         // 处理任务
         while ( QUEUE_COUNT(taskqueue)(&doqueue) > 0 )
@@ -285,6 +291,9 @@ void * iothread_main( void * arg )
     --parent->nrunthreads;
     pthread_cond_signal( &parent->cond );
     pthread_mutex_unlock( &parent->lock );
+
+    syslog( LOG_INFO, "%s(INDEX=%d) : the Maximum Number of Requests is %d in EachFrame .",
+            __FUNCTION__, thread->index, maxtasks );
 
     return NULL;
 }

@@ -908,7 +908,7 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 
     if ( session == NULL )
     {
-        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__,id );
+        //syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__,id );
         return -1;
     }
 

@@ -28,6 +28,9 @@ extern "C"
 #define likely(x)       __builtin_expect( (x), 1 )
 #define unlikely(x)     __builtin_expect( (x), 0 )
 
+#define MAX( a, b )     ( (a) > (b) ? (a) : (b) )
+#define MIN( a, b )     ( (a) < (b) ? (a) : (b) )
+
 //
 // 系统相关的操作
 //

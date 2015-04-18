@@ -593,6 +593,7 @@ struct name                                         \
 #define QUEUE_PUSH(name)        name##_QUEUE_PUSH
 #define QUEUE_POP(name)         name##_QUEUE_POP
 #define QUEUE_COUNT(name)       name##_QUEUE_COUNT
+#define QUEUE_SIZE(name)        name##_QUEUE_SIZE
 #define QUEUE_GET(name)         name##_QUEUE_GET
 #define QUEUE_TOP(name)         name##_QUEUE_TOP
 #define QUEUE_SWAP(name)        name##_QUEUE_SWAP
@@ -603,6 +604,7 @@ int32_t name##_QUEUE_INIT( struct name * self, uint32_t size ); \
 int32_t name##_QUEUE_PUSH( struct name * self, type * data );   \
 int32_t name##_QUEUE_POP( struct name * self, type * data );    \
 uint32_t name##_QUEUE_COUNT( struct name * self );              \
+uint32_t name##_QUEUE_SIZE( struct name * self );               \
 int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data );\
 int32_t name##_QUEUE_TOP( struct name * self, type * data );    \
 int32_t name##_QUEUE_SWAP( struct name * self, struct name * q );\
@@ -682,6 +684,10 @@ int32_t name##_QUEUE_TOP( struct name * self, type * data )     \
 uint32_t name##_QUEUE_COUNT( struct name * self )               \
 {                                                               \
     return (self)->tail - (self)->head;                         \
+}                                                               \
+uint32_t name##_QUEUE_SIZE( struct name * self )                \
+{                                                               \
+    return (self)->size;                                        \
 }                                                               \
 int32_t name##_QUEUE_SWAP( struct name * self, struct name * q )\
 {                                                               \
