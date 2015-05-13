@@ -40,7 +40,7 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 // -----------------------------------------------------------------------------
 
 // 创建网络通信层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime )
 {
     struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
     if ( self == NULL )
@@ -64,7 +64,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients )
     }
 
     // 创建网络线程组
-    self->group = iothreads_start( self->nthreads, _io_methods, self );
+    self->group = iothreads_start( self->nthreads, realtime, _io_methods, self );
     if ( self->group == NULL )
     {
         iolayer_destroy( self );

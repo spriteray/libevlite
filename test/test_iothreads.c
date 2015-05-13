@@ -51,7 +51,7 @@ int32_t main()
     signal( SIGINT, signal_handler );
 
     //
-    threadgroup = iothreads_start( nthreads, task_method, NULL );
+    threadgroup = iothreads_start( nthreads, 0, task_method, NULL );
     if ( threadgroup == NULL )
     {
         printf("iothreads_start() failed \n");
