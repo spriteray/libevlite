@@ -4,10 +4,6 @@
 
 #include "threads.h"
 
-// 提交任务时是否需要异步通知消费者
-// 即时性很强的网络应用需要打开这个选项
-#define POST_IOTASK_AND_NOTIFY      0
-
 // 队列默认大小
 // 这个选项需要测试期间不断调整以适应场景的需要
 #define MSGQUEUE_DEFAULT_SIZE       8192
@@ -21,14 +17,14 @@
 
 struct iothread
 {
-    uint8_t     index;
-    pthread_t   id;
+    uint8_t             index;
+    pthread_t           id;
 
-    evsets_t    sets;
-    void *      parent;
+    evsets_t            sets;
+    void *              parent;
 
-    event_t     cmdevent;
-    struct msgqueue * queue;
+    event_t             cmdevent;
+    struct msgqueue *   queue;
 };
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
@@ -49,6 +45,7 @@ struct iothreads
 
     uint8_t nthreads;
     uint8_t runflags;
+    uint8_t realtime;       // 是否立刻通知IO线程
 
     uint8_t nrunthreads;
     pthread_cond_t cond;

@@ -76,7 +76,8 @@ typedef struct
 // 创建网络层
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients );
+//        realtime      - 即时性是否很高的场景
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime );
 
 // 网络层设置线程本地数据
 //        self          -

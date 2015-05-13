@@ -88,7 +88,7 @@ private :
 class IIOService
 {
 public :
-    IIOService( uint8_t nthreads, uint32_t nclients );
+    IIOService( uint8_t nthreads, uint32_t nclients, bool realtime = false );
     virtual ~IIOService();
 
 public :

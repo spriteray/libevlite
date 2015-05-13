@@ -91,12 +91,12 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-IIOService::IIOService( uint8_t nthreads, uint32_t nclients )
+IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool realtime )
     : m_IOLayer(NULL),
       m_ThreadsCount( nthreads ),
       m_SessionsCount( nclients )
 {
-    m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount );
+    m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount, realtime );
 
     if ( m_IOLayer != NULL )
     {
