@@ -85,7 +85,11 @@ enum
 };
 
 // 任务填充长度
-#define TASK_PADDING_SIZE       56
+#if defined( __i386__ )
+    #define TASK_PADDING_SIZE   60
+#elif defined( __x86_64__ )
+    #define TASK_PADDING_SIZE   56
+#endif
 
 // 任务数据
 struct task
