@@ -138,7 +138,7 @@ int32_t iolayer_listen( iolayer_t self,
     {
         syslog(LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
-                __FUNCTION__, host == NULL ? "0.0.0.0" : host, port);
+                __FUNCTION__, host == NULL ? "" : host, port);
         return -1;
     }
 
@@ -147,7 +147,7 @@ int32_t iolayer_listen( iolayer_t self,
     {
         syslog(LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
-                __FUNCTION__, host == NULL ? "0.0.0.0" : host, port);
+                __FUNCTION__, host == NULL ? "" : host, port);
         return -2;
     }
 
@@ -156,7 +156,7 @@ int32_t iolayer_listen( iolayer_t self,
     {
         syslog(LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
-                __FUNCTION__, host == NULL ? "0.0.0.0" : host, port);
+                __FUNCTION__, host == NULL ? "" : host, port);
         return -3;
     }
 
