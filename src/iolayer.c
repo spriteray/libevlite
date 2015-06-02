@@ -129,24 +129,34 @@ int32_t iolayer_listen( iolayer_t self,
 {
     struct iolayer * layer = (struct iolayer *)self;
 
+    // 参数检查
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( cb != NULL && "Illegal specified Callback-Function" );
+
     struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
     if ( acceptor == NULL )
     {
-        syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, Out-Of-Memory .", __FUNCTION__, host, port);
+        syslog(LOG_WARNING,
+                "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
+                __FUNCTION__, host == NULL ? "" : host, port);
         return -1;
     }
 
     acceptor->event = event_create();
     if ( acceptor->event == NULL )
     {
-        syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, can't create AcceptEvent.", __FUNCTION__, host, port);
+        syslog(LOG_WARNING,
+                "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
+                __FUNCTION__, host == NULL ? "" : host, port);
         return -2;
     }
 
-    acceptor->fd = tcp_listen( (char *)host, port, iolayer_server_option );
+    acceptor->fd = tcp_listen( host, port, iolayer_server_option );
     if ( acceptor->fd <= 0 )
     {
-        syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_listen() failure .", __FUNCTION__, host, port);
+        syslog(LOG_WARNING,
+                "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
+                __FUNCTION__, host == NULL ? "" : host, port);
         return -3;
     }
 
@@ -183,6 +193,10 @@ int32_t iolayer_connect( iolayer_t self,
 {
     struct iolayer * layer = (struct iolayer *)self;
 
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( host != NULL && "Illegal specified Host" );
+    assert( cb != NULL && "Illegal specified Callback-Function" );
+
     struct connector * connector = calloc( 1, sizeof(struct connector) );
     if ( connector == NULL )
     {
@@ -197,7 +211,7 @@ int32_t iolayer_connect( iolayer_t self,
         return -2;
     }
 
-    connector->fd = tcp_connect( (char *)host, port, iolayer_client_option );
+    connector->fd = tcp_connect( host, port, iolayer_client_option );
     if ( connector->fd <= 0 )
     {
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, host, port);

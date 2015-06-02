@@ -47,8 +47,8 @@ pid_t threadid();
 int32_t is_connected( int32_t fd );
 int32_t set_non_block( int32_t fd );
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport );
-int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) );
-int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) );
+int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) );
+int32_t tcp_connect( const char * host, uint16_t port, void (*options)(int32_t) );
 
 //
 // 基础算法类
@@ -85,7 +85,11 @@ enum
 };
 
 // 任务填充长度
-#define TASK_PADDING_SIZE       56
+#if defined( __i386__ )
+    #define TASK_PADDING_SIZE   60
+#elif defined( __x86_64__ )
+    #define TASK_PADDING_SIZE   56
+#endif
 
 // 任务数据
 struct task

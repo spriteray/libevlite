@@ -89,7 +89,7 @@ int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
     return cfd;
 }
 
-int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) )
+int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) )
 {
     int32_t fd = -1;
     struct sockaddr_in addr;
@@ -105,7 +105,7 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) )
 
     memset( &addr, 0, sizeof(addr) );
     addr.sin_family = AF_INET;
-    addr.sin_port    = htons( port );
+    addr.sin_port   = htons( port );
     if ( host != NULL && strlen(host) > 0 )
     {
         addr.sin_addr.s_addr = inet_addr( host );
@@ -130,16 +130,21 @@ int32_t tcp_listen( char * host, uint16_t port, void (*options)(int32_t) )
     return fd;
 }
 
-int32_t tcp_connect( char * host, uint16_t port, void (*options)(int32_t) )
+int32_t tcp_connect( const char * host, uint16_t port, void (*options)(int32_t) )
 {
     int32_t fd = -1;
     int32_t rc = -1;
     struct sockaddr_in addr;
 
+    if ( host == NULL )
+    {
+        return -1;
+    }
+
     fd = socket( AF_INET, SOCK_STREAM, 0 );
     if ( fd < 0 )
     {
-        return -1;
+        return -2;
     }
 
     // 对描述符的选项操作
