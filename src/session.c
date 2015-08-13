@@ -132,9 +132,18 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
             // 全部发送出去
             return rc;
         }
+        else if ( rc < 0 )
+        {
+            // 日志
+            syslog( LOG_WARNING,
+                    "%s(SID=%ld) Buffer(Address:%p, Length:%d) error %d .", __FUNCTION__, self->id, buf, nbytes, rc );
+            // 重置长度
+            rc = 0;
+        }
 
         // 为什么发送错误没有直接终止会话呢？
         // 该接口有可能在ioservice_t中调用, 直接终止会话后, 会引发后续对会话的操作崩溃
+        // 发送出错的情况下, 添加写事件, 在channel.c:_transmit()出错后, 会尝试关闭连接
     }
 
     // 创建message, 添加到发送队列中
@@ -163,7 +172,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     assert( self->service.shutdown != NULL );
 
     self->fd        = fd;
-    self->type        = type;
+    self->type      = type;
     self->evsets    = sets;
 
     // TODO: 设置默认的最大接收缓冲区

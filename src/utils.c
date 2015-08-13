@@ -360,7 +360,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
     return self;
 }
 
-int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnotify  )
+int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnotify )
 {
     int32_t rc = -1;
     uint32_t isbc = 0;

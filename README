@@ -27,8 +27,9 @@ libevlite网络通信库
 3. 通信模块( include/networks.h )
 
     1) 创建网络通信层 iolayer_create()
-        网关应用: 网络线程个数>1, 客户端个数>10000;
-        其他应用: 网络线程个数==1, 客户端个数<=1000;
+        nthreads: 指定网络线程的个数
+        nclients: 推荐连接数
+        realtime: 是否是即时性要求很高的场景,数据会立刻推送到网络层
 
     2) 设置网络通信层的方法
         设置线程本地数据: iolayer_set_localdata(),
