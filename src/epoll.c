@@ -183,6 +183,7 @@ int32_t epoll_add( void * arg, struct event * ev )
         events |= EPOLLOUT;
     }
 
+    epollevent.data.u64 = 0;    /* avoid valgrind warnning */
     epollevent.data.fd = fd;
     epollevent.events = events;
 
@@ -255,6 +256,7 @@ int32_t epoll_del( void * arg, struct event * ev )
         }
     }
 
+    epollevent.data.u64 = 0;    /* avoid valgrind warnning */
     epollevent.data.fd = fd;
     epollevent.events = events;
 
