@@ -36,7 +36,7 @@ libevlite网络通信库
         设置网络层数据改造方法: iolayer_set_transform()
 
     3) 监听端口, 开启服务端 iolayer_listen()
-		此处存在一次性内存泄漏(272bytes)
+        此处存在一次性内存泄漏(272bytes)
 
     4) 连接远程服务端, 开启客户端 iolayer_connect()
 
