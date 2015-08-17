@@ -16,7 +16,7 @@ else
 endif
 
 # 默认选项
-LFLAGS		= -ggdb -lpthread
+LFLAGS		= -ggdb -pthread
 CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\"
 CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\"
 
