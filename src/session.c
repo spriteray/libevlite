@@ -172,7 +172,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     assert( self->service.shutdown != NULL );
 
     self->fd        = fd;
-    self->type        = type;
+    self->type      = type;
     self->evsets    = sets;
 
     // TODO: 设置默认的最大接收缓冲区

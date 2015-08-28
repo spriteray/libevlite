@@ -16,15 +16,17 @@ else
 endif
 
 # 默认选项
-LFLAGS		= -ggdb -pthread
+LFLAGS		= -ggdb
 CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)
+	LFLAGS  += -lpthread
 	LIBNAME	= libevlite.dylib
 	SOFLAGS	= -dynamiclib -Wl,-install_name,$(SONAME)
 else
+	LFLAGS  += -pthread
 	LIBNAME	= libevlite.so
 	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 endif
