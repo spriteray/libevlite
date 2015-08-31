@@ -5,16 +5,6 @@
 
 #include "io.h"
 
-sid_t IIOSession::id() const
-{
-    return m_Sid;
-}
-
-void * IIOSession::localdata() const
-{
-    return m_LocalData;
-}
-
 void IIOSession::setTimeout( int32_t seconds )
 {
     assert( m_Sid != 0 && m_Layer != NULL );
@@ -42,11 +32,11 @@ int32_t IIOSession::shutdown()
     return iolayer_shutdown( m_Layer, m_Sid );
 }
 
-void IIOSession::init( sid_t id, void * local, iolayer_t layer )
+void IIOSession::init( sid_t id, void * context, iolayer_t layer )
 {
     m_Sid       = id;
-    m_LocalData = local;
     m_Layer     = layer;
+    m_IOContext = context;
 }
 
 int32_t IIOSession::onStartSession( void * context )
@@ -92,7 +82,7 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
 // ----------------------------------------------------------------------------
 
 IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool realtime )
-    : m_IOLayer(NULL),
+    : m_IOLayer( NULL ),
       m_ThreadsCount( nthreads ),
       m_SessionsCount( nclients )
 {
@@ -176,18 +166,18 @@ int32_t IIOService::shutdown( const std::vector<sid_t> & ids )
     return iolayer_shutdowns( m_IOLayer, idlist, count );
 }
 
-void IIOService::attach( sid_t id, IIOSession * session, void * local )
+void IIOService::attach( sid_t id, IIOSession * session, void * iocontext )
 {
-    session->init( id, local, m_IOLayer );
+    session->init( id, iocontext, m_IOLayer );
 
     ioservice_t ioservice;
-    ioservice.start        = IIOSession::onStartSession;
-    ioservice.process    = IIOSession::onProcessSession;
+    ioservice.start     = IIOSession::onStartSession;
+    ioservice.process   = IIOSession::onProcessSession;
     ioservice.transform = IIOSession::onTransformSession;
-    ioservice.timeout    = IIOSession::onTimeoutSession;
-    ioservice.keepalive    = IIOSession::onKeepaliveSession;
-    ioservice.error        = IIOSession::onErrorSession;
-    ioservice.shutdown    = IIOSession::onShutdownSession;
+    ioservice.timeout   = IIOSession::onTimeoutSession;
+    ioservice.keepalive = IIOSession::onKeepaliveSession;
+    ioservice.error     = IIOSession::onErrorSession;
+    ioservice.shutdown  = IIOSession::onShutdownSession;
     iolayer_set_service( m_IOLayer, id, &ioservice, session );
 }
 
@@ -204,7 +194,7 @@ char * IIOService::onTransformService( void * context, const char * buffer, uint
     return service->onTransform( buffer, _nbytes );
 }
 
-int32_t IIOService::onAcceptSession( void * context, void * local, sid_t id, const char * host, uint16_t port )
+int32_t IIOService::onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port )
 {
     IIOSession * session = NULL;
     IIOService * service = static_cast<IIOService*>( context );
@@ -214,27 +204,27 @@ int32_t IIOService::onAcceptSession( void * context, void * local, sid_t id, con
     {
         return -1;
     }
-    service->attach( id, session, local );
+    service->attach( id, session, iocontext );
 
     return 0;
 }
 
-int32_t IIOService::onConnectSession( void * context, void * local, int32_t result, const char * host, uint16_t port, sid_t id )
+int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id )
 {
-    if ( result != 0 )
-    {
-        return 0;
-    }
-
     IIOSession * session = NULL;
     IIOService * service = static_cast<IIOService *>( context );
+
+    if ( result != 0 )
+    {
+        return service->onConnectError( result, host, port ) ? 0 : -2;
+    }
 
     session = service->onConnect( id, host, port );
     if ( session == NULL )
     {
         return -1;
     }
-    service->attach( id, session, local );
+    service->attach( id, session, iocontext );
 
     return 0;
 }
