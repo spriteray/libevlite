@@ -231,10 +231,10 @@ int32_t iolayer_connect( iolayer_t self,
 }
 
 int32_t iolayer_set_localdata( iolayer_t self,
-        void * (*localfunc)(void *, uint8_t), void * localdata )
+        void * (*localfunc)(void *, uint8_t), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
-    layer->localdata = localdata;
+    layer->localdata = context;
     layer->localfunc = localfunc;
     return 0;
 }

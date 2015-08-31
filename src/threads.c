@@ -76,6 +76,28 @@ evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
     return iothreads->threadgroup[index].sets;
 }
 
+void * iothreads_get_context( iothreads_t self, uint8_t index )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threadgroup != NULL );
+
+    return iothreads->threadgroup[index].context;
+}
+
+void iothreads_set_context( iothreads_t self, uint8_t index, void * context )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threadgroup != NULL );
+
+    iothreads->threadgroup[index].context = context;
+}
+
 // 向网络线程组中指定的线程提交任务
 // index    - 指定网络线程的编号
 // type     - 提交的任务类型
