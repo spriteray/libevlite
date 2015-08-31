@@ -80,14 +80,11 @@ typedef struct
 //        realtime      - 是否即时性很高的场景, 1:是; 0:否
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime );
 
-// 网络层设置线程本地数据
+// 网络层设置线程上下文参数
 //        self          -
-//        localfunc     - 获取网络线程的本地数据集
-//                            参数1: 上下文参数
-//                            参数2: 线程索引号
-//        context       - 上下文参数
-int32_t iolayer_set_localdata( iolayer_t self,
-        void * (*localfunc)(void *, uint8_t), void * context );
+//        contexts      - 上下文参数数组, 为每个线程设置上下文参数
+//        count         - 数组长度, == nthreads
+int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count );
 
 // 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法
 //        self          -

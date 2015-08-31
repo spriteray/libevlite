@@ -51,8 +51,6 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime 
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
-    self->localfunc = NULL;
-    self->localdata = NULL;
     self->status    = eLayerStatus_Running;
 
     // 初始化会话管理器
@@ -230,12 +228,21 @@ int32_t iolayer_connect( iolayer_t self,
     return 0;
 }
 
-int32_t iolayer_set_localdata( iolayer_t self,
-        void * (*localfunc)(void *, uint8_t), void * context )
+int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 {
+    uint8_t i = 0;
     struct iolayer * layer = (struct iolayer *)self;
-    layer->localdata = context;
-    layer->localfunc = localfunc;
+
+    // 参数检查
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( layer->nthreads == count && "IOThread Number Invalid" );
+
+    for ( i = 0; i < count; ++i )
+    {
+        iothreads_set_context( layer->group, i, contexts[i] );
+    }
+
     return 0;
 }
 
@@ -243,6 +250,9 @@ int32_t iolayer_set_transform( iolayer_t self,
         char * (*transform)(void *, const char *, uint32_t *), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
+
+    assert( self != NULL && "Illegal IOLayer" );
+
     layer->context = context;
     layer->transform = transform;
     return 0;
@@ -744,13 +754,7 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
 int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, struct task_assign * task )
 {
     int32_t rc = 0;
-    void * local = NULL;
     struct session_manager * manager = _get_manager( layer, index );
-
-    if ( layer->localfunc != NULL )
-    {
-        local = layer->localfunc( layer->localdata, index );
-    }
 
     // 会话管理器分配会话
     struct session * session = session_manager_alloc( manager );
@@ -763,7 +767,8 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     }
 
     // 回调逻辑层, 确定是否接收这个会话
-    rc = task->cb( task->context, local, session->id, task->host, task->port );
+    rc = task->cb( task->context,
+            iothreads_get_context( layer->group, index ), session->id, task->host, task->port );
     if ( rc != 0 )
     {
         // 逻辑层不接受这个会话

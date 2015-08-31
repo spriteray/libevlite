@@ -33,10 +33,6 @@ struct iolayer
     // 数据改造接口
     void *      context;
     char *      (*transform)( void *, const char *, uint32_t * );
-
-    // 本地数据
-    void *      localdata;
-    void *      (*localfunc)( void *, uint8_t );
 };
 
 // 接收器

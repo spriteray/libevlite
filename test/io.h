@@ -93,10 +93,9 @@ public :
     virtual ~IIOService();
 
 public :
-    // 获取网络线程本地数据
-    // 实现者确保线程安全，不建议使用同步原语
-    // 推荐用数组管理对应线程的本地数据
-    virtual void * getLocalData( uint8_t index ) { return NULL; }
+    // 创建/销毁IO上下文
+    virtual void * newIOContext() { return NULL; }
+    virtual void delIOContext( void * context ) { return; }
 
     // 数据改造
     virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
@@ -135,7 +134,6 @@ public :
 private :
     void attach( sid_t id, IIOSession * session, void * iocontext );
 
-    static void * getThreadLocalData( void * context, uint8_t index );
     static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
 
     static int32_t onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port );
@@ -145,6 +143,7 @@ private :
     iolayer_t   m_IOLayer;
     uint8_t     m_ThreadsCount;
     uint32_t    m_SessionsCount;
+    void **     m_IOContextGroup;
 };
 
 #endif

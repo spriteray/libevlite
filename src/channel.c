@@ -468,7 +468,6 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     struct connector * connector = (struct connector *)arg;
 
     sid_t id = 0;
-    void * local = NULL;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( connector->parent );
 
@@ -501,13 +500,10 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         }
     }
 
-    if ( layer->localfunc )
-    {
-        local = layer->localfunc( layer->localdata, fd % layer->nthreads );
-    }
-
     // 把连接结果回调给逻辑层
-    rc = connector->cb( connector->context, local, result, connector->host, connector->port, id );
+    // NOTICE: 线程索引没法获取到, 只能HARD-CODING
+    rc = connector->cb( connector->context,
+            iothreads_get_context( layer->group, fd%layer->nthreads ), result, connector->host, connector->port, id );
 
     if ( rc == 0 )
     {

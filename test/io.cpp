@@ -84,14 +84,24 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
 IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool realtime )
     : m_IOLayer( NULL ),
       m_ThreadsCount( nthreads ),
-      m_SessionsCount( nclients )
+      m_SessionsCount( nclients ),
+      m_IOContextGroup( NULL )
 {
     m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount, realtime );
 
     if ( m_IOLayer != NULL )
     {
-        iolayer_set_localdata( m_IOLayer, getThreadLocalData, this );
+        m_IOContextGroup = new void * [ m_ThreadsCount ];
+        if ( m_IOContextGroup != NULL )
+        {
+            for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
+            {
+                m_IOContextGroup[ i ] = newIOContext();
+            }
+        }
+
         iolayer_set_transform( m_IOLayer, onTransformService, this );
+        iolayer_set_iocontext( m_IOLayer, m_IOContextGroup, m_ThreadsCount );
     }
 }
 
@@ -101,6 +111,19 @@ IIOService::~IIOService()
     {
         iolayer_destroy( m_IOLayer );
         m_IOLayer = NULL;
+    }
+
+    if ( m_IOContextGroup != NULL )
+    {
+        for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
+        {
+            if ( m_IOContextGroup != NULL )
+            {
+                delIOContext( m_IOContextGroup[i] );
+            }
+        }
+
+        delete [] m_IOContextGroup;
     }
 }
 
@@ -179,11 +202,6 @@ void IIOService::attach( sid_t id, IIOSession * session, void * iocontext )
     ioservice.error     = IIOSession::onErrorSession;
     ioservice.shutdown  = IIOSession::onShutdownSession;
     iolayer_set_service( m_IOLayer, id, &ioservice, session );
-}
-
-void * IIOService::getThreadLocalData( void * context, uint8_t index )
-{
-    return static_cast<IIOService *>(context)->getLocalData( index );
 }
 
 char * IIOService::onTransformService( void * context, const char * buffer, uint32_t * nbytes )
