@@ -264,6 +264,11 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
 
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_timeout() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
+
     if ( index >= layer->nthreads )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
@@ -295,6 +300,11 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
 
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_keepalive() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
+
     if ( index >= layer->nthreads )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
@@ -325,6 +335,11 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
     // NOT Thread-Safe
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
+
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_service() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
 
     if ( index >= layer->nthreads )
     {

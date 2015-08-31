@@ -1,5 +1,5 @@
 
-libevlite网络通信库
+libevlite网络通信库(Linux, Darwin, *BSD)
 
 1. 基础事件模块( include/event.h ), 支持的IO复用机制: epoll和kqueue
 
@@ -31,14 +31,14 @@ libevlite网络通信库
         nclients: 推荐连接数
         realtime: 是否是即时性要求很高的场景,数据会立刻推送到网络层
 
-    2) 设置网络通信层的方法
-        设置线程本地数据: iolayer_set_localdata(),
+    2) 设置网络通信层的方法(非线程安全)
+        设置线程上下文: iolayer_set_iocontext(),
         设置网络层数据改造方法: iolayer_set_transform()
 
-    3) 监听端口, 开启服务端 iolayer_listen()
+    3) 监听端口/开启服务端 iolayer_listen()
         此处存在一次性内存泄漏(272bytes)
 
-    4) 连接远程服务端, 开启客户端 iolayer_connect()
+    4) 连接远程服务/开启客户端 iolayer_connect()
 
     5) 设置回话的方法
         设置会话的超时时间 iolayer_set_timeout()
