@@ -16,24 +16,22 @@ else
 endif
 
 # 默认选项
-LFLAGS		= -ggdb
+LFLAGS		= -ggdb -lpthread
 CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\"
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)
-	LFLAGS  += -lpthread
 	LIBNAME	= libevlite.dylib
 	SOFLAGS	= -dynamiclib -Wl,-install_name,$(SONAME)
 else
-	LFLAGS  += -pthread
 	LIBNAME	= libevlite.so
 	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 endif
 
 # Linux定制参数
 ifeq ($(OS),Linux)
-	LFLAGS 	+= -lrt
+	LFLAGS 	= -ggdb -pthread -lrt
 	CFLAGS 	+= -finline-limit=1000
 	CXXFLAGS+= -finline-limit=1000
 endif
