@@ -93,9 +93,9 @@ public :
     virtual ~IIOService();
 
 public :
-    // 创建/销毁IO上下文
-    virtual void * newIOContext() { return NULL; }
-    virtual void delIOContext( void * context ) { return; }
+    // 初始化/销毁IO上下文
+    virtual void * initIOContext() { return NULL; }
+    virtual void finalIOContext( void * context ) { return; }
 
     // 数据改造
     virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }

@@ -1,7 +1,5 @@
 
-#include <assert.h>
-#include <stdlib.h>
-#include <string.h>
+#include <cassert>
 
 #include "io.h"
 
@@ -87,7 +85,7 @@ IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool realtime )
       m_SessionsCount( nclients ),
       m_IOContextGroup( NULL )
 {
-    m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount, realtime );
+    m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount, realtime ? 1 : 0 );
 
     if ( m_IOLayer != NULL )
     {
@@ -96,7 +94,7 @@ IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool realtime )
         {
             for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
             {
-                m_IOContextGroup[ i ] = newIOContext();
+                m_IOContextGroup[ i ] = initIOContext();
             }
         }
 
@@ -119,7 +117,7 @@ IIOService::~IIOService()
         {
             if ( m_IOContextGroup != NULL )
             {
-                delIOContext( m_IOContextGroup[i] );
+                finalIOContext( m_IOContextGroup[i] );
             }
         }
 
