@@ -42,6 +42,9 @@ uint32_t buffer_take( struct buffer * self, char * buf, uint32_t length );
 // 两个缓冲区相互交换
 void buffer_swap( struct buffer * buf1, struct buffer * buf2 );
 
+// nbytes = -1 : 将SOCKET的数据全部读取到BUFF中
+// nbytes = 0  : 尽量读取数据到BUFF中
+// nbytes > 0  : 读取指定长度的数据到BUFF中
 // -1, 系统调用read()返回出错; -2, 返回expand()失败
 int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes );
 

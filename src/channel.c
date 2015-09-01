@@ -27,7 +27,7 @@ static int32_t _timeout( struct session * session );
 int32_t _receive( struct session * session )
 {
     // 尽量读数据
-    return buffer_read( &session->inbuffer, session->fd, -1 );
+    return buffer_read( &session->inbuffer, session->fd, 0 );
 }
 
 int32_t _transmit( struct session * session )
