@@ -16,7 +16,7 @@ else
 endif
 
 # 默认选项
-LFLAGS		= -ggdb -pthread
+LFLAGS		= -ggdb -lpthread
 CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\"
 CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\"
 
@@ -31,7 +31,7 @@ endif
 
 # Linux定制参数
 ifeq ($(OS),Linux)
-	LFLAGS 	+= -lrt
+	LFLAGS	= -ggdb -pthread -lrt
 	CFLAGS 	+= -finline-limit=1000
 	CXXFLAGS+= -finline-limit=1000
 endif
