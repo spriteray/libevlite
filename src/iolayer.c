@@ -146,6 +146,7 @@ int32_t iolayer_listen( iolayer_t self,
         syslog(LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
                 __FUNCTION__, host == NULL ? "" : host, port);
+        free( acceptor );
         return -2;
     }
 
@@ -155,6 +156,7 @@ int32_t iolayer_listen( iolayer_t self,
         syslog(LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
                 __FUNCTION__, host == NULL ? "" : host, port);
+        free( acceptor );
         return -3;
     }
 
@@ -206,6 +208,7 @@ int32_t iolayer_connect( iolayer_t self,
     if ( connector->event == NULL )
     {
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, can't create ConnectEvent.", __FUNCTION__, host, port);
+        free( connector );
         return -2;
     }
 
@@ -213,6 +216,7 @@ int32_t iolayer_connect( iolayer_t self,
     if ( connector->fd <= 0 )
     {
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, host, port);
+        free( connector );
         return -3;
     }
 
