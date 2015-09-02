@@ -113,7 +113,7 @@ void _stop( struct session * self )
 //
 int32_t _send( struct session * self, char * buf, uint32_t nbytes )
 {
-    int32_t rc = 0;
+    int32_t ntry = 0;
 
     if ( self->status&SESSION_EXITING )
     {
@@ -126,19 +126,17 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
             && session_sendqueue_count(self) == 0 )
     {
         // 直接发送
-        rc = channel_send( self, buf, nbytes );
-        if ( rc == nbytes )
+        ntry = channel_send( self, buf, nbytes );
+        if ( ntry == nbytes )
         {
             // 全部发送出去
-            return rc;
+            return ntry;
         }
-        else if ( rc < 0 )
+        else if ( ntry < 0 )
         {
-            // 日志
-            syslog( LOG_WARNING,
-                    "%s(SID=%ld) Buffer(Address:%p, Length:%d) error %d .", __FUNCTION__, self->id, buf, nbytes, rc );
-            // 重置长度
-            rc = 0;
+            // 发送出错的情况下
+            // 将整包添加到发送队列中, 发送长度置0
+            ntry = 0;
         }
 
         // 为什么发送错误没有直接终止会话呢？
@@ -153,12 +151,12 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
         return -2;
     }
 
-    message_add_buffer( message, buf+rc, nbytes-rc );
+    message_add_buffer( message, buf+ntry, nbytes-ntry );
     message_add_receiver( message, self->id );
     QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
     session_add_event( self, EV_WRITE );
 
-    return rc;
+    return ntry;
 }
 
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets )
@@ -410,6 +408,8 @@ int32_t session_end( struct session * self, sid_t id )
         {
             struct message * msg = NULL;
             QUEUE_POP(sendqueue)( &self->sendqueue, &msg );
+
+            assert( msg != NULL && "QUEUE_POP() NULL Message" );
 
             // 检查消息是否可以销毁了
             message_add_failure( msg, id );

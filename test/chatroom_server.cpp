@@ -23,7 +23,7 @@ public:
 
 public :
     virtual int32_t onStart();
-    virtual int32_t    onProcess( const char * buf, uint32_t nbytes );
+    virtual int32_t onProcess( const char * buf, uint32_t nbytes );
     virtual void onShutdown( int32_t way );
 
 public :

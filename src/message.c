@@ -3,15 +3,20 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/types.h>
+#include <sys/uio.h>
+#include <unistd.h>
 
 #include "network-internal.h"
 #include "message.h"
 
-#define MIN_BUFFER_LENGTH       64
+#define MIN_BUFFER_LENGTH       128
 
-static void _align( struct buffer * self );
+static inline void _align( struct buffer * self );
 static inline uint32_t _offset( struct buffer * self );
-static int32_t _expand( struct buffer * self, uint32_t length );
+static inline int32_t _expand( struct buffer * self, uint32_t length );
+static inline int32_t _read_withvector( struct buffer * self, int32_t fd  );
+static inline int32_t _read_withsize( struct buffer * self, int32_t fd, int32_t nbytes );
 
 void _align( struct buffer * self )
 {
@@ -22,6 +27,11 @@ void _align( struct buffer * self )
 uint32_t _offset( struct buffer * self )
 {
     return (uint32_t)( self->buffer - self->orignbuffer );
+}
+
+uint32_t _left( struct buffer * self )
+{
+    return (uint32_t)( self->capacity - _offset(self) - self->length );
 }
 
 int32_t _expand( struct buffer * self, uint32_t length )
@@ -68,6 +78,62 @@ int32_t _expand( struct buffer * self, uint32_t length )
     }
 
     return 0;
+}
+
+int32_t _read_withvector( struct buffer * self, int32_t fd  )
+{
+    struct iovec vec[ 2 ];
+    char extra[ RECV_BUFFER_SIZE ];
+    int32_t nread = 0, left = _left(self);
+
+    vec[0].iov_base = self->buffer + self->length;
+    vec[0].iov_len = left;
+    vec[1].iov_base = extra;
+    vec[1].iov_len = sizeof( extra );
+
+    nread = (int32_t)readv( fd, vec, left < sizeof(extra) ? 2 : 1 );
+    if ( nread > left )
+    {
+        self->length += left;
+        buffer_append( self, extra, (uint32_t)(nread-left) );
+    }
+    else if ( nread > 0 )
+    {
+        self->length += nread;
+    }
+
+    return nread;
+}
+
+int32_t _read_withsize( struct buffer * self, int32_t fd, int32_t nbytes )
+{
+    int32_t nread = -1;
+
+    if ( nbytes == -1 )
+    {
+        int32_t rc = ioctl( fd, FIONREAD, &nread );
+        if ( rc == -1 || nread == 0 )
+        {
+            nbytes = RECV_BUFFER_SIZE;
+        }
+        else
+        {
+            nbytes = nread;
+        }
+    }
+
+    if ( _expand( self, nbytes ) != 0 )
+    {
+        return -2;
+    }
+
+    nread = (int32_t)read( fd, self->buffer+self->length, nbytes );
+    if ( nread > 0 )
+    {
+        self->length += nread;
+    }
+
+    return nread;
 }
 
 int32_t buffer_init( struct buffer * self )
@@ -147,33 +213,14 @@ void buffer_swap( struct buffer * buf1, struct buffer * buf2 )
 
 int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )
 {
-    int32_t nread = -1;
-
-    if ( nbytes == -1 )
+    // 尽量读取SOCKET中的数据
+    if ( nbytes == 0 )
     {
-        int32_t rc = ioctl( fd, FIONREAD, &nread );
-        if ( rc == -1 || nread == 0 )
-        {
-            nbytes = RECV_BUFFER_SIZE;
-        }
-        else
-        {
-            nbytes = nread;
-        }
+        return _read_withvector( self, fd );
     }
 
-    if ( _expand( self, nbytes ) != 0 )
-    {
-        return -2;
-    }
-
-    nread = (int32_t)read( fd, self->buffer+self->length, nbytes );
-    if ( nread > 0 )
-    {
-        self->length += nread;
-    }
-
-    return nread;
+    // -1和>0 都是读取定长的数据到BUFF中
+    return _read_withsize( self, fd, nbytes );
 }
 
 // -----------------------------------------------------------------------------

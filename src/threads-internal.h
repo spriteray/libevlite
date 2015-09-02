@@ -22,6 +22,7 @@ struct iothread
 
     evsets_t            sets;
     void *              parent;
+    void *              context;    // 上下文
 
     event_t             cmdevent;
     struct msgqueue *   queue;

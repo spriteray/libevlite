@@ -87,7 +87,7 @@ public :
         return buffer_read( &m_InBuffer, m_Fd, -1 );
     }
 
-    int32_t send()
+    ssize_t send()
     {
         uint16_t length = CHATROOM_MESSAGE_SIZE+sizeof(CSHead);
         std::string msg( length, 0 );
@@ -99,7 +99,7 @@ public :
 
         m_SendBytes += length;
 
-        return write( m_Fd, msg.data(), msg.size() );
+        return ::write( m_Fd, msg.data(), msg.size() );
     }
 
     void shutdown()
@@ -237,6 +237,7 @@ void start_clients( ChatRoomClient ** clients, evsets_t sets )
             if ( !client->connect(g_Host, g_Port) )
             {
                 delete client;
+                continue;
             }
 
             client->start( sets );
@@ -273,7 +274,7 @@ int main( int argc, char ** argv )
 
     signal( SIGINT, signal_handle );
     signal( SIGPIPE, SIG_IGN );
-    srand( time(NULL) );
+    srand( (int32_t)time(NULL) );
 
     //
     ChatRoomClient ** clients = (ChatRoomClient **)malloc( sizeof(ChatRoomClient *) * g_ClientsCount );
