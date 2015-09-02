@@ -237,6 +237,7 @@ void start_clients( ChatRoomClient ** clients, evsets_t sets )
             if ( !client->connect(g_Host, g_Port) )
             {
                 delete client;
+                continue;
             }
 
             client->start( sets );
