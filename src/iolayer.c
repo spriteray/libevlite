@@ -170,7 +170,7 @@ int32_t iolayer_listen( iolayer_t self,
         strncpy( acceptor->host, host, INET_ADDRSTRLEN );
     }
 
-    iothreads_post( layer->group, (acceptor->fd%layer->nthreads), eIOTaskType_Listen, acceptor, 0 );
+    iothreads_post( layer->group, DISPATCH_POLICY(layer, acceptor->fd), eIOTaskType_Listen, acceptor, 0 );
 
     return 0;
 }
@@ -227,7 +227,8 @@ int32_t iolayer_connect( iolayer_t self,
     connector->port = port;
     strncpy( connector->host, host, INET_ADDRSTRLEN );
 
-    iothreads_post( layer->group, (connector->fd%layer->nthreads), eIOTaskType_Connect, connector, 0 );
+    iothreads_post( layer->group,
+            DISPATCH_POLICY(layer, connector->fd), eIOTaskType_Connect, connector, 0 );
 
     return 0;
 }
@@ -574,7 +575,7 @@ void iolayer_client_option( int32_t fd )
 
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 {
-    uint8_t index = key % self->nthreads;
+    uint8_t index = DISPATCH_POLICY( self, key );
 
     struct session * session = NULL;
     struct session_manager * manager = _get_manager( self, index );

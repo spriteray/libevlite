@@ -105,6 +105,10 @@ struct task_send
 #pragma pack(1)
 #pragma pack()
 
+// 描述符分发策略
+// 分发到IO线程后会分配到唯一的会话ID
+#define DISPATCH_POLICY( layer, fd ) ( (fd) % ((layer)->nthreads) )
+
 // socket选项
 void iolayer_server_option( int32_t fd );
 void iolayer_client_option( int32_t fd );
