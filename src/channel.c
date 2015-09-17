@@ -408,8 +408,6 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
         cfd = tcp_accept( fd, task.host, &(task.port) );
         if ( cfd > 0 )
         {
-            uint8_t index = 0;
-
 #if !defined(__FreeBSD__)
             // FreeBSD会继承listenfd的NON Block属性
             set_non_block( cfd );
@@ -420,8 +418,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             task.context = acceptor->context;
 
             // 分发策略
-            index = cfd % (layer->nthreads);
-            iolayer_assign_session( layer, index, &(task) );
+            iolayer_assign_session( layer, DISPATCH_POLICY(layer, cfd), &(task) );
         }
     }
 }
@@ -501,9 +498,8 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     }
 
     // 把连接结果回调给逻辑层
-    // NOTICE: 线程索引没法获取到, 只能HARD-CODING
     rc = connector->cb( connector->context,
-            iothreads_get_context( layer->group, fd%layer->nthreads ), result, connector->host, connector->port, id );
+            iothreads_get_context( layer->group, DISPATCH_POLICY(layer, fd) ), result, connector->host, connector->port, id );
 
     if ( rc == 0 )
     {

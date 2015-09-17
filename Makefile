@@ -2,7 +2,7 @@
 # ------------------------------------------------------------------------------
 OS			= $(shell uname)
 
-VERSION 	= 9.2.1
+VERSION 	= 9.2.2
 PREFIX		= /usr/local
 
 # ------------------------------------------------------------------------------
@@ -31,7 +31,7 @@ endif
 
 # Linux定制参数
 ifeq ($(OS),Linux)
-	LFLAGS	= -ggdb -pthread -lrt
+	LFLAGS 	= -ggdb -pthread -lrt
 	CFLAGS 	+= -finline-limit=1000
 	CXXFLAGS+= -finline-limit=1000
 endif
