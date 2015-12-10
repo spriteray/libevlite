@@ -310,14 +310,15 @@ void * iothread_main( void * arg )
 
     QUEUE_CLEAR(taskqueue)( &doqueue );
 
+    // 日志
+    syslog( LOG_INFO, "%s(INDEX=%d) : the Maximum Number of Requests is %d in EachFrame .",
+            __FUNCTION__, thread->index, maxtasks );
+
     // 向主线程发送终止信号
     pthread_mutex_lock( &parent->lock );
     --parent->nrunthreads;
     pthread_cond_signal( &parent->cond );
     pthread_mutex_unlock( &parent->lock );
-
-    syslog( LOG_INFO, "%s(INDEX=%d) : the Maximum Number of Requests is %d in EachFrame .",
-            __FUNCTION__, thread->index, maxtasks );
 
     return NULL;
 }
