@@ -479,7 +479,6 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 
     // 跨线程提交终止任务
     return iothreads_post( layer->group, index, eIOTaskType_Shutdown, (void *)&id, sizeof(id) );
-
 }
 
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
@@ -533,8 +532,8 @@ void iolayer_server_option( int32_t fd )
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
 #if SAFE_SHUTDOWN
-    ling.l_onoff = 1;
-    ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
+    ling.l_onoff = 0;
+    ling.l_linger = 0;
 #else
     ling.l_onoff = 1;
     ling.l_linger = 0;
