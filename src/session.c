@@ -408,7 +408,7 @@ int32_t session_end( struct session * self, sid_t id )
         {
             struct message * msg = NULL;
             QUEUE_POP(sendqueue)( &self->sendqueue, &msg );
-            
+
             assert( msg != NULL && "QUEUE_POP() NULL Message" );
 
             // 检查消息是否可以销毁了
