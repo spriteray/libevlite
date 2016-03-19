@@ -520,7 +520,6 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 void iolayer_server_option( int32_t fd )
 {
     int32_t flag = 0;
-    struct linger ling;
 
     // Socket非阻塞
     set_non_block( fd );
@@ -531,14 +530,14 @@ void iolayer_server_option( int32_t fd )
     flag = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
-#if SAFE_SHUTDOWN
-    ling.l_onoff = 0;
-    ling.l_linger = 0;
-#else
-    ling.l_onoff = 1;
-    ling.l_linger = 0;
+#if SAFE_SHUTDOWN == 0
+    {
+        struct linger ling;
+        ling.l_onoff = 1;
+        ling.l_linger = 0;
+        setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+    }
 #endif
-    setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
 
     // 发送接收缓冲区
 #if SEND_BUFFER_SIZE > 0
