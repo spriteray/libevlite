@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 // 是否安全的终止会话
-#define SAFE_SHUTDOWN                   0
+#define SAFE_SHUTDOWN                   1
 
 // 发送队列的默认大小
 #define DEFAULT_SENDQUEUE_SIZE          128
