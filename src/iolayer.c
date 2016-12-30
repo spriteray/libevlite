@@ -383,7 +383,6 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes )
 {
     uint8_t i = 0;
-    int32_t rc = 0;
 
     pthread_t threadid = pthread_self();
     struct iolayer * layer = (struct iolayer *)self;
@@ -413,11 +412,9 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
                 continue;
             }
         }
-
-        rc += count;
     }
 
-    return rc;
+    return 0;
 }
 
 int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
@@ -484,7 +481,6 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 {
     uint8_t i = 0;
-    int32_t rc = 0;
     struct iolayer * layer = (struct iolayer *)self;
 
     for ( i = 0; i < layer->nthreads; ++i )
@@ -505,11 +501,9 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
             sidlist_destroy( list );
             continue;
         }
-
-        rc += count;
     }
 
-    return rc;
+    return 0;
 }
 
 
@@ -695,7 +689,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 
     if ( pthread_self() == iothreads_get_id( self->group, index ) )
     {
-        return _send_direct( self, _get_manager(self, index), &task );
+        return _send_direct( self, _get_manager(self, index), &task ) > 0 ? 0 : -3;
     }
 
     // 跨线程提交发送任务
