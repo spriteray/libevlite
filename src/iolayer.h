@@ -77,6 +77,19 @@ struct connector
     struct iolayer * parent;
 };
 
+// 关联器
+struct associater
+{
+    int32_t     fd;
+
+    // 逻辑
+    void *      context;
+    int32_t     (*cb)( void *, void *, int32_t, sid_t );
+
+    // 通信句柄
+    struct iolayer *    parent;
+};
+
 //
 // NOTICE: 网络任务的最大长度不超过56
 //
