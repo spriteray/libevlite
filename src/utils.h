@@ -13,7 +13,6 @@ extern "C"
 
 #include <stdint.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
@@ -21,6 +20,7 @@ extern "C"
 #include <netinet/tcp.h>
 #include <sys/uio.h>
 
+#include "lock.h"
 #include "queue.h"
 #include "network.h"
 
@@ -116,7 +116,7 @@ struct msgqueue
     int32_t popfd;
     int32_t pushfd;
 
-    pthread_mutex_t lock;
+    struct evlock lock;
 };
 
 // 创建消息队列
