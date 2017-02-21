@@ -4,7 +4,7 @@
 
 #include <stdint.h>
 
-#ifdef USE_PTHREAD_MUTEX
+#ifdef USE_POSIX
 
 #include <pthread.h>
 

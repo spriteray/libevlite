@@ -21,8 +21,8 @@ endif
 
 # 默认选项
 LFLAGS		= -ggdb -lpthread
-CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_PTHREAD_MUTEX
-CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_PTHREAD_MUTEX
+CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_POSIX
+CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_POSIX
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)
