@@ -106,13 +106,19 @@ int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) )
     memset( &addr, 0, sizeof(addr) );
     addr.sin_family = AF_INET;
     addr.sin_port   = htons( port );
-    if ( host != NULL && strlen(host) > 0 )
+    if ( host == NULL
+            || strlen(host) == 0 )
     {
-        addr.sin_addr.s_addr = inet_addr( host );
+        addr.sin_addr.s_addr = INADDR_ANY;
     }
     else
     {
-        addr.sin_addr.s_addr = INADDR_ANY;
+        addr.sin_addr.s_addr = inet_addr( host );
+
+        if ( addr.sin_addr.s_addr == INADDR_NONE )
+        {
+            // TODO: 转换地址出错
+        }
     }
 
     if ( bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) == -1 )
@@ -152,7 +158,7 @@ int32_t tcp_connect( const char * host, uint16_t port, void (*options)(int32_t) 
 
     memset( &addr, 0, sizeof(addr) );
     addr.sin_family = AF_INET;
-    addr.sin_port    = htons(port);
+    addr.sin_port   = htons(port);
     inet_pton(AF_INET, host, (void *)&(addr.sin_addr.s_addr));
 
     rc = connect( fd, (struct sockaddr *)&addr, sizeof(struct sockaddr) );
@@ -325,7 +331,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
     {
         self->popfd = -1;
         self->pushfd = -1;
-        pthread_mutex_init( &self->lock, 0 );
+        evlock_init( &self->lock );
 
         if ( QUEUE_INIT(taskqueue)(&self->queue, size) != 0 )
         {
@@ -365,7 +371,7 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
     int32_t rc = -1;
     uint32_t isbc = 0;
 
-    pthread_mutex_lock( &self->lock );
+    evlock_lock( &self->lock );
 
     rc = QUEUE_PUSH(taskqueue)(&self->queue, task);
     if ( isnotify != 0 )
@@ -373,7 +379,7 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
         isbc = QUEUE_COUNT(taskqueue)(&self->queue);
     }
 
-    pthread_mutex_unlock( &self->lock );
+    evlock_unlock( &self->lock );
 
     if ( rc == 0 && isbc == 1 )
     {
@@ -392,18 +398,36 @@ int32_t msgqueue_pop( struct msgqueue * self, struct task * task )
 {
     int32_t rc = -1;
 
-    pthread_mutex_lock( &self->lock );
+    evlock_lock( &self->lock );
     rc = QUEUE_POP(taskqueue)(&self->queue, task);
-    pthread_mutex_unlock( &self->lock );
+    evlock_unlock( &self->lock );
 
     return rc;
 }
 
+int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t count )
+{
+    uint32_t i = 0;
+
+    evlock_lock( &self->lock );
+    for ( i = 0; i < count; ++i )
+    {
+        int32_t rc = QUEUE_POP(taskqueue)(&self->queue, &tasks[i]);
+        if ( rc == 0 )
+        {
+            break;
+        }
+    }
+    evlock_unlock( &self->lock );
+
+    return i;
+}
+
 int32_t msgqueue_swap( struct msgqueue * self, struct taskqueue * queue )
 {
-    pthread_mutex_lock( &self->lock );
+    evlock_lock( &self->lock );
     QUEUE_SWAP(taskqueue)(&self->queue, queue);
-    pthread_mutex_unlock( &self->lock );
+    evlock_unlock( &self->lock );
 
     return 0;
 }
@@ -412,9 +436,9 @@ uint32_t msgqueue_count( struct msgqueue * self )
 {
     uint32_t rc = 0;
 
-    pthread_mutex_lock( &self->lock );
+    evlock_lock( &self->lock );
     rc = QUEUE_COUNT(taskqueue)(&self->queue);
-    pthread_mutex_unlock( &self->lock );
+    evlock_unlock( &self->lock );
 
     return rc;
 }
@@ -423,9 +447,9 @@ int32_t msgqueue_popfd( struct msgqueue * self )
 {
     int32_t rc = 0;
 
-    pthread_mutex_lock( &self->lock );
+    evlock_lock( &self->lock );
     rc = self->popfd;
-    pthread_mutex_unlock( &self->lock );
+    evlock_unlock( &self->lock );
 
     return rc;
 }
@@ -444,7 +468,7 @@ int32_t msgqueue_destroy( struct msgqueue * self )
     }
 
     QUEUE_CLEAR(taskqueue)(&self->queue);
-    pthread_mutex_destroy( &self->lock );
+    evlock_destroy( &self->lock );
     free( self );
 
     return 0;

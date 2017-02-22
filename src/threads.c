@@ -17,7 +17,7 @@
 // 创建网络线程组
 // nthreads     - 网络线程组中的线程数
 // method       - 任务处理函数
-iothreads_t iothreads_start( uint8_t nthreads, uint8_t realtime,
+iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately,
         void (*method)(void *, uint8_t, int16_t, void *), void * context )
 {
     uint8_t i = 0;
@@ -37,7 +37,7 @@ iothreads_t iothreads_start( uint8_t nthreads, uint8_t realtime,
     }
 
     iothreads->method   = method;
-    iothreads->realtime = realtime;
+    iothreads->immediately = immediately;
     iothreads->context  = context;
     iothreads->nthreads = nthreads;
     pthread_cond_init( &iothreads->cond, NULL );
@@ -220,7 +220,7 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
     }
 
     // 默认: 提交任务不提醒消费者
-    return msgqueue_push( self->queue, &inter_task, threads->realtime );
+    return msgqueue_push( self->queue, &inter_task, threads->immediately );
 }
 
 int32_t iothread_stop( struct iothread * self )

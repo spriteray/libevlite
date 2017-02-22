@@ -31,6 +31,7 @@ static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct s
 static int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
+static int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater );
 
 static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 
@@ -39,7 +40,7 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 // -----------------------------------------------------------------------------
 
 // 创建网络通信层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime )
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediately )
 {
     struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
     if ( self == NULL )
@@ -61,7 +62,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime 
     }
 
     // 创建网络线程组
-    self->group = iothreads_start( self->nthreads, realtime, _io_methods, self );
+    self->group = iothreads_start( self->nthreads, immediately, _io_methods, self );
     if ( self->group == NULL )
     {
         iolayer_destroy( self );
@@ -229,6 +230,40 @@ int32_t iolayer_connect( iolayer_t self,
 
     iothreads_post( layer->group,
             DISPATCH_POLICY(layer, connector->fd), eIOTaskType_Connect, connector, 0 );
+
+    return 0;
+}
+
+// 描述符关联会话ID
+//      fd              - 描述符
+//      cb              - 关联成功后的回调
+//                            参数1: 上下文参数
+//                            参数2: 网络线程上下文参数
+//                            参数3: 描述符
+//                            参数4: 关联的会话ID
+//      context         - 上下文参数
+int32_t iolayer_associate( iolayer_t self, int32_t fd,
+        int32_t (*cb)(void *, void *, int32_t, sid_t), void * context )
+{
+    struct iolayer * layer = (struct iolayer *)self;
+
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( fd > 2 && "Illegal Descriptor" );
+    assert( cb != NULL && "Illegal specified Callback-Function" );
+
+    struct associater * associater = calloc( 1, sizeof(struct associater) );
+    if ( associater == NULL )
+    {
+        syslog( LOG_WARNING, "%s(fd:%u) failed, Out-Of-Memory .", __FUNCTION__, fd );
+        return -1;
+    }
+
+    associater->fd = fd;
+    associater->cb = cb;
+    associater->context = context;
+    associater->parent = layer;
+
+    iothreads_post( layer->group, DISPATCH_POLICY(layer, fd), eIOTaskType_Associate, associater, 0 );
 
     return 0;
 }
@@ -981,6 +1016,39 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
     return count;
 }
 
+int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater )
+{
+    int32_t rc = 0;
+    struct session_manager * manager = _get_manager( self, index );
+
+    // 会话管理器分配会话
+    struct session * session = session_manager_alloc( manager );
+    if ( unlikely( session == NULL ) )
+    {
+        syslog( LOG_WARNING, "%s(fd:%u) failed .", __FUNCTION__, associater->fd );
+    }
+
+    rc = associater->cb( associater->context,
+            iothreads_get_context( self->group, index ), associater->fd, session == NULL ? 0 : session->id );
+    if ( rc != 0 )
+    {
+        if ( session != NULL )
+        {
+            session_manager_remove( manager, session );
+        }
+
+        free( associater );
+        return 1;
+    }
+
+    session_set_iolayer( session, self );
+    session_start( session, eSessionType_Once, associater->fd, sets );
+    // 释放
+    free( associater );
+
+    return 0;
+}
+
 void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 {
     struct iolayer * layer = (struct iolayer *)context;
@@ -1029,6 +1097,11 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
             // 广播数据
         case eIOTaskType_Broadcast2 :
             _broadcast2_direct( layer, index, manager, (struct message *)task );
+            break;
+
+            // 关联描述符和会话ID
+        case eIOTaskType_Associate :
+            _associate_direct( layer, index, sets, (struct associater *)task );
             break;
     }
 }

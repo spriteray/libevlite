@@ -77,7 +77,7 @@ typedef struct
 // 创建网络层
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
-//        realtime      - 是否即时性很高的场景, 1:是; 0:否
+//        immediately   - 是否立刻提交网络层, 0:否; 1:是(用于对网络实时性比较高的场景)
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime );
 
 // 网络层设置线程上下文参数(在listen()和connect()之前调用)
@@ -125,6 +125,17 @@ int32_t iolayer_listen( iolayer_t self,
 int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
         int32_t (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t), void * context );
+
+// 描述符关联会话ID
+//      fd              - 描述符
+//      cb              - 关联成功后的回调
+//                            参数1: 上下文参数
+//                            参数2: 网络线程上下文参数
+//                            参数3: 描述符
+//                            参数4: 关联的会话ID
+//      context         - 上下文参数
+int32_t iolayer_associate( iolayer_t self, int32_t fd,
+        int32_t (*cb)(void *, void *, int32_t, sid_t), void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );

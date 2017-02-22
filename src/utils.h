@@ -13,7 +13,6 @@ extern "C"
 
 #include <stdint.h>
 #include <unistd.h>
-#include <pthread.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <arpa/inet.h>
@@ -21,6 +20,7 @@ extern "C"
 #include <netinet/tcp.h>
 #include <sys/uio.h>
 
+#include "lock.h"
 #include "queue.h"
 #include "network.h"
 
@@ -116,7 +116,7 @@ struct msgqueue
     int32_t popfd;
     int32_t pushfd;
 
-    pthread_mutex_t lock;
+    struct evlock lock;
 };
 
 // 创建消息队列
@@ -128,6 +128,7 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
 
 // 消费者从消息队列中取一定量的任务
 int32_t msgqueue_pop( struct msgqueue * self, struct task * task );
+int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t count );
 
 // 交换
 int32_t msgqueue_swap( struct msgqueue * self, struct taskqueue * queue );
