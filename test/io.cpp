@@ -334,16 +334,16 @@ int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t 
     IIOSession * session = NULL;
     IIOService * service = static_cast<IIOService *>( context );
 
+    // 通知
+    service->setConnectedSid( host, port, result != 0 ? -1 : id );
+
     if ( result != 0 )
     {
-        // 通知
-        service->setConnectedSid( host, port, -1 );
+        // 失败
         return service->onConnectFailed( result, host, port ) ? 0 : -2;
     }
 
-    // 通知
-    service->setConnectedSid( host, port, id );
-
+    // 成功
     session = service->onConnectSucceed( id, host, port );
     if ( session == NULL )
     {
