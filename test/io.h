@@ -1,11 +1,14 @@
 
-#ifndef IO_H
-#define IO_H
+#ifndef __SRC_IO_IO_H__
+#define __SRC_IO_IO_H__
 
 #include <vector>
 #include <string>
+#include <pthread.h>
 
 #include "network.h"
+
+typedef std::vector<sid_t> SidList;
 
 //
 // 会话, 非线程安全的
@@ -16,14 +19,8 @@ class IIOService;
 class IIOSession
 {
 public :
-    IIOSession()
-        : m_Sid( 0 ),
-          m_Layer( NULL ),
-          m_IOContext( NULL )
-    {}
-
-    virtual ~IIOSession()
-    {}
+    IIOSession();
+    virtual ~IIOSession();
 
 public :
     //
@@ -47,6 +44,11 @@ public :
     // 获取会话ID
     sid_t id() const { return m_Sid; }
 
+    // 获取主机端口
+    uint16_t port() const { return m_Port; }
+    // 获取主机地址
+    const std::string & host() const { return m_Host; }
+
     // 获取线程上下文参数
     void * iocontext() const { return m_IOContext; }
 
@@ -65,7 +67,9 @@ private :
     friend class IIOService;
 
     // 初始化会话
-    void init( sid_t id, void * context, iolayer_t layer );
+    void init( sid_t id,
+            void * context, iolayer_t layer,
+            const std::string & host, uint16_t port );
 
     // 内部回调函数
     static int32_t  onStartSession( void * context );
@@ -78,6 +82,8 @@ private :
 
 private :
     sid_t       m_Sid;
+    uint16_t    m_Port;
+    std::string m_Host;
     iolayer_t   m_Layer;
     void *      m_IOContext;
 };
@@ -89,7 +95,8 @@ private :
 class IIOService
 {
 public :
-    IIOService( uint8_t nthreads, uint32_t nclients, bool realtime = false );
+    IIOService( uint8_t nthreads,
+            uint32_t nclients, bool immediately = false );
     virtual ~IIOService();
 
 public :
@@ -100,21 +107,25 @@ public :
     // 数据改造
     virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
 
-    // 接受/连接事件
+    // 回调事件
     // 需要调用者自己实现
     // 有可能在IIOService的多个网络线程中被触发
+    // 接受事件
     virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port ) { return NULL; }
-    virtual IIOSession * onConnect( sid_t id, const char * host, uint16_t port ) { return NULL; }
-    virtual bool onConnectError( int32_t result, const char * host, uint16_t port ) { return false; }
+    // 连接事件
+    virtual bool onConnectFailed( int32_t result, const char * host, uint16_t port ) { return false; }
+    virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port ) { return NULL; }
 
 public :
     //
     // 线程安全的API
     //
 
+    sid_t id( const char * host, uint16_t port );
+
     // 连接/监听
     bool listen( const char * host, uint16_t port );
-    bool connect( const char * host, uint16_t port, int32_t seconds );
+    bool connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
 
     // 停止服务
     void stop();
@@ -132,7 +143,33 @@ public :
     int32_t shutdown( const std::vector<sid_t> & ids );
 
 private :
-    void attach( sid_t id, IIOSession * session, void * iocontext );
+    struct RemoteHost
+    {
+        sid_t           sid;
+        uint16_t        port;
+        std::string     host;
+
+        RemoteHost()
+            : sid( 0 ),
+              port( 0 )
+        {}
+
+        RemoteHost( const char * host, uint16_t port, sid_t sid )
+        {
+            this->sid = sid;
+            this->host = host;
+            this->port = port;
+        }
+    };
+
+    typedef std::vector<RemoteHost> RemoteHosts;
+
+    void attach( sid_t id,
+            IIOSession * session, void * iocontext,
+            const std::string & host, uint16_t port );
+
+    sid_t getConnectedSid( const char * host, uint16_t port ) const;
+    void setConnectedSid( const char * host, uint16_t port, sid_t sid );
 
     static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
 
@@ -140,10 +177,15 @@ private :
     static int32_t onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id );
 
 private :
-    iolayer_t   m_IOLayer;
-    uint8_t     m_ThreadsCount;
-    uint32_t    m_SessionsCount;
-    void **     m_IOContextGroup;
+    iolayer_t           m_IOLayer;
+    uint8_t             m_ThreadsCount;
+    uint32_t            m_SessionsCount;
+    void **             m_IOContextGroup;
+
+private :
+    pthread_cond_t      m_Cond;
+    pthread_mutex_t     m_Lock;
+    RemoteHosts         m_RemoteHosts;
 };
 
 #endif
