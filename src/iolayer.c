@@ -723,10 +723,11 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
 
-        if ( isfree == 1 )
+        if ( isfree != 0 )
         {
             free( (void *)buf );
         }
+
         return -1;
     }
 
@@ -745,11 +746,6 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
         if ( unlikely( task.buf == NULL ) )
         {
             syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for 'task.buf' .", __FUNCTION__, id );
-
-            if ( isfree == 1 )
-            {
-                free( (void *)buf );
-            }
             return -2;
         }
 
