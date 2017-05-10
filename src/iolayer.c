@@ -410,6 +410,11 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
     return 0;
 }
 
+// 发送数据到会话
+//      id              - 会话ID
+//      buf             - 要发送的缓冲区
+//      nbytes          - 要发送的长度
+//      isfree          - 1-由网络层释放缓冲区, 0-网络层需要Copy缓冲区
 int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree )
 {
     return _send_buffer( (struct iolayer *)self, id, buf, nbytes, isfree );
@@ -717,6 +722,12 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     if ( unlikely(index >= self->nthreads) )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+
+        if ( isfree != 0 )
+        {
+            free( (void *)buf );
+        }
+
         return -1;
     }
 
@@ -734,7 +745,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
         task.buf = (char *)malloc( nbytes );
         if ( unlikely( task.buf == NULL ) )
         {
-            syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for '_buf' .", __FUNCTION__, id );
+            syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for 'task.buf' .", __FUNCTION__, id );
             return -2;
         }
 
