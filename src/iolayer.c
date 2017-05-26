@@ -31,6 +31,7 @@ static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct s
 static int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
+static int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater );
 
 static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
 
@@ -39,7 +40,7 @@ static void _io_methods( void * context, uint8_t index, int16_t type, void * tas
 // -----------------------------------------------------------------------------
 
 // 创建网络通信层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime )
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediately )
 {
     struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
     if ( self == NULL )
@@ -51,8 +52,6 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime 
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
-    self->localfunc = NULL;
-    self->localdata = NULL;
     self->status    = eLayerStatus_Running;
 
     // 初始化会话管理器
@@ -63,7 +62,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime 
     }
 
     // 创建网络线程组
-    self->group = iothreads_start( self->nthreads, realtime, _io_methods, self );
+    self->group = iothreads_start( self->nthreads, immediately, _io_methods, self );
     if ( self->group == NULL )
     {
         iolayer_destroy( self );
@@ -148,6 +147,7 @@ int32_t iolayer_listen( iolayer_t self,
         syslog(LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
                 __FUNCTION__, host == NULL ? "" : host, port);
+        free( acceptor );
         return -2;
     }
 
@@ -157,6 +157,7 @@ int32_t iolayer_listen( iolayer_t self,
         syslog(LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
                 __FUNCTION__, host == NULL ? "" : host, port);
+        free( acceptor );
         return -3;
     }
 
@@ -170,7 +171,7 @@ int32_t iolayer_listen( iolayer_t self,
         strncpy( acceptor->host, host, INET_ADDRSTRLEN );
     }
 
-    iothreads_post( layer->group, (acceptor->fd%layer->nthreads), eIOTaskType_Listen, acceptor, 0 );
+    iothreads_post( layer->group, DISPATCH_POLICY(layer, acceptor->fd), eIOTaskType_Listen, acceptor, 0 );
 
     return 0;
 }
@@ -208,6 +209,7 @@ int32_t iolayer_connect( iolayer_t self,
     if ( connector->event == NULL )
     {
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, can't create ConnectEvent.", __FUNCTION__, host, port);
+        free( connector );
         return -2;
     }
 
@@ -215,6 +217,7 @@ int32_t iolayer_connect( iolayer_t self,
     if ( connector->fd <= 0 )
     {
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, host, port);
+        free( connector );
         return -3;
     }
 
@@ -225,17 +228,61 @@ int32_t iolayer_connect( iolayer_t self,
     connector->port = port;
     strncpy( connector->host, host, INET_ADDRSTRLEN );
 
-    iothreads_post( layer->group, (connector->fd%layer->nthreads), eIOTaskType_Connect, connector, 0 );
+    iothreads_post( layer->group,
+            DISPATCH_POLICY(layer, connector->fd), eIOTaskType_Connect, connector, 0 );
 
     return 0;
 }
 
-int32_t iolayer_set_localdata( iolayer_t self,
-        void * (*localfunc)(void *, uint8_t), void * localdata )
+// 描述符关联会话ID
+//      fd              - 描述符
+//      cb              - 关联成功后的回调
+//                            参数1: 上下文参数
+//                            参数2: 网络线程上下文参数
+//                            参数3: 描述符
+//                            参数4: 关联的会话ID
+//      context         - 上下文参数
+int32_t iolayer_associate( iolayer_t self, int32_t fd,
+        int32_t (*cb)(void *, void *, int32_t, sid_t), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
-    layer->localdata = localdata;
-    layer->localfunc = localfunc;
+
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( fd > 2 && "Illegal Descriptor" );
+    assert( cb != NULL && "Illegal specified Callback-Function" );
+
+    struct associater * associater = calloc( 1, sizeof(struct associater) );
+    if ( associater == NULL )
+    {
+        syslog( LOG_WARNING, "%s(fd:%u) failed, Out-Of-Memory .", __FUNCTION__, fd );
+        return -1;
+    }
+
+    associater->fd = fd;
+    associater->cb = cb;
+    associater->context = context;
+    associater->parent = layer;
+
+    iothreads_post( layer->group, DISPATCH_POLICY(layer, fd), eIOTaskType_Associate, associater, 0 );
+
+    return 0;
+}
+
+int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
+{
+    uint8_t i = 0;
+    struct iolayer * layer = (struct iolayer *)self;
+
+    // 参数检查
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( layer->nthreads == count && "IOThread Number Invalid" );
+
+    for ( i = 0; i < count; ++i )
+    {
+        iothreads_set_context( layer->group, i, contexts[i] );
+    }
+
     return 0;
 }
 
@@ -243,6 +290,9 @@ int32_t iolayer_set_transform( iolayer_t self,
         char * (*transform)(void *, const char *, uint32_t *), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
+
+    assert( self != NULL && "Illegal IOLayer" );
+
     layer->context = context;
     layer->transform = transform;
     return 0;
@@ -253,6 +303,12 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     // NOT Thread-Safe
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
+
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_timeout() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
 
     if ( index >= layer->nthreads )
     {
@@ -285,6 +341,12 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
 
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_keepalive() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
+
     if ( index >= layer->nthreads )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
@@ -316,6 +378,12 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
 
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_service() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
+
     if ( index >= layer->nthreads )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
@@ -342,6 +410,11 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
     return 0;
 }
 
+// 发送数据到会话
+//      id              - 会话ID
+//      buf             - 要发送的缓冲区
+//      nbytes          - 要发送的长度
+//      isfree          - 1-由网络层释放缓冲区, 0-网络层需要Copy缓冲区
 int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree )
 {
     return _send_buffer( (struct iolayer *)self, id, buf, nbytes, isfree );
@@ -350,7 +423,6 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes )
 {
     uint8_t i = 0;
-    int32_t rc = 0;
 
     pthread_t threadid = pthread_self();
     struct iolayer * layer = (struct iolayer *)self;
@@ -380,11 +452,9 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
                 continue;
             }
         }
-
-        rc += count;
     }
 
-    return rc;
+    return 0;
 }
 
 int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
@@ -446,13 +516,11 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 
     // 跨线程提交终止任务
     return iothreads_post( layer->group, index, eIOTaskType_Shutdown, (void *)&id, sizeof(id) );
-
 }
 
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 {
     uint8_t i = 0;
-    int32_t rc = 0;
     struct iolayer * layer = (struct iolayer *)self;
 
     for ( i = 0; i < layer->nthreads; ++i )
@@ -473,11 +541,9 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
             sidlist_destroy( list );
             continue;
         }
-
-        rc += count;
     }
 
-    return rc;
+    return 0;
 }
 
 
@@ -488,7 +554,6 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 void iolayer_server_option( int32_t fd )
 {
     int32_t flag = 0;
-    struct linger ling;
 
     // Socket非阻塞
     set_non_block( fd );
@@ -499,14 +564,14 @@ void iolayer_server_option( int32_t fd )
     flag = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
-#if SAFE_SHUTDOWN
-    ling.l_onoff = 1;
-    ling.l_linger = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
-#else
-    ling.l_onoff = 1;
-    ling.l_linger = 0;
+#if SAFE_SHUTDOWN == 0
+    {
+        struct linger ling;
+        ling.l_onoff = 1;
+        ling.l_linger = 0;
+        setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+    }
 #endif
-    setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
 
     // 发送接收缓冲区
 #if SEND_BUFFER_SIZE > 0
@@ -542,7 +607,7 @@ void iolayer_client_option( int32_t fd )
 
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
 {
-    uint8_t index = key % self->nthreads;
+    uint8_t index = DISPATCH_POLICY( self, key );
 
     struct session * session = NULL;
     struct session_manager * manager = _get_manager( self, index );
@@ -657,6 +722,12 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
     if ( unlikely(index >= self->nthreads) )
     {
         syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+
+        if ( isfree != 0 )
+        {
+            free( (void *)buf );
+        }
+
         return -1;
     }
 
@@ -664,7 +735,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
 
     if ( pthread_self() == iothreads_get_id( self->group, index ) )
     {
-        return _send_direct( self, _get_manager(self, index), &task );
+        return _send_direct( self, _get_manager(self, index), &task ) > 0 ? 0 : -3;
     }
 
     // 跨线程提交发送任务
@@ -674,7 +745,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_
         task.buf = (char *)malloc( nbytes );
         if ( unlikely( task.buf == NULL ) )
         {
-            syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for '_buf' .", __FUNCTION__, id );
+            syslog(LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for 'task.buf' .", __FUNCTION__, id );
             return -2;
         }
 
@@ -744,13 +815,7 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
 int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, struct task_assign * task )
 {
     int32_t rc = 0;
-    void * local = NULL;
     struct session_manager * manager = _get_manager( layer, index );
-
-    if ( layer->localfunc != NULL )
-    {
-        local = layer->localfunc( layer->localdata, index );
-    }
 
     // 会话管理器分配会话
     struct session * session = session_manager_alloc( manager );
@@ -763,7 +828,8 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     }
 
     // 回调逻辑层, 确定是否接收这个会话
-    rc = task->cb( task->context, local, session->id, task->host, task->port );
+    rc = task->cb( task->context,
+            iothreads_get_context( layer->group, index ), session->id, task->host, task->port );
     if ( rc != 0 )
     {
         // 逻辑层不接受这个会话
@@ -961,6 +1027,39 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
     return count;
 }
 
+int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater )
+{
+    int32_t rc = 0;
+    struct session_manager * manager = _get_manager( self, index );
+
+    // 会话管理器分配会话
+    struct session * session = session_manager_alloc( manager );
+    if ( unlikely( session == NULL ) )
+    {
+        syslog( LOG_WARNING, "%s(fd:%u) failed .", __FUNCTION__, associater->fd );
+    }
+
+    rc = associater->cb( associater->context,
+            iothreads_get_context( self->group, index ), associater->fd, session == NULL ? 0 : session->id );
+    if ( rc != 0 )
+    {
+        if ( session != NULL )
+        {
+            session_manager_remove( manager, session );
+        }
+
+        free( associater );
+        return 1;
+    }
+
+    session_set_iolayer( session, self );
+    session_start( session, eSessionType_Once, associater->fd, sets );
+    // 释放
+    free( associater );
+
+    return 0;
+}
+
 void _io_methods( void * context, uint8_t index, int16_t type, void * task )
 {
     struct iolayer * layer = (struct iolayer *)context;
@@ -1009,6 +1108,11 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
             // 广播数据
         case eIOTaskType_Broadcast2 :
             _broadcast2_direct( layer, index, manager, (struct message *)task );
+            break;
+
+            // 关联描述符和会话ID
+        case eIOTaskType_Associate :
+            _associate_direct( layer, index, sets, (struct associater *)task );
             break;
     }
 }

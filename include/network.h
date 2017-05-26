@@ -77,19 +77,17 @@ typedef struct
 // 创建网络层
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
-//        realtime      - 是否即时性很高的场景, 1:是; 0:否
+//        immediately   - 是否立刻提交网络层, 0:否; 1:是(用于对网络实时性比较高的场景)
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime );
 
-// 网络层设置线程本地数据
+// 网络层设置线程上下文参数(在listen()和connect()之前调用)
 //        self          -
-//        localfunc     - 获取网络线程的本地数据集
-//                            参数1: localdata
-//                            参数2: 线程索引号
-//        localdata     - localdata
-int32_t iolayer_set_localdata( iolayer_t self,
-        void * (*localfunc)(void *, uint8_t), void * localdata );
+//        contexts      - 上下文参数数组, 每个网络线程设置上下文参数
+//        count         - 数组长度
+//                        确保长度和网络线程个数相等, 毕竟多个网络线程是对等的
+int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count );
 
-// 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法
+// 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法(在listen()和connect()之前调用)
 //        self          -
 //        transform     - 数据包改造方法(不建议原地改造)
 //                            参数1: 上下文参数
@@ -103,7 +101,7 @@ int32_t iolayer_set_transform( iolayer_t self,
 //        port          - 监听的端口号
 //        cb            - 新会话创建成功后的回调,会被多个网络线程调用
 //                            参数1: 上下文参数;
-//                            参数2: 网络线程本地数据(线程安全)
+//                            参数2: 网络线程上下文参数
 //                            参数3: 新会话ID;
 //                            参数4: 会话的IP地址;
 //                            参数5: 会话的端口号
@@ -118,7 +116,7 @@ int32_t iolayer_listen( iolayer_t self,
 //        seconds       - 连接超时时间
 //        cb            - 连接结果的回调
 //                            参数1: 上下文参数
-//                            参数2: 网络线程本地数据(线程安全)
+//                            参数2: 网络线程上下文参数
 //                            参数3: 连接结果
 //                            参数4: 连接的远程服务器的地址
 //                            参数5: 连接的远程服务器的端口
@@ -128,12 +126,27 @@ int32_t iolayer_connect( iolayer_t self,
         const char * host, uint16_t port, int32_t seconds,
         int32_t (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t), void * context );
 
+// 描述符关联会话ID
+//      fd              - 描述符
+//      cb              - 关联成功后的回调
+//                            参数1: 上下文参数
+//                            参数2: 网络线程上下文参数
+//                            参数3: 描述符
+//                            参数4: 关联的会话ID
+//      context         - 上下文参数
+int32_t iolayer_associate( iolayer_t self, int32_t fd,
+        int32_t (*cb)(void *, void *, int32_t, sid_t), void * context );
+
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 
 // 发送数据到会话
+//      id              - 会话ID
+//      buf             - 要发送的缓冲区
+//      nbytes          - 要发送的长度
+//      isfree          - 1-由网络层释放缓冲区, 0-网络层需要Copy缓冲区
 int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
 
 // 广播数据到指定的会话

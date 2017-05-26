@@ -49,7 +49,7 @@ void * kqueue_init()
 {
     struct kqueuer * poller = NULL;
 
-    poller = (struct kqueuer *)malloc( sizeof(struct kqueuer) );
+    poller = (struct kqueuer *)calloc( 1, sizeof(struct kqueuer) );
     if ( poller == NULL )
     {
         return NULL;

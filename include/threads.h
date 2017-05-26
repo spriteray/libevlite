@@ -45,9 +45,9 @@ typedef void * iothreads_t;
 
 // 创建网络线程组
 // nthreads         - 网络线程组中的线程数
-// realtime         - 是否有即时性很高的要求
+// immediately      - 是否立刻提交网络线程
 // method           - 任务处理函数
-iothreads_t iothreads_start( uint8_t nthreads, uint8_t realtime,
+iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately,
                     void (*method)(void *, uint8_t, int16_t, void *), void * context );
 
 // 获取网络线程组中指定线程的ID
@@ -55,6 +55,10 @@ pthread_t iothreads_get_id( iothreads_t self, uint8_t index );
 
 // 获取网络线程组中指定线程的事件集
 evsets_t iothreads_get_sets( iothreads_t self, uint8_t index );
+
+// 设置/获取网络线程上下文参数
+void * iothreads_get_context( iothreads_t self, uint8_t index );
+void iothreads_set_context( iothreads_t self, uint8_t index, void * context );
 
 // 向网络线程组中指定的线程提交任务
 // index            - 指定网络线程的编号

@@ -5,7 +5,7 @@
 #include <stdint.h>
 
 // 是否安全的终止会话
-#define SAFE_SHUTDOWN                   0
+#define SAFE_SHUTDOWN                   1
 
 // 发送队列的默认大小
 #define DEFAULT_SENDQUEUE_SIZE          128
@@ -18,9 +18,8 @@
 #define TRY_RECONNECT_INTERVAL          20
 
 // 发送接收缓冲区设置
-#define SEND_BUFFER_SIZE                4096
-#define RECV_BUFFER_SIZE                4096
-
+#define SEND_BUFFER_SIZE                8192
+#define RECV_BUFFER_SIZE                8192
 
 // 任务类型
 enum
@@ -34,6 +33,7 @@ enum
     eIOTaskType_Shutdown        = 6,
     eIOTaskType_Shutdowns       = 7,
     eIOTaskType_Broadcast2      = 8,
+    eIOTaskType_Associate       = 9,
 };
 
 // 网络服务错误码定义

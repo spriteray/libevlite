@@ -33,10 +33,6 @@ struct iolayer
     // 数据改造接口
     void *      context;
     char *      (*transform)( void *, const char *, uint32_t * );
-
-    // 本地数据
-    void *      localdata;
-    void *      (*localfunc)( void *, uint8_t );
 };
 
 // 接收器
@@ -81,6 +77,19 @@ struct connector
     struct iolayer * parent;
 };
 
+// 关联器
+struct associater
+{
+    int32_t     fd;
+
+    // 逻辑
+    void *      context;
+    int32_t     (*cb)( void *, void *, int32_t, sid_t );
+
+    // 通信句柄
+    struct iolayer *    parent;
+};
+
 //
 // NOTICE: 网络任务的最大长度不超过56
 //
@@ -108,6 +117,10 @@ struct task_send
 // 看样子内存对齐不需要使用了
 #pragma pack(1)
 #pragma pack()
+
+// 描述符分发策略
+// 分发到IO线程后会分配到唯一的会话ID
+#define DISPATCH_POLICY( layer, fd ) ( (fd) % ((layer)->nthreads) )
 
 // socket选项
 void iolayer_server_option( int32_t fd );

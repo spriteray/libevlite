@@ -22,6 +22,7 @@ struct iothread
 
     evsets_t            sets;
     void *              parent;
+    void *              context;    // 上下文
 
     event_t             cmdevent;
     struct msgqueue *   queue;
@@ -45,7 +46,7 @@ struct iothreads
 
     uint8_t nthreads;
     uint8_t runflags;
-    uint8_t realtime;       // 是否立刻通知IO线程
+    uint8_t immediately;    // 是否立刻通知IO线程
 
     uint8_t nrunthreads;
     pthread_cond_t cond;

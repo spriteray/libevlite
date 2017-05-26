@@ -17,7 +17,7 @@
 // 创建网络线程组
 // nthreads     - 网络线程组中的线程数
 // method       - 任务处理函数
-iothreads_t iothreads_start( uint8_t nthreads, uint8_t realtime,
+iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately,
         void (*method)(void *, uint8_t, int16_t, void *), void * context )
 {
     uint8_t i = 0;
@@ -37,7 +37,7 @@ iothreads_t iothreads_start( uint8_t nthreads, uint8_t realtime,
     }
 
     iothreads->method   = method;
-    iothreads->realtime = realtime;
+    iothreads->immediately = immediately;
     iothreads->context  = context;
     iothreads->nthreads = nthreads;
     pthread_cond_init( &iothreads->cond, NULL );
@@ -74,6 +74,28 @@ evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
     assert( iothreads->threadgroup != NULL );
 
     return iothreads->threadgroup[index].sets;
+}
+
+void * iothreads_get_context( iothreads_t self, uint8_t index )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threadgroup != NULL );
+
+    return iothreads->threadgroup[index].context;
+}
+
+void iothreads_set_context( iothreads_t self, uint8_t index, void * context )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threadgroup != NULL );
+
+    iothreads->threadgroup[index].context = context;
 }
 
 // 向网络线程组中指定的线程提交任务
@@ -198,7 +220,7 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
     }
 
     // 默认: 提交任务不提醒消费者
-    return msgqueue_push( self->queue, &inter_task, threads->realtime );
+    return msgqueue_push( self->queue, &inter_task, threads->immediately );
 }
 
 int32_t iothread_stop( struct iothread * self )
@@ -288,14 +310,15 @@ void * iothread_main( void * arg )
 
     QUEUE_CLEAR(taskqueue)( &doqueue );
 
+    // 日志
+    syslog( LOG_INFO, "%s(INDEX=%d) : the Maximum Number of Requests is %d in EachFrame .",
+            __FUNCTION__, thread->index, maxtasks );
+
     // 向主线程发送终止信号
     pthread_mutex_lock( &parent->lock );
     --parent->nrunthreads;
     pthread_cond_signal( &parent->cond );
     pthread_mutex_unlock( &parent->lock );
-
-    syslog( LOG_INFO, "%s(INDEX=%d) : the Maximum Number of Requests is %d in EachFrame .",
-            __FUNCTION__, thread->index, maxtasks );
 
     return NULL;
 }

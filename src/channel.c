@@ -27,7 +27,7 @@ static int32_t _timeout( struct session * session );
 int32_t _receive( struct session * session )
 {
     // 尽量读数据
-    return buffer_read( &session->inbuffer, session->fd, -1 );
+    return buffer_read( &session->inbuffer, session->fd, 0 );
 }
 
 int32_t _transmit( struct session * session )
@@ -408,8 +408,6 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
         cfd = tcp_accept( fd, task.host, &(task.port) );
         if ( cfd > 0 )
         {
-            uint8_t index = 0;
-
 #if !defined(__FreeBSD__)
             // FreeBSD会继承listenfd的NON Block属性
             set_non_block( cfd );
@@ -420,8 +418,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             task.context = acceptor->context;
 
             // 分发策略
-            index = cfd % (layer->nthreads);
-            iolayer_assign_session( layer, index, &(task) );
+            iolayer_assign_session( layer, DISPATCH_POLICY(layer, cfd), &(task) );
         }
     }
 }
@@ -468,7 +465,6 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     struct connector * connector = (struct connector *)arg;
 
     sid_t id = 0;
-    void * local = NULL;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( connector->parent );
 
@@ -501,13 +497,9 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         }
     }
 
-    if ( layer->localfunc )
-    {
-        local = layer->localfunc( layer->localdata, fd % layer->nthreads );
-    }
-
     // 把连接结果回调给逻辑层
-    rc = connector->cb( connector->context, local, result, connector->host, connector->port, id );
+    rc = connector->cb( connector->context,
+            iothreads_get_context( layer->group, DISPATCH_POLICY(layer, fd) ), result, connector->host, connector->port, id );
 
     if ( rc == 0 )
     {

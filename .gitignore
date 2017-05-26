@@ -5,3 +5,7 @@ tags
 *.o
 *.swp
 .ycm_extra_conf.py
+!xcshareddata
+xcuserdata
+*.pbxuser
+*~.nib

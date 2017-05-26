@@ -2,8 +2,12 @@
 # ------------------------------------------------------------------------------
 OS			= $(shell uname)
 
-VERSION 	= 9.0.3
+APP 		= libevlite
+VERSION 	= 9.3.2
 PREFIX		= /usr/local
+
+# 主版本号
+MAJORVER 	= $(firstword $(subst ., ,$(VERSION)))
 
 # ------------------------------------------------------------------------------
 # FreeBSD采用clang做为编译器
@@ -16,22 +20,27 @@ else
 endif
 
 # 默认选项
-LFLAGS		= -ggdb -pthread
-CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\"
-CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\"
+LFLAGS		= -ggdb -lpthread
+CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_POSIX
+CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_POSIX
 
+# 动态库的名字
 # 动态库编译选项
 ifeq ($(OS),Darwin)
-	LIBNAME	= libevlite.dylib
-	SOFLAGS	= -dynamiclib -Wl,-install_name,$(SONAME)
+	LIBNAME	= $(APP).dylib
+	SONAME	= $(APP).$(MAJORVER).dylib
+	REALNAME= $(APP).$(VERSION).dylib
+	SOFLAGS	= -dynamiclib -Wl,-install_name,$(SONAME) -compatibility_version $(MAJORVER) -current_version $(VERSION)
 else
-	LIBNAME	= libevlite.so
+	LIBNAME	= $(APP).so
+	SONAME	= $(LIBNAME).$(MAJORVER)
+	REALNAME= $(LIBNAME).$(VERSION)
 	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
 endif
 
 # Linux定制参数
 ifeq ($(OS),Linux)
-	LFLAGS 	+= -lrt
+	LFLAGS 	= -ggdb -pthread -lrt
 	CFLAGS 	+= -finline-limit=1000
 	CXXFLAGS+= -finline-limit=1000
 endif
@@ -40,13 +49,6 @@ endif
 # 安装目录lib, include
 LIBPATH		= $(PREFIX)/lib
 INCLUDEPATH	= $(PREFIX)/include
-
-# 主版本号
-MAJORVER 	= $(firstword $(subst ., ,$(VERSION)))
-
-# 动态库的名字
-SONAME		= $(LIBNAME).$(MAJORVER)
-REALNAME	= $(LIBNAME).$(VERSION)
 
 #
 # 利用git tag发布软件版本

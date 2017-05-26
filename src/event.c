@@ -208,10 +208,14 @@ evsets_t evsets_create()
     //
     assert( evsel != NULL );
 
-    self = (struct eventset *)malloc( sizeof(struct eventset) );
+    self = (struct eventset *)calloc( 1, sizeof(struct eventset) );
     if ( self )
     {
         self->evselect = (struct eventop *)evsel;
+
+        // 初始化
+        TAILQ_INIT( &self->eventlist );
+        TAILQ_INIT( &self->activelist );
 
         self->evsets = self->evselect->init();
         if ( self->evsets )
@@ -219,9 +223,6 @@ evsets_t evsets_create()
             self->core_timer = evtimer_create( TIMER_MAX_PRECISION, TIMER_BUCKET_COUNT );
             if ( self->core_timer )
             {
-                TAILQ_INIT( &self->eventlist );
-                TAILQ_INIT( &self->activelist );
-
                 self->timer_precision = TIMER_MAX_PRECISION;
                 self->expire_time = mtime() + self->timer_precision;
             }
