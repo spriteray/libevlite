@@ -227,9 +227,9 @@ int32_t iolayer_connect( iolayer_t self,
     connector->parent = self;
     connector->port = port;
     strncpy( connector->host, host, INET_ADDRSTRLEN );
+    connector->index = DISPATCH_POLICY( layer, connector->fd );
 
-    iothreads_post( layer->group,
-            DISPATCH_POLICY(layer, connector->fd), eIOTaskType_Connect, connector, 0 );
+    iothreads_post( layer->group, connector->index, eIOTaskType_Connect, connector, 0 );
 
     return 0;
 }
@@ -605,10 +605,8 @@ void iolayer_client_option( int32_t fd )
 #endif
 }
 
-struct session * iolayer_alloc_session( struct iolayer * self, int32_t key )
+struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index )
 {
-    uint8_t index = DISPATCH_POLICY( self, key );
-
     struct session * session = NULL;
     struct session_manager * manager = _get_manager( self, index );
 

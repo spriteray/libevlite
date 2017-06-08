@@ -59,6 +59,7 @@ struct acceptor
 struct connector
 {
     int32_t     fd;
+    uint8_t     index;
 
     // 连接事件
     event_t     event;
@@ -127,7 +128,7 @@ void iolayer_server_option( int32_t fd );
 void iolayer_client_option( int32_t fd );
 
 // 分配一个会话
-struct session * iolayer_alloc_session( struct iolayer * self, int32_t key );
+struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index );
 
 // 重新连接远程服务器
 int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector );
