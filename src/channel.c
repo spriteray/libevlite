@@ -486,7 +486,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     if ( result == 0 )
     {
         // 连接成功的情况下, 创建会话
-        session = iolayer_alloc_session( layer, connector->fd );
+        session = iolayer_alloc_session( layer, connector->fd, connector->index );
         if ( session != NULL )
         {
             id = session->id;
@@ -499,7 +499,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 
     // 把连接结果回调给逻辑层
     rc = connector->cb( connector->context,
-            iothreads_get_context( layer->group, DISPATCH_POLICY(layer, fd) ), result, connector->host, connector->port, id );
+            iothreads_get_context( layer->group, connector->index ), result, connector->host, connector->port, id );
 
     if ( rc == 0 )
     {
