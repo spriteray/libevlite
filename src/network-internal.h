@@ -21,7 +21,6 @@
 #define SEND_BUFFER_SIZE                8192
 #define RECV_BUFFER_SIZE                8192
 
-
 // 任务类型
 enum
 {
