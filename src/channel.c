@@ -470,7 +470,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_WRITE )
     {
-#if defined (__linux__)
+#if defined (__linux__) || defined(__APPLE__) || defined(__darwin__)
         // linux需要进一步检查连接是否成功
         if ( is_connected( fd ) != 0 )
         {
@@ -539,7 +539,7 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_WRITE )
     {
-#if defined (__linux__)
+#if defined (__linux__) || defined(__APPLE__) || defined(__darwin__)
         if ( is_connected(fd) != 0 )
         {
             channel_error( session, eIOError_ConnectStatus );
