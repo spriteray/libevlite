@@ -40,7 +40,7 @@ libevlite网络通信库(Linux, Darwin, *BSD)
 
     4) 连接远程服务/开启客户端 iolayer_connect()
 
-	5) 关联描述符的读写事件 iolayer_associate()
+    5) 关联描述符的读写事件 iolayer_associate()
 
     6) 设置回话的方法
         设置会话的超时时间 iolayer_set_timeout()
