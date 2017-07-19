@@ -240,6 +240,7 @@ int32_t session_append( struct session * self, struct message * message )
         // 消息未进行改造
 
         // 添加到会话的发送列表中
+        // TODO: 可以先尝试把message发送出去
         rc = QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
         if ( rc == 0 )
         {
