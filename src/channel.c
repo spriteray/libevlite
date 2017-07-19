@@ -5,11 +5,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/uio.h>
 
 #include "utils.h"
 #include "iolayer.h"
 #include "network-internal.h"
 #include "channel.h"
+
+// iov_max
+#if defined (IOV_MAX)
+const int32_t iov_max = IOV_MAX;
+#elif defined (UIO_MAXIOV)
+const int32_t iov_max = UIO_MAXIOV;
+#elif defined (MAX_IOVEC)
+const int32_t iov_max = MAX_IOVEC;
+#else
+const int32_t iov_max = 8;
+#endif
 
 // 发送接收数据
 static int32_t _receive( struct session * session );
@@ -32,16 +44,6 @@ int32_t _receive( struct session * session )
 
 int32_t _transmit( struct session * session )
 {
-#if defined (IOV_MAX)
-    const int32_t iov_max = IOV_MAX;
-#elif defined (UIO_MAXIOV)
-    const int32_t iov_max = UIO_MAXIOV;
-#elif defined (MAX_IOVEC)
-    const int32_t iov_max = MAX_IOVEC;
-#else
-    const int32_t iov_max = 8;
-#endif
-
     uint32_t i = 0;
     int32_t writen = 0, offsets = session->msgoffsets;
 
