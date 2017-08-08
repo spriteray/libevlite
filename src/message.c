@@ -7,6 +7,7 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
+#include "utils.h"
 #include "network-internal.h"
 #include "message.h"
 
@@ -214,7 +215,7 @@ void buffer_swap( struct buffer * buf1, struct buffer * buf2 )
 int32_t buffer_read( struct buffer * self, int32_t fd, int32_t nbytes )
 {
     // 尽量读取SOCKET中的数据
-    if ( nbytes == 0 )
+    if ( likely( nbytes == 0 ) )
     {
         return _read_withvector( self, fd );
     }
