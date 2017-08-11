@@ -39,6 +39,7 @@ struct iolayer
 struct acceptor
 {
     int32_t     fd;
+    uint8_t     index;
 
     // 接收事件
     event_t     event;
@@ -137,6 +138,6 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
 int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector );
 
 // 给当前线程分发一个会话
-int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );
 
 #endif
