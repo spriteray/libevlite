@@ -140,7 +140,6 @@ int32_t iolayer_listen( iolayer_t self,
 
     for ( i = 0; i < nthreads; ++i )
     {
-        uint8_t dispatch_index = 0;
         struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
         if ( acceptor == NULL )
         {
@@ -170,14 +169,16 @@ int32_t iolayer_listen( iolayer_t self,
             return -3;
         }
 
-        dispatch_index = DISPATCH_POLICY(layer, acceptor->fd);
-
         acceptor->cb = cb;
         acceptor->context = context;
         acceptor->parent = self;
         acceptor->port = port;
         acceptor->host[0] = 0;
-        acceptor->index = nthreads == 1 ? dispatch_index : i;
+#ifdef SO_REUSEPORT
+        acceptor->index = i;
+#else
+        acceptor->index = DISPATCH_POLICY(layer, acceptor->fd);
+#endif
         if ( host != NULL )
         {
             strncpy( acceptor->host, host, INET_ADDRSTRLEN );
@@ -678,7 +679,7 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
-#ifndef SO_REUSEPORT
+#ifdef SO_REUSEPORT
     return _assign_direct( self, acceptidx,
             iothreads_get_sets( self->group, acceptidx ), task );
 #else
