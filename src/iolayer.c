@@ -134,7 +134,7 @@ int32_t iolayer_listen( iolayer_t self,
     assert( self != NULL && "Illegal IOLayer" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-#ifdef SO_REUSEPORT
+#ifdef USE_REUSEPORT
     nthreads = layer->nthreads;
 #endif
 
@@ -174,7 +174,7 @@ int32_t iolayer_listen( iolayer_t self,
         acceptor->parent = self;
         acceptor->port = port;
         acceptor->host[0] = 0;
-#ifdef SO_REUSEPORT
+#ifdef USE_REUSEPORT
         acceptor->index = i;
 #else
         acceptor->index = DISPATCH_POLICY(layer, acceptor->fd);
@@ -578,7 +578,7 @@ void iolayer_server_option( int32_t fd )
     flag = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
-#ifdef SO_REUSEPORT
+#ifdef USE_REUSEPORT
     flag = 1;
     setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof(flag) );
 #endif
@@ -679,7 +679,7 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
-#ifdef SO_REUSEPORT
+#ifdef USE_REUSEPORT
     return _assign_direct( self, acceptidx,
             iothreads_get_sets( self->group, acceptidx ), task );
 #else

@@ -62,7 +62,7 @@ int32_t set_non_block( int32_t fd )
     if ( flags >= 0 )
     {
         flags |= O_NONBLOCK;
-        rc = fcntl(fd, F_SETFL, flags)!=-1 ? 0 : -2 ;
+        rc = fcntl(fd, F_SETFL, flags) != -1 ? 0 : -2 ;
     }
 
     return rc;
@@ -94,7 +94,7 @@ int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) )
     int32_t fd = -1;
     struct sockaddr_in addr;
 
-    fd = socket( AF_INET, SOCK_STREAM, 0 );
+    fd = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
     if ( fd < 0 )
     {
         return -1;
@@ -127,7 +127,7 @@ int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) )
         return -2;
     }
 
-    if ( listen( fd, 8192 ) == -1 )
+    if ( listen( fd, SOMAXCONN ) == -1 )
     {
         close( fd );
         return -3;
@@ -147,7 +147,7 @@ int32_t tcp_connect( const char * host, uint16_t port, void (*options)(int32_t) 
         return -1;
     }
 
-    fd = socket( AF_INET, SOCK_STREAM, 0 );
+    fd = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
     if ( fd < 0 )
     {
         return -2;
