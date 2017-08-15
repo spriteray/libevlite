@@ -50,7 +50,7 @@ void process_message( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_READ )
     {
-        int32_t readn = -1;
+        ssize_t readn = -1;
         char buf[ capacity ];
 
         readn = read( fd, buf, capacity );
@@ -106,6 +106,10 @@ int main( int argc, char ** argv )
         printf("echoserver [host] [port] .\n");
         return 0;
     }
+    
+    int32_t fd = 0;
+    event_t evaccept = NULL;
+    evsets_t coreset = NULL;
 
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, echoserver_signal_handler );
@@ -116,7 +120,7 @@ int main( int argc, char ** argv )
     port = (uint16_t)atoi( argv[2] );
 
     // core eventsets
-    evsets_t coreset = evsets_create();
+    coreset = evsets_create();
     if ( coreset == NULL )
     {
         printf( "create core event sets failed .\n" );
@@ -124,14 +128,16 @@ int main( int argc, char ** argv )
     }
 
     // listen port
-    int32_t fd = tcp_listen( host, port, listenfd_options );
+    fd = tcp_listen( host, port, listenfd_options );
     if ( fd < 0 )
     {
         printf( "listen failed %s::%d .\n", host, port );
         goto FINAL;
     }
+    
+    printf( "%s::%d\n", host, port );
 
-    event_t evaccept = event_create();
+    evaccept = event_create();
     if ( evaccept == NULL )
     {
         printf( "create accept event failed .\n" );
