@@ -75,7 +75,6 @@ int32_t evtimer_remove( struct evtimer * self, struct event * ev )
         return -1;
     }
 
-    ev->timer_msecs = -1;
     ev->timer_index = -1;
     ev->timer_stepcnt = -1;
 

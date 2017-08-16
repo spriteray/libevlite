@@ -470,7 +470,7 @@ int32_t evsets_process_active( struct eventset * self )
 
         // 回调
         ++rc;
-        (*ev->cb)( event_get_fd((event_t)ev), ev->results, ev->arg );
+        (*ev->cb)( ev->fd, ev->results, ev->arg );
     }
 
     return rc;
