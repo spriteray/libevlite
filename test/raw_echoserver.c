@@ -17,7 +17,7 @@
 #include "event.h"
 #include "utils.h"
 
-int32_t isrunning;
+int32_t isrunning, naccept;
 
 void listenfd_options( int32_t fd )
 {
@@ -39,6 +39,18 @@ void listenfd_options( int32_t fd )
 void echoserver_signal_handler( int signo )
 {
     isrunning = 0;
+}
+
+void * idlethread_main( void * arg )
+{
+    printf( "idlethread_main()\n" );
+
+    for ( ;; )
+    {
+        sleep( 60 );
+    }
+
+    return NULL;
 }
 
 void process_message( int32_t fd, int16_t ev, void * arg )
@@ -80,6 +92,7 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
         int32_t newfd = tcp_accept( fd, dsthost, &dstport );
         if ( newfd > 0 )
         {
+            ++naccept;
             set_non_block( newfd );
 
             event_t event = event_create();
@@ -106,7 +119,7 @@ int main( int argc, char ** argv )
         printf("echoserver [host] [port] .\n");
         return 0;
     }
-    
+
     int32_t fd = 0;
     event_t evaccept = NULL;
     evsets_t coreset = NULL;
@@ -134,7 +147,7 @@ int main( int argc, char ** argv )
         printf( "listen failed %s::%d .\n", host, port );
         goto FINAL;
     }
-    
+
     printf( "%s::%d\n", host, port );
 
     evaccept = event_create();
@@ -148,6 +161,7 @@ int main( int argc, char ** argv )
     evsets_add( coreset, evaccept, 0 );
 
     // running ...
+    naccept = 0;
     isrunning = 1;
 
     // loop

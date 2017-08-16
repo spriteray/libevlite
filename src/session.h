@@ -121,7 +121,7 @@ int32_t session_start_reconnect( struct session * self );
 int32_t session_shutdown( struct session * self );
 
 // 会话结束
-int32_t session_end( struct session * self, sid_t id );
+int32_t session_end( struct session * self, sid_t id, int8_t recycle );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

@@ -249,7 +249,8 @@ int32_t channel_shutdown( struct session * session )
     // 会话终止
     service->shutdown( session->context, way );
     session_manager_remove( manager, session );
-    session_end( session, id );
+    session_end( session, id, 0 );
+    // TODO: 是否回收会话
 
     return 0;
 }
@@ -527,7 +528,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         if ( session )
         {
             session_manager_remove( session->manager, session );
-            session_end( session, id );
+            session_end( session, id, 0 );
         }
         iolayer_free_connector( layer, connector );
     }

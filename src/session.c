@@ -12,6 +12,7 @@
 #include "session.h"
 
 static struct session * _new_session();
+static int32_t _reset_session( struct session * self );
 static int32_t _del_session( struct session * self );
 static inline void _stop( struct session * self );
 static inline int32_t _send( struct session * self, char * buf, uint32_t nbytes );
@@ -51,6 +52,29 @@ struct session * _new_session()
     return self;
 }
 
+int32_t _reset_session( struct session * self )
+{
+    // 销毁网络事件
+    if ( self->evread )
+    {
+        event_reset( self->evread );
+    }
+    if ( self->evwrite )
+    {
+        event_reset( self->evwrite );
+    }
+    if ( self->evkeepalive )
+    {
+        event_reset( self->evkeepalive );
+    }
+
+    buffer_erase( &self->inbuffer,
+            buffer_length(&self->inbuffer) );
+    QUEUE_RESET(sendqueue)(&self->sendqueue);
+
+    return 0;
+}
+
 int32_t _del_session( struct session * self )
 {
     // 销毁网络事件
@@ -70,8 +94,8 @@ int32_t _del_session( struct session * self )
         self->evkeepalive = NULL;
     }
 
-    QUEUE_CLEAR(sendqueue)(&self->sendqueue);
     buffer_clear( &self->inbuffer );
+    QUEUE_CLEAR(sendqueue)(&self->sendqueue);
     free( self );
 
     return 0;
@@ -393,10 +417,12 @@ int32_t session_shutdown( struct session * self )
     return channel_shutdown( self );
 }
 
-int32_t session_end( struct session * self, sid_t id )
+int32_t session_end( struct session * self, sid_t id, int8_t recycle )
 {
     // 由于会话已经从管理器中删除了
     // 会话中的ID已经非法
+
+    assert( recycle == 0 && "NOT support REUSE-SESSION" );
 
     // 清空发送队列
     uint32_t count = session_sendqueue_count(self);
@@ -423,7 +449,16 @@ int32_t session_end( struct session * self, sid_t id )
 
     // 停止会话
     _stop( self );
-    _del_session( self );
+
+    // 是否回收会话
+    if ( recycle == 0 )
+    {
+        _del_session( self );
+    }
+    else
+    {
+        _reset_session( self );
+    }
 
     return 0;
 }
@@ -700,7 +735,7 @@ void session_manager_destroy( struct session_manager * self )
             // 销毁会话
             if ( s != NULL )
             {
-                session_end( s, s->id );
+                session_end( s, s->id, 0 );
                 n->session = NULL;
             }
 

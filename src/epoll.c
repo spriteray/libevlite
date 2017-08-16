@@ -330,11 +330,6 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
             }
         }
 
-        if ( !(evread||evwrite) )
-        {
-            continue;
-        }
-
         if ( evread )
         {
             event_active( evread, EV_READ );

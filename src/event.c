@@ -174,6 +174,31 @@ evsets_t event_get_sets( event_t self )
     return ((struct event *)self)->evsets;
 }
 
+void event_reset( event_t self )
+{
+    struct event * ev = (struct event *)self;
+
+    if ( ev->evsets != NULL )
+    {
+        evsets_del( ev->evsets, self );
+        ev->evsets = NULL;
+    }
+
+    ev->fd = -1;
+    ev->events = 0;
+    ev->evsets = NULL;
+
+    ev->cb = NULL;
+    ev->arg = NULL;
+
+    ev->timer_index = -1;
+    ev->timer_msecs = -1;
+    ev->timer_stepcnt = -1;
+
+    ev->results = 0;
+    ev->status = EVSTATUS_INIT;
+}
+
 void event_destroy( event_t self )
 {
     free( self );
