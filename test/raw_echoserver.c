@@ -106,6 +106,10 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
             event_set_callback( event, process_message, event );
             evsets_add( coreset, event, 0 );
         }
+        else
+        {
+            printf( "listenfd:%d, errno:%d:'%s'\n", fd, errno, strerror( errno ) );
+        }
     }
 }
 
@@ -163,6 +167,12 @@ int main( int argc, char ** argv )
     // running ...
     naccept = 0;
     isrunning = 1;
+
+#if 0
+    // Idle Thread
+    pthread_t tid;
+    pthread_create( &tid, NULL, idlethread_main, NULL );
+#endif
 
     // loop
     while ( isrunning == 1 )

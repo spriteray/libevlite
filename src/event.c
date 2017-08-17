@@ -31,14 +31,14 @@ const struct eventop * evsel = NULL;
 // event.c中的工具定义
 
 static inline int32_t evsets_process_active( struct eventset * self );
-static inline int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type );
-static inline int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t type );
+static inline int32_t event_queue_insert( struct eventset * self, struct event * ev, int32_t type );
+static inline int32_t event_queue_remove( struct eventset * self, struct event * ev, int32_t type );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t type )
+int32_t event_queue_insert( struct eventset * self, struct event * ev, int32_t type )
 {
     if ( ev->status & type )
     {
@@ -78,7 +78,7 @@ int32_t event_list_insert( struct eventset * self, struct event * ev, int32_t ty
     return 0;
 }
 
-int32_t event_list_remove( struct eventset * self, struct event * ev, int32_t type )
+int32_t event_queue_remove( struct eventset * self, struct event * ev, int32_t type )
 {
     if ( !(ev->status & type) )
     {
@@ -213,7 +213,7 @@ int32_t event_active( struct event * self, int16_t res )
     }
 
     self->results = res;
-    event_list_insert( self->evsets, self, EVSTATUS_ACTIVE );
+    event_queue_insert( self->evsets, self, EVSTATUS_ACTIVE );
 
     return 0;
 }
@@ -294,7 +294,7 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
         if ( sets->evselect->add( sets->evsets, e ) == 0 )
         {
             rc |= 0x01;
-            event_list_insert( sets, e, EVSTATUS_INSERTED );
+            event_queue_insert( sets, e, EVSTATUS_INSERTED );
         }
     }
 
@@ -305,7 +305,7 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
         // 这样比较准确
         if ( e->status & EVSTATUS_TIMER )
         {
-            event_list_remove( sets, e, EVSTATUS_TIMER );
+            event_queue_remove( sets, e, EVSTATUS_TIMER );
         }
 
         // 已经超时了
@@ -314,12 +314,12 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
         if ( (e->results & EV_TIMEOUT)
                 && (e->status & EVSTATUS_ACTIVE) )
         {
-            event_list_remove( sets, e, EVSTATUS_ACTIVE );
+            event_queue_remove( sets, e, EVSTATUS_ACTIVE );
         }
 
         rc |= 0x02;
         e->timer_msecs = tv < sets->timer_precision ? sets->timer_precision : tv;
-        event_list_insert( sets, e, EVSTATUS_TIMER );
+        event_queue_insert( sets, e, EVSTATUS_TIMER );
     }
 
     return rc;
@@ -340,15 +340,15 @@ int32_t evsets_del( evsets_t self, event_t ev )
     if ( e->status & EVSTATUS_TIMER )
     {
         e->timer_msecs = -1;
-        event_list_remove( sets, e, EVSTATUS_TIMER );
+        event_queue_remove( sets, e, EVSTATUS_TIMER );
     }
     if ( e->status & EVSTATUS_ACTIVE )
     {
-        event_list_remove( sets, e, EVSTATUS_ACTIVE );
+        event_queue_remove( sets, e, EVSTATUS_ACTIVE );
     }
     if ( e->status & EVSTATUS_INSERTED )
     {
-        event_list_remove( sets, e, EVSTATUS_INSERTED );
+        event_queue_remove( sets, e, EVSTATUS_INSERTED );
         return sets->evselect->del( sets->evsets, e );
     }
 
@@ -459,12 +459,12 @@ int32_t evsets_process_active( struct eventset * self )
         }
         else
         {
-            event_list_remove( self, ev, EVSTATUS_ACTIVE );
+            event_queue_remove( self, ev, EVSTATUS_ACTIVE );
 
             // Timeouts and persistent events work together
             if ( ev->results&EV_TIMEOUT )
             {
-                event_list_insert( self, ev, EVSTATUS_TIMER );
+                event_queue_insert( self, ev, EVSTATUS_TIMER );
             }
         }
 

@@ -53,6 +53,21 @@ int32_t is_connected( int32_t fd )
     return value;
 }
 
+int32_t set_cloexec( int32_t fd )
+{
+    int32_t flags;
+    int32_t rc = -1;
+
+    flags = fcntl( fd, F_GETFD );
+    if ( flags >= 0 )
+    {
+        flags |= FD_CLOEXEC;
+        rc = fcntl(fd, F_SETFD, flags) != -1 ? 0 : -2 ;
+    }
+
+    return rc;
+}
+
 int32_t set_non_block( int32_t fd )
 {
     int32_t flags;

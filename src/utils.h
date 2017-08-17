@@ -45,6 +45,7 @@ pid_t threadid();
 
 // socket基本操作
 int32_t is_connected( int32_t fd );
+int32_t set_cloexec( int32_t fd );
 int32_t set_non_block( int32_t fd );
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport );
 int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) );
