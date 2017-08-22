@@ -271,12 +271,7 @@ int32_t epoll_del( void * arg, struct event * ev )
         eventpair->evwrite = NULL;
     }
 
-    if ( epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 )
-    {
-        return -2;
-    }
-
-    return 0;
+    return epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 ? -2 : 0;
 }
 
 int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )

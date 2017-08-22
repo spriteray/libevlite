@@ -292,12 +292,12 @@ int main( int argc, char ** argv )
     g_Waiting = true;
     uint64_t nStartTime, nEndTime;
 
-    nStartTime = mtime();
+    nStartTime = milliseconds();
     while ( g_Running )
     {
         evsets_dispatch( sets );
     }
-    nEndTime = mtime();
+    nEndTime = milliseconds();
 
     printf("chatroom_client stopped .\n");
     g_Waiting = true;

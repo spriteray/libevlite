@@ -168,7 +168,7 @@ int main( int argc, char ** argv )
     naccept = 0;
     isrunning = 1;
 
-#if 0
+#if 1
     // Idle Thread
     pthread_t tid;
     pthread_create( &tid, NULL, idlethread_main, NULL );

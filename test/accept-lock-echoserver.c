@@ -211,7 +211,7 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
         {
 #if __DEBUG
             printf( "Client[%ld, %d] is closed, BYTES:%d, TIME:%lld .\n",
-                s->sid, s->fd, s->iobytes, mtime() );
+                s->sid, s->fd, s->iobytes, milliseconds() );
 #endif
             //evsets_del( event_get_sets(s->evread), s->evread );
             event_destroy( s->evread );
@@ -223,7 +223,7 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
         else
         {
 #if __DEBUG
-            printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, mtime() );
+            printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, milliseconds() );
 #endif
             readn = write( fd, buf, readn );
             s->iobytes += readn;
@@ -241,7 +241,7 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
     else
     {
 #if __DEBUG
-        printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, mtime() );
+        printf("echoserver_process_message(ev:%d) : TIME:%lld .\n", ev, milliseconds() );
 #endif
     }
 

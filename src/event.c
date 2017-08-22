@@ -248,7 +248,7 @@ evsets_t evsets_create()
             if ( self->core_timer )
             {
                 self->timer_precision = TIMER_MAX_PRECISION;
-                self->expire_time = mtime() + self->timer_precision;
+                self->expire_time = milliseconds() + self->timer_precision;
             }
             else
             {
@@ -365,7 +365,7 @@ int32_t evsets_dispatch( evsets_t self )
     if ( TAILQ_EMPTY(&sets->activelist) )
     {
         // 根据定时器的超时时间, 确认IO的等待时间
-        seconds4wait = (int32_t)( sets->expire_time - mtime() );
+        seconds4wait = (int32_t)( sets->expire_time - milliseconds() );
         if ( seconds4wait < 0 )
         {
             seconds4wait = 0;
@@ -385,7 +385,7 @@ int32_t evsets_dispatch( evsets_t self )
     }
 
     // 事件集的超时时间是要及时更新的
-    int64_t now = mtime();
+    int64_t now = milliseconds();
     if ( sets->expire_time <= now )
     {
         // 定时器时间到了, 分发事件

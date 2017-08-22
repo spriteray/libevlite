@@ -69,7 +69,7 @@ int32_t main()
     runflags = 1;
 
     //
-    start_time = mtime();
+    start_time = milliseconds();
     while ( runflags )
     {
         uint8_t _index = index&(nthreads-1);
@@ -78,7 +78,7 @@ int32_t main()
         iothreads_post( threadgroup, _index, 0, _args, 0 );
         ++index;
     }
-    end_time = mtime();
+    end_time = milliseconds();
 
     //
     iothreads_stop( threadgroup );

@@ -35,8 +35,9 @@ extern "C"
 // 系统相关的操作
 //
 
-// 时间函数, 返回毫秒数
-int64_t mtime();
+// 时间函数, 返回毫秒数/微妙数
+int64_t milliseconds();
+int64_t microseconds();
 
 // 获取线程ID
 #if defined(__linux__)

@@ -27,7 +27,7 @@ pid_t threadid()
 
 #endif
 
-int64_t mtime()
+int64_t milliseconds()
 {
     int64_t now = -1;
     struct timeval tv;
@@ -35,6 +35,19 @@ int64_t mtime()
     if ( gettimeofday( &tv, NULL ) == 0 )
     {
         now = tv.tv_sec * 1000ll + tv.tv_usec / 1000ll;
+    }
+
+    return now;
+}
+
+int64_t microseconds()
+{
+    int64_t now = -1;
+    struct timeval tv;
+
+    if ( gettimeofday( &tv, NULL ) == 0 )
+    {
+        now = tv.tv_sec * 1000000ll + tv.tv_usec;
     }
 
     return now;
