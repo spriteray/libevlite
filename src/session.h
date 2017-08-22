@@ -100,7 +100,7 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port );
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
 
 // 发送消息
-int32_t session_sendmsg( struct session * self, struct message * message );
+int32_t session_sendmessage( struct session * self, struct message * message );
 
 // 会话注册/反注册网络事件
 void session_add_event( struct session * self, int16_t ev );

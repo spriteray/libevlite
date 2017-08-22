@@ -791,7 +791,7 @@ int32_t _broadcast2_loop( void * context, struct session * s )
     message_add_receiver( msg, s->id );
 
     // 尝试发送消息
-    session_sendmsg( s, msg );
+    session_sendmessage( s, msg );
 
     return 0;
 }
@@ -949,10 +949,9 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
             continue;
         }
 
-        if ( session_sendmsg(session, msg) >= 0 )
+        if ( session_sendmessage(session, msg) >= 0 )
         {
             // 尝试单独发送
-            // 添加到发送队列成功
             ++count;
         }
     }

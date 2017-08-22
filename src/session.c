@@ -15,7 +15,10 @@ static struct session * _new_session();
 static int32_t _reset_session( struct session * self );
 static int32_t _del_session( struct session * self );
 static inline void _stop( struct session * self );
-// 发送三人组
+// 发送数据
+// _send_only()仅发送,
+// _send_message()发送消息, 未发送成功的添加到发送队列中
+// _send_buffer()发送数据, 未发送成功的创建消息
 static inline int32_t _send_only( struct session * self, char * buf, uint32_t nbytes );
 static inline int32_t _send_message( struct session * self, struct message * message );
 static inline int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes );
@@ -156,12 +159,7 @@ int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
 
         // 直接发送
         ntry = channel_send( self, buf, nbytes );
-        if ( ntry == nbytes )
-        {
-            // 全部发送出去
-            return ntry;
-        }
-        else if ( ntry < 0 )
+        if ( ntry < 0 )
         {
             // 发送出错的情况下
             // 将整包添加到发送队列中, 发送长度置0
@@ -184,9 +182,10 @@ int32_t _send_message( struct session * self, struct message * message )
 
     // 发送
     ntry = _send_only( self, buf, nbytes );
-
     if ( ntry >= 0 && ntry < nbytes )
     {
+        // 未全部发送成功的情况下
+
         // 添加到发送队列中
         self->msgoffsets = ntry;
         QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
@@ -201,16 +200,16 @@ int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes )
 {
     // 发送
     int32_t ntry = _send_only( self, buf, nbytes );
-
     if ( ntry >= 0 && ntry < nbytes )
     {
+        // 未全部发送成功的情况下
+
         // 创建message, 添加到发送队列中
         struct message * message = message_create();
         if ( message == NULL )
         {
             return -2;
         }
-
         message_add_buffer( message, buf+ntry, nbytes-ntry );
         message_add_receiver( message, self->id );
         QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
@@ -224,7 +223,6 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 {
     assert( self->service.start != NULL );
     assert( self->service.process != NULL );
-    assert( self->service.transform != NULL );
     assert( self->service.keepalive != NULL );
     assert( self->service.timeout != NULL );
     assert( self->service.error != NULL );
@@ -262,16 +260,20 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port )
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
     int32_t rc = -1;
-    ioservice_t * service = &self->service;
+    char * _buf = buf;
+    uint32_t _nbytes = nbytes;
 
     // 数据改造(加密 or 压缩)
-    uint32_t _nbytes = nbytes;
-    char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
+    if ( unlikely( self->service.transform != NULL ) )
+    {
+        _buf = self->service.transform(
+                self->context, (const char *)buf, &_nbytes );
+    }
 
     if ( likely( _buf != NULL ) )
     {
         // 发送数据
-        // TODO: _send()可以根据具体情况决定是否copy内存
+        // TODO: _send_buffer()可以根据具体情况决定是否copy内存
         rc = _send_buffer( self, _buf, _nbytes );
 
         if ( _buf != buf )
@@ -285,16 +287,20 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 }
 
 //
-int32_t session_sendmsg( struct session * self, struct message * message )
+int32_t session_sendmessage( struct session * self, struct message * message )
 {
-    int32_t rc = -1;
-    ioservice_t * service = &self->service;
-
     char * buf = message_get_buffer( message );
     uint32_t nbytes = message_get_length( message );
 
+    int32_t rc = -1;
+    char * buffer = buf;
+
     // 数据改造(加密 or 压缩)
-    char * buffer = service->transform( self->context, (const char *)buf, &nbytes );
+    if ( unlikely( self->service.transform != NULL ) )
+    {
+        buffer = self->service.transform(
+                self->context, (const char *)buf, &nbytes );
+    }
 
     if ( buffer == buf )
     {
