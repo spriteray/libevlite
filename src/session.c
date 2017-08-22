@@ -15,7 +15,10 @@ static struct session * _new_session();
 static int32_t _reset_session( struct session * self );
 static int32_t _del_session( struct session * self );
 static inline void _stop( struct session * self );
-static inline int32_t _send( struct session * self, char * buf, uint32_t nbytes );
+// 发送三人组
+static inline int32_t _send_only( struct session * self, char * buf, uint32_t nbytes );
+static inline int32_t _send_message( struct session * self, struct message * message );
+static inline int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes );
 
 //
 QUEUE_GENERATE( sendqueue, struct message * )
@@ -135,7 +138,7 @@ void _stop( struct session * self )
 }
 
 //
-int32_t _send( struct session * self, char * buf, uint32_t nbytes )
+int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
 {
     int32_t ntry = 0;
 
@@ -149,6 +152,8 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
     if ( !(self->status&SESSION_WRITING)
             && session_sendqueue_count(self) == 0 )
     {
+        assert( self->msgoffsets == 0 && "SendQueue Offset Invalid" );
+
         // 直接发送
         ntry = channel_send( self, buf, nbytes );
         if ( ntry == nbytes )
@@ -168,17 +173,49 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
         // 发送出错的情况下, 添加写事件, 在channel.c:_transmit()出错后, 会尝试关闭连接
     }
 
-    // 创建message, 添加到发送队列中
-    struct message * message = message_create();
-    if ( message == NULL )
+    return ntry;
+}
+
+int32_t _send_message( struct session * self, struct message * message )
+{
+    int32_t ntry = 0;
+    char * buf = message_get_buffer( message );
+    uint32_t nbytes = message_get_length( message );
+
+    // 发送
+    ntry = _send_only( self, buf, nbytes );
+
+    if ( ntry >= 0 && ntry < nbytes )
     {
-        return -2;
+        // 添加到发送队列中
+        self->msgoffsets = ntry;
+        QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
+        // 增加写事件
+        session_add_event( self, EV_WRITE );
     }
 
-    message_add_buffer( message, buf+ntry, nbytes-ntry );
-    message_add_receiver( message, self->id );
-    QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
-    session_add_event( self, EV_WRITE );
+    return ntry;
+}
+
+int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes )
+{
+    // 发送
+    int32_t ntry = _send_only( self, buf, nbytes );
+
+    if ( ntry >= 0 && ntry < nbytes )
+    {
+        // 创建message, 添加到发送队列中
+        struct message * message = message_create();
+        if ( message == NULL )
+        {
+            return -2;
+        }
+
+        message_add_buffer( message, buf+ntry, nbytes-ntry );
+        message_add_receiver( message, self->id );
+        QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
+        session_add_event( self, EV_WRITE );
+    }
 
     return ntry;
 }
@@ -235,7 +272,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
     {
         // 发送数据
         // TODO: _send()可以根据具体情况决定是否copy内存
-        rc = _send( self, _buf, _nbytes );
+        rc = _send_buffer( self, _buf, _nbytes );
 
         if ( _buf != buf )
         {
@@ -248,7 +285,7 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 }
 
 //
-int32_t session_append( struct session * self, struct message * message )
+int32_t session_sendmsg( struct session * self, struct message * message )
 {
     int32_t rc = -1;
     ioservice_t * service = &self->service;
@@ -264,19 +301,17 @@ int32_t session_append( struct session * self, struct message * message )
         // 消息未进行改造
 
         // 添加到会话的发送列表中
-        // TODO: 可以先尝试把message发送出去
-        rc = QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
-        if ( rc == 0 )
+        rc = _send_message( self, message );
+        if ( rc == nbytes )
         {
-            // 注册写事件, 处理发送队列
-            session_add_event( self, EV_WRITE );
+            message_add_success( message );
         }
     }
     else if ( buffer != NULL )
     {
         // 消息改造成功
 
-        rc = _send( self, buffer, nbytes );
+        rc = _send_buffer( self, buffer, nbytes );
         if ( rc >= 0 )
         {
             // 改造后的消息已经单独发送
