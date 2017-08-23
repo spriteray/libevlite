@@ -79,7 +79,7 @@ struct session
     struct buffer inbuffer;
 
     // 发送队列以及消息偏移量
-    int32_t             msgoffsets;
+    int32_t             msgoffset;
     struct sendqueue    sendqueue;
 
     // 会话的设置

@@ -45,7 +45,7 @@ int32_t _receive( struct session * session )
 int32_t _transmit( struct session * session )
 {
     uint32_t i = 0;
-    int32_t writen = 0, offsets = session->msgoffsets;
+    int32_t writen = 0, offset = session->msgoffset;
 
     int32_t iov_size = 0;
     struct iovec iov_array[iov_max];
@@ -56,17 +56,17 @@ int32_t _transmit( struct session * session )
         struct message * message = NULL;
 
         QUEUE_GET(sendqueue)( &session->sendqueue, i, &message );
-        if ( offsets >= message_get_length(message) )
+        if ( offset >= message_get_length(message) )
         {
-            offsets -= message_get_length(message);
+            offset -= message_get_length(message);
         }
         else
         {
-            iov_array[iov_size].iov_len = message_get_length(message) - offsets;
-            iov_array[iov_size].iov_base = message_get_buffer(message) + offsets;
+            iov_array[iov_size].iov_len = message_get_length(message) - offset;
+            iov_array[iov_size].iov_base = message_get_buffer(message) + offset;
 
             ++iov_size;
-            offsets = 0;
+            offset = 0;
         }
     }
 
@@ -74,20 +74,20 @@ int32_t _transmit( struct session * session )
 
     if ( writen > 0 )
     {
-        offsets = session->msgoffsets + writen;
+        offset = session->msgoffset + writen;
 
         for ( ; session_sendqueue_count(session) > 0; )
         {
             struct message * message = NULL;
 
             QUEUE_TOP(sendqueue)( &session->sendqueue, &message );
-            if ( offsets < message_get_length(message) )
+            if ( offset < message_get_length(message) )
             {
                 break;
             }
 
             QUEUE_POP(sendqueue)( &session->sendqueue, &message );
-            offsets -= message_get_length(message);
+            offset -= message_get_length(message);
 
             message_add_success( message );
             if ( message_is_complete(message) )
@@ -96,7 +96,7 @@ int32_t _transmit( struct session * session )
             }
         }
 
-        session->msgoffsets = offsets;
+        session->msgoffset = offset;
     }
 
     if ( writen > 0 && session_sendqueue_count(session) > 0 )

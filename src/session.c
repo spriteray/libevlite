@@ -18,7 +18,7 @@ static inline void _stop( struct session * self );
 // 发送数据
 // _send_only()仅发送,
 // _send_message()发送消息, 未发送成功的添加到发送队列中
-// _send_buffer()发送数据, 未发送成功的创建消息
+// _send_buffer()发送数据, 未发送成功的创建消息, 添加到发送队列中
 static inline int32_t _send_only( struct session * self, char * buf, uint32_t nbytes );
 static inline int32_t _send_message( struct session * self, struct message * message );
 static inline int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes );
@@ -155,7 +155,7 @@ int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
     if ( !(self->status&SESSION_WRITING)
             && session_sendqueue_count(self) == 0 )
     {
-        assert( self->msgoffsets == 0 && "SendQueue Offset Invalid" );
+        assert( self->msgoffset == 0 && "SendQueue Offset Invalid" );
 
         // 直接发送
         ntry = channel_send( self, buf, nbytes );
@@ -187,7 +187,8 @@ int32_t _send_message( struct session * self, struct message * message )
         // 未全部发送成功的情况下
 
         // 添加到发送队列中
-        self->msgoffsets = ntry;
+        // ntry == 0有两种情况:1. 繁忙; 2. 发送出错
+        self->msgoffset += ntry;
         QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
         // 增加写事件
         session_add_event( self, EV_WRITE );
