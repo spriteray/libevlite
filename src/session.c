@@ -308,10 +308,11 @@ int32_t session_sendmessage( struct session * self, struct message * message )
         // 消息未进行改造
 
         // 添加到会话的发送列表中
-        rc = _send_message( self, message );
-        if ( rc == nbytes )
+        rc = QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
+        if ( rc == 0 )
         {
-            message_add_success( message );
+            // 注册写事件
+            session_add_event( self, EV_WRITE );
         }
     }
     else if ( buffer != NULL )

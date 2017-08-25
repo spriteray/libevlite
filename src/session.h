@@ -94,7 +94,8 @@ void session_set_iolayer( struct session * self, void * iolayer );
 void session_set_endpoint( struct session * self, char * host, uint16_t port );
 
 // 发送队列的长度
-#define session_sendqueue_count( self )     QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )
+#define session_sendqueue_count( self )         QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )
+#define session_sendqueue_append( self, msg )   QUEUE_PUSH(sendqueue)( &((self)->sendqueue), &(msg) )
 
 // 发送数据
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
