@@ -1,5 +1,6 @@
 
 #include <stdio.h>
+#include <syslog.h>
 #include <stdlib.h>
 
 #include "event-internal.h"
@@ -104,6 +105,7 @@ int32_t evtimer_dispatch( struct evtimer * self )
     laster = TAILQ_LAST( head, event_list );
     while ( !done )
     {
+        int32_t step = 0;
         struct event * ev = TAILQ_FIRST(head);
 
         // 由于某些事件的超时时间过长
@@ -114,25 +116,37 @@ int32_t evtimer_dispatch( struct evtimer * self )
             done = 1;
         }
 
+        // 获取步长
         --ev->timer_stepcnt;
-        if ( ev->timer_stepcnt > 0 )
+        step = EVENT_TIMERSTEP( ev );
+
+        if ( step > 0 )
         {
             // 未超时
             TAILQ_REMOVE( head, ev, timerlink );
             TAILQ_INSERT_TAIL( head, ev, timerlink );
         }
-        else if ( ev->timer_stepcnt == 0 )
-        {
-            // 超时了
-            // 从队列中删除, 并添加到激活队列中
-            ++rc;
-            evsets_del( event_get_sets((event_t)ev), (event_t)ev );
-            event_active( ev, EV_TIMEOUT );
-        }
         else
         {
-            // 出错了
-            evsets_del( event_get_sets((event_t)ev), (event_t)ev );
+            // 超时 or 出错
+
+            // 删除事件
+            evtimer_remove( self, ev );
+            ev->status &= ~EVSTATUS_TIMER;
+
+            // 超时了,
+            // 从队列中删除, 并添加到激活队列中
+            if ( step == 0 )
+            {
+                // 计数器
+                ++rc;
+                event_active( ev, EV_TIMEOUT );
+            }
+            else
+            {
+                // 出错, 暂且记日志吧
+                syslog(LOG_WARNING, "%s() evtimer dispatch error <%p>", __FUNCTION__, ev);
+            }
         }
     }
 

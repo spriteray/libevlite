@@ -93,7 +93,7 @@ public :
         std::string msg( length, 0 );
 
         CSHead * head = (CSHead *)msg.data();
-        head->msgid = 1;// (rand()%1000) > 50 ? 1 : 2;
+        head->msgid = 2;// (rand()%1000) > 50 ? 1 : 2;
         head->length = length;
         msg.resize( length );
 
@@ -292,12 +292,12 @@ int main( int argc, char ** argv )
     g_Waiting = true;
     uint64_t nStartTime, nEndTime;
 
-    nStartTime = mtime();
+    nStartTime = milliseconds();
     while ( g_Running )
     {
         evsets_dispatch( sets );
     }
-    nEndTime = mtime();
+    nEndTime = milliseconds();
 
     printf("chatroom_client stopped .\n");
     g_Waiting = true;

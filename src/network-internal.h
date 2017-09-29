@@ -15,7 +15,7 @@
 
 // 尝试重连的间隔时间,默认为20ms
 // 请参考event-internal.h中最大精度 TIMER_MAX_PRECISION
-#define TRY_RECONNECT_INTERVAL          20
+#define TRY_RECONNECT_INTERVAL          100
 
 // 发送接收缓冲区设置
 #define SEND_BUFFER_SIZE                8192

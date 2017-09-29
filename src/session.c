@@ -12,9 +12,16 @@
 #include "session.h"
 
 static struct session * _new_session();
+static int32_t _reset_session( struct session * self );
 static int32_t _del_session( struct session * self );
 static inline void _stop( struct session * self );
-static inline int32_t _send( struct session * self, char * buf, uint32_t nbytes );
+// 发送数据
+// _send_only()仅发送,
+// _send_message()发送消息, 未发送成功的添加到发送队列中
+// _send_buffer()发送数据, 未发送成功的创建消息, 添加到发送队列中
+static inline int32_t _send_only( struct session * self, char * buf, uint32_t nbytes );
+static inline int32_t _send_message( struct session * self, struct message * message );
+static inline int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes );
 
 //
 QUEUE_GENERATE( sendqueue, struct message * )
@@ -51,6 +58,29 @@ struct session * _new_session()
     return self;
 }
 
+int32_t _reset_session( struct session * self )
+{
+    // 销毁网络事件
+    if ( self->evread )
+    {
+        event_reset( self->evread );
+    }
+    if ( self->evwrite )
+    {
+        event_reset( self->evwrite );
+    }
+    if ( self->evkeepalive )
+    {
+        event_reset( self->evkeepalive );
+    }
+
+    buffer_erase( &self->inbuffer,
+            buffer_length(&self->inbuffer) );
+    QUEUE_RESET(sendqueue)(&self->sendqueue);
+
+    return 0;
+}
+
 int32_t _del_session( struct session * self )
 {
     // 销毁网络事件
@@ -70,8 +100,8 @@ int32_t _del_session( struct session * self )
         self->evkeepalive = NULL;
     }
 
-    QUEUE_CLEAR(sendqueue)(&self->sendqueue);
     buffer_clear( &self->inbuffer );
+    QUEUE_CLEAR(sendqueue)(&self->sendqueue);
     free( self );
 
     return 0;
@@ -111,7 +141,7 @@ void _stop( struct session * self )
 }
 
 //
-int32_t _send( struct session * self, char * buf, uint32_t nbytes )
+int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
 {
     int32_t ntry = 0;
 
@@ -125,14 +155,11 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
     if ( !(self->status&SESSION_WRITING)
             && session_sendqueue_count(self) == 0 )
     {
+        assert( self->msgoffset == 0 && "SendQueue Offset Invalid" );
+
         // 直接发送
         ntry = channel_send( self, buf, nbytes );
-        if ( ntry == nbytes )
-        {
-            // 全部发送出去
-            return ntry;
-        }
-        else if ( ntry < 0 )
+        if ( ntry < 0 )
         {
             // 发送出错的情况下
             // 将整包添加到发送队列中, 发送长度置0
@@ -144,17 +171,51 @@ int32_t _send( struct session * self, char * buf, uint32_t nbytes )
         // 发送出错的情况下, 添加写事件, 在channel.c:_transmit()出错后, 会尝试关闭连接
     }
 
-    // 创建message, 添加到发送队列中
-    struct message * message = message_create();
-    if ( message == NULL )
+    return ntry;
+}
+
+int32_t _send_message( struct session * self, struct message * message )
+{
+    int32_t ntry = 0;
+    char * buf = message_get_buffer( message );
+    uint32_t nbytes = message_get_length( message );
+
+    // 发送
+    ntry = _send_only( self, buf, nbytes );
+    if ( ntry >= 0 && ntry < nbytes )
     {
-        return -2;
+        // 未全部发送成功的情况下
+
+        // 添加到发送队列中
+        // ntry == 0有两种情况:1. 繁忙; 2. 发送出错
+        self->msgoffset += ntry;
+        QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
+        // 增加写事件
+        session_add_event( self, EV_WRITE );
     }
 
-    message_add_buffer( message, buf+ntry, nbytes-ntry );
-    message_add_receiver( message, self->id );
-    QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
-    session_add_event( self, EV_WRITE );
+    return ntry;
+}
+
+int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes )
+{
+    // 发送
+    int32_t ntry = _send_only( self, buf, nbytes );
+    if ( ntry >= 0 && ntry < nbytes )
+    {
+        // 未全部发送成功的情况下
+
+        // 创建message, 添加到发送队列中
+        struct message * message = message_create();
+        if ( message == NULL )
+        {
+            return -2;
+        }
+        message_add_buffer( message, buf+ntry, nbytes-ntry );
+        message_add_receiver( message, self->id );
+        QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
+        session_add_event( self, EV_WRITE );
+    }
 
     return ntry;
 }
@@ -163,7 +224,6 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 {
     assert( self->service.start != NULL );
     assert( self->service.process != NULL );
-    assert( self->service.transform != NULL );
     assert( self->service.keepalive != NULL );
     assert( self->service.timeout != NULL );
     assert( self->service.error != NULL );
@@ -201,17 +261,21 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port )
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 {
     int32_t rc = -1;
-    ioservice_t * service = &self->service;
+    char * _buf = buf;
+    uint32_t _nbytes = nbytes;
 
     // 数据改造(加密 or 压缩)
-    uint32_t _nbytes = nbytes;
-    char * _buf = service->transform( self->context, (const char *)buf, &_nbytes );
+    if ( unlikely( self->service.transform != NULL ) )
+    {
+        _buf = self->service.transform(
+                self->context, (const char *)buf, &_nbytes );
+    }
 
     if ( likely( _buf != NULL ) )
     {
         // 发送数据
-        // TODO: _send()可以根据具体情况决定是否copy内存
-        rc = _send( self, _buf, _nbytes );
+        // TODO: _send_buffer()可以根据具体情况决定是否copy内存
+        rc = _send_buffer( self, _buf, _nbytes );
 
         if ( _buf != buf )
         {
@@ -224,16 +288,20 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 }
 
 //
-int32_t session_append( struct session * self, struct message * message )
+int32_t session_sendmessage( struct session * self, struct message * message )
 {
-    int32_t rc = -1;
-    ioservice_t * service = &self->service;
-
     char * buf = message_get_buffer( message );
     uint32_t nbytes = message_get_length( message );
 
+    int32_t rc = -1;
+    char * buffer = buf;
+
     // 数据改造(加密 or 压缩)
-    char * buffer = service->transform( self->context, (const char *)buf, &nbytes );
+    if ( unlikely( self->service.transform != NULL ) )
+    {
+        buffer = self->service.transform(
+                self->context, (const char *)buf, &nbytes );
+    }
 
     if ( buffer == buf )
     {
@@ -243,7 +311,7 @@ int32_t session_append( struct session * self, struct message * message )
         rc = QUEUE_PUSH(sendqueue)(&self->sendqueue, &message);
         if ( rc == 0 )
         {
-            // 注册写事件, 处理发送队列
+            // 注册写事件
             session_add_event( self, EV_WRITE );
         }
     }
@@ -251,7 +319,7 @@ int32_t session_append( struct session * self, struct message * message )
     {
         // 消息改造成功
 
-        rc = _send( self, buffer, nbytes );
+        rc = _send_buffer( self, buffer, nbytes );
         if ( rc >= 0 )
         {
             // 改造后的消息已经单独发送
@@ -392,10 +460,12 @@ int32_t session_shutdown( struct session * self )
     return channel_shutdown( self );
 }
 
-int32_t session_end( struct session * self, sid_t id )
+int32_t session_end( struct session * self, sid_t id, int8_t recycle )
 {
     // 由于会话已经从管理器中删除了
     // 会话中的ID已经非法
+
+    assert( recycle == 0 && "NOT support REUSE-SESSION" );
 
     // 清空发送队列
     uint32_t count = session_sendqueue_count(self);
@@ -422,7 +492,16 @@ int32_t session_end( struct session * self, sid_t id )
 
     // 停止会话
     _stop( self );
-    _del_session( self );
+
+    // 是否回收会话
+    if ( recycle == 0 )
+    {
+        _del_session( self );
+    }
+    else
+    {
+        _reset_session( self );
+    }
 
     return 0;
 }
@@ -699,7 +778,7 @@ void session_manager_destroy( struct session_manager * self )
             // 销毁会话
             if ( s != NULL )
             {
-                session_end( s, s->id );
+                session_end( s, s->id, 0 );
                 n->session = NULL;
             }
 

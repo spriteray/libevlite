@@ -35,8 +35,9 @@ extern "C"
 // 系统相关的操作
 //
 
-// 时间函数, 返回毫秒数
-int64_t mtime();
+// 时间函数, 返回毫秒数/微妙数
+int64_t milliseconds();
+int64_t microseconds();
 
 // 获取线程ID
 #if defined(__linux__)
@@ -45,6 +46,7 @@ pid_t threadid();
 
 // socket基本操作
 int32_t is_connected( int32_t fd );
+int32_t set_cloexec( int32_t fd );
 int32_t set_non_block( int32_t fd );
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport );
 int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) );

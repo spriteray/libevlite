@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/socket.h>
 
 #include "network.h"
 #include "channel.h"
@@ -126,52 +127,65 @@ int32_t iolayer_listen( iolayer_t self,
         const char * host, uint16_t port,
         int32_t (*cb)( void *, void *, sid_t, const char * , uint16_t ), void * context )
 {
+    uint8_t i = 0, nthreads = 1;
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-    struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
-    if ( acceptor == NULL )
-    {
-        syslog(LOG_WARNING,
-                "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
-                __FUNCTION__, host == NULL ? "" : host, port);
-        return -1;
-    }
+#ifdef USE_REUSEPORT
+    nthreads = layer->nthreads;
+#endif
 
-    acceptor->event = event_create();
-    if ( acceptor->event == NULL )
+    for ( i = 0; i < nthreads; ++i )
     {
-        syslog(LOG_WARNING,
-                "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
-                __FUNCTION__, host == NULL ? "" : host, port);
-        free( acceptor );
-        return -2;
-    }
+        struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
+        if ( acceptor == NULL )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            return -1;
+        }
 
-    acceptor->fd = tcp_listen( host, port, iolayer_server_option );
-    if ( acceptor->fd <= 0 )
-    {
-        syslog(LOG_WARNING,
-                "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
-                __FUNCTION__, host == NULL ? "" : host, port);
-        free( acceptor );
-        return -3;
-    }
+        acceptor->event = event_create();
+        if ( acceptor->event == NULL )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            free( acceptor );
+            return -2;
+        }
 
-    acceptor->cb = cb;
-    acceptor->context = context;
-    acceptor->parent = self;
-    acceptor->port = port;
-    acceptor->host[0] = 0;
-    if ( host != NULL )
-    {
-        strncpy( acceptor->host, host, INET_ADDRSTRLEN );
-    }
+        acceptor->fd = tcp_listen( host, port, iolayer_server_option );
+        if ( acceptor->fd <= 0 )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            free( acceptor );
+            return -3;
+        }
 
-    iothreads_post( layer->group, DISPATCH_POLICY(layer, acceptor->fd), eIOTaskType_Listen, acceptor, 0 );
+        acceptor->cb = cb;
+        acceptor->context = context;
+        acceptor->parent = self;
+        acceptor->port = port;
+        acceptor->host[0] = 0;
+#ifdef USE_REUSEPORT
+        acceptor->index = i;
+#else
+        acceptor->index = DISPATCH_POLICY(layer, acceptor->fd);
+#endif
+        if ( host != NULL )
+        {
+            strncpy( acceptor->host, host, INET_ADDRSTRLEN );
+        }
+
+        iothreads_post( layer->group, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
+    }
 
     return 0;
 }
@@ -564,6 +578,11 @@ void iolayer_server_option( int32_t fd )
     flag = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
+#ifdef USE_REUSEPORT
+    flag = 1;
+    setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof(flag) );
+#endif
+
 #if SAFE_SHUTDOWN == 0
     {
         struct linger ling;
@@ -658,8 +677,12 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
     return 0;
 }
 
-int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task )
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
+#ifdef USE_REUSEPORT
+    return _assign_direct( self, acceptidx,
+            iothreads_get_sets( self->group, acceptidx ), task );
+#else
     evsets_t sets = iothreads_get_sets( self->group, index );
     pthread_t threadid = iothreads_get_id( self->group, index );
 
@@ -667,9 +690,9 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
     {
         return _assign_direct( self, index, sets, task );
     }
-
     // 跨线程提交发送任务
     return iothreads_post( self->group, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
+#endif
 }
 
 // -----------------------------------------------------------------------------
@@ -768,7 +791,7 @@ int32_t _broadcast2_loop( void * context, struct session * s )
     message_add_receiver( msg, s->id );
 
     // 尝试发送消息
-    session_append( s, msg );
+    session_sendmessage( s, msg );
 
     return 0;
 }
@@ -926,10 +949,9 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
             continue;
         }
 
-        if ( session_append(session, msg) >= 0 )
+        if ( session_sendmessage(session, msg) >= 0 )
         {
             // 尝试单独发送
-            // 添加到发送队列成功
             ++count;
         }
     }
