@@ -63,6 +63,10 @@ typedef void *      iolayer_t;
 //                                 也就是直接调用iolayer_shutdown()或者iolayer_shutdowns();
 //                              1, 逻辑层被动终止会话的情况.
 //
+//        perform()     - 处理其他模块提交到网络层的任务
+//                        type - 任务类型
+//                        task - 任务数据
+//
 typedef struct
 {
     int32_t (*start)( void * context );
