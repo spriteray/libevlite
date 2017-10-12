@@ -35,6 +35,7 @@ public :
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
     virtual void    onShutdown( int32_t way ) {}
+    virtual void    onPerform( int32_t type, void * task ) {}
 
 public :
     //
@@ -79,6 +80,7 @@ private :
     static int32_t  onKeepaliveSession( void * context );
     static int32_t  onErrorSession( void * context, int32_t result );
     static void     onShutdownSession( void * context, int32_t way );
+    static void     onPerformSession( void * context, int32_t type, void * task );
 
 private :
     sid_t       m_Sid;

@@ -88,6 +88,12 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
     delete session;
 }
 
+void IIOSession::onPerformSession( void * context, int32_t type, void * task )
+{
+    IIOSession * session = static_cast<IIOSession *>( context );
+    session->onPerform( type, task );
+}
+
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
@@ -261,6 +267,7 @@ void IIOService::attach( sid_t id, IIOSession * session, void * iocontext, const
     ioservice.keepalive = IIOSession::onKeepaliveSession;
     ioservice.error     = IIOSession::onErrorSession;
     ioservice.shutdown  = IIOSession::onShutdownSession;
+    ioservice.perform   = IIOSession::onPerformSession;
     iolayer_set_service( m_IOLayer, id, &ioservice, session );
 }
 

@@ -72,6 +72,7 @@ typedef struct
     int32_t (*timeout)( void * context );
     int32_t (*error)( void * context, int32_t result );
     void    (*shutdown)( void * context, int32_t way );
+    void    (*perform)( void * context, int32_t type, void * task );
 }ioservice_t;
 
 // 创建网络层
@@ -160,6 +161,12 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes );
 // 此处需要注意, 主动终止会话的情况下,也会收到shutdown()的回调, 只是way==0
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
+
+// 提交任务
+//      id              - 回话ID
+//      type            - 任务类型
+//      task            - 任务数据
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task );
 
 // 停止网络服务
 // 行为定义:

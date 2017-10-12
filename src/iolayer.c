@@ -30,6 +30,7 @@ static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t se
 static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
+static int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 static int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater );
@@ -505,6 +506,28 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
     }
 
     return 0;
+}
+
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task )
+{
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    if ( unlikely(index >= layer->nthreads) )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct task_perform posttask = { id, type, task };
+
+    if ( pthread_self() == iothreads_get_id( layer->group, index ) )
+    {
+        return _perform_direct( self, _get_manager(layer, index), &posttask );
+    }
+
+    // 跨线程提交发送任务
+    return iothreads_post( layer->group, index, eIOTaskType_Perform, (void *)&posttask, sizeof(posttask) );
 }
 
 int32_t iolayer_shutdown( iolayer_t self, sid_t id )
@@ -1001,6 +1024,24 @@ int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session
     return count;
 }
 
+int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task  )
+{
+    int32_t rc = 0;
+    struct session * session = session_manager_get( manager, task->id );
+
+    if ( likely( session != NULL ) )
+    {
+        session->service.perform( session->context, task->type, task->task );
+    }
+    else
+    {
+        rc = -1;
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, task->id );
+    }
+
+    return rc;
+}
+
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 {
     struct session * session = session_manager_get( manager, id );
@@ -1133,6 +1174,11 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
             // 关联描述符和会话ID
         case eIOTaskType_Associate :
             _associate_direct( layer, index, sets, (struct associater *)task );
+            break;
+
+            // 逻辑任务
+        case eIOTaskType_Perform :
+            _perform_direct( layer, manager, (struct task_perform *)task );
             break;
     }
 }

@@ -92,6 +92,9 @@ void onShutdown( void * context, int32_t way )
     free( s );
 }
 
+void onPerform( void * context, int32_t type, void * task )
+{}
+
 char * onLayerTransform( void * context, const char * buf, uint32_t * nbytes )
 {
     return (char *)buf;
@@ -115,6 +118,7 @@ int32_t onLayerAccept( void * context, void * local, sid_t id, const char * host
         ioservice.keepalive    = onKeepalive;
         ioservice.error        = onError;
         ioservice.shutdown    = onShutdown;
+        ioservice.perform    = onPerform;
         iolayer_set_service( layer, id, &ioservice, session );
     }
 
