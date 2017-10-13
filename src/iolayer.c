@@ -561,6 +561,8 @@ int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * )
         }
     }
 
+    free( tasklist );
+
     return 0;
 }
 
