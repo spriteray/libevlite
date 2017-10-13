@@ -14,6 +14,32 @@
 #include "io.h"
 #include "chatroom.h"
 
+class TASK
+{
+public :
+    TASK() {}
+    ~TASK() {}
+
+    static void * clone( void * t )
+    {
+        TASK * task = (TASK *)t;
+        TASK * newtask = new TASK();
+        newtask->data = task->data;
+
+        return newtask;
+    }
+
+    static void perform( void * iocontext, void * t )
+    {
+        TASK * task = (TASK *)t;
+        printf( "%p : %d \n", iocontext, task->data );
+        delete task;
+    }
+
+public :
+    int32_t data;
+};
+
 class CChatRoomService;
 class CChatRoomSession : public IIOSession
 {
@@ -25,6 +51,7 @@ public :
     virtual int32_t onStart();
     virtual int32_t onProcess( const char * buf, uint32_t nbytes );
     virtual void onShutdown( int32_t way );
+    virtual void onPerform( int32_t type, void * task );
 
 public :
     void setService( CChatRoomService * s );
@@ -40,7 +67,7 @@ public :
     virtual ~CChatRoomService();
 
 public :
-    virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port );
+    virtual IIOSession * onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port );
 
 public :
     bool init( const char * host, uint16_t port );
@@ -64,6 +91,8 @@ private :
         }
     };
 
+    uint32_t            m_UniqueID;
+    bool                m_Perform;
     pthread_mutex_t     m_TaskLock;
     std::deque<Task>    m_TaskQueue;
     std::vector<sid_t>  m_SessionMap;
@@ -131,6 +160,11 @@ void CChatRoomSession::onShutdown( int32_t way )
     m_Service->post( id(), &head );
 }
 
+void CChatRoomSession::onPerform( int32_t type, void * task )
+{
+    printf( "Session:%lu, ID:%lu\n", id(), (uint64_t)(task) );
+}
+
 void CChatRoomSession::setService( CChatRoomService * s )
 {
     m_Service = s;
@@ -138,7 +172,9 @@ void CChatRoomSession::setService( CChatRoomService * s )
 
 
 CChatRoomService::CChatRoomService( uint8_t nthreads, uint32_t nclients )
-    : IIOService( nthreads, nclients )
+    : IIOService( nthreads, nclients ),
+      m_UniqueID( 0 ),
+      m_Perform( false )
 {
     m_SessionMap.reserve( nclients );
     pthread_mutex_init( &m_TaskLock, NULL );
@@ -149,7 +185,7 @@ CChatRoomService::~CChatRoomService()
     pthread_mutex_destroy( &m_TaskLock );
 }
 
-IIOSession * CChatRoomService::onAccept( sid_t id, const char * host, uint16_t port )
+IIOSession * CChatRoomService::onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port )
 {
     CChatRoomSession * session = new CChatRoomSession;
     if ( session )
@@ -163,6 +199,8 @@ IIOSession * CChatRoomService::onAccept( sid_t id, const char * host, uint16_t p
 bool CChatRoomService::init( const char * host, uint16_t port )
 {
     bool rc = false;
+
+    start();
 
     rc = listen( host, port );
     if ( !rc )
@@ -181,6 +219,14 @@ void CChatRoomService::run()
     std::swap( swapqueue, m_TaskQueue );
     pthread_mutex_unlock( &m_TaskLock );
 
+    if ( !m_Perform )
+    {
+        TASK * t = new TASK();
+        t->data = 1000;
+        perform( t, t->clone, t->perform );
+        m_Perform = true;
+    }
+
     for ( std::deque<Task>::iterator it = swapqueue.begin(); it != swapqueue.end(); ++it )
     {
         Task * task = &(*it);
@@ -190,6 +236,7 @@ void CChatRoomService::run()
             case 0 :
                 {
                     m_SessionMap.push_back( task->sid );
+                    perform( task->sid, 1, (void *)(++m_UniqueID) );
                 }
                 break;
 
