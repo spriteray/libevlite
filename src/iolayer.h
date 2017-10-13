@@ -123,6 +123,13 @@ struct task_perform
     void *      task;
 };
 
+struct task_perform2
+{
+    void *      task;
+    void *      (*clone)( void * );
+    void        (*perform)( void *, void * );
+};
+
 // 看样子内存对齐不需要使用了
 #pragma pack(1)
 #pragma pack()

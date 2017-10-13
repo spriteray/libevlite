@@ -171,6 +171,8 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 //      type            - 任务类型
 //      task            - 任务数据
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task );
+int32_t iolayer_perform2( iolayer_t self, void * task,
+        void * (*clone)( void * ), void (*perform)( void * , void * ) );
 
 // 停止网络服务
 // 行为定义:
