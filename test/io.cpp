@@ -99,8 +99,9 @@ void IIOSession::onPerformSession( void * context, int32_t type, void * task )
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool immediately )
+IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool immediately, bool transform )
     : m_IOLayer( NULL ),
+      m_Transform( transform ),
       m_ThreadsCount( nthreads ),
       m_SessionsCount( nclients ),
       m_IOContextGroup( NULL )
@@ -314,7 +315,7 @@ void IIOService::attach( sid_t id, IIOSession * session, void * iocontext, const
     ioservice_t ioservice;
     ioservice.start     = IIOSession::onStartSession;
     ioservice.process   = IIOSession::onProcessSession;
-    ioservice.transform = IIOSession::onTransformSession;
+    ioservice.transform = m_Transform ? IIOSession::onTransformSession : NULL;
     ioservice.timeout   = IIOSession::onTimeoutSession;
     ioservice.keepalive = IIOSession::onKeepaliveSession;
     ioservice.error     = IIOSession::onErrorSession;

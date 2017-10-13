@@ -99,7 +99,7 @@ class IIOService
 {
 public :
     IIOService( uint8_t nthreads,
-            uint32_t nclients, bool immediately = false );
+            uint32_t nclients, bool immediately = false, bool transform = false );
     virtual ~IIOService();
 
 public :
@@ -210,6 +210,7 @@ private :
 
 private :
     iolayer_t           m_IOLayer;
+    bool                m_Transform;
     uint8_t             m_ThreadsCount;
     uint32_t            m_SessionsCount;
     void **             m_IOContextGroup;
