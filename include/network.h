@@ -158,7 +158,6 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
 
 // 广播数据到IO层的所有会话
-// 非常高效的接口, 从设计上来说, 比较丑陋
 int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes );
 
 // 终止指定的会话
@@ -167,10 +166,17 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
 // 提交任务
-//      id              - 回话ID
+//      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task );
+int32_t iolayer_perform( io回layer_t self, sid_t id, int32_t type, void * task );
+
+// 提交任务
+//      task            - 任务
+//      clone           - 任务的复制函数
+//      perform         - 任务的处理函数
+//                          参数1: iocontext
+//                          参数2: task
 int32_t iolayer_perform2( iolayer_t self, void * task,
         void * (*clone)( void * ), void (*perform)( void * , void * ) );
 
