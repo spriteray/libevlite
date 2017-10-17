@@ -14,8 +14,6 @@
 #include "threads.h"
 #include "threads-internal.h"
 
-static inline void _process( struct iothreads * parent,
-        struct iothread * thread, struct taskqueue * doqueue, uint32_t * maxtasks );
 // 创建网络线程组
 // nthreads     - 网络线程组中的线程数
 // method       - 任务处理函数
@@ -163,6 +161,8 @@ void iothreads_stop( iothreads_t self )
 
 static void * iothread_main( void * arg );
 static void iothread_on_command( int32_t fd, int16_t ev, void * arg );
+static inline uint32_t _process(
+        struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue );
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent )
 {
@@ -249,13 +249,15 @@ int32_t iothread_stop( struct iothread * self )
     return 0;
 }
 
-void _process( struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue, uint32_t * maxtasks )
+uint32_t _process( struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue )
 {
+    uint32_t nprocess = 0;
+
     // 交换任务队列
     msgqueue_swap( thread->queue, doqueue );
 
     // 获取最大任务数
-    *maxtasks = MAX( *maxtasks, QUEUE_COUNT(taskqueue)(doqueue) );
+    nprocess = QUEUE_COUNT(taskqueue)(doqueue);
 
     // 处理任务
     while ( QUEUE_COUNT(taskqueue)(doqueue) > 0 )
@@ -291,6 +293,8 @@ void _process( struct iothreads * parent, struct iothread * thread, struct taskq
         // 回调
         parent->method( parent->context, thread->index, task.utype, data );
     }
+
+    return nprocess;
 }
 
 void * iothread_main( void * arg )
@@ -310,15 +314,20 @@ void * iothread_main( void * arg )
 
     while ( parent->runflags )
     {
+        uint32_t nprocess = 0;
+
         // 轮询网络事件
         evsets_dispatch( thread->sets );
 
         // 处理事件
-        _process( parent, thread, &doqueue, &maxtasks );
+        nprocess = _process( parent, thread, &doqueue );
+
+        // 最大任务数
+        maxtasks = MAX( maxtasks, nprocess );
     }
 
     // 清理队列中剩余数据
-    _process( parent, thread, &doqueue, &maxtasks );
+    _process( parent, thread, &doqueue );
     // 清空队列
     QUEUE_CLEAR(taskqueue)( &doqueue );
 
