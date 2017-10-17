@@ -14,6 +14,8 @@
 #include "threads.h"
 #include "threads-internal.h"
 
+static inline void _process( struct iothreads * parent,
+        struct iothread * thread, struct taskqueue * doqueue, uint32_t * maxtasks );
 // 创建网络线程组
 // nthreads     - 网络线程组中的线程数
 // method       - 任务处理函数
@@ -247,6 +249,50 @@ int32_t iothread_stop( struct iothread * self )
     return 0;
 }
 
+void _process( struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue, uint32_t * maxtasks )
+{
+    // 交换任务队列
+    msgqueue_swap( thread->queue, doqueue );
+
+    // 获取最大任务数
+    *maxtasks = MAX( *maxtasks, QUEUE_COUNT(taskqueue)(doqueue) );
+
+    // 处理任务
+    while ( QUEUE_COUNT(taskqueue)(doqueue) > 0 )
+    {
+        struct task task;
+        void * data = NULL;
+
+        QUEUE_POP(taskqueue)( doqueue, &task );
+        switch ( task.type )
+        {
+            case eTaskType_Null :
+                {
+                    // 空命令
+                    continue;
+                }
+                break;
+
+            case eTaskType_User :
+                {
+                    // 用户命令
+                    data = task.taskdata;
+                }
+                break;
+
+            case eTaskType_Data :
+                {
+                    // 数据命令
+                    data = (void *)(task.data);
+                }
+                break;
+        }
+
+        // 回调
+        parent->method( parent->context, thread->index, task.utype, data );
+    }
+}
+
 void * iothread_main( void * arg )
 {
     uint32_t maxtasks = 0;
@@ -267,48 +313,13 @@ void * iothread_main( void * arg )
         // 轮询网络事件
         evsets_dispatch( thread->sets );
 
-        // 交换任务队列
-        msgqueue_swap( thread->queue, &doqueue );
-
-        // 获取最大任务数
-        maxtasks = MAX( maxtasks, QUEUE_COUNT(taskqueue)(&doqueue) );
-
-        // 处理任务
-        while ( QUEUE_COUNT(taskqueue)(&doqueue) > 0 )
-        {
-            struct task task;
-            void * data = NULL;
-
-            QUEUE_POP(taskqueue)( &doqueue, &task );
-            switch ( task.type )
-            {
-                case eTaskType_Null :
-                    {
-                        // 空命令
-                        continue;
-                    }
-                    break;
-
-                case eTaskType_User :
-                    {
-                        // 用户命令
-                        data = task.taskdata;
-                    }
-                    break;
-
-                case eTaskType_Data :
-                    {
-                        // 数据命令
-                        data = (void *)(task.data);
-                    }
-                    break;
-            }
-
-            // 回调
-            parent->method( parent->context, thread->index, task.utype, data );
-        }
+        // 处理事件
+        _process( parent, thread, &doqueue, &maxtasks );
     }
 
+    // 清理队列中剩余数据
+    _process( parent, thread, &doqueue, &maxtasks );
+    // 清空队列
     QUEUE_CLEAR(taskqueue)( &doqueue );
 
     // 日志
