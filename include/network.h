@@ -169,7 +169,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-int32_t iolayer_perform( io回layer_t self, sid_t id, int32_t type, void * task );
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task );
 
 // 提交任务
 //      task            - 任务
