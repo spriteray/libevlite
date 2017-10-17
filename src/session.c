@@ -228,6 +228,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     assert( self->service.timeout != NULL );
     assert( self->service.error != NULL );
     assert( self->service.shutdown != NULL );
+    assert( self->service.perform != NULL );
 
     self->fd        = fd;
     self->type      = type;

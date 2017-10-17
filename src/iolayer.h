@@ -116,6 +116,20 @@ struct task_send
     int32_t     isfree;         // 4bytes
 };
 
+struct task_perform
+{
+    sid_t       id;
+    int32_t     type;
+    void *      task;
+};
+
+struct task_perform2
+{
+    void *      task;
+    void *      (*clone)( void * );
+    void        (*perform)( void *, void * );
+};
+
 // 看样子内存对齐不需要使用了
 #pragma pack(1)
 #pragma pack()

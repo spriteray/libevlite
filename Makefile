@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.4.1
+VERSION 	= 9.5.1
 PREFIX		= /usr/local
 
 # 主版本号
@@ -21,8 +21,8 @@ endif
 
 # 默认选项
 LFLAGS		= -ggdb -lpthread
-CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_REUSEPORT #-DUSE_POSIX
-CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_REUSEPORT #-DUSE_POSIX
+CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_REUSEPORT #-DUSE_ATOMIC
+CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_REUSEPORT #-DUSE_ATOMIC
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)

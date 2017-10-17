@@ -30,6 +30,8 @@ static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t se
 static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
+static int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task );
+static void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 static int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater );
@@ -503,6 +505,63 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
             }
         }
     }
+
+    return 0;
+}
+
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task )
+{
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    if ( unlikely(index >= layer->nthreads) )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct task_perform posttask = { id, type, task };
+
+    if ( pthread_self() == iothreads_get_id( layer->group, index ) )
+    {
+        return _perform_direct( self, _get_manager(layer, index), &posttask );
+    }
+
+    // 跨线程提交发送任务
+    return iothreads_post( layer->group, index, eIOTaskType_Perform, (void *)&posttask, sizeof(posttask) );
+}
+
+int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
+{
+    uint8_t i = 0;
+
+    pthread_t threadid = pthread_self();
+    struct iolayer * layer = (struct iolayer *)self;
+    struct task_perform2 * tasklist = calloc( layer->nthreads, sizeof(struct task_perform2) );
+
+    assert( tasklist != NULL && "create struct task_perform2 failed" );
+    for ( i = 0; i < layer->nthreads; ++i )
+    {
+        tasklist[i].clone = clone;
+        tasklist[i].perform = perform;
+        tasklist[i].task = i == 0 ? task : clone( task );
+    }
+
+    for ( i = 0; i < layer->nthreads; ++i )
+    {
+        if ( threadid == iothreads_get_id( layer->group, i ) )
+        {
+            // 本线程内直接广播
+            _perform2_direct( layer, i, &( tasklist[i] ) );
+        }
+        else
+        {
+            // 跨线程提交广播任务
+            iothreads_post( layer->group, i, eIOTaskType_Perform2, &( tasklist[i] ), sizeof(struct task_perform2) );
+        }
+    }
+
+    free( tasklist );
 
     return 0;
 }
@@ -1001,6 +1060,29 @@ int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session
     return count;
 }
 
+int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task  )
+{
+    int32_t rc = 0;
+    struct session * session = session_manager_get( manager, task->id );
+
+    if ( likely( session != NULL ) )
+    {
+        session->service.perform( session->context, task->type, task->task );
+    }
+    else
+    {
+        rc = -1;
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, task->id );
+    }
+
+    return rc;
+}
+
+void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task )
+{
+    task->perform( iothreads_get_context( self->group, index ), task->task );
+}
+
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 {
     struct session * session = session_manager_get( manager, id );
@@ -1133,6 +1215,16 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
             // 关联描述符和会话ID
         case eIOTaskType_Associate :
             _associate_direct( layer, index, sets, (struct associater *)task );
+            break;
+
+            // 逻辑任务
+        case eIOTaskType_Perform :
+            _perform_direct( layer, manager, (struct task_perform *)task );
+            break;
+
+            // 逻辑任务
+        case eIOTaskType_Perform2 :
+            _perform2_direct( layer, index, (struct task_perform2 *)task );
             break;
     }
 }

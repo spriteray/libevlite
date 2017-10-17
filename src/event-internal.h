@@ -84,7 +84,7 @@ int32_t event_active( struct event * self, int16_t res );
 //
 // event定时器模块
 //
-#define TIMER_MAX_PRECISION 8           // 定时器最大精度为8ms
+#define TIMER_MAX_PRECISION 20          // 定时器最大精度为20ms
 #define TIMER_BUCKET_COUNT  8192        // 必须是2的N次方
 
 struct evtimer

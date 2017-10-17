@@ -56,4 +56,6 @@ libevlite网络通信库(Linux, Darwin, *BSD)
             1> 停止对外提供接入服务, 不再接受新的连接;
             2> 停止所有连接的接收服务, 不再回调ioservice_t::process()
 
-    11) 销毁网络层 iolayer_destroy()
+    11) 提交任务 iolayer_perform(), iolayer_perform2()
+
+    12) 销毁网络层 iolayer_destroy()

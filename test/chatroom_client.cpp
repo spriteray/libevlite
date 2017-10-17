@@ -93,7 +93,7 @@ public :
         std::string msg( length, 0 );
 
         CSHead * head = (CSHead *)msg.data();
-        head->msgid = 2;// (rand()%1000) > 50 ? 1 : 2;
+        head->msgid = 1;// (rand()%1000) > 50 ? 1 : 2;
         head->length = length;
         msg.resize( length );
 
