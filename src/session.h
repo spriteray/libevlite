@@ -115,6 +115,7 @@ int32_t session_start_reconnect( struct session * self );
 
 // 设置被终止的标志
 #define session_close( self )               ( (self)->status |= SESSION_SHUTDOWNING )
+#define session_call_shutdown( self, way )  ( (self)->service.shutdown( (self)->context, (way) ) )
 
 // 尝试终止会话
 // 该API会尽量把发送队列中的数据发送出去
