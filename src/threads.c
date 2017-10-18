@@ -209,8 +209,8 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 
 int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void * task, uint8_t size )
 {
-    struct iothreads * threads = self->parent;
     struct task inter_task = { .type=type, .utype=utype };
+    struct iothreads * threads = (struct iothreads *)self->parent;
 
     if ( size == 0 )
     {
