@@ -360,6 +360,7 @@ int main( int argc, char ** argv )
         usleep(1000);
     }
 
+    service.halt();
     service.stop();
     return 0;
 }
