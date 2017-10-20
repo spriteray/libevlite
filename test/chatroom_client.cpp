@@ -89,7 +89,6 @@ public :
 
     ssize_t send()
     {
-        printf( "XXX\n" );
         uint16_t length = CHATROOM_MESSAGE_SIZE+sizeof(CSHead);
         std::string msg( length, 0 );
 

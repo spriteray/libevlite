@@ -1068,7 +1068,12 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
 
     if ( likely( session != NULL ) )
     {
-        session->service.perform( session->context, task->type, task->task );
+        if ( session->service.perform(
+                    session->context, task->type, task->task ) < 0 )
+        {
+            session_close( session );
+            session_shutdown( session );
+        }
     }
     else
     {

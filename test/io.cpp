@@ -89,10 +89,9 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
     delete session;
 }
 
-void IIOSession::onPerformSession( void * context, int32_t type, void * task )
+int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task )
 {
-    IIOSession * session = static_cast<IIOSession *>( context );
-    session->onPerform( type, task );
+    return static_cast<IIOSession *>(context)->onPerform( type, task );
 }
 
 // ----------------------------------------------------------------------------

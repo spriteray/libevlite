@@ -75,8 +75,8 @@ typedef struct
     int32_t (*keepalive)( void * context );
     int32_t (*timeout)( void * context );
     int32_t (*error)( void * context, int32_t result );
+    int32_t (*perform)( void * context, int32_t type, void * task );
     void    (*shutdown)( void * context, int32_t way );
-    void    (*perform)( void * context, int32_t type, void * task );
 }ioservice_t;
 
 // 创建网络层
