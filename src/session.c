@@ -779,6 +779,8 @@ void session_manager_destroy( struct session_manager * self )
             // 销毁会话
             if ( s != NULL )
             {
+                // 避免触发逻辑层的回调
+                session_call_shutdown( s, 0 );
                 session_end( s, s->id, 0 );
                 n->session = NULL;
             }

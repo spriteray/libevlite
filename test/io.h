@@ -35,8 +35,8 @@ public :
     virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
+    virtual int32_t onPerform( int32_t type, void * task ) { return 0; }
     virtual void    onShutdown( int32_t way ) {}
-    virtual void    onPerform( int32_t type, void * task ) {}
 
 public :
     //
@@ -80,8 +80,8 @@ private :
     static int32_t  onTimeoutSession( void * context );
     static int32_t  onKeepaliveSession( void * context );
     static int32_t  onErrorSession( void * context, int32_t result );
+    static int32_t  onPerformSession( void * context, int32_t type, void * task );
     static void     onShutdownSession( void * context, int32_t way );
-    static void     onPerformSession( void * context, int32_t type, void * task );
 
 private :
     sid_t       m_Sid;
@@ -125,11 +125,15 @@ public :
     // 线程安全的API
     //
 
+    // 开启/停止服务
+    bool start();
+    void stop();
+
     // 获取版本号
     static const char * version();
 
-    // 开启服务
-    bool start();
+    // 停止对外服务
+    void halt();
 
     // 获取连接成功的会话ID
     sid_t id( const char * host, uint16_t port );
@@ -138,16 +142,15 @@ public :
     bool listen( const char * host, uint16_t port );
     bool connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
 
-    // 停止服务
-    void stop();
-
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
     int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree = false );
 
     // 广播数据
     int32_t broadcast( const std::string & buffer );
+    int32_t broadcast( const char * buffer, uint32_t nbytes );
     int32_t broadcast( const std::vector<sid_t> & ids, const std::string & buffer );
+    int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes );
 
     // perform
     int32_t perform( sid_t sid, int32_t type, void * task );
@@ -211,6 +214,7 @@ private :
 private :
     iolayer_t           m_IOLayer;
     bool                m_Transform;
+    bool                m_Immediately;
     uint8_t             m_ThreadsCount;
     uint32_t            m_SessionsCount;
     void **             m_IOContextGroup;

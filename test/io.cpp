@@ -89,10 +89,9 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
     delete session;
 }
 
-void IIOSession::onPerformSession( void * context, int32_t type, void * task )
+int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task )
 {
-    IIOSession * session = static_cast<IIOSession *>( context );
-    session->onPerform( type, task );
+    return static_cast<IIOSession *>(context)->onPerform( type, task );
 }
 
 // ----------------------------------------------------------------------------
@@ -102,42 +101,17 @@ void IIOSession::onPerformSession( void * context, int32_t type, void * task )
 IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool immediately, bool transform )
     : m_IOLayer( NULL ),
       m_Transform( transform ),
+      m_Immediately( immediately ),
       m_ThreadsCount( nthreads ),
       m_SessionsCount( nclients ),
       m_IOContextGroup( NULL )
 {
     pthread_cond_init( &m_Cond, NULL );
     pthread_mutex_init( &m_Lock, NULL );
-
-    m_IOLayer = iolayer_create( m_ThreadsCount, m_SessionsCount, immediately ? 1 : 0 );
 }
 
 IIOService::~IIOService()
 {
-    if ( m_IOLayer != NULL )
-    {
-        iolayer_destroy( m_IOLayer );
-        m_IOLayer = NULL;
-    }
-
-    if ( m_IOContextGroup != NULL )
-    {
-        for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
-        {
-            if ( m_IOContextGroup != NULL )
-            {
-                finalIOContext( m_IOContextGroup[i] );
-            }
-        }
-
-        delete [] m_IOContextGroup;
-    }
-
-    for ( size_t i = 0; i < m_ListenContexts.size(); ++i )
-    {
-        delete m_ListenContexts[i];
-    }
-
     pthread_cond_destroy( &m_Cond );
     pthread_mutex_destroy( &m_Lock );
 }
@@ -149,6 +123,9 @@ const char * IIOService::version()
 
 bool IIOService::start()
 {
+    m_IOLayer = iolayer_create(
+            m_ThreadsCount,
+            m_SessionsCount, m_Immediately ? 1 : 0 );
     if ( m_IOLayer == NULL )
     {
         return false;
@@ -167,6 +144,54 @@ bool IIOService::start()
     iolayer_set_iocontext( m_IOLayer, m_IOContextGroup, m_ThreadsCount );
 
     return true;
+}
+
+void IIOService::stop()
+{
+    if ( m_IOLayer != NULL )
+    {
+        iolayer_destroy( m_IOLayer );
+        m_IOLayer = NULL;
+    }
+
+    for ( size_t i = 0; i < m_ListenContexts.size(); ++i )
+    {
+        delete m_ListenContexts[i];
+    }
+
+    if ( m_IOContextGroup != NULL )
+    {
+        for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
+        {
+            if ( m_IOContextGroup != NULL )
+            {
+                finalIOContext( m_IOContextGroup[i] );
+            }
+        }
+
+        delete [] m_IOContextGroup;
+    }
+}
+
+void IIOService::halt()
+{
+    SidList sids;
+
+    // 获取所有会话ID
+    pthread_mutex_lock( &m_Lock );
+    for ( size_t i = 0; i < m_RemoteHosts.size(); ++i )
+    {
+        sids.push_back( m_RemoteHosts[i].sid );
+    }
+    pthread_mutex_unlock( &m_Lock );
+
+    if ( m_IOLayer != NULL )
+    {
+        // 关闭连接的服务器
+        this->shutdown( sids );
+        // 停止网络库
+        iolayer_stop( m_IOLayer );
+    }
 }
 
 sid_t IIOService::id( const char * host, uint16_t port )
@@ -232,28 +257,6 @@ bool IIOService::connect( const char * host, uint16_t port, int32_t seconds, boo
     return connectedsid > 0 && connectedsid != (sid_t)-1;
 }
 
-void IIOService::stop()
-{
-    SidList sids;
-
-    // 获取所有会话ID
-    pthread_mutex_lock( &m_Lock );
-    for ( size_t i = 0; i < m_RemoteHosts.size(); ++i )
-    {
-        sids.push_back( m_RemoteHosts[i].sid );
-    }
-    pthread_mutex_unlock( &m_Lock );
-
-    if ( m_IOLayer != NULL )
-    {
-        // 关闭连接的服务器
-        this->shutdown( sids );
-
-        // 停止网络库
-        iolayer_stop( m_IOLayer );
-    }
-}
-
 int32_t IIOService::send( sid_t id, const std::string & buffer )
 {
     return send( id, static_cast<const char *>(buffer.data()), static_cast<uint32_t>(buffer.size()) );
@@ -272,6 +275,11 @@ int32_t IIOService::broadcast( const std::string & buffer )
     return iolayer_broadcast2( m_IOLayer, buf, nbytes );
 }
 
+int32_t IIOService::broadcast( const char * buffer, uint32_t nbytes )
+{
+    return iolayer_broadcast2( m_IOLayer, buffer, nbytes );
+}
+
 int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string & buffer )
 {
     uint32_t nbytes = static_cast<uint32_t>(buffer.size());
@@ -281,6 +289,14 @@ int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string
     std::vector<sid_t>::const_iterator start = ids.begin();
 
     return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buf, nbytes );
+}
+
+int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
+{
+    uint32_t count = (uint32_t)ids.size();
+    std::vector<sid_t>::const_iterator start = ids.begin();
+
+    return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buffer, nbytes );
 }
 
 int32_t IIOService::perform( sid_t sid, int32_t type, void * task )

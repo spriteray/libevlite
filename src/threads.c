@@ -161,6 +161,8 @@ void iothreads_stop( iothreads_t self )
 
 static void * iothread_main( void * arg );
 static void iothread_on_command( int32_t fd, int16_t ev, void * arg );
+static inline uint32_t _process(
+        struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue );
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent )
 {
@@ -207,8 +209,8 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 
 int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void * task, uint8_t size )
 {
-    struct iothreads * threads = self->parent;
     struct task inter_task = { .type=type, .utype=utype };
+    struct iothreads * threads = (struct iothreads *)self->parent;
 
     if ( size == 0 )
     {
@@ -247,6 +249,54 @@ int32_t iothread_stop( struct iothread * self )
     return 0;
 }
 
+uint32_t _process( struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue )
+{
+    uint32_t nprocess = 0;
+
+    // 交换任务队列
+    msgqueue_swap( thread->queue, doqueue );
+
+    // 获取最大任务数
+    nprocess = QUEUE_COUNT(taskqueue)(doqueue);
+
+    // 处理任务
+    while ( QUEUE_COUNT(taskqueue)(doqueue) > 0 )
+    {
+        struct task task;
+        void * data = NULL;
+
+        QUEUE_POP(taskqueue)( doqueue, &task );
+        switch ( task.type )
+        {
+            case eTaskType_Null :
+                {
+                    // 空命令
+                    continue;
+                }
+                break;
+
+            case eTaskType_User :
+                {
+                    // 用户命令
+                    data = task.taskdata;
+                }
+                break;
+
+            case eTaskType_Data :
+                {
+                    // 数据命令
+                    data = (void *)(task.data);
+                }
+                break;
+        }
+
+        // 回调
+        parent->method( parent->context, thread->index, task.utype, data );
+    }
+
+    return nprocess;
+}
+
 void * iothread_main( void * arg )
 {
     uint32_t maxtasks = 0;
@@ -264,50 +314,21 @@ void * iothread_main( void * arg )
 
     while ( parent->runflags )
     {
+        uint32_t nprocess = 0;
+
         // 轮询网络事件
         evsets_dispatch( thread->sets );
 
-        // 交换任务队列
-        msgqueue_swap( thread->queue, &doqueue );
+        // 处理事件
+        nprocess = _process( parent, thread, &doqueue );
 
-        // 获取最大任务数
-        maxtasks = MAX( maxtasks, QUEUE_COUNT(taskqueue)(&doqueue) );
-
-        // 处理任务
-        while ( QUEUE_COUNT(taskqueue)(&doqueue) > 0 )
-        {
-            struct task task;
-            void * data = NULL;
-
-            QUEUE_POP(taskqueue)( &doqueue, &task );
-            switch ( task.type )
-            {
-                case eTaskType_Null :
-                    {
-                        // 空命令
-                        continue;
-                    }
-                    break;
-
-                case eTaskType_User :
-                    {
-                        // 用户命令
-                        data = task.taskdata;
-                    }
-                    break;
-
-                case eTaskType_Data :
-                    {
-                        // 数据命令
-                        data = (void *)(task.data);
-                    }
-                    break;
-            }
-            // 回调
-            parent->method( parent->context, thread->index, task.utype, data );
-        }
+        // 最大任务数
+        maxtasks = MAX( maxtasks, nprocess );
     }
 
+    // 清理队列中剩余数据
+    _process( parent, thread, &doqueue );
+    // 清空队列
     QUEUE_CLEAR(taskqueue)( &doqueue );
 
     // 日志

@@ -318,7 +318,7 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
         }
 
         rc |= 0x02;
-        e->timer_msecs = tv < sets->timer_precision ? sets->timer_precision : tv;
+        e->timer_msecs = tv;
         event_queue_insert( sets, e, EVSTATUS_TIMER );
     }
 

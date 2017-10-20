@@ -102,7 +102,7 @@ void iolayer_destroy( iolayer_t self )
     {
         for ( i = 0; i < layer->nthreads; ++i )
         {
-            struct session_manager * manager = layer->managers[i<<3];
+            struct session_manager * manager = (struct session_manager *)layer->managers[i<<3];
             if ( manager )
             {
                 session_manager_destroy( manager );
@@ -142,7 +142,7 @@ int32_t iolayer_listen( iolayer_t self,
 
     for ( i = 0; i < nthreads; ++i )
     {
-        struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
+        struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof(struct acceptor) );
         if ( acceptor == NULL )
         {
             syslog(LOG_WARNING,
@@ -171,15 +171,15 @@ int32_t iolayer_listen( iolayer_t self,
             return -3;
         }
 
-        acceptor->cb = cb;
-        acceptor->context = context;
-        acceptor->parent = self;
-        acceptor->port = port;
-        acceptor->host[0] = 0;
+        acceptor->cb        = cb;
+        acceptor->context   = context;
+        acceptor->parent    = layer;
+        acceptor->port      = port;
+        acceptor->host[0]   = 0;
 #ifdef USE_REUSEPORT
-        acceptor->index = i;
+        acceptor->index     = i;
 #else
-        acceptor->index = DISPATCH_POLICY(layer, acceptor->fd);
+        acceptor->index     = DISPATCH_POLICY(layer, acceptor->fd);
 #endif
         if ( host != NULL )
         {
@@ -214,7 +214,7 @@ int32_t iolayer_connect( iolayer_t self,
     assert( host != NULL && "Illegal specified Host" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-    struct connector * connector = calloc( 1, sizeof(struct connector) );
+    struct connector * connector = (struct connector *)calloc( 1, sizeof(struct connector) );
     if ( connector == NULL )
     {
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, Out-Of-Memory .", __FUNCTION__, host, port);
@@ -237,13 +237,13 @@ int32_t iolayer_connect( iolayer_t self,
         return -3;
     }
 
-    connector->cb = cb;
-    connector->context = context;
+    connector->cb       = cb;
+    connector->context  = context;
     connector->mseconds = seconds*1000;
-    connector->parent = self;
-    connector->port = port;
+    connector->parent   = layer;
+    connector->port     = port;
     strncpy( connector->host, host, INET_ADDRSTRLEN );
-    connector->index = DISPATCH_POLICY( layer, connector->fd );
+    connector->index    = DISPATCH_POLICY( layer, connector->fd );
 
     iothreads_post( layer->group, connector->index, eIOTaskType_Connect, connector, 0 );
 
@@ -267,7 +267,7 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd,
     assert( fd > 2 && "Illegal Descriptor" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-    struct associater * associater = calloc( 1, sizeof(struct associater) );
+    struct associater * associater = (struct associater *)calloc( 1, sizeof(struct associater) );
     if ( associater == NULL )
     {
         syslog( LOG_WARNING, "%s(fd:%u) failed, Out-Of-Memory .", __FUNCTION__, fd );
@@ -524,7 +524,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task )
 
     if ( pthread_self() == iothreads_get_id( layer->group, index ) )
     {
-        return _perform_direct( self, _get_manager(layer, index), &posttask );
+        return _perform_direct( layer, _get_manager(layer, index), &posttask );
     }
 
     // 跨线程提交发送任务
@@ -537,8 +537,9 @@ int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * )
 
     pthread_t threadid = pthread_self();
     struct iolayer * layer = (struct iolayer *)self;
-    struct task_perform2 * tasklist = calloc( layer->nthreads, sizeof(struct task_perform2) );
+    struct task_perform2 * tasklist = (struct task_perform2 *)calloc( layer->nthreads, sizeof(struct task_perform2) );
 
+    // clone task
     assert( tasklist != NULL && "create struct task_perform2 failed" );
     for ( i = 0; i < layer->nthreads; ++i )
     {
@@ -765,7 +766,7 @@ int32_t _new_managers( struct iolayer * self )
 
     // 会话管理器,
     // 采用cacheline对齐以提高访问速度
-    self->managers = calloc( (self->nthreads)<<3, sizeof(void *) );
+    self->managers = (void **)calloc( (self->nthreads)<<3, sizeof(void *) );
     if ( self->managers == NULL )
     {
         return -1;
@@ -1067,7 +1068,12 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
 
     if ( likely( session != NULL ) )
     {
-        session->service.perform( session->context, task->type, task->task );
+        if ( session->service.perform(
+                    session->context, task->type, task->task ) < 0 )
+        {
+            session_close( session );
+            session_shutdown( session );
+        }
     }
     else
     {

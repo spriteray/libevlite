@@ -51,7 +51,7 @@ public :
     virtual int32_t onStart();
     virtual int32_t onProcess( const char * buf, uint32_t nbytes );
     virtual void onShutdown( int32_t way );
-    virtual void onPerform( int32_t type, void * task );
+    virtual int32_t onPerform( int32_t type, void * task );
 
 public :
     void setService( CChatRoomService * s );
@@ -160,9 +160,10 @@ void CChatRoomSession::onShutdown( int32_t way )
     m_Service->post( id(), &head );
 }
 
-void CChatRoomSession::onPerform( int32_t type, void * task )
+int32_t CChatRoomSession::onPerform( int32_t type, void * task )
 {
     printf( "Session:%lu, ID:%lu\n", id(), (uint64_t)(task) );
+    return 0;
 }
 
 void CChatRoomSession::setService( CChatRoomService * s )
@@ -360,6 +361,7 @@ int main( int argc, char ** argv )
         usleep(1000);
     }
 
+    service.halt();
     service.stop();
     return 0;
 }
