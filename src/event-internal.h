@@ -6,7 +6,7 @@
 #include "event.h"
 
 // 初始化的事件数, 该框架同样适用于内网服务器
-#define INIT_EVENTS            1024
+#define INIT_EVENTS         1024
 
 //
 // 事件的状态
@@ -85,7 +85,7 @@ int32_t event_active( struct event * self, int16_t res );
 // event定时器模块
 //
 #define TIMER_MAX_PRECISION 20          // 定时器最大精度为20ms
-#define TIMER_BUCKET_COUNT  4096        // 必须是2的N次方
+#define TIMER_BUCKET_COUNT  8192        // 必须是2的N次方
 
 struct evtimer
 {

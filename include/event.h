@@ -78,6 +78,9 @@ int32_t event_get_fd( event_t self );
 // 获取事件所属事件集
 evsets_t event_get_sets( event_t self );
 
+// 重置事件
+void event_reset( event_t self );
+
 // 销毁事件
 void event_destroy( event_t self );
 

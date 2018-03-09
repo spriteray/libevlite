@@ -6,6 +6,7 @@
 #include <string>
 #include <pthread.h>
 
+#include "event.h"
 #include "network.h"
 
 typedef std::vector<sid_t> SidList;
@@ -34,6 +35,7 @@ public :
     virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
+    virtual int32_t onPerform( int32_t type, void * task ) { return 0; }
     virtual void    onShutdown( int32_t way ) {}
 
 public :
@@ -78,6 +80,7 @@ private :
     static int32_t  onTimeoutSession( void * context );
     static int32_t  onKeepaliveSession( void * context );
     static int32_t  onErrorSession( void * context, int32_t result );
+    static int32_t  onPerformSession( void * context, int32_t type, void * task );
     static void     onShutdownSession( void * context, int32_t way );
 
 private :
@@ -96,7 +99,7 @@ class IIOService
 {
 public :
     IIOService( uint8_t nthreads,
-            uint32_t nclients, bool immediately = false );
+            uint32_t nclients, bool immediately = false, bool transform = false );
     virtual ~IIOService();
 
 public :
@@ -110,25 +113,34 @@ public :
     // 回调事件
     // 需要调用者自己实现
     // 有可能在IIOService的多个网络线程中被触发
-    // 接受事件
-    virtual IIOSession * onAccept( sid_t id, const char * host, uint16_t port ) { return NULL; }
+
     // 连接事件
     virtual bool onConnectFailed( int32_t result, const char * host, uint16_t port ) { return false; }
     virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port ) { return NULL; }
+    // 接受事件
+    virtual IIOSession * onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port ) { return NULL; }
 
 public :
     //
     // 线程安全的API
     //
 
+    // 开启/停止服务
+    bool start();
+    void stop();
+
+    // 获取版本号
+    static const char * version();
+
+    // 停止对外服务
+    void halt();
+
+    // 获取连接成功的会话ID
     sid_t id( const char * host, uint16_t port );
 
     // 连接/监听
     bool listen( const char * host, uint16_t port );
     bool connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
-
-    // 停止服务
-    void stop();
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
@@ -136,7 +148,13 @@ public :
 
     // 广播数据
     int32_t broadcast( const std::string & buffer );
+    int32_t broadcast( const char * buffer, uint32_t nbytes );
     int32_t broadcast( const std::vector<sid_t> & ids, const std::string & buffer );
+    int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes );
+
+    // perform
+    int32_t perform( sid_t sid, int32_t type, void * task );
+    int32_t perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) );
 
     // 终止会话
     int32_t shutdown( sid_t id );
@@ -162,14 +180,31 @@ private :
         }
     };
 
+    struct ListenContext
+    {
+        uint16_t        port;
+        IIOService *    service;
+
+        ListenContext()
+            : port( 0 ),
+              service( NULL )
+        {}
+
+        ListenContext( uint16_t p, IIOService * s )
+            : port( p ),
+              service( s )
+        {}
+    };
+
     typedef std::vector<RemoteHost> RemoteHosts;
+    typedef std::vector<ListenContext *> ListenContexts;
 
     void attach( sid_t id,
             IIOSession * session, void * iocontext,
             const std::string & host, uint16_t port );
 
-    sid_t getConnectedSid( const char * host, uint16_t port ) const;
-    void setConnectedSid( const char * host, uint16_t port, sid_t sid );
+    sid_t getRemoteSid( const char * host, uint16_t port ) const;
+    void setRemoteSid( const char * host, uint16_t port, sid_t sid );
 
     static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
 
@@ -178,6 +213,8 @@ private :
 
 private :
     iolayer_t           m_IOLayer;
+    bool                m_Transform;
+    bool                m_Immediately;
     uint8_t             m_ThreadsCount;
     uint32_t            m_SessionsCount;
     void **             m_IOContextGroup;
@@ -186,6 +223,7 @@ private :
     pthread_cond_t      m_Cond;
     pthread_mutex_t     m_Lock;
     RemoteHosts         m_RemoteHosts;
+    ListenContexts      m_ListenContexts;
 };
 
 #endif

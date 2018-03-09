@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <syslog.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
@@ -69,7 +70,8 @@ void * epoll_init()
         return NULL;
     }
 
-    fcntl( epollfd, F_SETFD, 1 );
+    // CLOSEONEXEC
+    set_cloexec( epollfd );
 
     poller = (struct epoller *)malloc( sizeof(struct epoller) );
     if ( poller == NULL )
@@ -269,12 +271,7 @@ int32_t epoll_del( void * arg, struct event * ev )
         eventpair->evwrite = NULL;
     }
 
-    if ( epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 )
-    {
-        return -2;
-    }
-
-    return 0;
+    return epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 ? -2 : 0;
 }
 
 int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
@@ -292,6 +289,7 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
     {
         if ( errno != EINTR )
         {
+            syslog(LOG_WARNING, "%s() epoll_wait() error <%d, %s>", __FUNCTION__, errno, strerror(errno) );
             return -1;
         }
 
@@ -328,11 +326,6 @@ int32_t epoll_dispatch( struct eventset * sets, void * arg, int32_t tv )
             {
                 evwrite = eventpair->evwrite;
             }
-        }
-
-        if ( !(evread||evwrite) )
-        {
-            continue;
         }
 
         if ( evread )

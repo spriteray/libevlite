@@ -63,6 +63,10 @@ typedef void *      iolayer_t;
 //                                 也就是直接调用iolayer_shutdown()或者iolayer_shutdowns();
 //                              1, 逻辑层被动终止会话的情况.
 //
+//        perform()     - 处理其他模块提交到网络层的任务
+//                        type - 任务类型
+//                        task - 任务数据
+//
 typedef struct
 {
     int32_t (*start)( void * context );
@@ -71,6 +75,7 @@ typedef struct
     int32_t (*keepalive)( void * context );
     int32_t (*timeout)( void * context );
     int32_t (*error)( void * context, int32_t result );
+    int32_t (*perform)( void * context, int32_t type, void * task );
     void    (*shutdown)( void * context, int32_t way );
 }ioservice_t;
 
@@ -153,13 +158,27 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
 
 // 广播数据到IO层的所有会话
-// 非常高效的接口, 从设计上来说, 比较丑陋
 int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes );
 
 // 终止指定的会话
 // 此处需要注意, 主动终止会话的情况下,也会收到shutdown()的回调, 只是way==0
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
+
+// 提交任务
+//      id              - 会话ID
+//      type            - 任务类型
+//      task            - 任务数据
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task );
+
+// 提交任务
+//      task            - 任务
+//      clone           - 任务的复制函数
+//      perform         - 任务的处理函数
+//                          参数1: iocontext
+//                          参数2: task
+int32_t iolayer_perform2( iolayer_t self, void * task,
+        void * (*clone)( void * ), void (*perform)( void * , void * ) );
 
 // 停止网络服务
 // 行为定义:

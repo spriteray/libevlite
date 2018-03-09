@@ -40,7 +40,7 @@ libevlite网络通信库(Linux, Darwin, *BSD)
 
     4) 连接远程服务/开启客户端 iolayer_connect()
 
-	5) 关联描述符的读写事件 iolayer_associate()
+    5) 关联描述符的读写事件 iolayer_associate()
 
     6) 设置回话的方法
         设置会话的超时时间 iolayer_set_timeout()
@@ -56,4 +56,6 @@ libevlite网络通信库(Linux, Darwin, *BSD)
             1> 停止对外提供接入服务, 不再接受新的连接;
             2> 停止所有连接的接收服务, 不再回调ioservice_t::process()
 
-    11) 销毁网络层 iolayer_destroy()
+    11) 提交任务 iolayer_perform(), iolayer_perform2()
+
+    12) 销毁网络层 iolayer_destroy()

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/socket.h>
 
 #include "network.h"
 #include "channel.h"
@@ -29,6 +30,8 @@ static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t se
 static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
+static int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task );
+static void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 static int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater );
@@ -99,7 +102,7 @@ void iolayer_destroy( iolayer_t self )
     {
         for ( i = 0; i < layer->nthreads; ++i )
         {
-            struct session_manager * manager = layer->managers[i<<3];
+            struct session_manager * manager = (struct session_manager *)layer->managers[i<<3];
             if ( manager )
             {
                 session_manager_destroy( manager );
@@ -126,52 +129,65 @@ int32_t iolayer_listen( iolayer_t self,
         const char * host, uint16_t port,
         int32_t (*cb)( void *, void *, sid_t, const char * , uint16_t ), void * context )
 {
+    uint8_t i = 0, nthreads = 1;
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-    struct acceptor * acceptor = calloc( 1, sizeof(struct acceptor) );
-    if ( acceptor == NULL )
-    {
-        syslog(LOG_WARNING,
-                "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
-                __FUNCTION__, host == NULL ? "" : host, port);
-        return -1;
-    }
+#ifdef USE_REUSEPORT
+    nthreads = layer->nthreads;
+#endif
 
-    acceptor->event = event_create();
-    if ( acceptor->event == NULL )
+    for ( i = 0; i < nthreads; ++i )
     {
-        syslog(LOG_WARNING,
-                "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
-                __FUNCTION__, host == NULL ? "" : host, port);
-        free( acceptor );
-        return -2;
-    }
+        struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof(struct acceptor) );
+        if ( acceptor == NULL )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            return -1;
+        }
 
-    acceptor->fd = tcp_listen( host, port, iolayer_server_option );
-    if ( acceptor->fd <= 0 )
-    {
-        syslog(LOG_WARNING,
-                "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
-                __FUNCTION__, host == NULL ? "" : host, port);
-        free( acceptor );
-        return -3;
-    }
+        acceptor->event = event_create();
+        if ( acceptor->event == NULL )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            free( acceptor );
+            return -2;
+        }
 
-    acceptor->cb = cb;
-    acceptor->context = context;
-    acceptor->parent = self;
-    acceptor->port = port;
-    acceptor->host[0] = 0;
-    if ( host != NULL )
-    {
-        strncpy( acceptor->host, host, INET_ADDRSTRLEN );
-    }
+        acceptor->fd = tcp_listen( host, port, iolayer_server_option );
+        if ( acceptor->fd <= 0 )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            free( acceptor );
+            return -3;
+        }
 
-    iothreads_post( layer->group, DISPATCH_POLICY(layer, acceptor->fd), eIOTaskType_Listen, acceptor, 0 );
+        acceptor->cb        = cb;
+        acceptor->context   = context;
+        acceptor->parent    = layer;
+        acceptor->port      = port;
+        acceptor->host[0]   = 0;
+#ifdef USE_REUSEPORT
+        acceptor->index     = i;
+#else
+        acceptor->index     = DISPATCH_POLICY(layer, acceptor->fd);
+#endif
+        if ( host != NULL )
+        {
+            strncpy( acceptor->host, host, INET_ADDRSTRLEN );
+        }
+
+        iothreads_post( layer->group, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
+    }
 
     return 0;
 }
@@ -198,7 +214,7 @@ int32_t iolayer_connect( iolayer_t self,
     assert( host != NULL && "Illegal specified Host" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-    struct connector * connector = calloc( 1, sizeof(struct connector) );
+    struct connector * connector = (struct connector *)calloc( 1, sizeof(struct connector) );
     if ( connector == NULL )
     {
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, Out-Of-Memory .", __FUNCTION__, host, port);
@@ -221,13 +237,13 @@ int32_t iolayer_connect( iolayer_t self,
         return -3;
     }
 
-    connector->cb = cb;
-    connector->context = context;
+    connector->cb       = cb;
+    connector->context  = context;
     connector->mseconds = seconds*1000;
-    connector->parent = self;
-    connector->port = port;
+    connector->parent   = layer;
+    connector->port     = port;
     strncpy( connector->host, host, INET_ADDRSTRLEN );
-    connector->index = DISPATCH_POLICY( layer, connector->fd );
+    connector->index    = DISPATCH_POLICY( layer, connector->fd );
 
     iothreads_post( layer->group, connector->index, eIOTaskType_Connect, connector, 0 );
 
@@ -251,7 +267,7 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd,
     assert( fd > 2 && "Illegal Descriptor" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-    struct associater * associater = calloc( 1, sizeof(struct associater) );
+    struct associater * associater = (struct associater *)calloc( 1, sizeof(struct associater) );
     if ( associater == NULL )
     {
         syslog( LOG_WARNING, "%s(fd:%u) failed, Out-Of-Memory .", __FUNCTION__, fd );
@@ -493,6 +509,64 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
     return 0;
 }
 
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task )
+{
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    if ( unlikely(index >= layer->nthreads) )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct task_perform posttask = { id, type, task };
+
+    if ( pthread_self() == iothreads_get_id( layer->group, index ) )
+    {
+        return _perform_direct( layer, _get_manager(layer, index), &posttask );
+    }
+
+    // 跨线程提交发送任务
+    return iothreads_post( layer->group, index, eIOTaskType_Perform, (void *)&posttask, sizeof(posttask) );
+}
+
+int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
+{
+    uint8_t i = 0;
+
+    pthread_t threadid = pthread_self();
+    struct iolayer * layer = (struct iolayer *)self;
+    struct task_perform2 * tasklist = (struct task_perform2 *)calloc( layer->nthreads, sizeof(struct task_perform2) );
+
+    // clone task
+    assert( tasklist != NULL && "create struct task_perform2 failed" );
+    for ( i = 0; i < layer->nthreads; ++i )
+    {
+        tasklist[i].clone = clone;
+        tasklist[i].perform = perform;
+        tasklist[i].task = i == 0 ? task : clone( task );
+    }
+
+    for ( i = 0; i < layer->nthreads; ++i )
+    {
+        if ( threadid == iothreads_get_id( layer->group, i ) )
+        {
+            // 本线程内直接广播
+            _perform2_direct( layer, i, &( tasklist[i] ) );
+        }
+        else
+        {
+            // 跨线程提交广播任务
+            iothreads_post( layer->group, i, eIOTaskType_Perform2, &( tasklist[i] ), sizeof(struct task_perform2) );
+        }
+    }
+
+    free( tasklist );
+
+    return 0;
+}
+
 int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 {
     uint8_t index = SID_INDEX(id);
@@ -563,6 +637,11 @@ void iolayer_server_option( int32_t fd )
 
     flag = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
+
+#ifdef USE_REUSEPORT
+    flag = 1;
+    setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof(flag) );
+#endif
 
 #if SAFE_SHUTDOWN == 0
     {
@@ -658,8 +737,12 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
     return 0;
 }
 
-int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task )
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
+#ifdef USE_REUSEPORT
+    return _assign_direct( self, acceptidx,
+            iothreads_get_sets( self->group, acceptidx ), task );
+#else
     evsets_t sets = iothreads_get_sets( self->group, index );
     pthread_t threadid = iothreads_get_id( self->group, index );
 
@@ -667,9 +750,9 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct tas
     {
         return _assign_direct( self, index, sets, task );
     }
-
     // 跨线程提交发送任务
     return iothreads_post( self->group, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
+#endif
 }
 
 // -----------------------------------------------------------------------------
@@ -683,7 +766,7 @@ int32_t _new_managers( struct iolayer * self )
 
     // 会话管理器,
     // 采用cacheline对齐以提高访问速度
-    self->managers = calloc( (self->nthreads)<<3, sizeof(void *) );
+    self->managers = (void **)calloc( (self->nthreads)<<3, sizeof(void *) );
     if ( self->managers == NULL )
     {
         return -1;
@@ -768,7 +851,7 @@ int32_t _broadcast2_loop( void * context, struct session * s )
     message_add_receiver( msg, s->id );
 
     // 尝试发送消息
-    session_append( s, msg );
+    session_sendmessage( s, msg );
 
     return 0;
 }
@@ -926,10 +1009,9 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
             continue;
         }
 
-        if ( session_append(session, msg) >= 0 )
+        if ( session_sendmessage(session, msg) >= 0 )
         {
             // 尝试单独发送
-            // 添加到发送队列成功
             ++count;
         }
     }
@@ -977,6 +1059,34 @@ int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session
     }
 
     return count;
+}
+
+int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task  )
+{
+    int32_t rc = 0;
+    struct session * session = session_manager_get( manager, task->id );
+
+    if ( likely( session != NULL ) )
+    {
+        if ( session->service.perform(
+                    session->context, task->type, task->task ) < 0 )
+        {
+            session_close( session );
+            session_shutdown( session );
+        }
+    }
+    else
+    {
+        rc = -1;
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, task->id );
+    }
+
+    return rc;
+}
+
+void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task )
+{
+    task->perform( iothreads_get_context( self->group, index ), task->task );
 }
 
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
@@ -1111,6 +1221,16 @@ void _io_methods( void * context, uint8_t index, int16_t type, void * task )
             // 关联描述符和会话ID
         case eIOTaskType_Associate :
             _associate_direct( layer, index, sets, (struct associater *)task );
+            break;
+
+            // 逻辑任务
+        case eIOTaskType_Perform :
+            _perform_direct( layer, manager, (struct task_perform *)task );
+            break;
+
+            // 逻辑任务
+        case eIOTaskType_Perform2 :
+            _perform2_direct( layer, index, (struct task_perform2 *)task );
             break;
     }
 }

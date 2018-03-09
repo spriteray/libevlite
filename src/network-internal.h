@@ -13,9 +13,8 @@
 // 关闭前最大等待时间,默认10s
 #define MAX_SECONDS_WAIT_FOR_SHUTDOWN   (10*1000)
 
-// 尝试重连的间隔时间,默认为20ms
-// 请参考event-internal.h中最大精度 TIMER_MAX_PRECISION
-#define TRY_RECONNECT_INTERVAL          20
+// 尝试重连的间隔时间,默认为200ms
+#define TRY_RECONNECT_INTERVAL          200
 
 // 发送接收缓冲区设置
 #define SEND_BUFFER_SIZE                8192
@@ -34,6 +33,8 @@ enum
     eIOTaskType_Shutdowns       = 7,
     eIOTaskType_Broadcast2      = 8,
     eIOTaskType_Associate       = 9,
+    eIOTaskType_Perform         = 10,
+    eIOTaskType_Perform2        = 11,
 };
 
 // 网络服务错误码定义

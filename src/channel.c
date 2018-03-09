@@ -5,11 +5,23 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <sys/uio.h>
 
 #include "utils.h"
 #include "iolayer.h"
 #include "network-internal.h"
 #include "channel.h"
+
+// iov_max
+#if defined (IOV_MAX)
+const int32_t iov_max = IOV_MAX;
+#elif defined (UIO_MAXIOV)
+const int32_t iov_max = UIO_MAXIOV;
+#elif defined (MAX_IOVEC)
+const int32_t iov_max = MAX_IOVEC;
+#else
+const int32_t iov_max = 8;
+#endif
 
 // 发送接收数据
 static int32_t _receive( struct session * session );
@@ -32,18 +44,8 @@ int32_t _receive( struct session * session )
 
 int32_t _transmit( struct session * session )
 {
-#if defined (IOV_MAX)
-    const int32_t iov_max = IOV_MAX;
-#elif defined (UIO_MAXIOV)
-    const int32_t iov_max = UIO_MAXIOV;
-#elif defined (MAX_IOVEC)
-    const int32_t iov_max = MAX_IOVEC;
-#else
-    const int32_t iov_max = 8;
-#endif
-
     uint32_t i = 0;
-    int32_t writen = 0, offsets = session->msgoffsets;
+    int32_t writen = 0, offset = session->msgoffset;
 
     int32_t iov_size = 0;
     struct iovec iov_array[iov_max];
@@ -54,17 +56,17 @@ int32_t _transmit( struct session * session )
         struct message * message = NULL;
 
         QUEUE_GET(sendqueue)( &session->sendqueue, i, &message );
-        if ( offsets >= message_get_length(message) )
+        if ( offset >= message_get_length(message) )
         {
-            offsets -= message_get_length(message);
+            offset -= message_get_length(message);
         }
         else
         {
-            iov_array[iov_size].iov_len = message_get_length(message) - offsets;
-            iov_array[iov_size].iov_base = message_get_buffer(message) + offsets;
+            iov_array[iov_size].iov_len = message_get_length(message) - offset;
+            iov_array[iov_size].iov_base = message_get_buffer(message) + offset;
 
             ++iov_size;
-            offsets = 0;
+            offset = 0;
         }
     }
 
@@ -72,20 +74,20 @@ int32_t _transmit( struct session * session )
 
     if ( writen > 0 )
     {
-        offsets = session->msgoffsets + writen;
+        offset = session->msgoffset + writen;
 
         for ( ; session_sendqueue_count(session) > 0; )
         {
             struct message * message = NULL;
 
             QUEUE_TOP(sendqueue)( &session->sendqueue, &message );
-            if ( offsets < message_get_length(message) )
+            if ( offset < message_get_length(message) )
             {
                 break;
             }
 
             QUEUE_POP(sendqueue)( &session->sendqueue, &message );
-            offsets -= message_get_length(message);
+            offset -= message_get_length(message);
 
             message_add_success( message );
             if ( message_is_complete(message) )
@@ -94,7 +96,7 @@ int32_t _transmit( struct session * session )
             }
         }
 
-        session->msgoffsets = offsets;
+        session->msgoffset = offset;
     }
 
     if ( writen > 0 && session_sendqueue_count(session) > 0 )
@@ -247,7 +249,8 @@ int32_t channel_shutdown( struct session * session )
     // 会话终止
     service->shutdown( session->context, way );
     session_manager_remove( manager, session );
-    session_end( session, id );
+    session_end( session, id, 0 );
+    // TODO: 是否回收会话
 
     return 0;
 }
@@ -418,7 +421,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             task.context = acceptor->context;
 
             // 分发策略
-            iolayer_assign_session( layer, DISPATCH_POLICY(layer, cfd), &(task) );
+            iolayer_assign_session( layer, acceptor->index, DISPATCH_POLICY(layer, cfd), &(task) );
         }
     }
 }
@@ -470,7 +473,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_WRITE )
     {
-#if defined (__linux__)
+#if defined (__linux__) || defined(__APPLE__) || defined(__darwin__)
         // linux需要进一步检查连接是否成功
         if ( is_connected( fd ) != 0 )
         {
@@ -525,7 +528,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         if ( session )
         {
             session_manager_remove( session->manager, session );
-            session_end( session, id );
+            session_end( session, id, 0 );
         }
         iolayer_free_connector( layer, connector );
     }
@@ -539,7 +542,7 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_WRITE )
     {
-#if defined (__linux__)
+#if defined (__linux__) || defined(__APPLE__) || defined(__darwin__)
         if ( is_connected(fd) != 0 )
         {
             channel_error( session, eIOError_ConnectStatus );

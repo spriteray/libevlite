@@ -79,7 +79,7 @@ struct session
     struct buffer inbuffer;
 
     // 发送队列以及消息偏移量
-    int32_t             msgoffsets;
+    int32_t             msgoffset;
     struct sendqueue    sendqueue;
 
     // 会话的设置
@@ -94,13 +94,14 @@ void session_set_iolayer( struct session * self, void * iolayer );
 void session_set_endpoint( struct session * self, char * host, uint16_t port );
 
 // 发送队列的长度
-#define session_sendqueue_count( self )     QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )
+#define session_sendqueue_count( self )         QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )
+#define session_sendqueue_append( self, msg )   QUEUE_PUSH(sendqueue)( &((self)->sendqueue), &(msg) )
 
-// 向session发送数据
+// 发送数据
 int32_t session_send( struct session * self, char * buf, uint32_t nbytes );
 
-// 向session的发送队列中添加一条消息
-int32_t session_append( struct session * self, struct message * message );
+// 发送消息
+int32_t session_sendmessage( struct session * self, struct message * message );
 
 // 会话注册/反注册网络事件
 void session_add_event( struct session * self, int16_t ev );
@@ -114,6 +115,7 @@ int32_t session_start_reconnect( struct session * self );
 
 // 设置被终止的标志
 #define session_close( self )               ( (self)->status |= SESSION_SHUTDOWNING )
+#define session_call_shutdown( self, way )  ( (self)->service.shutdown( (self)->context, (way) ) )
 
 // 尝试终止会话
 // 该API会尽量把发送队列中的数据发送出去
@@ -121,7 +123,7 @@ int32_t session_start_reconnect( struct session * self );
 int32_t session_shutdown( struct session * self );
 
 // 会话结束
-int32_t session_end( struct session * self, sid_t id );
+int32_t session_end( struct session * self, sid_t id, int8_t recycle );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

@@ -1,4 +1,5 @@
 
+#include <errno.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <unistd.h>
@@ -16,12 +17,13 @@
 #include "event.h"
 #include "utils.h"
 
-int32_t isrunning;
+int32_t isrunning, naccept;
 
 void listenfd_options( int32_t fd )
 {
     int32_t flags = 0;
-    struct linger ling;
+
+    set_non_block( fd );
 
     /* TCP Socket Option Settings */
     flags = 1;
@@ -32,14 +34,6 @@ void listenfd_options( int32_t fd )
 
     flags = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags) );
-    setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
-
-#if defined (__linux__)
-    flags = 1;
-    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
-#endif
-
-    set_non_block( fd );
 }
 
 void echoserver_signal_handler( int signo )
@@ -47,26 +41,41 @@ void echoserver_signal_handler( int signo )
     isrunning = 0;
 }
 
+void * idlethread_main( void * arg )
+{
+    printf( "idlethread_main()\n" );
+
+    for ( ;; )
+    {
+        sleep( 60 );
+    }
+
+    return NULL;
+}
+
 void process_message( int32_t fd, int16_t ev, void * arg )
 {
+    static int32_t capacity = 16384;
+
     event_t event = arg;
-    static int32_t capacity = 16384 * 2;
+    evsets_t evsets = event_get_sets( event );
 
     if ( ev & EV_READ )
     {
+        ssize_t readn = -1;
         char buf[ capacity ];
-        int32_t readn = -1;
 
         readn = read( fd, buf, capacity );
-        if ( readn <= 0 )
-        {
-            event_destroy( event );
-            close( fd );
-        }
-        else
+        if ( readn > 0 )
         {
             write( fd, buf, readn );
-//            evsets_add( event_get_sets(event), event, 0 );
+        }
+        else if ( readn <= 0
+                && (errno != EINTR && errno != EAGAIN && errno != EWOULDBLOCK) )
+        {
+            evsets_del( evsets, event );
+            event_destroy( event );
+            close( fd );
         }
     }
 }
@@ -83,6 +92,7 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
         int32_t newfd = tcp_accept( fd, dsthost, &dstport );
         if ( newfd > 0 )
         {
+            ++naccept;
             set_non_block( newfd );
 
             event_t event = event_create();
@@ -96,38 +106,55 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
             event_set_callback( event, process_message, event );
             evsets_add( coreset, event, 0 );
         }
+        else
+        {
+            printf( "listenfd:%d, errno:%d:'%s'\n", fd, errno, strerror( errno ) );
+        }
     }
 }
 
 int main( int argc, char ** argv )
 {
-    if ( argc != 2 )
+    char host[32];
+    uint16_t port = 0;
+
+    if ( argc != 3 )
     {
-        printf("echoserver [port] .\n");
+        printf("echoserver [host] [port] .\n");
         return 0;
     }
 
-    evsets_t coreset = evsets_create();
+    int32_t fd = 0;
+    event_t evaccept = NULL;
+    evsets_t coreset = NULL;
+
+    signal( SIGPIPE, SIG_IGN );
+    signal( SIGINT, echoserver_signal_handler );
+    signal( SIGTERM, echoserver_signal_handler );
+
+    // host, listenport
+    strcpy( host, argv[1] );
+    port = (uint16_t)atoi( argv[2] );
+
+    // core eventsets
+    coreset = evsets_create();
     if ( coreset == NULL )
     {
         printf( "create core event sets failed .\n" );
         goto FINAL;
     }
 
-    signal( SIGPIPE, SIG_IGN );
-    signal( SIGINT, echoserver_signal_handler );
-    signal( SIGTERM, echoserver_signal_handler );
-
     // listen port
-    uint16_t port = (uint16_t)atoi( argv[1] );
-    int32_t fd = tcp_listen( "127.0.0.1", port, listenfd_options );
+    fd = tcp_listen( host, port, listenfd_options );
     if ( fd < 0 )
     {
-        printf( "listen failed %d .\n", port );
+        printf( "listen failed %s::%d .\n", host, port );
         goto FINAL;
     }
-    set_non_block( fd );
-    event_t evaccept = event_create();
+
+    printf( "%s::%d\n", host, port );
+
+    evaccept = event_create();
     if ( evaccept == NULL )
     {
         printf( "create accept event failed .\n" );
@@ -138,7 +165,16 @@ int main( int argc, char ** argv )
     evsets_add( coreset, evaccept, 0 );
 
     // running ...
+    naccept = 0;
     isrunning = 1;
+
+#if 1
+    // Idle Thread
+    pthread_t tid;
+    pthread_create( &tid, NULL, idlethread_main, NULL );
+#endif
+
+    // loop
     while ( isrunning == 1 )
     {
         evsets_dispatch( coreset );
