@@ -15,6 +15,7 @@ static struct session * _new_session();
 static int32_t _reset_session( struct session * self );
 static int32_t _del_session( struct session * self );
 static inline void _stop( struct session * self );
+
 // 发送数据
 // _send_only()仅发送,
 // _send_message()发送消息, 未发送成功的添加到发送队列中
