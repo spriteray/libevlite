@@ -509,7 +509,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
     return 0;
 }
 
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task )
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, void (*recycle)(int32_t, void *) )
 {
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
@@ -520,7 +520,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task )
         return -1;
     }
 
-    struct task_perform posttask = { id, type, task };
+    struct task_perform posttask = { id, type, task, recycle };
 
     if ( pthread_self() == iothreads_get_id( layer->group, index ) )
     {
@@ -1083,6 +1083,7 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
     else
     {
         rc = -1;
+        task->recycle( task->type, task->task );
         syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
     }
 

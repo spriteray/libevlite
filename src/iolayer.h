@@ -121,6 +121,7 @@ struct task_perform
     sid_t       id;
     int32_t     type;
     void *      task;
+    void        (*recycle)( int32_t, void * );
 };
 
 struct task_perform2
