@@ -371,6 +371,7 @@ struct msgqueue * msgqueue_create( uint32_t size )
             int32_t rc = -1;
             int32_t fds[2] = { -1, -1 };
 
+            // TODO: linux2.6直接使用eventfd
             rc = pipe( fds );
             //rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
             if ( rc == -1 )

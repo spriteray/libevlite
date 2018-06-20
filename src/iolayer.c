@@ -438,8 +438,12 @@ int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbyte
 
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes )
 {
-    uint8_t i = 0;
+    if ( unlikely( ids == NULL || count == 0 ) )
+    {
+        return 0;
+    }
 
+    uint8_t i = 0;
     pthread_t threadid = pthread_self();
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -594,6 +598,11 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 {
+    if ( unlikely( ids == NULL || count == 0 ) )
+    {
+        return 0;
+    }
+
     uint8_t i = 0;
     struct iolayer * layer = (struct iolayer *)self;
 

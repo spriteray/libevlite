@@ -92,8 +92,10 @@ void onShutdown( void * context, int32_t way )
     free( s );
 }
 
-void onPerform( void * context, int32_t type, void * task )
-{}
+int32_t onPerform( void * context, int32_t type, void * task )
+{
+    return 0;
+}
 
 char * onLayerTransform( void * context, const char * buf, uint32_t * nbytes )
 {
