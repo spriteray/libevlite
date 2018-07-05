@@ -40,7 +40,7 @@ public :
 
     enum
     {
-        e_SendIntervalMicroSeconds    = 500,        // 每个100ms发送一个请求
+        e_SendIntervalMicroSeconds    = 400,        // 每个100ms发送一个请求
     };
 
 public :
@@ -93,7 +93,7 @@ public :
         std::string msg( length, 0 );
 
         CSHead * head = (CSHead *)msg.data();
-        head->msgid = 1;// (rand()%1000) > 50 ? 1 : 2;
+        head->msgid = (rand()%1000) > 50 ? 1 : 2;
         head->length = length;
         msg.resize( length );
 

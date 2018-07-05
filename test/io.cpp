@@ -159,6 +159,11 @@ void IIOService::stop()
         delete m_ListenContexts[i];
     }
 
+    for ( size_t i = 0; i < m_ConnectContexts.size(); ++i )
+    {
+        delete m_ConnectContexts[i];
+    }
+
     if ( m_IOContextGroup != NULL )
     {
         for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
@@ -171,43 +176,46 @@ void IIOService::stop()
 
         delete [] m_IOContextGroup;
     }
+
+    m_ListenContexts.clear();
+    m_ConnectContexts.clear();
 }
 
 void IIOService::halt()
 {
-    SidList sids;
-
-    // 获取所有会话ID
-    pthread_mutex_lock( &m_Lock );
-    for ( size_t i = 0; i < m_RemoteHosts.size(); ++i )
-    {
-        sids.push_back( m_RemoteHosts[i].sid );
-    }
-    pthread_mutex_unlock( &m_Lock );
-
     if ( m_IOLayer != NULL )
     {
-        // 关闭连接的服务器
-        this->shutdown( sids );
         // 停止网络库
         iolayer_stop( m_IOLayer );
     }
 }
 
-sid_t IIOService::id( const char * host, uint16_t port )
+bool IIOService::isConnecting( const char * host, uint16_t port )
 {
-    sid_t sid = 0;
+    bool found = false;
 
     pthread_mutex_lock( &m_Lock );
-    sid = this->getRemoteSid( host, port );
+    for ( size_t i = 0; i < m_ConnectContexts.size(); ++i )
+    {
+        if ( m_ConnectContexts[i]->port == port
+                && m_ConnectContexts[i]->host == std::string(host) )
+        {
+            found = true;
+            break;
+        }
+    }
     pthread_mutex_unlock( &m_Lock );
 
-    return sid == (sid_t)-1 ? 0 : sid ;
+    return found;
 }
 
 bool IIOService::listen( const char * host, uint16_t port )
 {
     ListenContext * context = new ListenContext( port, this );
+    if ( context == NULL )
+    {
+        return false;
+    }
 
     pthread_mutex_lock( &m_Lock );
     m_ListenContexts.push_back( context );
@@ -216,19 +224,28 @@ bool IIOService::listen( const char * host, uint16_t port )
     return ( iolayer_listen( m_IOLayer, host, port, onAcceptSession, context ) == 0 );
 }
 
-bool IIOService::connect( const char * host, uint16_t port, int32_t seconds, bool isblock )
+sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bool isblock )
 {
-    if ( iolayer_connect( m_IOLayer, host, port, seconds, onConnectSession, this ) != 0 )
+    ConnectContext * context = new ConnectContext( host, port, this );
+    if ( context == NULL )
     {
-        return false;
+        return -1;
     }
 
+    if ( iolayer_connect( m_IOLayer, host, port, seconds, onConnectSession, context ) != 0 )
+    {
+        return -1;
+    }
+
+    // 异步模式需要加入连接的队列中
     if ( !isblock )
     {
-        return true;
-    }
+        pthread_mutex_lock( &m_Lock );
+        m_ConnectContexts.push_back( context );
+        pthread_mutex_unlock( &m_Lock );
 
-    sid_t connectedsid = 0;
+        return 0;
+    }
 
     // 计算超时时间
     struct timeval now;
@@ -237,8 +254,8 @@ bool IIOService::connect( const char * host, uint16_t port, int32_t seconds, boo
     pthread_mutex_lock( &m_Lock );
     for ( ;; )
     {
-        connectedsid = getRemoteSid( host, port );
-        if ( connectedsid != 0 )
+        if ( context->sid != 0
+                && context->sid != (sid_t)-1 )
         {
             break;
         }
@@ -254,7 +271,10 @@ bool IIOService::connect( const char * host, uint16_t port, int32_t seconds, boo
     }
     pthread_mutex_unlock( &m_Lock );
 
-    return connectedsid > 0 && connectedsid != (sid_t)-1;
+    sid_t connectedsid = context->sid;
+
+    delete context;
+    return connectedsid;
 }
 
 int32_t IIOService::send( sid_t id, const std::string & buffer )
@@ -280,28 +300,46 @@ int32_t IIOService::broadcast( const char * buffer, uint32_t nbytes )
     return iolayer_broadcast2( m_IOLayer, buffer, nbytes );
 }
 
-int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const std::string & buffer )
+int32_t IIOService::broadcast( const sids_t & ids, const std::string & buffer )
 {
+    if ( ids.empty() )
+    {
+        return 0;
+    }
+
     uint32_t nbytes = static_cast<uint32_t>(buffer.size());
     const char * buf = static_cast<const char *>( buffer.data() );
 
     uint32_t count = (uint32_t)ids.size();
-    std::vector<sid_t>::const_iterator start = ids.begin();
+    sids_t::const_iterator start = ids.begin();
 
     return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buf, nbytes );
 }
 
-int32_t IIOService::broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes )
+int32_t IIOService::broadcast( const sids_t & ids, const char * buffer, uint32_t nbytes )
 {
+    if ( ids.empty() )
+    {
+        return 0;
+    }
+
     uint32_t count = (uint32_t)ids.size();
-    std::vector<sid_t>::const_iterator start = ids.begin();
+    sids_t::const_iterator start = ids.begin();
 
     return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buffer, nbytes );
 }
 
-int32_t IIOService::perform( sid_t sid, int32_t type, void * task )
+int32_t IIOService::perform( sid_t sid, int32_t type, void * task, void (*recycle)(int32_t, void *) )
 {
-    return iolayer_perform( m_IOLayer, sid, type, task );
+    int32_t rc = iolayer_perform(
+            m_IOLayer, sid, type, task, recycle );
+
+    if ( rc != 0 )
+    {
+        recycle( type, task );
+    }
+
+    return rc;
 }
 
 int32_t IIOService::perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
@@ -314,14 +352,52 @@ int32_t IIOService::shutdown( sid_t id )
     return iolayer_shutdown( m_IOLayer, id );
 }
 
-int32_t IIOService::shutdown( const std::vector<sid_t> & ids )
+int32_t IIOService::shutdown( const sids_t & ids )
 {
-    std::vector<sid_t>::const_iterator start = ids.begin();
+    if ( ids.empty() )
+    {
+        return 0;
+    }
+
+    sids_t::const_iterator start = ids.begin();
 
     uint32_t count = (uint32_t)ids.size();
     sid_t * idlist = const_cast<sid_t *>( &(*start) );
 
     return iolayer_shutdowns( m_IOLayer, idlist, count );
+}
+
+void IIOService::notifyConnectResult( ConnectContext * context, int32_t result, sid_t id, int32_t ack )
+{
+    bool isremove = ( result == 0 || ack != 0 );
+
+    pthread_mutex_lock( &m_Lock );
+
+    // 会话ID的转换
+    context->sid = result != 0 ? -1 : id;
+
+    // 连接成功或者不再重连的情况下
+    // 需要从连接队列中删除
+    if ( isremove )
+    {
+        ConnectContexts::iterator it = m_ConnectContexts.begin();
+        for ( ; it != m_ConnectContexts.end(); )
+        {
+            if ( (*it) != context )
+            {
+                ++it;
+            }
+            else
+            {
+                it = m_ConnectContexts.erase( it );
+                delete context;
+                break;
+            }
+        }
+    }
+
+    pthread_cond_signal( &m_Cond );
+    pthread_mutex_unlock( &m_Lock );
 }
 
 void IIOService::attach( sid_t id, IIOSession * session, void * iocontext, const std::string & host, uint16_t port )
@@ -338,48 +414,6 @@ void IIOService::attach( sid_t id, IIOSession * session, void * iocontext, const
     ioservice.shutdown  = IIOSession::onShutdownSession;
     ioservice.perform   = IIOSession::onPerformSession;
     iolayer_set_service( m_IOLayer, id, &ioservice, session );
-}
-
-sid_t IIOService::getRemoteSid( const char * host, uint16_t port ) const
-{
-    for ( size_t i = 0; i < m_RemoteHosts.size(); ++i )
-    {
-        if ( m_RemoteHosts[i].port == port
-                && m_RemoteHosts[i].host == std::string( host ) )
-        {
-            return m_RemoteHosts[i].sid;
-        }
-    }
-
-    return 0;
-}
-
-void IIOService::setRemoteSid( const char * host, uint16_t port, sid_t sid )
-{
-    pthread_mutex_lock( &m_Lock );
-
-    if ( sid != 0 )
-    {
-        bool is_add = true;
-
-        for ( size_t i = 0; i < m_RemoteHosts.size(); ++i )
-        {
-            if ( m_RemoteHosts[i].port == port
-                    && m_RemoteHosts[i].host == std::string( host ) )
-            {
-                is_add = false;
-                m_RemoteHosts[i].sid = sid;
-            }
-        }
-
-        if ( is_add )
-        {
-            m_RemoteHosts.push_back( RemoteHost( host, port, sid ) );
-        }
-    }
-    pthread_cond_signal( &m_Cond );
-
-    pthread_mutex_unlock( &m_Lock );
 }
 
 char * IIOService::onTransformService( void * context, const char * buffer, uint32_t * nbytes )
@@ -407,23 +441,31 @@ int32_t IIOService::onAcceptSession( void * context, void * iocontext, sid_t id,
 
 int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id )
 {
-    IIOSession * session = NULL;
-    IIOService * service = static_cast<IIOService *>( context );
+    ConnectContext * ctx = static_cast<ConnectContext *>(context);
 
-    // 通知
-    service->setRemoteSid( host, port, result != 0 ? -1 : id );
+    int32_t ack = 0;
+    IIOSession * session = NULL;
+    IIOService * service = ctx->service;
 
     if ( result != 0 )
     {
-        return service->onConnectFailed( result, host, port ) ? 0 : -2;
+        ack = service->onConnectFailed( result, host, port ) ? 0 : -2;
     }
-
-    session = service->onConnectSucceed( id, host, port );
-    if ( session == NULL )
+    else
     {
-        return -1;
+        session = service->onConnectSucceed( id, host, port );
+        if ( session == NULL )
+        {
+            ack = -1;
+        }
+        else
+        {
+            service->attach( id, session, iocontext, host, port );
+        }
     }
-    service->attach( id, session, iocontext, host, port );
 
-    return 0;
+    // 通知连接结果
+    service->notifyConnectResult( ctx, result, id, ack );
+
+    return ack;
 }

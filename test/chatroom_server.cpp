@@ -220,14 +220,6 @@ void CChatRoomService::run()
     std::swap( swapqueue, m_TaskQueue );
     pthread_mutex_unlock( &m_TaskLock );
 
-    if ( !m_Perform )
-    {
-        TASK * t = new TASK();
-        t->data = 1000;
-        perform( t, t->clone, t->perform );
-        m_Perform = true;
-    }
-
     for ( std::deque<Task>::iterator it = swapqueue.begin(); it != swapqueue.end(); ++it )
     {
         Task * task = &(*it);
@@ -237,7 +229,6 @@ void CChatRoomService::run()
             case 0 :
                 {
                     m_SessionMap.push_back( task->sid );
-                    perform( task->sid, 1, (void *)(++m_UniqueID) );
                 }
                 break;
 

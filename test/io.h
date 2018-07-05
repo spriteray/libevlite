@@ -6,10 +6,10 @@
 #include <string>
 #include <pthread.h>
 
-#include "event.h"
-#include "network.h"
+#include "evlite/event.h"
+#include "evlite/network.h"
 
-typedef std::vector<sid_t> SidList;
+typedef std::vector<sid_t> sids_t;
 
 //
 // 会话, 非线程安全的
@@ -129,18 +129,30 @@ public :
     bool start();
     void stop();
 
+    // 暂停对外服务(不可恢复)
+    void halt();
+
     // 获取版本号
     static const char * version();
 
-    // 停止对外服务
-    void halt();
-
-    // 获取连接成功的会话ID
-    sid_t id( const char * host, uint16_t port );
-
-    // 连接/监听
+    // 监听
     bool listen( const char * host, uint16_t port );
-    bool connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
+
+    // 是否正在异步连接
+    bool isConnecting( const char * host, uint16_t port );
+
+    // 连接远程服务器
+    // 参数:
+    //      host    - 主机地址
+    //      port    - 主机端口
+    //      seconds - 超时时间
+    //      isblock - 是否阻塞的连接
+    //
+    // 返回值:
+    //      -1      - 连接失败
+    //      0       - 正在连接
+    //      >0      - 连接成功返回会话ID
+    sid_t connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
@@ -149,37 +161,20 @@ public :
     // 广播数据
     int32_t broadcast( const std::string & buffer );
     int32_t broadcast( const char * buffer, uint32_t nbytes );
-    int32_t broadcast( const std::vector<sid_t> & ids, const std::string & buffer );
-    int32_t broadcast( const std::vector<sid_t> & ids, const char * buffer, uint32_t nbytes );
-
-    // perform
-    int32_t perform( sid_t sid, int32_t type, void * task );
-    int32_t perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) );
+    int32_t broadcast( const sids_t & ids, const std::string & buffer );
+    int32_t broadcast( const sids_t & ids, const char * buffer, uint32_t nbytes );
 
     // 终止会话
     int32_t shutdown( sid_t id );
-    int32_t shutdown( const std::vector<sid_t> & ids );
+    int32_t shutdown( const sids_t & ids );
+
+    // 跨线程提交任务
+    int32_t perform( sid_t sid,
+            int32_t type, void * task, void (*recycle)(int32_t, void *) );
+    int32_t perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) );
 
 private :
-    struct RemoteHost
-    {
-        sid_t           sid;
-        uint16_t        port;
-        std::string     host;
-
-        RemoteHost()
-            : sid( 0 ),
-              port( 0 )
-        {}
-
-        RemoteHost( const char * host, uint16_t port, sid_t sid )
-        {
-            this->sid = sid;
-            this->host = host;
-            this->port = port;
-        }
-    };
-
+    // 监听上下文
     struct ListenContext
     {
         uint16_t        port;
@@ -196,15 +191,41 @@ private :
         {}
     };
 
-    typedef std::vector<RemoteHost> RemoteHosts;
-    typedef std::vector<ListenContext *> ListenContexts;
+    // 连接上下文
+    struct ConnectContext
+    {
+        sid_t           sid;
+        uint16_t        port;
+        std::string     host;
+        IIOService *    service;
 
+        ConnectContext()
+            : sid( 0 ),
+              port( 0 ),
+              service( NULL )
+        {}
+
+        ConnectContext( const char * h, uint16_t p, IIOService * s )
+            : sid( 0 ),
+              port( p ),
+              host( h ),
+              service( s )
+        {}
+    };
+
+    typedef std::vector<ListenContext *> ListenContexts;
+    typedef std::vector<ConnectContext *> ConnectContexts;
+
+private :
+    // 通知连接结果
+    void notifyConnectResult(
+            ConnectContext * context,
+            int32_t result, sid_t id, int32_t ack );
+
+    // 会话ID和会话的绑定
     void attach( sid_t id,
             IIOSession * session, void * iocontext,
             const std::string & host, uint16_t port );
-
-    sid_t getRemoteSid( const char * host, uint16_t port ) const;
-    void setRemoteSid( const char * host, uint16_t port, sid_t sid );
 
     static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
 
@@ -222,8 +243,8 @@ private :
 private :
     pthread_cond_t      m_Cond;
     pthread_mutex_t     m_Lock;
-    RemoteHosts         m_RemoteHosts;
-    ListenContexts      m_ListenContexts;
+    ListenContexts      m_ListenContexts;       // 正在监听的会话
+    ConnectContexts     m_ConnectContexts;      // 正在连接的会话
 };
 
 #endif
