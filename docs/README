@@ -54,3 +54,7 @@ Makefile.*	- Makefile文件
         
 五、同样的开发环境中，centos6.0比freebsd8.2快了近30%。
 
+六、吞吐量横向比较(muduo, Ubuntu 14.04.5, Intel(R) Xeon(R) CPU E5606 @ 2.13GHz, 8核8G)
+	moduo 1000个连接，4个IO线程，4K的数据包，197.515234375 MiB/s throughput
+	libevlite 1000个连接，4个IO线程，4K的数据包，245.58203125 MiB/s throughput
+

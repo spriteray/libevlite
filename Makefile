@@ -130,6 +130,7 @@ chatroom_client: io.o chatroom_client.o $(OBJS)
 clean :
 	rm -rf *.o
 	rm -rf *.log
+	rm -rf core
 	rm -rf *.core
 	rm -rf core.*
 	rm -rf vgcore.*
