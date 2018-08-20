@@ -102,6 +102,8 @@ int main()
         return -1;
     }
 
+    service->start();
+
     if ( !service->listen( "127.0.0.1", 9029 ) )
     {
         printf("service start failed \n");
