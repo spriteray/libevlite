@@ -26,7 +26,7 @@ Makefile.*	- Makefile文件
         1000                113MBytes/s         41MBytes/s
         1000                110MBytes/s         43MBytes/s
         10000               119MBytes/s         20MBytes/s
-        10000               110MBytes/s         37MBytes/s 
+        10000               110MBytes/s         37MBytes/s
 
 2. 出现的问题：
     1) 1000个连接时候的上下文切换达到50K, 但20000个连接的切换才300多;[已解决, vmstat统计问题]
@@ -39,8 +39,8 @@ Makefile.*	- Makefile文件
         6000                9000,[330~38000]    130MBytes/s
         7000                6000,[300~19000]    131MBytes/s
         8000                1000,[300~18000]    127MBytes/s
-        10000               350                 130MBytes/s        
-        
+        10000               350                 130MBytes/s
+
     2) 同样1000个连接的时候, IO线程等待时间为0时(IO线程真正分摊压力), 上下文切换大量降低，但吞吐量锐减;
 
 四、Accept-Lock模型的回显服务器
@@ -51,6 +51,9 @@ Makefile.*	- Makefile文件
 2. 测试结果：
     1) accept事件总是在一个线程中发生, 并没有原先设计的效果。从压力测试的脚本来看，这样的结果也是可以理解的。
         毕竟所有连接都成功后，才开始发送数据的，所以一开始的线程基本没有什么压力。
-        
+
 五、同样的开发环境中，centos6.0比freebsd8.2快了近30%。
 
+六、吞吐量横向比较(muduo, Ubuntu 14.04.5, Intel(R) Xeon(R) CPU E5606 @ 2.13GHz, 8核8G)
+	moduo 1000个连接，4个IO线程，4K的数据包，197.515234375 MiB/s throughput
+	libevlite 1000个连接，4个IO线程，4K的数据包，245.58203125 MiB/s throughput

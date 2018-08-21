@@ -49,7 +49,6 @@ int32_t _transmit( struct session * session )
 
     int32_t iov_size = 0;
     struct iovec iov_array[iov_max];
-    memset( iov_array, 0, sizeof(iov_array) );
 
     for ( i = 0; i < session_sendqueue_count(session) && iov_size < iov_max; ++i )
     {

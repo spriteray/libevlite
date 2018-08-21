@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.6.0
+VERSION 	= 9.6.1
 PREFIX		= /usr/local
 
 # 主版本号
@@ -21,8 +21,8 @@ endif
 
 # 默认选项
 LFLAGS		= -ggdb -lpthread
-CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_REUSEPORT #-DUSE_ATOMIC
-CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" #-DUSE_REUSEPORT #-DUSE_ATOMIC
+CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSEPORT
+CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSEPORT
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)
@@ -130,6 +130,7 @@ chatroom_client: io.o chatroom_client.o $(OBJS)
 clean :
 	rm -rf *.o
 	rm -rf *.log
+	rm -rf core
 	rm -rf *.core
 	rm -rf core.*
 	rm -rf vgcore.*
