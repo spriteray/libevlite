@@ -554,7 +554,7 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
     struct hashnode * node = NULL;
     struct hashnode * entries = table->entries + bucket;
 
-    do
+    for ( ; entries != NULL; entries = entries->next )
     {
         if ( entries->session != NULL )
         {
@@ -568,15 +568,7 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
         {
             node = entries;
         }
-
-        if ( entries->next == NULL )
-        {
-            break;
-        }
-
-        entries = entries->next;
     }
-    while ( 1 );
 
     if ( node == NULL && flag != 0 )
     {
@@ -623,7 +615,7 @@ struct session * _find_session( struct hashtable * table, sid_t id )
     {
         return NULL;
     }
-    if ( node->session == NULL )
+    else if ( node->session == NULL )
     {
         return NULL;
     }
@@ -640,7 +632,7 @@ int32_t _remove_session( struct hashtable * table, struct session * s )
     {
         return -1;
     }
-    if ( node->session == NULL )
+    else if ( node->session == NULL )
     {
         return -2;
     }
