@@ -52,38 +52,38 @@ QUEUE_PROTOTYPE( sendqueue, struct message * )
 
 struct session
 {
-    sid_t       id;
+    sid_t                   id;
 
-    int32_t     fd;
-    int8_t      type;
-    int8_t      status;
-
-    uint16_t    port;
-    char        host[INET_ADDRSTRLEN];
+    int32_t                 fd;
+    int8_t                  type;
+    int8_t                  status;
+    uint16_t                port;
+    char                    host[INET_ADDRSTRLEN];
 
     // 读写以及超时事件
-    event_t     evread;
-    event_t     evwrite;
-    event_t     evkeepalive;
+    event_t                 evread;
+    event_t                 evwrite;
+    event_t                 evkeepalive;
 
     // 事件集和管理器
-    evsets_t    evsets;
-    void *      manager;
-    void *      iolayer;
-
-    // 逻辑
-    void *      context;
-    ioservice_t service;
+    evsets_t                evsets;
+    void *                  manager;
+    void *                  iolayer;
+    void *                  context;
+    ioservice_t             service;
 
     // 接收缓冲区
-    struct buffer inbuffer;
+    struct buffer           inbuffer;
 
     // 发送队列以及消息偏移量
-    int32_t             msgoffset;
-    struct sendqueue    sendqueue;
+    int32_t                 msgoffset;
+    struct sendqueue        sendqueue;
 
     // 会话的设置
-    struct session_setting setting;
+    struct session_setting  setting;
+
+    // 回收链表
+    STAILQ_ENTRY(session)   recyclelink;
 };
 
 // 会话开始
@@ -130,12 +130,15 @@ int32_t session_end( struct session * self, sid_t id, int8_t recycle );
 // -----------------------------------------------------------------------------
 
 struct hashtable;
+STAILQ_HEAD( sessionlist, session );
+
 struct session_manager
 {
-    uint8_t     index;
-    uint32_t    autoseq;        // 自增的序号
+    uint8_t             index;
+    uint32_t            autoseq;        // 自增的序号
 
-    struct hashtable * table;
+    struct hashtable *  table;
+    struct sessionlist  recyclelist;    // 回收队列
 };
 
 // 创建会话管理器
@@ -155,6 +158,9 @@ int32_t session_manager_foreach( struct session_manager * self,
 
 // 从会话管理器中移出会话
 int32_t session_manager_remove( struct session_manager * self, struct session * session );
+
+// 回收会话
+void session_manager_recycle( struct session_manager * self, struct session * session );
 
 // 销毁会话管理器
 void session_manager_destroy( struct session_manager * self );

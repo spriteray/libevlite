@@ -248,8 +248,13 @@ int32_t channel_shutdown( struct session * session )
     // 会话终止
     service->shutdown( session->context, way );
     session_manager_remove( manager, session );
+#ifdef USE_REUSESESSION
+    session_end( session, id, 1 );
+    // 回收会话
+    session_manager_recycle( manager, session );
+#else
     session_end( session, id, 0 );
-    // TODO: 是否回收会话
+#endif
 
     return 0;
 }
