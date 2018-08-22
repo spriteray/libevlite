@@ -55,6 +55,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
+    self->connectidx= 0;
     self->status    = eLayerStatus_Running;
 
     // 初始化会话管理器
@@ -242,8 +243,8 @@ int32_t iolayer_connect( iolayer_t self,
     connector->mseconds = seconds*1000;
     connector->parent   = layer;
     connector->port     = port;
+    connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
     strncpy( connector->host, host, INET_ADDRSTRLEN );
-    connector->index    = DISPATCH_POLICY( layer, connector->fd );
 
     iothreads_post( layer->group, connector->index, eIOTaskType_Connect, connector, 0 );
 
