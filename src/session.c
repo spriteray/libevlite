@@ -146,7 +146,7 @@ int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
 {
     int32_t ntry = 0;
 
-    if ( self->status&SESSION_EXITING )
+    if ( unlikely( self->status&SESSION_EXITING ) )
     {
         // 等待关闭的连接
         return -1;

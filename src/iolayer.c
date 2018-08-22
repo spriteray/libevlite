@@ -773,8 +773,9 @@ int32_t _new_managers( struct iolayer * self )
     uint8_t i = 0;
     uint32_t sessions_per_thread = self->nclients/self->nthreads;
 
-    // 会话管理器,
-    // 采用cacheline对齐以提高访问速度
+    // NOTICE: 根据MESI协议来看，只读的内存块都应该在Shared状态，不会出现伪共享的现象
+    // NOTICE: 但实际测试结果却相反
+    // NOTICE: 采用cacheline对齐避免False Sharing
     self->managers = (void **)calloc( (self->nthreads)<<3, sizeof(void *) );
     if ( self->managers == NULL )
     {
