@@ -681,7 +681,9 @@ struct session * session_manager_alloc( struct session_manager * self )
     id |= self->autoseq++;
     id &= SID_MASK;
 
-#ifdef USE_REUSESESSION
+#ifndef USE_REUSESESSION
+    session = _new_session();
+#else
     // 优先到回收队列中取
     session = STAILQ_FIRST( &self->recyclelist );
     if ( session == NULL )
@@ -692,8 +694,6 @@ struct session * session_manager_alloc( struct session_manager * self )
     {
         STAILQ_REMOVE_HEAD( &self->recyclelist, recyclelink );
     }
-#else
-    session = _new_session();
 #endif
 
     if ( session != NULL )
