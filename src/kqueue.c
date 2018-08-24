@@ -1,5 +1,7 @@
 
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+#include "config.h"
+
+#if defined EVENT_OS_BSD || defined EVENT_OS_MACOS
 
 #include <stdio.h>
 #include <errno.h>

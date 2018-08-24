@@ -57,6 +57,7 @@
 		71D31A421B95E9D400C33F84 /* threads.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DE1B95E63A00C33F84 /* threads.c */; };
 		71D31A431B95E9D400C33F84 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DF1B95E63A00C33F84 /* timer.c */; };
 		71D31A441B95E9D400C33F84 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E01B95E63B00C33F84 /* utils.c */; };
+		DD817EDE2130033800DCC7BA /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = DD817EDD2130033800DCC7BA /* config.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXCopyFilesBuildPhase section */
@@ -134,6 +135,7 @@
 		71D31A181B95E8A700C33F84 /* test_sidlist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = test_sidlist.c; sourceTree = "<group>"; };
 		71D31A1D1B95E8FD00C33F84 /* chatroom_server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chatroom_server; sourceTree = BUILT_PRODUCTS_DIR; };
 		71D31A281B95E90E00C33F84 /* chatroom_client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chatroom_client; sourceTree = BUILT_PRODUCTS_DIR; };
+		DD817EDD2130033800DCC7BA /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -183,6 +185,7 @@
 		71D319CE1B95E63A00C33F84 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				DD817EDD2130033800DCC7BA /* config.h */,
 				71D319CF1B95E63A00C33F84 /* channel.c */,
 				71D319D01B95E63A00C33F84 /* channel.h */,
 				71D319D11B95E63A00C33F84 /* epoll.c */,
@@ -266,6 +269,7 @@
 				71D319F21B95E82600C33F84 /* channel.h in Headers */,
 				71D319FF1B95E82600C33F84 /* threads-internal.h in Headers */,
 				71D319FB1B95E82600C33F84 /* network-internal.h in Headers */,
+				DD817EDE2130033800DCC7BA /* config.h in Headers */,
 				71D319F71B95E82600C33F84 /* iolayer.h in Headers */,
 				71D31A041B95E83700C33F84 /* event.h in Headers */,
 				71D31A051B95E83700C33F84 /* network.h in Headers */,
@@ -349,7 +353,7 @@
 		7156ECA71B95E57C00F6D4F8 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
-				LastUpgradeCheck = 0900;
+				LastUpgradeCheck = 0940;
 				ORGANIZATIONNAME = "Ray Zhang";
 				TargetAttributes = {
 					71C7BD2A1F4329B4000B3C30 = {
@@ -469,12 +473,14 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
@@ -520,12 +526,14 @@
 				CLANG_WARN_BOOL_CONVERSION = YES;
 				CLANG_WARN_COMMA = YES;
 				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
 				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
 				CLANG_WARN_EMPTY_BODY = YES;
 				CLANG_WARN_ENUM_CONVERSION = YES;
 				CLANG_WARN_INFINITE_RECURSION = YES;
 				CLANG_WARN_INT_CONVERSION = YES;
 				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
 				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
 				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
 				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
@@ -585,7 +593,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.6.1;
+				DYLIB_CURRENT_VERSION = 9.6.2;
 				EXECUTABLE_PREFIX = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -599,7 +607,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.6.1;
+				DYLIB_CURRENT_VERSION = 9.6.2;
 				EXECUTABLE_PREFIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

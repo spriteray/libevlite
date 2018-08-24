@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.6.1
+VERSION 	= 9.6.2
 PREFIX		= /usr/local
 
 # 主版本号
@@ -19,10 +19,15 @@ else
 	CXX		= g++
 endif
 
-# 默认选项
+#
+# 编译选项
+#
+# USE_ATOMIC		- 使用原子操作
+# USE_REUSESESSION	- 重用会话(提高效率)
+#
 LFLAGS		= -ggdb -lpthread
-CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSEPORT
-CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSEPORT
+CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
+CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)

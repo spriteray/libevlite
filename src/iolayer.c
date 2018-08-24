@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <sys/socket.h>
 
+#include "config.h"
 #include "network.h"
 #include "channel.h"
 #include "session.h"
@@ -55,6 +56,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
+    self->connectidx= 0;
     self->status    = eLayerStatus_Running;
 
     // 初始化会话管理器
@@ -136,8 +138,11 @@ int32_t iolayer_listen( iolayer_t self,
     assert( self != NULL && "Illegal IOLayer" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
     nthreads = layer->nthreads;
+    syslog(LOG_INFO,
+            "%s(host:'%s', port:%d) use SO_REUSEPORT .",
+            __FUNCTION__, host == NULL ? "" : host, port);
 #endif
 
     for ( i = 0; i < nthreads; ++i )
@@ -155,7 +160,7 @@ int32_t iolayer_listen( iolayer_t self,
         if ( acceptor->event == NULL )
         {
             syslog(LOG_WARNING,
-                    "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
+                    "%s(host:'%s', port:%d) failed, can't create AcceptEvent .",
                     __FUNCTION__, host == NULL ? "" : host, port);
             free( acceptor );
             return -2;
@@ -176,7 +181,7 @@ int32_t iolayer_listen( iolayer_t self,
         acceptor->parent    = layer;
         acceptor->port      = port;
         acceptor->host[0]   = 0;
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
         acceptor->index     = i;
 #else
         acceptor->index     = DISPATCH_POLICY(layer, acceptor->fd);
@@ -242,8 +247,8 @@ int32_t iolayer_connect( iolayer_t self,
     connector->mseconds = seconds*1000;
     connector->parent   = layer;
     connector->port     = port;
+    connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
     strncpy( connector->host, host, INET_ADDRSTRLEN );
-    connector->index    = DISPATCH_POLICY( layer, connector->fd );
 
     iothreads_post( layer->group, connector->index, eIOTaskType_Connect, connector, 0 );
 
@@ -647,7 +652,7 @@ void iolayer_server_option( int32_t fd )
     flag = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
     flag = 1;
     setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof(flag) );
 #endif
@@ -748,7 +753,7 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
     return _assign_direct( self, acceptidx,
             iothreads_get_sets( self->group, acceptidx ), task );
 #else
@@ -773,8 +778,9 @@ int32_t _new_managers( struct iolayer * self )
     uint8_t i = 0;
     uint32_t sessions_per_thread = self->nclients/self->nthreads;
 
-    // 会话管理器,
-    // 采用cacheline对齐以提高访问速度
+    // NOTICE: 根据MESI协议来看，只读的内存块都应该在Shared状态，不会出现伪共享的现象
+    // NOTICE: 但实际测试结果却相反
+    // NOTICE: 采用cacheline对齐避免False Sharing
     self->managers = (void **)calloc( (self->nthreads)<<3, sizeof(void *) );
     if ( self->managers == NULL )
     {

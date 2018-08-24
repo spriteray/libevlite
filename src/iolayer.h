@@ -23,6 +23,8 @@ struct iolayer
     // 基础配置
     uint8_t     nthreads;
     uint32_t    nclients;
+    // 连接索引确保连接的均衡分配
+    uint32_t    connectidx;
 
     // 网络线程组
     iothreads_t group;

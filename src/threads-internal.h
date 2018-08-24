@@ -26,6 +26,7 @@ struct iothread
 
     event_t             cmdevent;
     struct msgqueue *   queue;
+    char                padding[ 8 ];
 };
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );

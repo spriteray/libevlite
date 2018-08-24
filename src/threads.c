@@ -350,7 +350,7 @@ void iothread_on_command( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_READ )
     {
-        char buf[ 64 ];
+        char buf[ 8 ];
 
         if ( read( fd, buf, sizeof(buf) ) == -1 )
         {

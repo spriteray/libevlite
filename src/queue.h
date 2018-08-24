@@ -2,8 +2,10 @@
 #ifndef SRC_QUEUE_H
 #define SRC_QUEUE_H
 
+#include "config.h"
+
 // FIX: OSX有可能的重复定义
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+#if defined EVENT_OS_BSD || defined EVENT_OS_MACOS
 #include <sys/queue.h>
 #else
 #include <sys/cdefs.h>
@@ -557,7 +559,7 @@ struct {                                                \
     TRASHIT(*oldprev);                                  \
     QMD_TRACE_ELEM(&(elm)->field);                      \
 } while (0)
-#endif /* #if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__) */
+#endif /* #if defined EVENT_OS_BSD || defined EVENT_OS_MACOS */
 
 /*
  * 队列

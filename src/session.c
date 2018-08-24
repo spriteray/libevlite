@@ -146,7 +146,7 @@ int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
 {
     int32_t ntry = 0;
 
-    if ( self->status&SESSION_EXITING )
+    if ( unlikely( self->status&SESSION_EXITING ) )
     {
         // 等待关闭的连接
         return -1;
@@ -467,8 +467,6 @@ int32_t session_end( struct session * self, sid_t id, int8_t recycle )
     // 由于会话已经从管理器中删除了
     // 会话中的ID已经非法
 
-    assert( recycle == 0 && "NOT support REUSE-SESSION" );
-
     // 清空发送队列
     uint32_t count = session_sendqueue_count(self);
     if ( count > 0 )
@@ -660,6 +658,8 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
     self->autoseq = 0;
     self->index = index;
     self->table = (struct hashtable *)( self + 1 );
+    // 初始化回收队列
+    STAILQ_INIT( &self->recyclelist );
 
     if ( _init_table(self->table, size) != 0 )
     {
@@ -681,7 +681,21 @@ struct session * session_manager_alloc( struct session_manager * self )
     id |= self->autoseq++;
     id &= SID_MASK;
 
+#ifndef USE_REUSESESSION
     session = _new_session();
+#else
+    // 优先到回收队列中取
+    session = STAILQ_FIRST( &self->recyclelist );
+    if ( session == NULL )
+    {
+        session = _new_session();
+    }
+    else
+    {
+        STAILQ_REMOVE_HEAD( &self->recyclelist, recyclelink );
+    }
+#endif
+
     if ( session != NULL )
     {
         session->id = id;
@@ -746,9 +760,15 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
     return 0;
 }
 
+void session_manager_recycle( struct session_manager * self, struct session * session )
+{
+    STAILQ_INSERT_TAIL( &self->recyclelist, session, recyclelink );
+}
+
 void session_manager_destroy( struct session_manager * self )
 {
-    int32_t i = 0;
+    uint32_t i = 0;
+    struct session * session = NULL;
 
     if ( self->table->count > 0 )
     {
@@ -781,6 +801,15 @@ void session_manager_destroy( struct session_manager * self )
             // head是table创建的, 所以不需要销毁
             if ( head != n ) free( n );
         }
+    }
+
+    // 销毁回收队列
+    for ( session = STAILQ_FIRST( &self->recyclelist ); session != NULL; )
+    {
+        struct session * next = STAILQ_NEXT( session, recyclelink );
+
+        _del_session( session );
+        session = next;
     }
 
     if ( self->table->entries != NULL )
