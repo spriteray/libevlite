@@ -23,6 +23,7 @@
     //
     #if defined __linux__
         #define EVENT_OS_LINUX
+        #include <features.h>
         #include <linux/version.h>
     #elif defined __FreeBSD__ || defined __OpenBSD__
         #define EVENT_OS_BSD
@@ -49,5 +50,15 @@
 #endif
 
 // EVENT_HAVE_EVENTFD
+#if defined EVENT_OS_LINUX
+    // eventfd() is available on Linux since kernel 2.6.22.
+    // Working support is provided in glibc since version 2.8
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,22)
+        #if defined __GLIBC__ && __GLIBC_PREREQ(2,8)
+            #define EVENT_HAVE_EVENTFD
+            #include <sys/eventfd.h>
+        #endif
+    #endif
+#endif
 
 #endif
