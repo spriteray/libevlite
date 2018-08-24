@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <sys/uio.h>
 
+#include "config.h"
 #include "utils.h"
 #include "iolayer.h"
 #include "network-internal.h"
@@ -415,7 +416,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
         cfd = tcp_accept( fd, task.host, &(task.port) );
         if ( cfd > 0 )
         {
-#if !defined(__FreeBSD__)
+#if !defined EVENT_OS_BSD
             // FreeBSD会继承listenfd的NON Block属性
             set_non_block( cfd );
 #endif
@@ -477,7 +478,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_WRITE )
     {
-#if defined (__linux__) || defined(__APPLE__) || defined(__darwin__)
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
         // linux需要进一步检查连接是否成功
         if ( is_connected( fd ) != 0 )
         {
@@ -546,7 +547,7 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_WRITE )
     {
-#if defined (__linux__) || defined(__APPLE__) || defined(__darwin__)
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
         if ( is_connected(fd) != 0 )
         {
             channel_error( session, eIOError_ConnectStatus );

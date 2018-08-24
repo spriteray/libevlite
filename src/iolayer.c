@@ -7,6 +7,7 @@
 #include <assert.h>
 #include <sys/socket.h>
 
+#include "config.h"
 #include "network.h"
 #include "channel.h"
 #include "session.h"
@@ -137,8 +138,11 @@ int32_t iolayer_listen( iolayer_t self,
     assert( self != NULL && "Illegal IOLayer" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
 
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
     nthreads = layer->nthreads;
+    syslog(LOG_INFO,
+            "%s(host:'%s', port:%d) use SO_REUSEPORT .",
+            __FUNCTION__, host == NULL ? "" : host, port);
 #endif
 
     for ( i = 0; i < nthreads; ++i )
@@ -156,7 +160,7 @@ int32_t iolayer_listen( iolayer_t self,
         if ( acceptor->event == NULL )
         {
             syslog(LOG_WARNING,
-                    "%s(host:'%s', port:%d) failed, can't create AcceptEvent.",
+                    "%s(host:'%s', port:%d) failed, can't create AcceptEvent .",
                     __FUNCTION__, host == NULL ? "" : host, port);
             free( acceptor );
             return -2;
@@ -177,7 +181,7 @@ int32_t iolayer_listen( iolayer_t self,
         acceptor->parent    = layer;
         acceptor->port      = port;
         acceptor->host[0]   = 0;
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
         acceptor->index     = i;
 #else
         acceptor->index     = DISPATCH_POLICY(layer, acceptor->fd);
@@ -648,7 +652,7 @@ void iolayer_server_option( int32_t fd )
     flag = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
     flag = 1;
     setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof(flag) );
 #endif
@@ -749,7 +753,7 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
-#ifdef USE_REUSEPORT
+#ifdef EVENT_HAVE_REUSEPORT
     return _assign_direct( self, acceptidx,
             iothreads_get_sets( self->group, acceptidx ), task );
 #else

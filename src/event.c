@@ -5,6 +5,7 @@
 #include <syslog.h>
 #include <assert.h>
 
+#include "config.h"
 #include "utils.h"
 #include "event-internal.h"
 
@@ -18,10 +19,10 @@
 #endif
 
 // linux和freebsd的兼容性定义
-#if defined (__linux__)
+#if defined EVENT_OS_LINUX
 extern const struct eventop epollops;
 const struct eventop * evsel = &epollops;
-#elif defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+#elif defined EVENT_OS_BSD || defined EVENT_OS_MACOS
 extern const struct eventop kqueueops;
 const struct eventop * evsel = &kqueueops;
 #else

@@ -12,7 +12,7 @@
 
 #include "utils.h"
 
-#if defined(__linux__)
+#if defined EVENT_OS_LINUX
 
 __thread pid_t t_cached_threadid = 0;
 
