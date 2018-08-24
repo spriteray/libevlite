@@ -6,25 +6,31 @@
 // OS Feature(s)
 //
 
-#include <sys/types.h>
-#include <sys/socket.h>
-
 //
 // OS
+// EVENT_OS_WIN32
+// EVENT_OS_UNKNOWN
 // EVENT_OS_LINUX,
 // EVENT_OS_BSD, EVENT_OS_MACOS
-// EVENT_OS_WIN
-// EVENT_OS_UNKNOWN
 //
-#if defined __linux__
-    #define EVENT_OS_LINUX
-    #include <linux/version.h>
-#elif defined __FreeBSD__ || defined __OpenBSD__
-    #define EVENT_OS_BSD
-#elif defined __APPLE__ || defined __darwin__
-    #define EVENT_OS_MACOS
+#if defined _WIN32
+    #define EVENT_OS_WIN32
 #else
-    #define EVENT_OS_UNKNOWN
+    // 除了windows平台外
+    // 几乎都支持的头文件, 用于判断以下特性
+    #include <sys/types.h>
+    #include <sys/socket.h>
+    //
+    #if defined __linux__
+        #define EVENT_OS_LINUX
+        #include <linux/version.h>
+    #elif defined __FreeBSD__ || defined __OpenBSD__
+        #define EVENT_OS_BSD
+    #elif defined __APPLE__ || defined __darwin__
+        #define EVENT_OS_MACOS
+    #else
+        #define EVENT_OS_UNKNOWN
+    #endif
 #endif
 
 // EVENT_HAVE_REUSEPORT
