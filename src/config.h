@@ -11,7 +11,10 @@
 
 //
 // OS
-// EVENT_OS_LINUX, EVENT_OS_BSD, EVENT_OS_MACOS
+// EVENT_OS_LINUX,
+// EVENT_OS_BSD, EVENT_OS_MACOS
+// EVENT_OS_WIN
+// EVENT_OS_UNKNOWN
 //
 #if defined __linux__
     #define EVENT_OS_LINUX
@@ -20,6 +23,8 @@
     #define EVENT_OS_BSD
 #elif defined __APPLE__ || defined __darwin__
     #define EVENT_OS_MACOS
+#else
+    #define EVENT_OS_UNKNOWN
 #endif
 
 // EVENT_HAVE_REUSEPORT
