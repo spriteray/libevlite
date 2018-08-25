@@ -66,11 +66,6 @@ int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
     return nprocess;
 }
 
-char * onTransform( void * context, const char * buf, uint32_t * nbytes )
-{
-    return (char *)buf;
-}
-
 int32_t onTimeout( void * context )
 {
     return 0;
@@ -92,12 +87,9 @@ void onShutdown( void * context, int32_t way )
     free( s );
 }
 
-void onPerform( void * context, int32_t type, void * task )
-{}
-
-char * onLayerTransform( void * context, const char * buf, uint32_t * nbytes )
+int32_t onPerform( void * context, int32_t type, void * task )
 {
-    return (char *)buf;
+    return 0;
 }
 
 int32_t onLayerAccept( void * context, void * local, sid_t id, const char * host, uint16_t port )
@@ -113,7 +105,7 @@ int32_t onLayerAccept( void * context, void * local, sid_t id, const char * host
         ioservice_t ioservice;
         ioservice.start        = onStart;
         ioservice.process    = onProcess;
-        ioservice.transform = onTransform;
+        ioservice.transform = NULL;
         ioservice.timeout    = onTimeout;
         ioservice.keepalive    = onKeepalive;
         ioservice.error        = onError;
@@ -154,7 +146,6 @@ int main( int32_t argc, char ** argv )
         return -2;
     }
 
-    iolayer_set_transform( layer, onLayerTransform, layer );
     iolayer_listen( layer, host, port, onLayerAccept, layer) ;
 
     g_Running = 1;

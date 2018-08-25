@@ -1,5 +1,7 @@
 
-#if defined (__linux__)
+#include "config.h"
+
+#if defined EVENT_OS_LINUX
 
 #include <stdio.h>
 #include <errno.h>

@@ -22,6 +22,7 @@ extern "C"
 
 #include "lock.h"
 #include "queue.h"
+#include "config.h"
 #include "network.h"
 
 // 分支预测
@@ -40,7 +41,7 @@ int64_t milliseconds();
 int64_t microseconds();
 
 // 获取线程ID
-#if defined(__linux__)
+#if defined EVENT_OS_LINUX
 pid_t threadid();
 #endif
 
@@ -59,9 +60,9 @@ int32_t tcp_connect( const char * host, uint16_t port, void (*options)(int32_t) 
 uint32_t getpower( uint32_t size );
 uint32_t nextpow2( uint32_t size );
 
-/*
- * sidlist
- */
+//
+// sidlist
+//
 struct sidlist
 {
     uint32_t    count;
@@ -77,6 +78,10 @@ int32_t sidlist_add( struct sidlist * self, sid_t id );
 int32_t sidlist_adds( struct sidlist * self, sid_t * ids, uint32_t count );
 sid_t sidlist_del( struct sidlist * self, int32_t index );
 void sidlist_destroy( struct sidlist * self );
+
+//
+// 消息队列
+//
 
 // 任务类型
 enum
@@ -108,10 +113,10 @@ struct task
 QUEUE_PADDING_HEAD(taskqueue, struct task);
 QUEUE_PROTOTYPE(taskqueue, struct task)
 
-/*
- * 消息队列
- * 线程安全的消息队列, 有通知的功能
- */
+//
+// 消息队列
+// 线程安全的消息队列, 有通知的功能
+//
 struct msgqueue
 {
     struct taskqueue queue;

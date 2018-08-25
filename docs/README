@@ -1,36 +1,36 @@
 
-event�¼�������
+event事件操作库
 
-include\	- ����ӿ�Ŀ¼���ṩ��ʹ���ߵ�include�ļ�
-src\		- ����ʵ�ֲ���
-docs\		- �ĵ�
-test\		- ����Ŀ¼
-Makefile.*	- Makefile�ļ�
+include\	- 对外接口目录，提供给使用者的include文件
+src\		- 具体实现部分
+docs\		- 文档
+test\		- 测试目录
+Makefile.*	- Makefile文件
 
-��������FreeBSD���¼���([ FreeBSD7.4, Xeon E5410 * 1, 8G ])
+二、基于FreeBSD的事件库([ FreeBSD7.4, Xeon E5410 * 1, 8G ])
 
-1. ���Խ�������Է����ѹ�����ԣ���û�г�ʱ����Ļ�����, ���ܱ�libevent�߳�10%���ҡ�
+1. 测试结果：回显服务的压力测试，在没有超时参与的基础上, 性能比libevent高出10%左右。
 
-2. ���ֵ����⣺
-    1) ��1000�����ӵ�����£�����10�����ҵ����ӵ�close�¼���ʧ��
-        ����Ҫ��ص��������Ѿ�ע�ᵽkqueue�У�������λ��kevent()�У�event�¼����libevent�����ڡ����������ǲ��Ի��������⡣
+2. 出现的问题：
+    1) 在1000个连接的情况下，总有10个左右的连接的close事件丢失了
+        所需要监控的描述符已经注册到kqueue中，基本定位到kevent()中；event事件库和libevent都存在。初步怀疑是测试环境有问题。
 
 
-��������linux���¼���([ Centos 6.0(linux-2.6.32), Pentium(R) Dual-Core E6700 3.20GHz, 512M ])
+三、基于linux的事件库([ Centos 6.0(linux-2.6.32), Pentium(R) Dual-Core E6700 3.20GHz, 512M ])
 
-1. ���Խ��:
-    1) Ч�ʱ��ں�2.6.18�ں˴�����20%��������
-    2) ���Է����ѹ�����ԣ���û�г�ʱ����Ļ�����,���ܱ�libevent�߳�17%����.
-    3) �ڳ�ʱʱ���趨Ϊ5s������£����ܱ�libevent�߳�160%���ҡ�
-        Connections         ������[event]       ������[libevent]
+1. 测试结果:
+    1) 效率比内核2.6.18内核带来了20%的提升。
+    2) 回显服务的压力测试，在没有超时参与的基础上,性能比libevent高出17%左右.
+    3) 在超时时间设定为5s的情况下，性能比libevent高出160%左右。
+        Connections         吞吐量[event]       吞吐量[libevent]
         1000                113MBytes/s         41MBytes/s
         1000                110MBytes/s         43MBytes/s
         10000               119MBytes/s         20MBytes/s
-        10000               110MBytes/s         37MBytes/s 
+        10000               110MBytes/s         37MBytes/s
 
-2. ���ֵ����⣺
-    1) 1000������ʱ����������л��ﵽ50K, ��20000�����ӵ��л���300��;[�ѽ��, vmstatͳ������]
-        Connections         CS                  ������
+2. 出现的问题：
+    1) 1000个连接时候的上下文切换达到50K, 但20000个连接的切换才300多;[已解决, vmstat统计问题]
+        Connections         CS                  吞吐量
         1000                55000               110MBytes/s
         2000                40000               109MBytes/s
         3000                47000               108MBytes/s
@@ -39,18 +39,22 @@ Makefile.*	- Makefile�ļ�
         6000                9000,[330~38000]    130MBytes/s
         7000                6000,[300~19000]    131MBytes/s
         8000                1000,[300~18000]    127MBytes/s
-        10000               350                 130MBytes/s        
-        
-    2) ͬ��1000�����ӵ�ʱ��, IO�̵߳ȴ�ʱ��Ϊ0ʱ(IO�߳�������̯ѹ��), �������л��������ͣ������������;
+        10000               350                 130MBytes/s
 
-�ġ�Accept-Lockģ�͵Ļ��Է�����
+    2) 同样1000个连接的时候, IO线程等待时间为0时(IO线程真正分摊压力), 上下文切换大量降低，但吞吐量锐减;
 
-1. ģ�ͽ��ܣ�
-    Accept-Lockģ�ͣ������ڶ��IO�߳��У���Ч�Ĺ�ƽ�ķ�̯IO��ѹ�������Ա�fdӲhash���ĸ�Ч��
+四、Accept-Lock模型的回显服务器
 
-2. ���Խ����
-    1) accept�¼�������һ���߳��з���, ��û��ԭ����Ƶ�Ч������ѹ�����ԵĽű������������Ľ��Ҳ�ǿ�������ġ�
-        �Ͼ��������Ӷ��ɹ��󣬲ſ�ʼ�������ݵģ�����һ��ʼ���̻߳���û��ʲôѹ����
-        
-�塢ͬ���Ŀ��������У�centos6.0��freebsd8.2���˽�30%��
+1. 模型介绍：
+    Accept-Lock模型，能在在多个IO线程中，高效的公平的分摊IO的压力，绝对比fd硬hash来的高效。
+
+2. 测试结果：
+    1) accept事件总是在一个线程中发生, 并没有原先设计的效果。从压力测试的脚本来看，这样的结果也是可以理解的。
+        毕竟所有连接都成功后，才开始发送数据的，所以一开始的线程基本没有什么压力。
+
+五、同样的开发环境中，centos6.0比freebsd8.2快了近30%。
+
+六、吞吐量横向比较(muduo, Ubuntu 14.04.5, Intel(R) Xeon(R) CPU E5606 @ 2.13GHz, 8核8G)
+	moduo 1000个连接，4个IO线程，4K的数据包，197.515234375 MiB/s throughput
+	libevlite 1000个连接，4个IO线程，4K的数据包，245.58203125 MiB/s throughput
 

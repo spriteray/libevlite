@@ -1,5 +1,6 @@
 
 #include <assert.h>
+#include <strings.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -11,7 +12,7 @@
 
 #include "utils.h"
 
-#if defined(__linux__)
+#if defined EVENT_OS_LINUX
 
 __thread pid_t t_cached_threadid = 0;
 
@@ -105,7 +106,7 @@ int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
     *remoteport = 0;
     remotehost[0] = 0;
 
-    memset( &in_addr, 0, sizeof(in_addr) );
+    bzero( &in_addr, sizeof(in_addr) );
 
     cfd = accept( fd, (struct sockaddr *)&in_addr, &len );
     if ( cfd != -1 )
@@ -131,7 +132,7 @@ int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) )
     // 对描述符的选项操作
     options( fd );
 
-    memset( &addr, 0, sizeof(addr) );
+    bzero( &addr, sizeof(addr) );
     addr.sin_family = AF_INET;
     addr.sin_port   = htons( port );
     if ( host == NULL
@@ -184,7 +185,7 @@ int32_t tcp_connect( const char * host, uint16_t port, void (*options)(int32_t) 
     // 对描述符的选项操作
     options( fd );
 
-    memset( &addr, 0, sizeof(addr) );
+    bzero( &addr, sizeof(addr) );
     addr.sin_family = AF_INET;
     addr.sin_port   = htons(port);
     inet_pton(AF_INET, host, (void *)&(addr.sin_addr.s_addr));
@@ -369,24 +370,32 @@ struct msgqueue * msgqueue_create( uint32_t size )
         else
         {
             int32_t rc = -1;
-            int32_t fds[2] = { -1, -1 };
 
+#if !defined EVENT_HAVE_EVENTFD
+            int32_t fds[2] = { -1, -1 };
             rc = pipe( fds );
             //rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
-            if ( rc == -1 )
-            {
-                msgqueue_destroy( self );
-                self = NULL;
-            }
-            else
+            if ( rc != -1 )
             {
                 self->popfd = fds[0];
                 self->pushfd = fds[1];
-
 #ifdef O_NOATIME
                 // linux在读pipe的时候会更新访问时间, touch_atime(), 这个的开销也不小
                 fcntl( self->popfd, F_SETFL, O_NOATIME );
 #endif
+            }
+#else
+            rc = eventfd( 0, EFD_NONBLOCK | EFD_CLOEXEC );
+            if ( rc != -1 )
+            {
+                self->popfd = rc;
+                self->pushfd = rc;
+            }
+#endif
+            if ( rc == -1 )
+            {
+                msgqueue_destroy( self );
+                self = NULL;
             }
         }
     }
@@ -411,9 +420,9 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
 
     if ( rc == 0 && isbc == 1 )
     {
-        char buf[1] = {0};
+        char buf[8] = {0};
 
-        if ( write( self->pushfd, buf, 1 ) != 1 )
+        if ( write( self->pushfd, buf, sizeof(buf) ) != 1 )
         {
             //
         }
@@ -487,13 +496,15 @@ int32_t msgqueue_destroy( struct msgqueue * self )
     if ( self->popfd )
     {
         close( self->popfd );
-        self->popfd = -1;
     }
-    if ( self->pushfd )
+    if ( self->pushfd
+            && self->pushfd != self->popfd )
     {
         close( self->pushfd );
-        self->pushfd = -1;
     }
+
+    self->popfd = -1;
+    self->pushfd = -1;
 
     QUEUE_CLEAR(taskqueue)(&self->queue);
     evlock_destroy( &self->lock );

@@ -1,11 +1,14 @@
 
-#if defined(__FreeBSD__) || defined(__APPLE__) || defined(__darwin__) || defined(__OpenBSD__)
+#include "config.h"
+
+#if defined EVENT_OS_BSD || defined EVENT_OS_MACOS
 
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 
 #include <sys/types.h>
 #include <sys/event.h>
@@ -127,7 +130,7 @@ int32_t kqueue_add( void * arg, struct event * ev )
     struct kevent kev;
     struct kqueuer * poller = (struct kqueuer *)arg;
 
-    memset( &kev, 0, sizeof(kev) );
+    bzero( &kev, sizeof(kev) );
 
     if ( ev->events & EV_READ )
     {
@@ -186,7 +189,7 @@ int32_t kqueue_del( void * arg, struct event * ev )
         return 0;
     }
 
-    memset( &kev, 0, sizeof(kev) );
+    bzero( &kev, sizeof(kev) );
 
     if ( ev->events & EV_READ )
     {
