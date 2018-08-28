@@ -66,14 +66,19 @@ void * epoll_init()
     int32_t epollfd = -1;
     struct epoller * poller = NULL;
 
-    epollfd = epoll_create(64000);      // 该参数在新内核中已经取消
+#if defined EVENT_HAVE_EPOLLCREATE1
+    epollfd = epoll_create1( EPOLL_CLOEXEC );
+#endif
     if ( epollfd == -1 )
     {
-        return NULL;
+        epollfd = epoll_create(64000);      // 该参数在新内核中已经取消
+        if ( epollfd == -1 )
+        {
+            return NULL;
+        }
+        // CLOSEONEXEC
+        set_cloexec( epollfd );
     }
-
-    // CLOSEONEXEC
-    set_cloexec( epollfd );
 
     poller = (struct epoller *)malloc( sizeof(struct epoller) );
     if ( poller == NULL )
@@ -143,7 +148,7 @@ int32_t epoll_insert( struct epoller * self, int32_t max )
 
 int32_t epoll_add( void * arg, struct event * ev )
 {
-    int32_t fd = 0;
+    int32_t fd = 0, rc = -1;
     int32_t op = 0, events = 0;
 
     struct epoll_event epollevent;
@@ -191,7 +196,26 @@ int32_t epoll_add( void * arg, struct event * ev )
     epollevent.data.fd = fd;
     epollevent.events = events;
 
-    if ( epoll_ctl( poller->epollfd, op, fd, &epollevent ) == -1 )
+    rc = epoll_ctl( poller->epollfd, op, fd, &epollevent );
+    if ( rc == -1 )
+    {
+        if ( op == EPOLL_CTL_MOD && errno == ENOENT )
+        {
+            // If a MOD operation fails with ENOENT, the fd was probably closed and re-opened.
+            // We should retry the operation as an ADD.
+            rc = epoll_ctl( poller->epollfd, EPOLL_CTL_ADD, fd, &epollevent );
+        }
+        else if ( op == EPOLL_CTL_ADD && errno == EEXIST )
+        {
+            // If an ADD operation fails with EEXIST,
+            // either the operation was redundant (as with a precautionary add),
+            // or we ran into a fun kernel bug where using dup*() to duplicate the same file into the same fd gives you the same epitem rather than a fresh one.
+            // For the second case, we must retry with MOD.
+            rc = epoll_ctl( poller->epollfd, EPOLL_CTL_MOD, fd, &epollevent );
+        }
+    }
+
+    if ( rc == -1 )
     {
         return -2;
     }
