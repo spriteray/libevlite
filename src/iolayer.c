@@ -1170,23 +1170,22 @@ int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, 
 
     rc = associater->cb( associater->context,
             iothreads_get_context( self->group, index ), associater->fd, session == NULL ? 0 : session->id );
-    if ( rc != 0 )
+    if ( session != NULL )
     {
-        if ( session != NULL )
+        if ( rc != 0 )
         {
             session_manager_remove( manager, session );
         }
-
-        free( associater );
-        return 1;
+        else
+        {
+            session_set_iolayer( session, self );
+            session_start( session, eSessionType_Once, associater->fd, sets );
+        }
     }
 
-    session_set_iolayer( session, self );
-    session_start( session, eSessionType_Once, associater->fd, sets );
     // 释放
     free( associater );
-
-    return 0;
+    return rc;
 }
 
 void _io_methods( void * context, uint8_t index, int16_t type, void * task )
