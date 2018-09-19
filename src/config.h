@@ -61,4 +61,15 @@
     #endif
 #endif
 
+// EVENT_HAVE_EPOLLCREATE1
+#if defined EVENT_OS_LINUX
+    // epoll_create1() was added to the kernel in version 2.6.27.
+    // Library support is provided in glibc starting with version 2.9.
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,27)
+        #if defined __GLIBC__ && __GLIBC_PREREQ(2,9)
+            #define EVENT_HAVE_EPOLLCREATE1
+        #endif
+    #endif
+#endif
+
 #endif

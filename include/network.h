@@ -165,18 +165,18 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes );
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
-// 提交任务
+// 提交任务到网络层(会话ID所在网络线程)
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-//      recycle         - 提交失败时任务的回收函数
+//      recycle         - 任务回收函数(执行失败时回调)
 int32_t iolayer_perform( iolayer_t self, sid_t id,
         int32_t type, void * task, void (*recycle)( int32_t, void * ) );
 
-// 提交任务
+// 提交任务到网络层(广播所有网络线程)
 //      task            - 任务
-//      clone           - 任务的复制函数
-//      perform         - 任务的处理函数
+//      clone           - 任务复制函数
+//      perform         - 任务处理函数
 //                          参数1: iocontext
 //                          参数2: task
 int32_t iolayer_perform2( iolayer_t self, void * task,

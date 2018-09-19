@@ -6,8 +6,8 @@
 #include <string>
 #include <pthread.h>
 
-#include "evlite/event.h"
-#include "evlite/network.h"
+#include "event.h"
+#include "network.h"
 
 typedef std::vector<sid_t> sids_t;
 
@@ -168,7 +168,7 @@ public :
     int32_t shutdown( sid_t id );
     int32_t shutdown( const sids_t & ids );
 
-    // 跨线程提交任务
+    // 提交任务到网络层
     int32_t perform( sid_t sid,
             int32_t type, void * task, void (*recycle)(int32_t, void *) );
     int32_t perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) );
