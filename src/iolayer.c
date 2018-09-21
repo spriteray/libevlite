@@ -58,6 +58,8 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     self->nclients  = nclients;
     self->connectidx= 0;
     self->status    = eLayerStatus_Running;
+    self->group     = NULL;
+    self->managers  = NULL;
 
     // 初始化会话管理器
     if ( _new_managers( self ) != 0 )

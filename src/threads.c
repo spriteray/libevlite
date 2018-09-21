@@ -33,7 +33,7 @@ iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately,
     if ( iothreads->threadgroup == NULL )
     {
         free( iothreads );
-        iothreads = NULL;
+        return NULL;
     }
 
     iothreads->method   = method;
