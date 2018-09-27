@@ -21,14 +21,14 @@
 
 static inline int32_t _new_managers( struct iolayer * self );
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
-static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
+static inline ssize_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 static inline int32_t _broadcast2_loop( void * context, struct session * s );
 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct task_assign * task );
-static int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
+static ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task );
@@ -310,7 +310,7 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 }
 
 int32_t iolayer_set_transform( iolayer_t self,
-        char * (*transform)(void *, const char *, uint32_t *), void * context )
+        char * (*transform)(void *, const char *, size_t *), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -438,12 +438,12 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 //      buf             - 要发送的缓冲区
 //      nbytes          - 要发送的长度
 //      isfree          - 1-由网络层释放缓冲区, 0-网络层需要Copy缓冲区
-int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree )
+ssize_t iolayer_send( iolayer_t self, sid_t id, const char * buf, size_t nbytes, int32_t isfree )
 {
     return _send_buffer( (struct iolayer *)self, id, buf, nbytes, isfree );
 }
 
-int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes )
+int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, size_t nbytes )
 {
     if ( unlikely( ids == NULL || count == 0 ) )
     {
@@ -484,7 +484,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
     return 0;
 }
 
-int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
+int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
 {
     uint8_t i = 0;
 
@@ -498,7 +498,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes )
         {
             continue;
         }
-        message_add_buffer( msg, (char *)buf, nbytes );
+        message_add_buffer( msg, buf, nbytes );
 
         if ( threadid == iothreads_get_id( layer->group, i ) )
         {
@@ -812,7 +812,7 @@ struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
     return (struct session_manager *)( self->managers[index<<3] );
 }
 
-int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree )
+ssize_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree )
 {
     int32_t result = 0;
     uint8_t index = SID_INDEX(id);
@@ -943,16 +943,16 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     return 0;
 }
 
-int32_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task )
+ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task )
 {
-    int32_t rc = -1;
+    ssize_t rc = -1;
     struct session * session = session_manager_get( manager, task->id );
 
     if ( likely(session != NULL) )
     {
         // 数据统一改造
         char * buffer = task->buf;
-        uint32_t nbytes = task->nbytes;
+        size_t nbytes = task->nbytes;
 
         if ( self->transform != NULL )
         {
@@ -964,7 +964,7 @@ int32_t _send_direct( struct iolayer * self, struct session_manager * manager, s
             rc = session_send( session, buffer, nbytes );
             if ( rc < 0 )
             {
-                syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session drop this message(LENGTH=%d) .\n",
+                syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session drop this message(LENGTH=%lu) .\n",
                         __FUNCTION__, task->id, nbytes );
             }
 
@@ -999,7 +999,7 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
     {
         // 数据需要改造
         char * buffer = NULL;
-        uint32_t nbytes = message_get_length( msg );
+        size_t nbytes = message_get_length( msg );
         buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
         if ( buffer == NULL )
         {
@@ -1056,7 +1056,7 @@ int32_t _broadcast2_direct( struct iolayer * self, uint8_t index, struct session
     {
         // 数据需要改造
         char * buffer = NULL;
-        uint32_t nbytes = message_get_length( msg );
+        size_t nbytes = message_get_length( msg );
         buffer = self->transform( self->context, message_get_buffer(msg), &nbytes );
         if ( buffer == NULL )
         {

@@ -25,28 +25,29 @@ const int32_t iov_max = 8;
 #endif
 
 // 发送接收数据
-static int32_t _receive( struct session * session );
-static int32_t _transmit( struct session * session );
-static inline int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
+static ssize_t _receive( struct session * session );
+static ssize_t _transmit( struct session * session );
+static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
 // 逻辑操作
-static int32_t _process( struct session * session );
+static ssize_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _receive( struct session * session )
+ssize_t _receive( struct session * session )
 {
     // 尽量读数据
     return buffer_read( &session->inbuffer, session->fd, 0 );
 }
 
-int32_t _transmit( struct session * session )
+ssize_t _transmit( struct session * session )
 {
     uint32_t i = 0;
-    int32_t writen = 0, offset = session->msgoffset;
+    ssize_t writen = 0;
+    size_t offset = session->msgoffset;
 
     int32_t iov_size = 0;
     struct iovec iov_array[iov_max];
@@ -101,7 +102,7 @@ int32_t _transmit( struct session * session )
 
     if ( writen > 0 && session_sendqueue_count(session) > 0 )
     {
-        int32_t againlen = _transmit( session );
+        ssize_t againlen = _transmit( session );
         if ( againlen > 0 )
         {
             writen += againlen;
@@ -111,9 +112,9 @@ int32_t _transmit( struct session * session )
     return writen;
 }
 
-int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
+ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
 {
-    int32_t writen = -1;
+    ssize_t writen = -1;
 
 #if defined (TCP_CORK)
     int32_t corked = 1;
@@ -130,11 +131,11 @@ int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
     return writen;
 }
 
-int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
+ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
 {
-    int32_t writen = 0;
+    ssize_t writen = 0;
 
-    writen = (int32_t)write( session->fd, buf, nbytes );
+    writen = write( session->fd, buf, nbytes );
     if ( writen < 0 )
     {
         if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
@@ -150,15 +151,15 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _process( struct session * session )
+ssize_t _process( struct session * session )
 {
-    int32_t nprocess = 0;
+    ssize_t nprocess = 0;
     ioservice_t * service = &session->service;
 
     if ( buffer_length( &session->inbuffer ) > 0 )
     {
         char * buffer = buffer_data( &session->inbuffer );
-        uint32_t nbytes = buffer_length( &session->inbuffer );
+        size_t nbytes = buffer_length( &session->inbuffer );
 
         // 回调逻辑层
         nprocess = service->process(
@@ -278,8 +279,8 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
          * -1    - read() failure
          * -2    - expand() failure
          */
-        int32_t nprocess = 0;
-        int32_t nread = _receive( session );
+        ssize_t nprocess = 0;
+        ssize_t nread = _receive( session );
 
         // 只有iolayer处于运行状态下的时候
         // 才会回调逻辑层处理数据
@@ -360,7 +361,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
         if ( session_sendqueue_count(session) > 0 )
         {
             // 发送数据
-            int32_t writen = _transmit( session );
+            ssize_t writen = _transmit( session );
             if ( writen < 0 && errno != EAGAIN )
             {
                 channel_error( session, eIOError_WriteFailure );
