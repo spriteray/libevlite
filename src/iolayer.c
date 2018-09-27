@@ -57,7 +57,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     self->nthreads  = nthreads;
     self->nclients  = nclients;
     self->connectidx= 0;
-    self->status    = eLayerStatus_Running;
+    self->status    = eIOStatus_Running;
     self->group     = NULL;
     self->managers  = NULL;
 
@@ -82,7 +82,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
 // 停止网络服务
 void iolayer_stop( iolayer_t self )
 {
-    ( (struct iolayer *)self )->status = eLayerStatus_Stopped;
+    ( (struct iolayer *)self )->status = eIOStatus_Stopped;
 }
 
 // 销毁网络通信层
@@ -92,7 +92,7 @@ void iolayer_destroy( iolayer_t self )
     struct iolayer * layer = (struct iolayer *)self;
 
     // 设置停止状态
-    layer->status = eLayerStatus_Stopped;
+    layer->status = eIOStatus_Stopped;
 
     // 停止网络线程组
     if ( layer->group )
@@ -977,7 +977,7 @@ ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, s
     }
     else
     {
-        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, task->id );
+        syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, task->id );
     }
 
     if ( task->isfree != 0 )

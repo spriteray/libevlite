@@ -16,17 +16,17 @@ extern "C"
 //
 struct buffer
 {
-    size_t  length;            // 有效数据段的长度
-    size_t  capacity;          // 内存块的总长度
+    size_t  length;             // 有效数据段的长度
+    size_t  capacity;           // 内存块的总长度
 
-    char *  buffer;              // 有效数据段
-    char *  orignbuffer;         // 原始数据段
+    char *  buffer;             // 有效数据段
+    char *  orignbuffer;        // 原始数据段
 };
 
 int32_t buffer_init( struct buffer * self );
 #define buffer_clear( self )    buffer_set( (self), NULL, 0 )
 
-// 设置缓冲区
+// 设置缓冲区(优先释放原先的内存)
 // 速度快, 不存在内存copy, buf一定是malloc()出来的内存地址
 int32_t buffer_set( struct buffer * self, char * buf, size_t length );
 
