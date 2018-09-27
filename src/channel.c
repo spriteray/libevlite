@@ -10,8 +10,8 @@
 #include "config.h"
 #include "utils.h"
 #include "iolayer.h"
-#include "network-internal.h"
 #include "channel.h"
+#include "network-internal.h"
 
 // iov_max
 #if defined (IOV_MAX)
@@ -118,14 +118,14 @@ ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
 
 #if defined (TCP_CORK)
     int32_t corked = 1;
-    setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
 #endif
 
-    writen = (int32_t)writev( fd, array, count );
+    writen = writev( fd, array, count );
 
 #if defined (TCP_CORK)
     corked = 0;
-    setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
 #endif
 
     return writen;

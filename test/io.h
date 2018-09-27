@@ -59,8 +59,8 @@ public :
     void setKeepalive( int32_t seconds );
 
     // 发送数据
-    ssize_t send( const std::string & buffer );
-    ssize_t send( const char * buffer, size_t nbytes, bool isfree = false );
+    int32_t send( const std::string & buffer );
+    int32_t send( const char * buffer, size_t nbytes, bool isfree = false );
 
     // 关闭会话
     int32_t shutdown();
@@ -155,8 +155,8 @@ public :
     sid_t connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
 
     // 发送数据
-    ssize_t send( sid_t id, const std::string & buffer );
-    ssize_t send( sid_t id, const char * buffer, size_t nbytes, bool isfree = false );
+    int32_t send( sid_t id, const std::string & buffer );
+    int32_t send( sid_t id, const char * buffer, size_t nbytes, bool isfree = false );
 
     // 广播数据
     int32_t broadcast( const std::string & buffer );

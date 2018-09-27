@@ -27,12 +27,12 @@ void IIOSession::setKeepalive( int32_t seconds )
     iolayer_set_keepalive( m_Layer, m_Sid, seconds );
 }
 
-ssize_t IIOSession::send( const std::string & buffer )
+int32_t IIOSession::send( const std::string & buffer )
 {
     return send( buffer.c_str(), static_cast<ssize_t>(buffer.length()) );
 }
 
-ssize_t IIOSession::send( const char * buffer, size_t nbytes, bool isfree )
+int32_t IIOSession::send( const char * buffer, size_t nbytes, bool isfree )
 {
     return iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(isfree) );
 }
@@ -277,12 +277,12 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bo
     return connectedsid;
 }
 
-ssize_t IIOService::send( sid_t id, const std::string & buffer )
+int32_t IIOService::send( sid_t id, const std::string & buffer )
 {
     return send( id, static_cast<const char *>(buffer.data()), buffer.size() );
 }
 
-ssize_t IIOService::send( sid_t id, const char * buffer, size_t nbytes, bool isfree )
+int32_t IIOService::send( sid_t id, const char * buffer, size_t nbytes, bool isfree )
 {
     return iolayer_send( m_IOLayer, id, buffer, nbytes, isfree );
 }

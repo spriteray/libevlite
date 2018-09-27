@@ -49,7 +49,7 @@ public:
 
 public :
     virtual int32_t onStart();
-    virtual int32_t onProcess( const char * buf, uint32_t nbytes );
+    virtual ssize_t onProcess( const char * buf, size_t nbytes );
     virtual void onShutdown( int32_t way );
     virtual int32_t onPerform( int32_t type, void * task );
 
@@ -121,13 +121,13 @@ int32_t CChatRoomSession::onStart()
     return 0;
 }
 
-int32_t CChatRoomSession::onProcess( const char * buf, uint32_t nbytes )
+ssize_t CChatRoomSession::onProcess( const char * buf, size_t nbytes )
 {
-    int32_t nprocess = 0;
+    ssize_t nprocess = 0;
 
     while ( 1 )
     {
-        uint32_t nleft = nbytes - nprocess;
+        size_t nleft = nbytes - nprocess;
         const char * buffer = buf + nprocess;
 
         if ( nleft < sizeof(struct CSHead) )

@@ -82,7 +82,7 @@ public :
         addTimer();
     }
 
-    int32_t recv()
+    ssize_t recv()
     {
         return buffer_read( &m_InBuffer, m_Fd, -1 );
     }
@@ -125,14 +125,14 @@ public :
 
     void onProcess()
     {
-        int32_t nprocess = 0;
+        ssize_t nprocess = 0;
 
         const char * buf = buffer_data( &m_InBuffer );
-        uint32_t nbytes = buffer_length( &m_InBuffer );
+        size_t nbytes = buffer_length( &m_InBuffer );
 
         while ( 1 )
         {
-            uint32_t nleft = nbytes - nprocess;
+            size_t nleft = nbytes - nprocess;
             const char * buffer = buf + nprocess;
 
             if ( nleft < sizeof(struct CSHead) )
@@ -150,8 +150,8 @@ public :
             assert( head->length == CHATROOM_MESSAGE_SIZE+sizeof(CSHead) );
             assert( head->msgid == 1 || head->msgid == 2 );
 
-            m_RecvBytes += head->length;
             nprocess += head->length;
+            m_RecvBytes += head->length;
         }
 
         buffer_erase( &m_InBuffer, nprocess );
@@ -193,7 +193,7 @@ void ChatRoomClient::onRead( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_READ )
     {
-        int32_t nread = client->recv();
+        ssize_t nread = client->recv();
         if ( nread <= 0 )
         {
             if ( nread == 0

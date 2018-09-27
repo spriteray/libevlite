@@ -153,7 +153,7 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 //      buf             - 要发送的缓冲区
 //      nbytes          - 要发送的长度
 //      isfree          - 1-由网络层释放缓冲区, 0-网络层需要Copy缓冲区
-ssize_t iolayer_send( iolayer_t self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
+int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 
 // 广播数据到指定的会话
 int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, size_t nbytes );

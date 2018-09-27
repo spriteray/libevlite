@@ -27,9 +27,9 @@ int32_t onStart( void * context )
     return 0;
 }
 
-int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
+ssize_t onProcess( void * context, const char * buf, size_t nbytes )
 {
-    int32_t nprocess = 0;
+    ssize_t nprocess = 0;
     struct session * s = (struct session *)context;
 
 #if METHOD
@@ -41,7 +41,7 @@ int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
 
     while ( 1 )
     {
-        uint32_t nleft = nbytes - nprocess;
+        size_t nleft = nbytes - nprocess;
         const char * buffer = buf + nprocess;
 
         if ( nleft < sizeof(struct PacketHead) )
@@ -50,7 +50,7 @@ int32_t onProcess( void * context, const char * buf, uint32_t nbytes )
         }
 
         struct PacketHead * head = (struct PacketHead *)buffer;
-        uint32_t size = head->len+sizeof(struct PacketHead);
+        size_t size = head->len+sizeof(struct PacketHead);
 
         if ( nleft < size )
         {
