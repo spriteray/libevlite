@@ -31,8 +31,8 @@ struct stress_client
 
     char inbuffer[INBUFFER_SIZE];
 
-    int64_t send_nbytes;
-    int64_t recv_nbytes;
+    size_t send_nbytes;
+    size_t recv_nbytes;
 };
 
 static  int8_t g_running;
@@ -93,7 +93,7 @@ void client_on_read( int32_t fd, int16_t ev, void * arg )
 
     if ( ev & EV_READ )
     {
-        int32_t nread = read( fd, client->inbuffer, INBUFFER_SIZE );
+        ssize_t nread = read( fd, client->inbuffer, INBUFFER_SIZE );
         if ( nread <= 0 )
         {
             if( nread < 0 && EAGAIN != errno )
@@ -124,10 +124,10 @@ void client_on_write( int32_t fd, int16_t ev, void * arg )
     {
         char buf[SENDBUFFER_SIZE] = {1};
 
-        int32_t nwrite = write( client->fd, buf, SENDBUFFER_SIZE );
+        ssize_t nwrite = write( client->fd, buf, SENDBUFFER_SIZE );
         if ( nwrite == -1 )
         {
-            printf( "#%d client_on_write error, writebytes %d, errno %d, %s\n",
+            printf( "#%d client_on_write error, writebytes %lu, errno %d, %s\n",
                 fd, client->send_nbytes, errno, strerror( errno ) );
             return ;
         }

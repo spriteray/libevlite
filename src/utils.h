@@ -76,6 +76,7 @@ struct sidlist * sidlist_create( uint32_t size );
 sid_t sidlist_get( struct sidlist * self, int32_t index );
 int32_t sidlist_add( struct sidlist * self, sid_t id );
 int32_t sidlist_adds( struct sidlist * self, sid_t * ids, uint32_t count );
+#define sidlist_append( self, list ) sidlist_adds( (self), (list)->entries, (list)->count )
 sid_t sidlist_del( struct sidlist * self, int32_t index );
 void sidlist_destroy( struct sidlist * self );
 

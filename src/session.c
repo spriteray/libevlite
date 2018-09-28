@@ -670,6 +670,11 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
     return self;
 }
 
+uint32_t session_manager_count( struct session_manager * self )
+{
+    return self->table->count;
+}
+
 struct session * session_manager_alloc( struct session_manager * self )
 {
     sid_t id = 0;

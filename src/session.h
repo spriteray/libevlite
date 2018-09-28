@@ -146,6 +146,9 @@ struct session_manager
 // count    - 会话管理器中管理多少个会话
 struct session_manager * session_manager_create( uint8_t index, uint32_t size );
 
+// 获取会话个数
+uint32_t session_manager_count( struct session_manager * self );
+
 // 分配一个会话
 struct session * session_manager_alloc( struct session_manager * self );
 

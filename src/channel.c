@@ -21,12 +21,12 @@ const int32_t iov_max = UIO_MAXIOV;
 #elif defined MAX_IOVEC
 const int32_t iov_max = MAX_IOVEC;
 #else
-const int32_t iov_max = 8;
+const int32_t iov_max = 128;
 #endif
 
 // 发送接收数据
-static ssize_t _receive( struct session * session );
 static ssize_t _transmit( struct session * session );
+static inline ssize_t _receive( struct session * session );
 static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
 // 逻辑操作
@@ -36,12 +36,6 @@ static int32_t _timeout( struct session * session );
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
-
-ssize_t _receive( struct session * session )
-{
-    // 尽量读数据
-    return buffer_read( &session->inbuffer, session->fd, 0 );
-}
 
 ssize_t _transmit( struct session * session )
 {
@@ -110,6 +104,12 @@ ssize_t _transmit( struct session * session )
     }
 
     return writen;
+}
+
+ssize_t _receive( struct session * session )
+{
+    // 尽量读数据
+    return buffer_read( &session->inbuffer, session->fd, 0 );
 }
 
 ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )

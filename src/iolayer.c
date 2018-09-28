@@ -461,8 +461,8 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
         {
             continue;
         }
-        message_add_receivers( msg, ids, count );
         message_add_buffer( msg, buf, nbytes );
+        message_add_receivers( msg, ids, count );
 
         if ( threadid == iothreads_get_id( layer->group, i ) )
         {
@@ -1070,6 +1070,10 @@ int32_t _broadcast2_direct( struct iolayer * self, struct session_manager * mana
             message_set_buffer( msg, buffer, nbytes );
         }
     }
+
+    // 优化接受者列表初始化
+    message_reserve_receivers(
+            msg, session_manager_count( manager ) );
 
     // 遍历在线会话
     count = session_manager_foreach( manager, _broadcast2_loop, msg );

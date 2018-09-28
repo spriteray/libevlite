@@ -78,6 +78,7 @@ void message_destroy( struct message * self );
 int32_t message_add_receiver( struct message * self, sid_t id );
 int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t count );
 int32_t message_set_receivers( struct message * self, struct sidlist * ids );
+int32_t message_reserve_receivers( struct message * self, uint32_t count );
 
 // 增加消息计数器
 //int32_t message_add_failure( struct message * self, sid_t id );

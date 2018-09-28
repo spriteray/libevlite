@@ -302,6 +302,29 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids )
     return 0;
 }
 
+int32_t message_reserve_receivers( struct message * self, uint32_t count )
+{
+    if ( self->tolist != NULL )
+    {
+        count += sidlist_count( self->tolist );
+    }
+
+    struct sidlist * tolist = sidlist_create( count );
+    if ( tolist == NULL )
+    {
+        return -1;
+    }
+
+    if ( self->tolist != NULL )
+    {
+        sidlist_append( tolist, self->tolist );
+        sidlist_destroy( self->tolist );
+    }
+
+    self->tolist = tolist;
+    return 0;
+}
+
 // int32_t message_add_failure( struct message * self, sid_t id )
 // {
 //     if ( self->failurelist == NULL )
