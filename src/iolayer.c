@@ -945,7 +945,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
 
 ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task )
 {
-    ssize_t nsend = -1;
+    ssize_t writen = 0;
     struct session * session = session_manager_get( manager, task->id );
 
     if ( likely(session != NULL) )
@@ -961,8 +961,8 @@ ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, s
 
         if ( buffer != NULL )
         {
-            nsend = session_send( session, buffer, nbytes );
-            if ( nsend < 0 )
+            writen = session_send( session, buffer, nbytes );
+            if ( writen < 0 )
             {
                 syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session drop this message(LENGTH=%lu) .\n",
                         __FUNCTION__, task->id, nbytes );
@@ -986,7 +986,7 @@ ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, s
         free( task->buf );
     }
 
-    return nsend;
+    return writen;
 }
 
 int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg )
