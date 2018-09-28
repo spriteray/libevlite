@@ -346,15 +346,18 @@ void * iothread_main( void * arg )
 
 void iothread_on_command( int32_t fd, int16_t ev, void * arg )
 {
-    //struct iothread * iothread = (struct iothread *)arg;
+    struct iothread * iothread = (struct iothread *)arg;
 
     if ( ev & EV_READ )
     {
-        char buf[ 8 ];
+        uint64_t one = 1;
 
-        if ( read( fd, buf, sizeof(buf) ) == -1 )
+        if ( sizeof( one )
+                != read( fd, &one, sizeof(one) ) )
         {
-            //
+            // 出错了
+            syslog( LOG_WARNING,
+                    "%s(INDEX=%d) : read from Pipe(fd:%u) error .", __FUNCTION__, iothread->index, fd );
         }
     }
 }
