@@ -14,11 +14,11 @@
 #include "network-internal.h"
 
 // iov_max
-#if defined (IOV_MAX)
+#if defined IOV_MAX
 const int32_t iov_max = IOV_MAX;
-#elif defined (UIO_MAXIOV)
+#elif defined UIO_MAXIOV
 const int32_t iov_max = UIO_MAXIOV;
-#elif defined (MAX_IOVEC)
+#elif defined MAX_IOVEC
 const int32_t iov_max = MAX_IOVEC;
 #else
 const int32_t iov_max = 8;
@@ -133,12 +133,12 @@ ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
 
 ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
 {
-    ssize_t writen = 0;
-
-    writen = write( session->fd, buf, nbytes );
+    ssize_t writen = write( session->fd, buf, nbytes );
     if ( writen < 0 )
     {
-        if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
+        if ( errno == EINTR
+            || errno == EAGAIN
+            || errno == EWOULDBLOCK )
         {
             writen = 0;
         }
@@ -284,7 +284,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
         // 只有iolayer处于运行状态下的时候
         // 才会回调逻辑层处理数据
-        if ( likely(iolayer->status == eLayerStatus_Running) )
+        if ( likely(iolayer->status == eIOStatus_Running) )
         {
             nprocess = _process( session );
         }
@@ -409,7 +409,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
     struct iolayer * layer = (struct iolayer *)(acceptor->parent);
 
     if ( likely( (ev & EV_READ)
-                && layer->status == eLayerStatus_Running) )
+                && layer->status == eIOStatus_Running) )
     {
         int32_t cfd = -1;
         struct task_assign task;

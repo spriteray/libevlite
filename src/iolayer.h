@@ -12,8 +12,8 @@
 
 enum
 {
-    eLayerStatus_Running        = 1,    // 运行
-    eLayerStatus_Stopped        = 2,    // 停止
+    eIOStatus_Running       = 1,    // 运行
+    eIOStatus_Stopped       = 2,    // 停止
 };
 
 struct iolayer
