@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <syslog.h>
 
 #include <sys/time.h>
 #include <sys/syscall.h>
@@ -385,8 +386,9 @@ struct msgqueue * msgqueue_create( uint32_t size )
 #endif
             }
 #else
+            syslog(LOG_INFO, "%s() use eventfd() .", __FUNCTION__ );
             rc = eventfd( 0, EFD_NONBLOCK | EFD_CLOEXEC );
-            if ( rc != -1 )
+            if ( rc >= 0 )
             {
                 self->popfd = rc;
                 self->pushfd = rc;
@@ -420,11 +422,13 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
 
     if ( rc == 0 && isbc == 1 )
     {
-        char buf[8] = {0};
+        uint64_t one = 1;
 
-        if ( write( self->pushfd, buf, sizeof(buf) ) != 1 )
+        if ( sizeof( one )
+                != write( self->pushfd, &one, sizeof(one) ) )
         {
-            //
+            // 写出错了
+            syslog( LOG_WARNING, "%s() : write to Pipe(fd:%u) error .", __FUNCTION__, self->pushfd );
         }
     }
 
