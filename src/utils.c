@@ -427,7 +427,8 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task, uint8_t isnot
         if ( sizeof( one )
                 != write( self->pushfd, &one, sizeof(one) ) )
         {
-            // TODO: 写出错了
+            // 写出错了
+            syslog( LOG_WARNING, "%s() : write to Pipe(fd:%u) error .", __FUNCTION__, self->pushfd );
         }
     }
 
