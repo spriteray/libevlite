@@ -36,6 +36,7 @@ extern "C"
 #endif
 
 #include <stdint.h>
+#include <sys/types.h>
 
 //
 // 网络层
@@ -70,8 +71,8 @@ typedef void *      iolayer_t;
 typedef struct
 {
     int32_t (*start)( void * context );
-    int32_t (*process)( void * context, const char * buf, uint32_t nbytes );
-    char *  (*transform)( void * context, const char * buf, uint32_t * nbytes );
+    ssize_t (*process)( void * context, const char * buf, size_t nbytes );
+    char *  (*transform)( void * context, const char * buf, size_t * nbytes );
     int32_t (*keepalive)( void * context );
     int32_t (*timeout)( void * context );
     int32_t (*error)( void * context, int32_t result );
@@ -99,7 +100,7 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 //                            参数2: 欲发送或者广播的消息内容
 //                            参数3: 指向消息长度的指针, 返回改造后的数据包长度
 int32_t iolayer_set_transform( iolayer_t self,
-        char * (*transform)(void *, const char *, uint32_t *), void * context );
+        char * (*transform)(void *, const char *, size_t *), void * context );
 
 // 服务器开启
 //        host          - 绑定的地址
@@ -152,13 +153,13 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 //      buf             - 要发送的缓冲区
 //      nbytes          - 要发送的长度
 //      isfree          - 1-由网络层释放缓冲区, 0-网络层需要Copy缓冲区
-int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, uint32_t nbytes, int32_t isfree );
+int32_t iolayer_send( iolayer_t self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 
 // 广播数据到指定的会话
-int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, uint32_t nbytes );
+int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const char * buf, size_t nbytes );
 
 // 广播数据到IO层的所有会话
-int32_t iolayer_broadcast2( iolayer_t self, const char * buf, uint32_t nbytes );
+int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes );
 
 // 终止指定的会话
 // 此处需要注意, 主动终止会话的情况下,也会收到shutdown()的回调, 只是way==0

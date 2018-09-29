@@ -115,7 +115,6 @@
 		71D319E41B95E64800C33F84 /* network.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = network.h; sourceTree = "<group>"; };
 		71D319E51B95E64800C33F84 /* threads.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = threads.h; sourceTree = "<group>"; };
 		71D319E61B95E65700C33F84 /* Makefile */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.make; path = Makefile; sourceTree = "<group>"; };
-		71D319E71B95E65700C33F84 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
 		71D319EC1B95E6D200C33F84 /* libevlite.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libevlite.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		71D31A091B95E8A700C33F84 /* accept-lock-echoserver.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = "accept-lock-echoserver.c"; sourceTree = "<group>"; };
 		71D31A0A1B95E8A700C33F84 /* chatroom.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = chatroom.h; sourceTree = "<group>"; };
@@ -136,6 +135,8 @@
 		71D31A1D1B95E8FD00C33F84 /* chatroom_server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chatroom_server; sourceTree = BUILT_PRODUCTS_DIR; };
 		71D31A281B95E90E00C33F84 /* chatroom_client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chatroom_client; sourceTree = BUILT_PRODUCTS_DIR; };
 		DD817EDD2130033800DCC7BA /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
+		DD9D1F80215CD9F500806D0A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		DD9D1F81215CD9F500806D0A /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,8 +174,9 @@
 		7156ECA61B95E57C00F6D4F8 = {
 			isa = PBXGroup;
 			children = (
+				DD9D1F80215CD9F500806D0A /* LICENSE */,
+				DD9D1F81215CD9F500806D0A /* README.md */,
 				71D319E61B95E65700C33F84 /* Makefile */,
-				71D319E71B95E65700C33F84 /* README */,
 				71D319E21B95E64800C33F84 /* include */,
 				71D319CE1B95E63A00C33F84 /* src */,
 				71D31A081B95E8A700C33F84 /* test */,
@@ -593,7 +595,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.6.2;
+				DYLIB_CURRENT_VERSION = 9.7.0;
 				EXECUTABLE_PREFIX = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -607,7 +609,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.6.2;
+				DYLIB_CURRENT_VERSION = 9.7.0;
 				EXECUTABLE_PREFIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

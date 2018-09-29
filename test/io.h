@@ -30,8 +30,8 @@ public :
     //
 
     virtual int32_t onStart() { return 0; }
-    virtual int32_t onProcess( const char * buffer, uint32_t nbytes ) { return 0; }
-    virtual char *  onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
+    virtual ssize_t onProcess( const char * buffer, size_t nbytes ) { return 0; }
+    virtual char *  onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>(buffer); }
     virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
@@ -60,7 +60,7 @@ public :
 
     // 发送数据
     int32_t send( const std::string & buffer );
-    int32_t send( const char * buffer, uint32_t nbytes, bool isfree = false );
+    int32_t send( const char * buffer, size_t nbytes, bool isfree = false );
 
     // 关闭会话
     int32_t shutdown();
@@ -75,8 +75,8 @@ private :
 
     // 内部回调函数
     static int32_t  onStartSession( void * context );
-    static int32_t  onProcessSession( void * context, const char * buffer, uint32_t nbytes );
-    static char *   onTransformSession( void * context, const char * buffer, uint32_t * nbytes );
+    static ssize_t  onProcessSession( void * context, const char * buffer, size_t nbytes );
+    static char *   onTransformSession( void * context, const char * buffer, size_t * nbytes );
     static int32_t  onTimeoutSession( void * context );
     static int32_t  onKeepaliveSession( void * context );
     static int32_t  onErrorSession( void * context, int32_t result );
@@ -108,7 +108,7 @@ public :
     virtual void finalIOContext( void * context ) { return; }
 
     // 数据改造
-    virtual char * onTransform( const char * buffer, uint32_t & nbytes ) { return const_cast<char *>(buffer); }
+    virtual char * onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>(buffer); }
 
     // 回调事件
     // 需要调用者自己实现
@@ -156,13 +156,13 @@ public :
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
-    int32_t send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree = false );
+    int32_t send( sid_t id, const char * buffer, size_t nbytes, bool isfree = false );
 
     // 广播数据
     int32_t broadcast( const std::string & buffer );
-    int32_t broadcast( const char * buffer, uint32_t nbytes );
+    int32_t broadcast( const char * buffer, size_t nbytes );
     int32_t broadcast( const sids_t & ids, const std::string & buffer );
-    int32_t broadcast( const sids_t & ids, const char * buffer, uint32_t nbytes );
+    int32_t broadcast( const sids_t & ids, const char * buffer, size_t nbytes );
 
     // 终止会话
     int32_t shutdown( sid_t id );
@@ -227,7 +227,7 @@ private :
             IIOSession * session, void * iocontext,
             const std::string & host, uint16_t port );
 
-    static char * onTransformService( void * context, const char * buffer, uint32_t * nbytes );
+    static char * onTransformService( void * context, const char * buffer, size_t * nbytes );
 
     static int32_t onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port );
     static int32_t onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id );

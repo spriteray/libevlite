@@ -177,7 +177,7 @@ struct session
     int32_t fd;
     uint64_t sid;
 
-    uint64_t iobytes;
+    size_t iobytes;
 };
 
 struct iothread
@@ -204,13 +204,13 @@ void echoserver_process_message( int32_t fd, int16_t ev, void * arg )
     if ( ev & EV_READ )
     {
         char buf[16384];
-        int32_t readn = -1;
+        ssize_t readn = -1;
 
         readn = read( fd, buf, 16384 );
         if ( readn <= 0 )
         {
 #if __DEBUG
-            printf( "Client[%ld, %d] is closed, BYTES:%d, TIME:%lld .\n",
+            printf( "Client[%ld, %d] is closed, BYTES:%lu, TIME:%lld .\n",
                 s->sid, s->fd, s->iobytes, milliseconds() );
 #endif
             //evsets_del( event_get_sets(s->evread), s->evread );

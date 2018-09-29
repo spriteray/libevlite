@@ -10,43 +10,38 @@
 #include "config.h"
 #include "utils.h"
 #include "iolayer.h"
-#include "network-internal.h"
 #include "channel.h"
+#include "network-internal.h"
 
 // iov_max
-#if defined (IOV_MAX)
+#if defined IOV_MAX
 const int32_t iov_max = IOV_MAX;
-#elif defined (UIO_MAXIOV)
+#elif defined UIO_MAXIOV
 const int32_t iov_max = UIO_MAXIOV;
-#elif defined (MAX_IOVEC)
+#elif defined MAX_IOVEC
 const int32_t iov_max = MAX_IOVEC;
 #else
-const int32_t iov_max = 8;
+const int32_t iov_max = 128;
 #endif
 
 // 发送接收数据
-static int32_t _receive( struct session * session );
-static int32_t _transmit( struct session * session );
-static inline int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
+static ssize_t _transmit( struct session * session );
+static inline ssize_t _receive( struct session * session );
+static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
 // 逻辑操作
-static int32_t _process( struct session * session );
+static ssize_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _receive( struct session * session )
-{
-    // 尽量读数据
-    return buffer_read( &session->inbuffer, session->fd, 0 );
-}
-
-int32_t _transmit( struct session * session )
+ssize_t _transmit( struct session * session )
 {
     uint32_t i = 0;
-    int32_t writen = 0, offset = session->msgoffset;
+    ssize_t writen = 0;
+    size_t offset = session->msgoffset;
 
     int32_t iov_size = 0;
     struct iovec iov_array[iov_max];
@@ -101,7 +96,7 @@ int32_t _transmit( struct session * session )
 
     if ( writen > 0 && session_sendqueue_count(session) > 0 )
     {
-        int32_t againlen = _transmit( session );
+        ssize_t againlen = _transmit( session );
         if ( againlen > 0 )
         {
             writen += againlen;
@@ -111,33 +106,39 @@ int32_t _transmit( struct session * session )
     return writen;
 }
 
-int32_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
+ssize_t _receive( struct session * session )
 {
-    int32_t writen = -1;
+    // 尽量读数据
+    return buffer_read( &session->inbuffer, session->fd, 0 );
+}
+
+ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
+{
+    ssize_t writen = -1;
 
 #if defined (TCP_CORK)
     int32_t corked = 1;
-    setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
 #endif
 
-    writen = (int32_t)writev( fd, array, count );
+    writen = writev( fd, array, count );
 
 #if defined (TCP_CORK)
     corked = 0;
-    setsockopt( fd, SOL_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
 #endif
 
     return writen;
 }
 
-int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
+ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
 {
-    int32_t writen = 0;
-
-    writen = (int32_t)write( session->fd, buf, nbytes );
+    ssize_t writen = write( session->fd, buf, nbytes );
     if ( writen < 0 )
     {
-        if ( errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK )
+        if ( errno == EINTR
+            || errno == EAGAIN
+            || errno == EWOULDBLOCK )
         {
             writen = 0;
         }
@@ -150,15 +151,15 @@ int32_t channel_send( struct session * session, char * buf, uint32_t nbytes )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-int32_t _process( struct session * session )
+ssize_t _process( struct session * session )
 {
-    int32_t nprocess = 0;
+    ssize_t nprocess = 0;
     ioservice_t * service = &session->service;
 
     if ( buffer_length( &session->inbuffer ) > 0 )
     {
         char * buffer = buffer_data( &session->inbuffer );
-        uint32_t nbytes = buffer_length( &session->inbuffer );
+        size_t nbytes = buffer_length( &session->inbuffer );
 
         // 回调逻辑层
         nprocess = service->process(
@@ -278,12 +279,12 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
          * -1    - read() failure
          * -2    - expand() failure
          */
-        int32_t nprocess = 0;
-        int32_t nread = _receive( session );
+        ssize_t nprocess = 0;
+        ssize_t nread = _receive( session );
 
         // 只有iolayer处于运行状态下的时候
         // 才会回调逻辑层处理数据
-        if ( likely(iolayer->status == eLayerStatus_Running) )
+        if ( likely(iolayer->status == eIOStatus_Running) )
         {
             nprocess = _process( session );
         }
@@ -360,7 +361,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
         if ( session_sendqueue_count(session) > 0 )
         {
             // 发送数据
-            int32_t writen = _transmit( session );
+            ssize_t writen = _transmit( session );
             if ( writen < 0 && errno != EAGAIN )
             {
                 channel_error( session, eIOError_WriteFailure );
@@ -376,14 +377,11 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
                     // 直到发送队列为空
                     session_add_event( session, EV_WRITE );
                 }
-                else
+                else if ( session->status&SESSION_EXITING )
                 {
-                    if ( session->status&SESSION_EXITING )
-                    {
-                        // 等待关闭的会话, 直接终止会话
-                        // 后续的行为由SO_LINGER决定
-                        channel_shutdown( session );
-                    }
+                    // 等待关闭的会话, 直接终止会话
+                    // 后续的行为由SO_LINGER决定
+                    channel_shutdown( session );
                 }
             }
         }
@@ -408,7 +406,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
     struct iolayer * layer = (struct iolayer *)(acceptor->parent);
 
     if ( likely( (ev & EV_READ)
-                && layer->status == eLayerStatus_Running) )
+                && layer->status == eIOStatus_Running) )
     {
         int32_t cfd = -1;
         struct task_assign task;

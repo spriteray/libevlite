@@ -260,38 +260,22 @@ uint32_t _process( struct iothreads * parent, struct iothread * thread, struct t
     nprocess = QUEUE_COUNT(taskqueue)(doqueue);
 
     // 处理任务
-    while ( QUEUE_COUNT(taskqueue)(doqueue) > 0 )
+    for( ; QUEUE_COUNT(taskqueue)(doqueue) > 0; )
     {
         struct task task;
-        void * data = NULL;
-
         QUEUE_POP(taskqueue)( doqueue, &task );
-        switch ( task.type )
+
+        // 网络任务处理
+        if ( task.type == eTaskType_User )
         {
-            case eTaskType_Null :
-                {
-                    // 空命令
-                    continue;
-                }
-                break;
-
-            case eTaskType_User :
-                {
-                    // 用户命令
-                    data = task.taskdata;
-                }
-                break;
-
-            case eTaskType_Data :
-                {
-                    // 数据命令
-                    data = (void *)(task.data);
-                }
-                break;
+            parent->method( parent->context,
+                    thread->index, task.utype, task.taskdata );
         }
-
-        // 回调
-        parent->method( parent->context, thread->index, task.utype, data );
+        else if ( task.type == eTaskType_Data )
+        {
+            parent->method( parent->context,
+                    thread->index, task.utype, (void *)(task.data) );
+        }
     }
 
     return nprocess;
@@ -312,7 +296,7 @@ void * iothread_main( void * arg )
     struct taskqueue doqueue;
     QUEUE_INIT(taskqueue)( &doqueue, MSGQUEUE_DEFAULT_SIZE );
 
-    while ( parent->runflags )
+    for ( ; parent->runflags; )
     {
         uint32_t nprocess = 0;
 

@@ -11,7 +11,7 @@
 #include "session.h"
 
 //
-int32_t channel_send( struct session * session, char * buf, uint32_t nbytes );
+ssize_t channel_send( struct session * session, char * buf, size_t nbytes );
 
 // 会话出错
 // 丢弃发送队列中的数据

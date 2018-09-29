@@ -108,7 +108,7 @@ int32_t evtimer_dispatch( struct evtimer * self )
 
     // 遍历超时事件链表
     laster = TAILQ_LAST( head, event_list );
-    while ( !done )
+    for ( ; !done; )
     {
         int32_t step = 0;
         struct event * ev = TAILQ_FIRST(head);

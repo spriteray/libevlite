@@ -20,9 +20,9 @@ static inline void _stop( struct session * self );
 // _send_only()仅发送,
 // _send_message()发送消息, 未发送成功的添加到发送队列中
 // _send_buffer()发送数据, 未发送成功的创建消息, 添加到发送队列中
-static inline int32_t _send_only( struct session * self, char * buf, uint32_t nbytes );
-static inline int32_t _send_message( struct session * self, struct message * message );
-static inline int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes );
+static inline ssize_t _send_only( struct session * self, char * buf, size_t nbytes );
+static inline ssize_t _send_message( struct session * self, struct message * message );
+static inline ssize_t _send_buffer( struct session * self, char * buf, size_t nbytes );
 
 //
 QUEUE_GENERATE( sendqueue, struct message * )
@@ -142,9 +142,9 @@ void _stop( struct session * self )
 }
 
 //
-int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
+ssize_t _send_only( struct session * self, char * buf, size_t nbytes )
 {
-    int32_t ntry = 0;
+    ssize_t ntry = 0;
 
     if ( unlikely( self->status&SESSION_EXITING ) )
     {
@@ -175,15 +175,15 @@ int32_t _send_only( struct session * self, char * buf, uint32_t nbytes )
     return ntry;
 }
 
-int32_t _send_message( struct session * self, struct message * message )
+ssize_t _send_message( struct session * self, struct message * message )
 {
-    int32_t ntry = 0;
+    ssize_t ntry = 0;
     char * buf = message_get_buffer( message );
-    uint32_t nbytes = message_get_length( message );
+    size_t nbytes = message_get_length( message );
 
     // 发送
     ntry = _send_only( self, buf, nbytes );
-    if ( ntry >= 0 && ntry < nbytes )
+    if ( ntry >= 0 && ntry < (ssize_t)nbytes )
     {
         // 未全部发送成功的情况下
 
@@ -198,11 +198,11 @@ int32_t _send_message( struct session * self, struct message * message )
     return ntry;
 }
 
-int32_t _send_buffer( struct session * self, char * buf, uint32_t nbytes )
+ssize_t _send_buffer( struct session * self, char * buf, size_t nbytes )
 {
     // 发送
-    int32_t ntry = _send_only( self, buf, nbytes );
-    if ( ntry >= 0 && ntry < nbytes )
+    ssize_t ntry = _send_only( self, buf, nbytes );
+    if ( ntry >= 0 && ntry < (ssize_t)nbytes )
     {
         // 未全部发送成功的情况下
 
@@ -260,11 +260,11 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port )
     strncpy( self->host, host, INET_ADDRSTRLEN );
 }
 
-int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
+ssize_t session_send( struct session * self, char * buf, size_t nbytes )
 {
-    int32_t rc = -1;
+    ssize_t rc = -1;
     char * _buf = buf;
-    uint32_t _nbytes = nbytes;
+    size_t _nbytes = nbytes;
 
     // 数据改造(加密 or 压缩)
     if ( unlikely( self->service.transform != NULL ) )
@@ -290,12 +290,12 @@ int32_t session_send( struct session * self, char * buf, uint32_t nbytes )
 }
 
 //
-int32_t session_sendmessage( struct session * self, struct message * message )
+ssize_t session_sendmessage( struct session * self, struct message * message )
 {
     char * buf = message_get_buffer( message );
-    uint32_t nbytes = message_get_length( message );
+    size_t nbytes = message_get_length( message );
 
-    int32_t rc = -1;
+    ssize_t rc = -1;
     char * buffer = buf;
 
     // 数据改造(加密 or 压缩)
@@ -670,6 +670,11 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
     return self;
 }
 
+uint32_t session_manager_count( struct session_manager * self )
+{
+    return self->table->count;
+}
+
 struct session * session_manager_alloc( struct session_manager * self )
 {
     sid_t id = 0;
@@ -726,7 +731,7 @@ int32_t session_manager_foreach( struct session_manager * self, int32_t (*func)(
     {
         struct hashnode * node = self->table->entries + i;
 
-        while ( node )
+        for ( ; node;  )
         {
             struct session * s = node->session;
             if ( s != NULL )
@@ -781,7 +786,7 @@ void session_manager_destroy( struct session_manager * self )
         struct hashnode * head = self->table->entries + i;
         struct hashnode * node = self->table->entries + i;
 
-        while ( node )
+        for ( ; node; )
         {
             struct hashnode * n = node;
             struct session * s = n->session;

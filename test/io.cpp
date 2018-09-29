@@ -29,10 +29,10 @@ void IIOSession::setKeepalive( int32_t seconds )
 
 int32_t IIOSession::send( const std::string & buffer )
 {
-    return send( buffer.c_str(), static_cast<uint32_t>(buffer.length()) );
+    return send( buffer.c_str(), static_cast<ssize_t>(buffer.length()) );
 }
 
-int32_t IIOSession::send( const char * buffer, uint32_t nbytes, bool isfree )
+int32_t IIOSession::send( const char * buffer, size_t nbytes, bool isfree )
 {
     return iolayer_send( m_Layer, m_Sid, buffer, nbytes, static_cast<int32_t>(isfree) );
 }
@@ -56,14 +56,14 @@ int32_t IIOSession::onStartSession( void * context )
     return static_cast<IIOSession *>(context)->onStart();
 }
 
-int32_t IIOSession::onProcessSession( void * context, const char * buffer, uint32_t nbytes )
+ssize_t IIOSession::onProcessSession( void * context, const char * buffer, size_t nbytes )
 {
     return static_cast<IIOSession *>(context)->onProcess( buffer, nbytes );
 }
 
-char * IIOSession::onTransformSession( void * context, const char * buffer, uint32_t * nbytes )
+char * IIOSession::onTransformSession( void * context, const char * buffer, size_t * nbytes )
 {
-    uint32_t & _nbytes = *nbytes;
+    size_t & _nbytes = *nbytes;
     return static_cast<IIOSession *>(context)->onTransform( buffer, _nbytes );
 }
 
@@ -279,10 +279,10 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bo
 
 int32_t IIOService::send( sid_t id, const std::string & buffer )
 {
-    return send( id, static_cast<const char *>(buffer.data()), static_cast<uint32_t>(buffer.size()) );
+    return send( id, static_cast<const char *>(buffer.data()), buffer.size() );
 }
 
-int32_t IIOService::send( sid_t id, const char * buffer, uint32_t nbytes, bool isfree )
+int32_t IIOService::send( sid_t id, const char * buffer, size_t nbytes, bool isfree )
 {
     return iolayer_send( m_IOLayer, id, buffer, nbytes, isfree );
 }
@@ -295,7 +295,7 @@ int32_t IIOService::broadcast( const std::string & buffer )
     return iolayer_broadcast2( m_IOLayer, buf, nbytes );
 }
 
-int32_t IIOService::broadcast( const char * buffer, uint32_t nbytes )
+int32_t IIOService::broadcast( const char * buffer, size_t nbytes )
 {
     return iolayer_broadcast2( m_IOLayer, buffer, nbytes );
 }
@@ -316,7 +316,7 @@ int32_t IIOService::broadcast( const sids_t & ids, const std::string & buffer )
     return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buf, nbytes );
 }
 
-int32_t IIOService::broadcast( const sids_t & ids, const char * buffer, uint32_t nbytes )
+int32_t IIOService::broadcast( const sids_t & ids, const char * buffer, size_t nbytes )
 {
     if ( ids.empty() )
     {
@@ -416,9 +416,9 @@ void IIOService::attach( sid_t id, IIOSession * session, void * iocontext, const
     iolayer_set_service( m_IOLayer, id, &ioservice, session );
 }
 
-char * IIOService::onTransformService( void * context, const char * buffer, uint32_t * nbytes )
+char * IIOService::onTransformService( void * context, const char * buffer, size_t * nbytes )
 {
-    uint32_t & _nbytes = *nbytes;
+    size_t & _nbytes = *nbytes;
     IIOService * service = static_cast<IIOService*>( context );
 
     return service->onTransform( buffer, _nbytes );

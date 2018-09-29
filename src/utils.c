@@ -226,7 +226,7 @@ uint32_t getpower( uint32_t size )
 {
     uint32_t n = 0;
 
-    while ( size >>= 1 )
+    for ( ; size >>= 1; )
     {
         ++n;
     }

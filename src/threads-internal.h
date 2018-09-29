@@ -6,7 +6,7 @@
 
 // 队列默认大小
 // 这个选项需要测试期间不断调整以适应场景的需要
-#define MSGQUEUE_DEFAULT_SIZE       8192
+#define MSGQUEUE_DEFAULT_SIZE       4096
 
 // 线程默认栈大小
 #define THREAD_DEFAULT_STACK_SIZE   (8*1024)

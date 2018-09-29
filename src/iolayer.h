@@ -12,8 +12,8 @@
 
 enum
 {
-    eLayerStatus_Running        = 1,    // 运行
-    eLayerStatus_Stopped        = 2,    // 停止
+    eIOStatus_Running       = 1,    // 运行
+    eIOStatus_Stopped       = 2,    // 停止
 };
 
 struct iolayer
@@ -34,7 +34,7 @@ struct iolayer
 
     // 数据改造接口
     void *      context;
-    char *      (*transform)( void *, const char *, uint32_t * );
+    char *      (*transform)( void *, const char *, size_t * );
 };
 
 // 接收器
@@ -114,7 +114,7 @@ struct task_send
 {
     sid_t       id;             // 8bytes
     char *      buf;            // 8bytes
-    uint32_t    nbytes;         // 4bytes
+    size_t      nbytes;         // 8bytes
     int32_t     isfree;         // 4bytes
 };
 

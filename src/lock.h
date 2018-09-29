@@ -18,7 +18,7 @@ static inline void evlock_init( struct evlock * lock )
 
 static inline void evlock_lock( struct evlock * lock )
 {
-    while ( __sync_lock_test_and_set( &lock->lock, 1 ) ) usleep(0);
+    for ( ; __sync_lock_test_and_set( &lock->lock, 1 ); ) usleep(0);
 }
 
 static inline void evlock_unlock( struct evlock * lock )

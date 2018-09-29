@@ -21,7 +21,7 @@ public :
 
 public :
 
-    virtual int32_t onProcess( const char * buf, uint32_t nbytes )
+    virtual ssize_t onProcess( const char * buf, size_t nbytes )
     {
         std::string line( buf, buf+nbytes );
         printf("%s", line.c_str() );
