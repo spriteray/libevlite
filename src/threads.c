@@ -260,7 +260,7 @@ uint32_t _process( struct iothreads * parent, struct iothread * thread, struct t
     nprocess = QUEUE_COUNT(taskqueue)(doqueue);
 
     // 处理任务
-    while ( QUEUE_COUNT(taskqueue)(doqueue) > 0 )
+    for( ; QUEUE_COUNT(taskqueue)(doqueue) > 0; )
     {
         struct task task;
         QUEUE_POP(taskqueue)( doqueue, &task );
@@ -296,7 +296,7 @@ void * iothread_main( void * arg )
     struct taskqueue doqueue;
     QUEUE_INIT(taskqueue)( &doqueue, MSGQUEUE_DEFAULT_SIZE );
 
-    while ( parent->runflags )
+    for ( ; parent->runflags; )
     {
         uint32_t nprocess = 0;
 

@@ -731,7 +731,7 @@ int32_t session_manager_foreach( struct session_manager * self, int32_t (*func)(
     {
         struct hashnode * node = self->table->entries + i;
 
-        while ( node )
+        for ( ; node;  )
         {
             struct session * s = node->session;
             if ( s != NULL )
@@ -786,7 +786,7 @@ void session_manager_destroy( struct session_manager * self )
         struct hashnode * head = self->table->entries + i;
         struct hashnode * node = self->table->entries + i;
 
-        while ( node )
+        for ( ; node; )
         {
             struct hashnode * n = node;
             struct session * s = n->session;

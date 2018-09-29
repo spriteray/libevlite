@@ -128,7 +128,7 @@ int32_t epoll_insert( struct epoller * self, int32_t max )
     struct eventpair * pairs = NULL;
 
     npairs = self->npairs;
-    while ( npairs <= max )
+    for( ; npairs <= max;  )
     {
         npairs <<= 1;
     }
