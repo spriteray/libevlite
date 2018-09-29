@@ -86,6 +86,7 @@ ssize_t _read_withvector( struct buffer * self, int32_t fd  )
 {
     struct iovec vec[ 2 ];
     char extra[ RECV_BUFFER_SIZE ];
+
     ssize_t nread = 0;
     size_t left = _left(self);
 
@@ -115,13 +116,13 @@ ssize_t _read_withsize( struct buffer * self, int32_t fd, ssize_t nbytes )
     if ( nbytes == -1 )
     {
         int32_t rc = ioctl( fd, FIONREAD, &nread );
-        if ( rc == -1 || nread <= 0 )
+        if ( rc == 0 && nread > 0 )
         {
-            nbytes = RECV_BUFFER_SIZE;
+            nbytes = nread;
         }
         else
         {
-            nbytes = nread;
+            nbytes = RECV_BUFFER_SIZE;
         }
     }
 
