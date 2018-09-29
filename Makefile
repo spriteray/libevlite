@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.7.0
+VERSION 	= 9.7.1
 PREFIX		= /usr/local
 
 # 主版本号
@@ -67,7 +67,7 @@ INCLUDEPATH	= $(PREFIX)/include
 #
 
 # ------------------------------------------------------------------------------
-OBJS 	= utils.o \
+OBJS 	= utils.o ikcp.o \
 		  	epoll.o kqueue.o timer.o \
 			event.o \
 			threads.o \
@@ -144,8 +144,8 @@ clean :
 	rm -rf $(REALNAME)
 	rm -rf test_events event.fifo
 	rm -rf test_queue test_sidlist
-	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher
 	rm -rf chatroom_client chatroom_server
+	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher
 
 # --------------------------------------------------------
 #
