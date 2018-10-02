@@ -601,6 +601,7 @@ struct name                                         \
 #define QUEUE_SWAP(name)        name##_QUEUE_SWAP
 #define QUEUE_RESET(name)       name##_QUEUE_RESET
 #define QUEUE_CLEAR(name)       name##_QUEUE_CLEAR
+#define QUEUE_SHRINK(name)      name##_QUEUE_SHRINK
 
 #define QUEUE_PROTOTYPE( name, type )                           \
 int32_t name##_QUEUE_INIT( struct name * self, uint32_t size ); \
@@ -612,7 +613,8 @@ int32_t name##_QUEUE_GET( struct name * self, uint32_t index, type * data );\
 int32_t name##_QUEUE_TOP( struct name * self, type * data );    \
 int32_t name##_QUEUE_SWAP( struct name * self, struct name * q );\
 void name##_QUEUE_RESET( struct name * self );                  \
-void name##_QUEUE_CLEAR( struct name * self );
+void name##_QUEUE_CLEAR( struct name * self );                  \
+uint32_t name##_QUEUE_SHRINK( struct name * self, uint32_t size );
 
 #define QUEUE_GENERATE( name, type )                            \
 int32_t name##_QUEUE_INIT( struct name * self, uint32_t size )  \
@@ -722,6 +724,29 @@ void name##_QUEUE_CLEAR( struct name * self )                   \
     }                                                           \
     (self)->size = 0;                                           \
     (self)->head = (self)->tail = 0;                            \
+}                                                               \
+uint32_t name##_QUEUE_SHRINK( struct name * self, uint32_t size )\
+{                                                               \
+    if ( (self)->entries == NULL                                \
+            || (self)->size <= size                             \
+            || name##_QUEUE_COUNT((self)) != 0 )                \
+    {                                                           \
+        return (self)->size;                                    \
+    }                                                           \
+    void * p = (self)->entries;                                 \
+    p = realloc( p, size * sizeof(type) );                      \
+    if ( p == NULL )                                            \
+    {                                                           \
+        return (self)->size;                                    \
+    }                                                           \
+    else if ( p != (self)->entries )                            \
+    {                                                           \
+        free( (self)->entries );                                \
+        (self)->entries = p;                                    \
+    }                                                           \
+    (self)->size = size;                                        \
+    (self)->head = (self)->tail = 0;                            \
+    return (self)->size;                                        \
 }
 
 #endif

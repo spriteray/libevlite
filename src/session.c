@@ -12,8 +12,8 @@
 #include "session.h"
 
 static struct session * _new_session();
-static int32_t _reset_session( struct session * self );
 static int32_t _del_session( struct session * self );
+static int32_t _reset_session( struct session * self );
 static inline void _stop( struct session * self );
 
 // 发送数据
@@ -30,13 +30,14 @@ QUEUE_GENERATE( sendqueue, struct message * )
 //
 struct session * _new_session()
 {
-    struct session * self = NULL;
-
-    self = calloc( 1, sizeof(struct session) );
+    struct session * self = calloc( 1, sizeof(struct session) );
     if ( self == NULL )
     {
         return NULL;
     }
+
+    // 初始化接收缓冲区
+    buffer_init( &self->inbuffer );
 
     // 初始化网络事件
     self->evread = event_create();
@@ -61,6 +62,11 @@ struct session * _new_session()
 
 int32_t _reset_session( struct session * self )
 {
+    // 重置
+    self->id        = 0;
+    self->status    = 0;
+    self->msgoffset = 0;
+
     // 销毁网络事件
     if ( self->evread )
     {
@@ -77,13 +83,20 @@ int32_t _reset_session( struct session * self )
 
     buffer_erase( &self->inbuffer,
             buffer_length(&self->inbuffer) );
+    // 收缩发送队列
     QUEUE_RESET(sendqueue)(&self->sendqueue);
+    QUEUE_SHRINK(sendqueue)(&self->sendqueue, DEFAULT_SENDQUEUE_SIZE);
 
     return 0;
 }
 
 int32_t _del_session( struct session * self )
 {
+    // 重置
+    self->id        = 0;
+    self->status    = 0;
+    self->msgoffset = 0;
+
     // 销毁网络事件
     if ( self->evread )
     {
@@ -231,6 +244,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     assert( self->service.shutdown != NULL );
     assert( self->service.perform != NULL );
 
+    // 默认参数
     self->fd        = fd;
     self->type      = type;
     self->evsets    = sets;
