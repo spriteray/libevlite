@@ -100,7 +100,6 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port );
 
 // 发送数据
 ssize_t session_send( struct session * self, char * buf, size_t nbytes );
-
 // 发送消息
 ssize_t session_sendmessage( struct session * self, struct message * message );
 
@@ -139,6 +138,7 @@ struct session_manager
     uint32_t            autoseq;        // 自增的序号
 
     struct hashtable *  table;
+    uint32_t            recyclesize;    // 回收个数
     struct sessionlist  recyclelist;    // 回收队列
 };
 

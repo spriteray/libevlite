@@ -673,6 +673,7 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
     self->index = index;
     self->table = (struct hashtable *)( self + 1 );
     // 初始化回收队列
+    self->recyclesize = 0;
     STAILQ_INIT( &self->recyclelist );
 
     if ( _init_table(self->table, size) != 0 )
@@ -711,6 +712,7 @@ struct session * session_manager_alloc( struct session_manager * self )
     }
     else
     {
+        --self->recyclesize;
         STAILQ_REMOVE_HEAD( &self->recyclelist, recyclelink );
     }
 #endif
@@ -739,7 +741,8 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
 
 int32_t session_manager_foreach( struct session_manager * self, int32_t (*func)(void *, struct session *), void * context )
 {
-    int32_t i = 0, rc = 0;
+    int32_t rc = 0;
+    uint32_t i = 0;
 
     for ( i = 0; i < self->table->size; ++i )
     {
@@ -781,6 +784,10 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 
 void session_manager_recycle( struct session_manager * self, struct session * session )
 {
+    // TODO: 需要判断是否需要回收
+
+    // 回收
+    ++self->recyclesize;
     STAILQ_INSERT_TAIL( &self->recyclelist, session, recyclelink );
 }
 
@@ -836,6 +843,9 @@ void session_manager_destroy( struct session_manager * self )
         free( self->table->entries );
         self->table->entries = NULL;
     }
+
+    self->autoseq = 0;
+    self->recyclesize = 0;
 
     free( self );
 }
