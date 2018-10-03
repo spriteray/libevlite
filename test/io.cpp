@@ -289,10 +289,8 @@ int32_t IIOService::send( sid_t id, const char * buffer, size_t nbytes, bool isf
 
 int32_t IIOService::broadcast( const std::string & buffer )
 {
-    uint32_t nbytes = static_cast<uint32_t>(buffer.size());
-    const char * buf = static_cast<const char *>( buffer.data() );
-
-    return iolayer_broadcast2( m_IOLayer, buf, nbytes );
+    return iolayer_broadcast2( m_IOLayer,
+            static_cast<const char *>(buffer.data()), buffer.size() );
 }
 
 int32_t IIOService::broadcast( const char * buffer, size_t nbytes )
@@ -307,13 +305,12 @@ int32_t IIOService::broadcast( const sids_t & ids, const std::string & buffer )
         return 0;
     }
 
-    uint32_t nbytes = static_cast<uint32_t>(buffer.size());
-    const char * buf = static_cast<const char *>( buffer.data() );
-
     uint32_t count = (uint32_t)ids.size();
     sids_t::const_iterator start = ids.begin();
 
-    return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buf, nbytes );
+    return iolayer_broadcast( m_IOLayer,
+            const_cast<sid_t *>( &(*start) ), count,
+            static_cast<const char *>(buffer.data()), buffer.size() );
 }
 
 int32_t IIOService::broadcast( const sids_t & ids, const char * buffer, size_t nbytes )

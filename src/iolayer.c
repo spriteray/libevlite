@@ -531,15 +531,15 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, vo
         return -1;
     }
 
-    struct task_perform posttask = { id, type, task, recycle };
+    struct task_perform ptask = { id, type, task, recycle };
 
     if ( pthread_self() == iothreads_get_id( layer->group, index ) )
     {
-        return _perform_direct( layer, _get_manager(layer, index), &posttask );
+        return _perform_direct( layer, _get_manager(layer, index), &ptask );
     }
 
     // 跨线程提交发送任务
-    return iothreads_post( layer->group, index, eIOTaskType_Perform, (void *)&posttask, sizeof(posttask) );
+    return iothreads_post( layer->group, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
 }
 
 int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
@@ -547,11 +547,10 @@ int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * )
     uint8_t i = 0;
 
     pthread_t threadid = pthread_self();
+    struct task_perform2 tasklist[ 256 ];   // 栈中分配更快
     struct iolayer * layer = (struct iolayer *)self;
-    struct task_perform2 * tasklist = (struct task_perform2 *)calloc( layer->nthreads, sizeof(struct task_perform2) );
 
     // clone task
-    assert( tasklist != NULL && "create struct task_perform2 failed" );
     for ( i = 0; i < layer->nthreads; ++i )
     {
         tasklist[i].clone = clone;
@@ -564,16 +563,14 @@ int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * )
         if ( threadid == iothreads_get_id( layer->group, i ) )
         {
             // 本线程内直接广播
-            _perform2_direct( layer, i, &( tasklist[i] ) );
+            _perform2_direct( layer, i, &(tasklist[i]) );
         }
         else
         {
             // 跨线程提交广播任务
-            iothreads_post( layer->group, i, eIOTaskType_Perform2, &( tasklist[i] ), sizeof(struct task_perform2) );
+            iothreads_post( layer->group, i, eIOTaskType_Perform2, &(tasklist[i]), sizeof(struct task_perform2) );
         }
     }
-
-    free( tasklist );
 
     return 0;
 }
@@ -780,9 +777,9 @@ int32_t _new_managers( struct iolayer * self )
     uint8_t i = 0;
     uint32_t sessions_per_thread = self->nclients/self->nthreads;
 
+    // 采用cacheline对齐避免False Sharing
     // NOTICE: 根据MESI协议来看，只读的内存块都应该在Shared状态，不会出现伪共享的现象
     // NOTICE: 但实际测试结果却相反
-    // NOTICE: 采用cacheline对齐避免False Sharing
     self->managers = (void **)calloc( (self->nthreads)<<3, sizeof(void *) );
     if ( self->managers == NULL )
     {
@@ -1171,7 +1168,7 @@ int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, 
     struct session * session = session_manager_alloc( manager );
     if ( unlikely( session == NULL ) )
     {
-        syslog( LOG_WARNING, "%s(fd:%u) failed .", __FUNCTION__, associater->fd );
+        syslog( LOG_WARNING, "%s(fd:%u) allocate this SESSION failed .", __FUNCTION__, associater->fd );
     }
 
     rc = associater->cb( associater->context,
