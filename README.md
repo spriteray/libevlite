@@ -64,11 +64,9 @@
 
    - ##### 停止服务 iolayer_stop()
 
-     ​	停止行为定义:
+     - 停止对外提供接入服务, 不再接受新的连接;
 
-     ​		1) 停止对外提供接入服务, 不再接受新的连接;
-
-     ​		2) 停止所有连接的接收服务, 不再回调ioservice_t::process()
+     - 停止所有连接的接收服务, 不再回调ioservice_t::process()
 
    - ##### 提交任务到网络层 iolayer_perform(), iolayer_perform2()
 
