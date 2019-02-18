@@ -37,7 +37,7 @@ static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 static int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater );
 
-static void _io_methods( void * context, uint8_t index, int16_t type, void * task );
+static void _concrete_processor( void * context, uint8_t index, int16_t type, void * task );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -58,7 +58,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     self->nclients  = nclients;
     self->connectidx= 0;
     self->status    = eIOStatus_Running;
-    self->group     = NULL;
+    self->threads     = NULL;
     self->managers  = NULL;
 
     // 初始化会话管理器
@@ -69,12 +69,13 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     }
 
     // 创建网络线程组
-    self->group = iothreads_start( self->nthreads, immediately, _io_methods, self );
-    if ( self->group == NULL )
+    self->threads = iothreads_start( self->nthreads, immediately );
+    if ( self->threads == NULL )
     {
         iolayer_destroy( self );
         return NULL;
     }
+    iothreads_set_processor( self->threads, _concrete_processor, self );
 
     return self;
 }
@@ -95,10 +96,10 @@ void iolayer_destroy( iolayer_t self )
     layer->status = eIOStatus_Stopped;
 
     // 停止网络线程组
-    if ( layer->group )
+    if ( layer->threads )
     {
-        iothreads_stop( layer->group );
-        layer->group = NULL;
+        iothreads_stop( layer->threads );
+        layer->threads = NULL;
     }
 
     // 销毁管理器
@@ -193,7 +194,7 @@ int32_t iolayer_listen( iolayer_t self,
             strncpy( acceptor->host, host, INET_ADDRSTRLEN );
         }
 
-        iothreads_post( layer->group, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
+        iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
     }
 
     return 0;
@@ -252,7 +253,7 @@ int32_t iolayer_connect( iolayer_t self,
     connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
     strncpy( connector->host, host, INET_ADDRSTRLEN );
 
-    iothreads_post( layer->group, connector->index, eIOTaskType_Connect, connector, 0 );
+    iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
 
     return 0;
 }
@@ -286,7 +287,7 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd,
     associater->context = context;
     associater->parent = layer;
 
-    iothreads_post( layer->group, DISPATCH_POLICY(layer, fd), eIOTaskType_Associate, associater, 0 );
+    iothreads_post( layer->threads, DISPATCH_POLICY(layer, fd), eIOTaskType_Associate, associater, 0 );
 
     return 0;
 }
@@ -298,12 +299,12 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
-    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( layer->nthreads == count && "IOThread Number Invalid" );
 
     for ( i = 0; i < count; ++i )
     {
-        iothreads_set_context( layer->group, i, contexts[i] );
+        iothreads_set_context( layer->threads, i, contexts[i] );
     }
 
     return 0;
@@ -329,9 +330,9 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
 
     // 参数检查
     assert( layer != NULL && "Illegal IOLayer" );
-    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_timeout() must be in the specified thread"
-            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
 
     if ( index >= layer->nthreads )
     {
@@ -366,9 +367,9 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
 
     // 参数检查
     assert( layer != NULL && "Illegal IOLayer" );
-    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_keepalive() must be in the specified thread"
-            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
 
     if ( index >= layer->nthreads )
     {
@@ -403,9 +404,9 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 
     // 参数检查
     assert( layer != NULL && "Illegal IOLayer" );
-    assert( layer->group != NULL && "Illegal IOThreadGroup" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_service() must be in the specified thread"
-            && pthread_equal(iothreads_get_id(layer->group, index), pthread_self()) != 0 );
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
 
     if ( index >= layer->nthreads )
     {
@@ -464,7 +465,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
         message_add_buffer( msg, buf, nbytes );
         message_add_receivers( msg, ids, count );
 
-        if ( threadid == iothreads_get_id( layer->group, i ) )
+        if ( threadid == iothreads_get_id( layer->threads, i ) )
         {
             // 本线程内直接广播
             _broadcast_direct( layer, i, _get_manager(layer, i), msg );
@@ -472,7 +473,7 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
         else
         {
             // 跨线程提交广播任务
-            int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast, msg, 0 );
+            int32_t result = iothreads_post( layer->threads, i, eIOTaskType_Broadcast, msg, 0 );
             if ( unlikely(result != 0) )
             {
                 message_destroy( msg );
@@ -500,7 +501,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
         }
         message_add_buffer( msg, buf, nbytes );
 
-        if ( threadid == iothreads_get_id( layer->group, i ) )
+        if ( threadid == iothreads_get_id( layer->threads, i ) )
         {
             // 本线程内直接广播
             _broadcast2_direct( layer, _get_manager(layer, i), msg );
@@ -508,7 +509,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
         else
         {
             // 跨线程提交广播任务
-            int32_t result = iothreads_post( layer->group, i, eIOTaskType_Broadcast2, msg, 0 );
+            int32_t result = iothreads_post( layer->threads, i, eIOTaskType_Broadcast2, msg, 0 );
             if ( unlikely(result != 0) )
             {
                 message_destroy( msg );
@@ -533,13 +534,13 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, vo
 
     struct task_perform ptask = { id, type, task, recycle };
 
-    if ( pthread_self() == iothreads_get_id( layer->group, index ) )
+    if ( pthread_self() == iothreads_get_id( layer->threads, index ) )
     {
         return _perform_direct( layer, _get_manager(layer, index), &ptask );
     }
 
     // 跨线程提交发送任务
-    return iothreads_post( layer->group, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
+    return iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
 }
 
 int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
@@ -560,7 +561,7 @@ int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * )
 
     for ( i = 0; i < layer->nthreads; ++i )
     {
-        if ( threadid == iothreads_get_id( layer->group, i ) )
+        if ( threadid == iothreads_get_id( layer->threads, i ) )
         {
             // 本线程内直接广播
             _perform2_direct( layer, i, &(tasklist[i]) );
@@ -568,7 +569,7 @@ int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * )
         else
         {
             // 跨线程提交广播任务
-            iothreads_post( layer->group, i, eIOTaskType_Perform2, &(tasklist[i]), sizeof(struct task_perform2) );
+            iothreads_post( layer->threads, i, eIOTaskType_Perform2, &(tasklist[i]), sizeof(struct task_perform2) );
         }
     }
 
@@ -589,7 +590,7 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
     // 避免在回调函数中直接终止会话
     // 这样会引发后续对会话的操作都非法了
 #if 0
-    if ( pthread_self() == iothreads_get_id( layer->group, index ) )
+    if ( pthread_self() == iothreads_get_id( layer->threads, index ) )
     {
         // 本线程内直接终止
         return _shutdown_direct( _get_manager(layer, index), &task );
@@ -597,7 +598,7 @@ int32_t iolayer_shutdown( iolayer_t self, sid_t id )
 #endif
 
     // 跨线程提交终止任务
-    return iothreads_post( layer->group, index, eIOTaskType_Shutdown, (void *)&id, sizeof(id) );
+    return iothreads_post( layer->threads, index, eIOTaskType_Shutdown, (void *)&id, sizeof(id) );
 }
 
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
@@ -622,7 +623,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
         // 参照iolayer_shutdown()
 
         // 跨线程提交批量终止任务
-        int32_t result = iothreads_post( layer->group, i, eIOTaskType_Shutdowns, list, 0 );
+        int32_t result = iothreads_post( layer->threads, i, eIOTaskType_Shutdowns, list, 0 );
         if ( unlikely(result != 0) )
         {
             sidlist_destroy( list );
@@ -754,17 +755,17 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_
 {
 #ifdef EVENT_HAVE_REUSEPORT
     return _assign_direct( self, acceptidx,
-            iothreads_get_sets( self->group, acceptidx ), task );
+            iothreads_get_sets( self->threads, acceptidx ), task );
 #else
-    evsets_t sets = iothreads_get_sets( self->group, index );
-    pthread_t threadid = iothreads_get_id( self->group, index );
+    evsets_t sets = iothreads_get_sets( self->threads, index );
+    pthread_t threadid = iothreads_get_id( self->threads, index );
 
     if ( pthread_self() == threadid )
     {
         return _assign_direct( self, index, sets, task );
     }
     // 跨线程提交发送任务
-    return iothreads_post( self->group, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
+    return iothreads_post( self->threads, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
 #endif
 }
 
@@ -828,7 +829,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t 
 
     struct task_send task = { id, (char *)buf, nbytes, isfree };
 
-    if ( pthread_self() == iothreads_get_id( self->group, index ) )
+    if ( pthread_self() == iothreads_get_id( self->threads, index ) )
     {
         return _send_direct( self, _get_manager(self, index), &task ) > 0 ? 0 : -3;
     }
@@ -848,7 +849,7 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t 
         memcpy( task.buf, buf, nbytes );
     }
 
-    result = iothreads_post( self->group, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
+    result = iothreads_post( self->threads, index, eIOTaskType_Send, (void *)&task, sizeof(task) );
     if ( unlikely( result != 0 ) )
     {
         free( task.buf );
@@ -924,7 +925,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
 
     // 回调逻辑层, 确定是否接收这个会话
     rc = task->cb( task->context,
-            iothreads_get_context( layer->group, index ), session->id, task->host, task->port );
+            iothreads_get_context( layer->threads, index ), session->id, task->host, task->port );
     if ( rc != 0 )
     {
         // 逻辑层不接受这个会话
@@ -1110,7 +1111,7 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
 
 void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task )
 {
-    task->perform( iothreads_get_context( self->group, index ), task->task );
+    task->perform( iothreads_get_context( self->threads, index ), task->task );
 }
 
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
@@ -1172,7 +1173,7 @@ int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, 
     }
 
     rc = associater->cb( associater->context,
-            iothreads_get_context( self->group, index ), associater->fd, session == NULL ? 0 : session->id );
+            iothreads_get_context( self->threads, index ), associater->fd, session == NULL ? 0 : session->id );
     if ( session != NULL )
     {
         if ( rc != 0 )
@@ -1191,12 +1192,12 @@ int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, 
     return rc;
 }
 
-void _io_methods( void * context, uint8_t index, int16_t type, void * task )
+void _concrete_processor( void * context, uint8_t index, int16_t type, void * task )
 {
     struct iolayer * layer = (struct iolayer *)context;
 
     // 获取事件集以及会话管理器
-    evsets_t sets = iothreads_get_sets( layer->group, index );
+    evsets_t sets = iothreads_get_sets( layer->threads, index );
     struct session_manager * manager = _get_manager( layer, index );
 
     switch ( type )

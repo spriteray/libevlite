@@ -27,8 +27,7 @@ struct iolayer
     uint32_t    connectidx;
 
     // 网络线程组
-    iothreads_t group;
-
+    iothreads_t threads;
     // 会话管理器
     void **     managers;
 

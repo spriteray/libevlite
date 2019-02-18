@@ -40,10 +40,11 @@ int32_t iothread_stop( struct iothread * self );
 
 struct iothreads
 {
-    struct iothread * threadgroup;
+    struct iothread * threads;
 
+    // 任务处理器
     void * context;
-    void (*method)( void *, uint8_t, int16_t, void *);
+    void (*processor)( void *, uint8_t, int16_t, void * );
 
     uint8_t nthreads;
     uint8_t runflags;
@@ -53,6 +54,5 @@ struct iothreads
     pthread_cond_t cond;
     pthread_mutex_t lock;
 };
-
 
 #endif
