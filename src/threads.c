@@ -14,11 +14,12 @@
 #include "threads.h"
 #include "threads-internal.h"
 
-// 创建网络线程组
-// nthreads     - 网络线程组中的线程数
-// method       - 任务处理函数
-iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately,
-        void (*method)(void *, uint8_t, int16_t, void *), void * context )
+void _base_processor( void * context, uint8_t index, int16_t type, void * task )
+{
+    // TODO: 基础处理器
+}
+
+iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately )
 {
     uint8_t i = 0;
     struct iothreads * iothreads = NULL;
@@ -29,16 +30,16 @@ iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately,
         return NULL;
     }
 
-    iothreads->threadgroup = calloc( nthreads, sizeof(struct iothread) );
-    if ( iothreads->threadgroup == NULL )
+    iothreads->threads = calloc( nthreads, sizeof(struct iothread) );
+    if ( iothreads->threads == NULL )
     {
         free( iothreads );
         return NULL;
     }
 
-    iothreads->method   = method;
+    iothreads->context  = iothreads;
+    iothreads->processor   = _base_processor;
     iothreads->immediately = immediately;
-    iothreads->context  = context;
     iothreads->nthreads = nthreads;
     pthread_cond_init( &iothreads->cond, NULL );
     pthread_mutex_init( &iothreads->lock, NULL );
@@ -48,10 +49,21 @@ iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately,
     iothreads->nrunthreads = nthreads;
     for ( i = 0; i < nthreads; ++i )
     {
-        iothread_start( iothreads->threadgroup+i, i, iothreads );
+        iothread_start( iothreads->threads+i, i, iothreads );
     }
 
     return iothreads;
+}
+
+void iothreads_set_processor( iothreads_t self, void (*processor)( void *, uint8_t, int16_t, void * ), void * context )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    iothreads->context = context;
+    iothreads->processor = processor;
+
+    return;
 }
 
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
@@ -60,9 +72,9 @@ pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
-    assert( iothreads->threadgroup != NULL );
+    assert( iothreads->threads != NULL );
 
-    return iothreads->threadgroup[index].id;
+    return iothreads->threads[index].id;
 }
 
 evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
@@ -71,9 +83,9 @@ evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
-    assert( iothreads->threadgroup != NULL );
+    assert( iothreads->threads != NULL );
 
-    return iothreads->threadgroup[index].sets;
+    return iothreads->threads[index].sets;
 }
 
 void * iothreads_get_context( iothreads_t self, uint8_t index )
@@ -82,9 +94,9 @@ void * iothreads_get_context( iothreads_t self, uint8_t index )
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
-    assert( iothreads->threadgroup != NULL );
+    assert( iothreads->threads != NULL );
 
-    return iothreads->threadgroup[index].context;
+    return iothreads->threads[index].context;
 }
 
 void iothreads_set_context( iothreads_t self, uint8_t index, void * context )
@@ -93,9 +105,9 @@ void iothreads_set_context( iothreads_t self, uint8_t index, void * context )
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
-    assert( iothreads->threadgroup != NULL );
+    assert( iothreads->threads != NULL );
 
-    iothreads->threadgroup[index].context = context;
+    iothreads->threads[index].context = context;
 }
 
 // 向网络线程组中指定的线程提交任务
@@ -115,7 +127,7 @@ int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * ta
         return -1;
     }
 
-    return iothread_post( iothreads->threadgroup+index, (size == 0 ? eTaskType_User : eTaskType_Data), type, task, size );
+    return iothread_post( iothreads->threads+index, (size == 0 ? eTaskType_User : eTaskType_Data), type, task, size );
 }
 
 void iothreads_stop( iothreads_t self )
@@ -127,7 +139,7 @@ void iothreads_stop( iothreads_t self )
     iothreads->runflags = 0;
     for ( i = 0; i < iothreads->nthreads; ++i )
     {
-        iothread_post( iothreads->threadgroup+i, eTaskType_Null, 0, NULL, 0 );
+        iothread_post( iothreads->threads+i, eTaskType_Null, 0, NULL, 0 );
     }
 
     // 等待线程退出
@@ -141,15 +153,15 @@ void iothreads_stop( iothreads_t self )
     // 销毁所有网络线程
     for ( i = 0; i < iothreads->nthreads; ++i )
     {
-        iothread_stop( iothreads->threadgroup + i );
+        iothread_stop( iothreads->threads + i );
     }
 
     pthread_cond_destroy( &iothreads->cond );
     pthread_mutex_destroy( &iothreads->lock );
-    if ( iothreads->threadgroup )
+    if ( iothreads->threads )
     {
-        free( iothreads->threadgroup );
-        iothreads->threadgroup = NULL;
+        free( iothreads->threads );
+        iothreads->threads = NULL;
     }
 
     free ( iothreads );
@@ -268,12 +280,12 @@ uint32_t _process( struct iothreads * parent, struct iothread * thread, struct t
         // 网络任务处理
         if ( task.type == eTaskType_User )
         {
-            parent->method( parent->context,
+            parent->processor( parent->context,
                     thread->index, task.utype, task.taskdata );
         }
         else if ( task.type == eTaskType_Data )
         {
-            parent->method( parent->context,
+            parent->processor( parent->context,
                     thread->index, task.utype, (void *)(task.data) );
         }
     }

@@ -8,3 +8,4 @@ tags
 xcuserdata
 *.pbxuser
 *~.nib
+.vscode/*

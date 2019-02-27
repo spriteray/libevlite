@@ -17,9 +17,7 @@
    - ##### 基于事件集(evsets_t)的方法说明
 
       - 向事件集中添加事件 evsets_add()
-
       - 从事件集中删除事件 evsets_del()
-
       - 分发并处理事件 evsets_dispatch()
 
 2. #### 网络线程模块( include/threads.h )
@@ -29,15 +27,12 @@
    - ##### 创建网络通信层 iolayer_create()
 
      - nthreads: 指定网络线程的个数
-
      - nclients: 推荐连接数
-
      - immediately: 数据是否会立刻推送到网络层，对实时性要求很高的场景, 建议设置为1
 
    - ##### 设置网络通信层的方法(非线程安全)
 
      - 设置线程上下文: iolayer_set_iocontext()
-
      - 设置网络层数据改造方法: iolayer_set_transform()
 
    - ##### 监听端口/开启服务端 iolayer_listen()
@@ -51,9 +46,7 @@
    - ##### 设置会话的方法(非线程安全)
 
      - 设置会话的超时时间 iolayer_set_timeout()
-
      - 设置会话的保活时间 iolayer_set_keepalive()
-
      - 设置会话的IO服务逻辑 iolayer_set_service()
 
    - ##### 发送数据 iolayer_send()
@@ -64,11 +57,8 @@
 
    - ##### 停止服务 iolayer_stop()
 
-     ​	停止行为定义:
-
-     ​		1) 停止对外提供接入服务, 不再接受新的连接;
-
-     ​		2) 停止所有连接的接收服务, 不再回调ioservice_t::process()
+     - 停止对外提供接入服务, 不再接受新的连接;
+     - 停止所有连接的接收服务, 不再回调ioservice_t::process()
 
    - ##### 提交任务到网络层 iolayer_perform(), iolayer_perform2()
 
