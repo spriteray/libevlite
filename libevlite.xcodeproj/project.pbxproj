@@ -595,7 +595,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.7.0;
+				DYLIB_CURRENT_VERSION = 9.7.2;
 				EXECUTABLE_PREFIX = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -609,7 +609,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.7.0;
+				DYLIB_CURRENT_VERSION = 9.7.2;
 				EXECUTABLE_PREFIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
