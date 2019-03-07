@@ -170,7 +170,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-//      recycle         - 任务回收函数(执行失败时回调)
+//      recycle         - 任务回收函数
 int32_t iolayer_perform( iolayer_t self, sid_t id,
         int32_t type, void * task, void (*recycle)( int32_t, void * ) );
 

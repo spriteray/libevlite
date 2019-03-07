@@ -1102,9 +1102,11 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
     else
     {
         rc = -1;
-        task->recycle( task->type, task->task );
         syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
     }
+
+    // 回收任务
+    task->recycle( task->type, task->task );
 
     return rc;
 }
