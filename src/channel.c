@@ -465,11 +465,26 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     session->status &= ~SESSION_WRITING;
 
     // 连接远程服务器
-    session->fd = tcp_connect( session->host, session->port, iolayer_client_option );
+    if ( likely( session->privdata == NULL ) )
+    {
+        session->fd = tcp_connect(
+                session->host, session->port, iolayer_client_option );
+    }
+    else
+    {
+        // TODO:
+    }
+
     if ( session->fd < 0 )
     {
         channel_error( session, eIOError_ConnectFailure );
         return;
+    }
+
+    // 绑定的情况下需要设置非阻塞状态
+    if ( session->privdata != NULL )
+    {
+        set_non_block( session->fd );
     }
 
     // 注册写事件, 以重新激活会话

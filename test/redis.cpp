@@ -1,0 +1,227 @@
+
+#include <unistd.h>
+#include <string.h>
+#include <hiredis/hiredis.h>
+#include "redis.h"
+
+CRedisSession::CRedisSession( redisContext * c )
+    : m_RedisConnection( c )
+{}
+
+CRedisSession::~CRedisSession()
+{
+    if ( m_RedisConnection != NULL )
+    {
+        redisFree( m_RedisConnection );
+        m_RedisConnection = NULL;
+    }
+}
+
+int32_t CRedisSession::onStart()
+{
+    // TODO: 验证
+
+    setTimeout( 30 );
+    setKeepalive( 10 );
+    setEndpoint( m_RedisConnection->tcp.host, m_RedisConnection->tcp.port );
+
+    return 0;
+}
+
+ssize_t CRedisSession::onProcess( const char * buffer, size_t nbytes )
+{
+    if ( 0 != redisReaderFeed(
+                m_RedisConnection->reader, buffer, nbytes ) )
+    {
+        return -1;
+    }
+
+    void * data = NULL;
+    redisReply * reply = NULL;
+
+    if ( 0 != redisReaderGetReply(
+                m_RedisConnection->reader, &data ) )
+    {
+        return -1;
+    }
+
+    reply = static_cast<redisReply *>( data );
+    if ( reply != NULL )
+    {
+        printf( "CMD: %s\n", reply->str );
+
+        if ( 0 == strncmp( reply->str, "PONG", 4 ) )
+        {
+            return nbytes;
+        }
+
+        freeReplyObject( reply );
+    }
+
+    return nbytes;
+}
+
+int32_t CRedisSession::onTimeout()
+{
+    return 0;
+}
+
+int32_t CRedisSession::onKeepalive()
+{
+    Slice cmd = RedisClient::ping();
+    if ( !cmd.empty() )
+    {
+        send( cmd.data(), cmd.size(), true );
+    }
+
+    return 0;
+}
+
+int32_t CRedisSession::onError( int32_t result )
+{
+    // TODO:
+    return 0;
+}
+
+void CRedisSession::onShutdown( int32_t way )
+{
+    // TODO:
+}
+
+CRedisService::CRedisService()
+    : IIOService( 1, 10, true, false )
+{}
+
+CRedisService::~CRedisService()
+{}
+
+IIOSession * CRedisService::onAssociate( sid_t id, int32_t type, int32_t fd, void * privdata )
+{
+    redisContext * context = static_cast<redisContext *>(privdata);
+    CRedisSession * session = new CRedisSession( context );
+    if ( session != NULL )
+    {
+        // TODO:
+    }
+
+    return session;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+RedisClient::RedisClient( IIOService * s )
+    : m_Service( s )
+{}
+
+RedisClient::~RedisClient()
+{}
+
+sid_t RedisClient::connect( const std::string & host, uint16_t port )
+{
+    redisContext * c = redisConnect( host.c_str(), port );
+    if ( c == NULL )
+    {
+        return 0;
+    }
+
+    return m_Service->associate( 0, c->fd, c, 10, true );
+}
+
+int32_t RedisClient::send( sid_t id, const Slice & cmd )
+{
+    if ( cmd.empty() )
+    {
+        return -1;
+    }
+
+    return m_Service->send( id, cmd.data(), cmd.size(), true );
+}
+
+Slice RedisClient::ping()
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "PING" );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::auth( const std::string & password )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "AUTH %s", password.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::fetch( const std::string & key )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "GET %s", key.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::update( const std::string & key, const std::string & value )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "SET %s %s", key.c_str(), value.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+int main()
+{
+    CRedisService * s = new CRedisService();
+    if ( s == NULL )
+    {
+        return -1;
+    }
+
+    s->start();
+
+    RedisClient * rediscli = new RedisClient( s );
+    if ( rediscli == NULL )
+    {
+        return -2;
+    }
+
+    sid_t sid = rediscli->connect( "172.21.161.70", 6379 );
+    printf( "connect succeed, %lu\n", sid );
+
+    rediscli->send( sid,
+            rediscli->update( "account", "lei.a.zhang" ) );
+
+    rediscli->send( sid,
+            rediscli->fetch( "account" ) );
+
+    while( 1 )
+    {
+        sleep( 1 );
+    }
+
+    s->stop();
+    delete s;
+}

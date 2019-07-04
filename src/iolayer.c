@@ -260,13 +260,15 @@ int32_t iolayer_connect( iolayer_t self,
 
 // 描述符关联会话ID
 //      fd              - 描述符
+//      privdata        - 私有数据
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
 //                            参数3: 描述符
 //                            参数4: 关联的会话ID
 //      context         - 上下文参数
-int32_t iolayer_associate( iolayer_t self, int32_t fd,
+int32_t iolayer_associate( iolayer_t self,
+        int32_t fd, void * privdata,
         int32_t (*cb)(void *, void *, int32_t, sid_t), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
@@ -286,6 +288,7 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd,
     associater->cb = cb;
     associater->context = context;
     associater->parent = layer;
+    associater->privdata = privdata;
 
     iothreads_post( layer->threads, DISPATCH_POLICY(layer, fd), eIOTaskType_Associate, associater, 0 );
 
@@ -392,6 +395,43 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
     }
 
     session->setting.keepalive_msecs = seconds*1000;
+
+    return 0;
+}
+
+int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint16_t port )
+{
+    // NOT Thread-Safe
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_endpoint() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
+
+    if ( index >= layer->nthreads )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct session_manager * manager = _get_manager( layer, index );
+    if ( manager == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
+        return -2;
+    }
+
+    struct session * session = session_manager_get( manager, id );
+    if ( session == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
+        return -3;
+    }
+
+    session_set_endpoint( session, host, port );
 
     return 0;
 }
@@ -1184,8 +1224,10 @@ int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, 
         }
         else
         {
+            set_non_block( associater->fd );
             session_set_iolayer( session, self );
-            session_start( session, eSessionType_Once, associater->fd, sets );
+            session_set_privdata( session, associater->privdata );
+            session_start( session, eSessionType_Persist, associater->fd, sets );
         }
     }
 

@@ -84,6 +84,7 @@ struct connector
 struct associater
 {
     int32_t     fd;
+    void *      privdata;
 
     // 逻辑
     void *      context;

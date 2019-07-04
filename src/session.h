@@ -71,6 +71,7 @@ struct session
     void *                  iolayer;
     void *                  context;
     ioservice_t             service;
+    void *                  privdata;       // 私有数据
 
     // 接收缓冲区
     struct buffer           inbuffer;
@@ -91,7 +92,8 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 
 //
 void session_set_iolayer( struct session * self, void * iolayer );
-void session_set_endpoint( struct session * self, char * host, uint16_t port );
+void session_set_privdata( struct session * self, void * data );
+void session_set_endpoint( struct session * self, const char * host, uint16_t port );
 
 // 发送队列的长度
 #define session_sendqueue_count( self )         QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )

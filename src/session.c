@@ -268,7 +268,12 @@ void session_set_iolayer( struct session * self, void * iolayer )
     self->iolayer = iolayer;
 }
 
-void session_set_endpoint( struct session * self, char * host, uint16_t port )
+void session_set_privdata( struct session * self, void * data )
+{
+    self->privdata = data;
+}
+
+void session_set_endpoint( struct session * self, const char * host, uint16_t port )
 {
     self->port = port;
     strncpy( self->host, host, INET_ADDRSTRLEN );

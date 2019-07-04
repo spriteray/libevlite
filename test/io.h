@@ -57,6 +57,7 @@ public :
     // 设置超时/保活时间
     void setTimeout( int32_t seconds );
     void setKeepalive( int32_t seconds );
+    void setEndpoint( const std::string & host, uint16_t port );
 
     // 发送数据
     int32_t send( const std::string & buffer );
@@ -84,11 +85,11 @@ private :
     static void     onShutdownSession( void * context, int32_t way );
 
 private :
-    sid_t       m_Sid;
-    uint16_t    m_Port;
-    std::string m_Host;
-    iolayer_t   m_Layer;
-    void *      m_IOContext;
+    sid_t           m_Sid;
+    uint16_t        m_Port;
+    std::string     m_Host;
+    iolayer_t       m_Layer;
+    void *          m_IOContext;
 };
 
 //
@@ -114,6 +115,8 @@ public :
     // 需要调用者自己实现
     // 有可能在IIOService的多个网络线程中被触发
 
+    // 绑定事件
+    virtual IIOSession * onAssociate( sid_t id, int32_t type, int32_t fd, void * privdata ) { return NULL; }
     // 连接事件
     virtual bool onConnectFailed( int32_t result, const char * host, uint16_t port ) { return false; }
     virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port ) { return NULL; }
@@ -153,6 +156,20 @@ public :
     //      0       - 正在连接
     //      >0      - 连接成功返回会话ID
     sid_t connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
+
+    // 绑定描述符
+    // 参数 :
+    //      type    - 绑定的私有数据类型
+    //      fd      - 绑定的描述符
+    //      privdata- 绑定的私有数据
+    //      seconds - 超时时间
+    //      isblock - 是否阻赛的绑定
+    //
+    // 返回值:
+    //      -1      - 绑定失败
+    //      0       - 正在绑定
+    //      >0      - 绑定成功后返回的会话ID
+    sid_t associate( int32_t type, int32_t fd, void * privdata, int32_t seconds, bool isblock = false );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
@@ -213,8 +230,32 @@ private :
         {}
     };
 
+    // 绑定上下文
+    struct AssociateContext
+    {
+        sid_t           sid;
+        int32_t         type;
+        void *          privdata;
+        IIOService *    service;
+
+        AssociateContext()
+            : sid( 0 ),
+              type( 0 ),
+              privdata( NULL ),
+              service( NULL )
+        {}
+
+        AssociateContext( int32_t t, void * p, IIOService * s )
+            : sid( 0 ),
+              type( t ),
+              privdata( p ),
+              service( s )
+        {}
+    };
+
     typedef std::vector<ListenContext *> ListenContexts;
     typedef std::vector<ConnectContext *> ConnectContexts;
+    typedef std::vector<AssociateContext *> AssociateContexts;
 
 private :
     // 通知连接结果
@@ -222,13 +263,19 @@ private :
             ConnectContext * context,
             int32_t result, sid_t id, int32_t ack );
 
+    // 通知绑定结果
+    void notifyAssociateResult(
+            AssociateContext * context,
+            int32_t result, sid_t id, int32_t ack );
+
     // 会话ID和会话的绑定
     void attach( sid_t id,
             IIOSession * session, void * iocontext,
-            const std::string & host, uint16_t port );
+            const std::string & host = "", uint16_t port = 0 );
 
     static char * onTransformService( void * context, const char * buffer, size_t * nbytes );
 
+    static int32_t onAssociateSession( void * context, void * iocontext, int32_t fd, sid_t id );
     static int32_t onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port );
     static int32_t onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id );
 
@@ -245,6 +292,7 @@ private :
     pthread_mutex_t     m_Lock;
     ListenContexts      m_ListenContexts;       // 正在监听的会话
     ConnectContexts     m_ConnectContexts;      // 正在连接的会话
+    AssociateContexts   m_AssociateContexts;    // 正在绑定的会话
 };
 
 #endif
