@@ -39,20 +39,34 @@ ssize_t CRedisSession::onProcess( const char * buffer, size_t nbytes )
     void * data = NULL;
     redisReply * reply = NULL;
 
-    if ( 0 != redisReaderGetReply(
-                m_RedisConnection->reader, &data ) )
+    while ( REDIS_OK
+            == redisReaderGetReply( m_RedisConnection->reader, &data ) )
     {
-        return -1;
-    }
-
-    reply = static_cast<redisReply *>( data );
-    if ( reply != NULL )
-    {
-        printf( "CMD: %s\n", reply->str );
-
-        if ( 0 == strncmp( reply->str, "PONG", 4 ) )
+        reply = static_cast<redisReply *>( data );
+        if ( reply == NULL )
         {
-            return nbytes;
+            break;
+        }
+
+        switch ( reply->type )
+        {
+            case REDIS_REPLY_STRING :
+                printf( "STRING : %s\n", reply->str );
+                break;
+
+            case REDIS_REPLY_ARRAY :
+                printf( "ARRAY : %s\n", reply->str );
+                break;
+
+            case REDIS_REPLY_INTEGER :
+                printf( "INTEGER : %s\n", reply->str );
+                break;
+
+            case REDIS_REPLY_NIL :
+            case REDIS_REPLY_STATUS :
+            case REDIS_REPLY_ERROR :
+                printf( "OTHER : %s\n", reply->str );
+                break;
         }
 
         freeReplyObject( reply );
@@ -118,7 +132,7 @@ RedisClient::~RedisClient()
 
 sid_t RedisClient::connect( const std::string & host, uint16_t port )
 {
-    redisContext * c = redisConnect( host.c_str(), port );
+    redisContext * c = redisConnectNonBlock( host.c_str(), port );
     if ( c == NULL )
     {
         return 0;
@@ -163,7 +177,7 @@ Slice RedisClient::auth( const std::string & password )
     return Slice( buffer, length );
 }
 
-Slice RedisClient::fetch( const std::string & key )
+Slice RedisClient::get( const std::string & key )
 {
     char * buffer = NULL;
     ssize_t length = redisFormatCommand( &buffer, "GET %s", key.c_str() );
@@ -176,11 +190,12 @@ Slice RedisClient::fetch( const std::string & key )
     return Slice( buffer, length );
 }
 
-Slice RedisClient::update( const std::string & key, const std::string & value )
+Slice RedisClient::set( const std::string & key, const std::string & value )
 {
     char * buffer = NULL;
     ssize_t length = redisFormatCommand(
-            &buffer, "SET %s %s", key.c_str(), value.c_str() );
+            &buffer, "SET %s %b",
+            key.c_str(), value.data(), value.size() );
 
     if ( length < 0 )
     {
@@ -212,10 +227,10 @@ int main()
     printf( "connect succeed, %lu\n", sid );
 
     rediscli->send( sid,
-            rediscli->update( "account", "lei.a.zhang" ) );
+            rediscli->set( "account", "lei.a.zhang" ) );
 
     rediscli->send( sid,
-            rediscli->fetch( "account" ) );
+            rediscli->get( "account" ) );
 
     while( 1 )
     {

@@ -50,9 +50,9 @@ public :
     // PING
     static Slice ping();
     // 获取数据
-    static Slice fetch( const std::string & key );
+    static Slice get( const std::string & key );
     // 更新命令
-    static Slice update(
+    static Slice set(
             const std::string & key, const std::string & value );
     // 订阅命令
     // 发布命令
