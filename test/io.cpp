@@ -286,7 +286,7 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bo
     return connectedsid;
 }
 
-sid_t IIOService::associate( int32_t type, int32_t fd, void * privdata, int32_t seconds, bool isblock )
+sid_t IIOService::associate( int32_t type, int32_t fd, void * privdata, int32_t seconds, int32_t (*reattach)( void *, int32_t, void * ), bool isblock )
 {
     AssociateContext * context = new AssociateContext( type, privdata, this );
     if ( context == NULL )
@@ -294,7 +294,9 @@ sid_t IIOService::associate( int32_t type, int32_t fd, void * privdata, int32_t 
         return -1;
     }
 
-    if ( iolayer_associate( m_IOLayer, fd, privdata, onAssociateSession, context ) != 0 )
+    if ( iolayer_associate( m_IOLayer,
+                fd, privdata, seconds,
+                onAssociateSession, reattach, context ) != 0 )
     {
         return -1;
     }
@@ -516,7 +518,7 @@ char * IIOService::onTransformService( void * context, const char * buffer, size
     return service->onTransform( buffer, _nbytes );
 }
 
-int32_t IIOService::onAssociateSession( void * context, void * iocontext, int32_t fd, sid_t id )
+int32_t IIOService::onAssociateSession( void * context, void * iocontext, int32_t result, int32_t fd, sid_t id )
 {
     AssociateContext * ctx = static_cast<AssociateContext *>(context);
 
@@ -524,18 +526,25 @@ int32_t IIOService::onAssociateSession( void * context, void * iocontext, int32_
     IIOSession * session = NULL;
     IIOService * service = ctx->service;
 
-    session = service->onAssociate( id, ctx->type, fd, ctx->privdata );
-    if ( session == NULL )
+    if ( result != 0 )
     {
-        ack = -1;
+        ack = service->onAssociateFailed( result, ctx->type, fd, ctx->privdata ) ? 0 : -2;
     }
     else
     {
-        service->attach( id, session, iocontext );
-    }
+        session = service->onAssociateSucceed( id, ctx->type, fd, ctx->privdata );
+        if ( session == NULL )
+        {
+            ack = -1;
+        }
+        else
+        {
+            service->attach( id, session, iocontext );
+        }
 
+    }
     // 通知绑定结果
-    service->notifyAssociateResult( ctx, 0, id, ack );
+    service->notifyAssociateResult( ctx, result, id, ack );
 
     return ack;
 }

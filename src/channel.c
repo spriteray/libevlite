@@ -473,7 +473,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     else
     {
         // 第三方会话重连
-        session->fd = session->reattach( session, session->context, session->privdata );
+        session->fd = session->reattach( session->context, session->fd, session->privdata );
     }
 
     if ( session->fd < 0 )
@@ -597,5 +597,77 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
     else
     {
         _timeout( session );
+    }
+}
+
+void channel_on_associated( int32_t fd, int16_t ev, void * arg )
+{
+    int32_t rc = 0, result = 0;
+    struct associater * associater = (struct associater *)arg;
+
+    sid_t id = 0;
+    struct session * session = NULL;
+    struct iolayer * layer = (struct iolayer *)( associater->parent );
+
+    if ( ev & EV_WRITE )
+    {
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
+        // linux需要进一步检查连接是否成功
+        if ( is_connected( fd ) != 0 )
+        {
+            result = eIOError_ConnectStatus;
+        }
+#endif
+    }
+    else
+    {
+        result = eIOError_Timeout;
+    }
+
+    if ( result == 0 )
+    {
+        // 连接成功的情况下, 创建会话
+        session = iolayer_alloc_session( layer, associater->fd, associater->index );
+        if ( session != NULL )
+        {
+            id = session->id;
+        }
+        else
+        {
+            result = eIOError_OutMemory;
+        }
+    }
+
+    // 把连接结果回调给逻辑层
+    rc = associater->cb( associater->context,
+            iothreads_get_context( layer->threads, associater->index ), result, associater->fd, id );
+
+    if ( rc == 0 )
+    {
+        if ( result != 0 )
+        {
+            // 逻辑层需要继续连接
+            iolayer_reassociate( layer, associater );
+        }
+        else
+        {
+            // 连接成功
+            set_non_block( associater->fd );
+            session_set_iolayer( session, layer );
+            session_set_privdata( session, associater->reattach, associater->privdata );
+            session_start( session, eSessionType_Persist, associater->fd, associater->evsets );
+
+            associater->fd = -1;
+            iolayer_free_associater( layer, associater );
+        }
+    }
+    else
+    {
+        if ( session )
+        {
+            session_manager_remove( session->manager, session );
+            session_end( session, id, 0 );
+        }
+        iolayer_free_associater( layer, associater );
     }
 }

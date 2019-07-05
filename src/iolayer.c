@@ -35,7 +35,8 @@ static int32_t _perform_direct( struct iolayer * self, struct session_manager * 
 static void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
-static int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater );
+static int32_t _associate_direct( evsets_t sets, struct associater * associater );
+static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 
 static void _concrete_processor( void * context, uint8_t index, int16_t type, void * task );
 
@@ -261,6 +262,7 @@ int32_t iolayer_connect( iolayer_t self,
 // 描述符关联会话ID
 //      fd              - 描述符
 //      privdata        - 绑定的私有数据
+//      seconds         - 关联超时时间
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
@@ -273,8 +275,8 @@ int32_t iolayer_connect( iolayer_t self,
 //                            参数3: 绑定的私有函数
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
-        int32_t fd, void * privdata,
-        int32_t (*cb)(void *, void *, int32_t, sid_t),
+        int32_t fd, void * privdata, int32_t seconds,
+        int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
         int32_t (*reattach)( void *, int32_t, void * ), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
@@ -290,13 +292,24 @@ int32_t iolayer_associate( iolayer_t self,
         return -1;
     }
 
-    associater->fd = fd;
-    associater->cb = cb;
-    associater->context = context;
-    associater->parent = layer;
-    associater->privdata = privdata;
+    associater->event = event_create();
+    if ( associater->event == NULL )
+    {
+        syslog(LOG_WARNING, "%s(fd:'%d', privdata:%p) failed, can't create AssoicateEvent.", __FUNCTION__, fd, privdata);
+        free( associater );
+        return -2;
+    }
 
-    iothreads_post( layer->threads, DISPATCH_POLICY(layer, fd), eIOTaskType_Associate, associater, 0 );
+    associater->fd          = fd;
+    associater->cb          = cb;
+    associater->reattach    = reattach;
+    associater->context     = context;
+    associater->parent      = layer;
+    associater->privdata    = privdata;
+    associater->mseconds    = seconds * 1000;
+    associater->index       = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
+    // 提交到网络层
+    iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
 
     return 0;
 }
@@ -797,6 +810,42 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
     return 0;
 }
 
+int32_t iolayer_reassociate( struct iolayer * self, struct associater * associater )
+{
+    // 首先必须先关闭以前的描述符
+    if ( associater->fd > 0 )
+    {
+        close( associater->fd );
+        associater->fd = -1;
+    }
+
+    // 200毫秒后尝试重连, 避免进入重连死循环
+    event_set( associater->event, -1, 0 );
+    event_set_callback( associater->event, _reassociate_direct, associater );
+    evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
+
+    return 0;
+}
+
+int32_t iolayer_free_associater( struct iolayer * self, struct associater * associater )
+{
+    if ( associater->event )
+    {
+        evsets_del( associater->evsets, associater->event );
+        event_destroy( associater->event );
+        associater->event = NULL;
+    }
+
+    if ( associater->fd > 0 )
+    {
+        close( associater->fd );
+        associater->fd = -1;
+    }
+
+    free( associater );
+    return 0;
+}
+
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
 #ifdef EVENT_HAVE_REUSEPORT
@@ -1208,39 +1257,28 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
     return count;
 }
 
-int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct associater * associater )
+int32_t _associate_direct( evsets_t sets, struct associater * associater )
 {
-    int32_t rc = 0;
-    struct session_manager * manager = _get_manager( self, index );
+    associater->evsets = sets;
 
-    // 会话管理器分配会话
-    struct session * session = session_manager_alloc( manager );
-    if ( unlikely( session == NULL ) )
+    event_set( associater->event, associater->fd, EV_WRITE );
+    event_set_callback( associater->event, channel_on_associated, associater );
+    evsets_add( sets, associater->event, associater->mseconds );
+
+    return 0;
+}
+
+void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
+{
+    struct associater * associater = (struct associater *)arg;
+
+    associater->fd = associater->reattach( NULL, associater->fd, associater->privdata );
+    if ( associater->fd < 0 )
     {
-        syslog( LOG_WARNING, "%s(fd:%u) allocate this SESSION failed .", __FUNCTION__, associater->fd );
+        syslog(LOG_WARNING, "%s(fd:'%d', privdata:%p) failed, associater->reattach() failure .", __FUNCTION__, associater->fd, associater->privdata);
     }
 
-    rc = associater->cb( associater->context,
-            iothreads_get_context( self->threads, index ), associater->fd, session == NULL ? 0 : session->id );
-    if ( session != NULL )
-    {
-        if ( rc != 0 )
-        {
-            session_manager_remove( manager, session );
-        }
-        else
-        {
-            set_non_block( associater->fd );
-            session_set_iolayer( session, self );
-            session_set_privdata( session,
-                associater->reattach, associater->privdata );
-            session_start( session, eSessionType_Persist, associater->fd, sets );
-        }
-    }
-
-    // 释放
-    free( associater );
-    return rc;
+    _associate_direct( associater->evsets, associater );
 }
 
 void _concrete_processor( void * context, uint8_t index, int16_t type, void * task )
@@ -1295,7 +1333,7 @@ void _concrete_processor( void * context, uint8_t index, int16_t type, void * ta
 
             // 关联描述符和会话ID
         case eIOTaskType_Associate :
-            _associate_direct( layer, index, sets, (struct associater *)task );
+            _associate_direct( sets, (struct associater *)task );
             break;
 
             // 逻辑任务

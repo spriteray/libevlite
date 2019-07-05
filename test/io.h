@@ -115,13 +115,14 @@ public :
     // 需要调用者自己实现
     // 有可能在IIOService的多个网络线程中被触发
 
-    // 绑定事件
-    virtual IIOSession * onAssociate( sid_t id, int32_t type, int32_t fd, void * privdata ) { return NULL; }
     // 连接事件
     virtual bool onConnectFailed( int32_t result, const char * host, uint16_t port ) { return false; }
     virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port ) { return NULL; }
     // 接受事件
     virtual IIOSession * onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port ) { return NULL; }
+    // 绑定事件
+    virtual bool onAssociateFailed( int32_t result, int32_t type, int32_t fd, void * privdata ) { return false; }
+    virtual IIOSession * onAssociateSucceed( sid_t id, int32_t type, int32_t fd, void * privdata ) { return NULL; }
 
 public :
     //
@@ -169,7 +170,9 @@ public :
     //      -1      - 绑定失败
     //      0       - 正在绑定
     //      >0      - 绑定成功后返回的会话ID
-    sid_t associate( int32_t type, int32_t fd, void * privdata, int32_t seconds, bool isblock = false );
+    sid_t associate( int32_t type,
+            int32_t fd, void * privdata, int32_t seconds,
+            int32_t (*reattach)(void *, int32_t, void *), bool isblock = false );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
@@ -275,7 +278,7 @@ private :
 
     static char * onTransformService( void * context, const char * buffer, size_t * nbytes );
 
-    static int32_t onAssociateSession( void * context, void * iocontext, int32_t fd, sid_t id );
+    static int32_t onAssociateSession( void * context, void * iocontext, int32_t result, int32_t fd, sid_t id );
     static int32_t onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port );
     static int32_t onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id );
 

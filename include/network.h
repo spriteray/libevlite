@@ -135,6 +135,7 @@ int32_t iolayer_connect( iolayer_t self,
 // 描述符关联会话ID
 //      fd              - 描述符
 //      privdata        - 绑定的私有数据
+//      seconds         - 关联超时时间
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
@@ -147,7 +148,7 @@ int32_t iolayer_connect( iolayer_t self,
 //                            参数3: 绑定的私有函数
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
-        int32_t fd, void * privdata,
+        int32_t fd, void * privdata, int32_t seconds,
         int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
         int32_t (*reattach)( void *, int32_t, void * ), void * context );
 

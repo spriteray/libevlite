@@ -27,7 +27,7 @@ public :
     CRedisService();
     virtual ~CRedisService();
 
-    virtual IIOSession * onAssociate( sid_t id, int32_t type, int32_t fd, void * privdata );
+    virtual IIOSession * onAssociateSucceed( sid_t id, int32_t type, int32_t fd, void * privdata );
 };
 
 class RedisClient
@@ -56,6 +56,9 @@ public :
             const std::string & key, const std::string & value );
     // 订阅命令
     // 发布命令
+
+private :
+    static int32_t reattach( void * context, int32_t fd, void * privdata );
 
 private :
     IIOService *        m_Service;

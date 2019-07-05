@@ -109,7 +109,7 @@ CRedisService::CRedisService()
 CRedisService::~CRedisService()
 {}
 
-IIOSession * CRedisService::onAssociate( sid_t id, int32_t type, int32_t fd, void * privdata )
+IIOSession * CRedisService::onAssociateSucceed( sid_t id, int32_t type, int32_t fd, void * privdata )
 {
     redisContext * context = static_cast<redisContext *>(privdata);
     CRedisSession * session = new CRedisSession( context );
@@ -138,7 +138,7 @@ sid_t RedisClient::connect( const std::string & host, uint16_t port )
         return 0;
     }
 
-    return m_Service->associate( 0, c->fd, c, 10, true );
+    return m_Service->associate( 0, c->fd, c, 10, RedisClient::reattach, true );
 }
 
 int32_t RedisClient::send( sid_t id, const Slice & cmd )
@@ -203,6 +203,14 @@ Slice RedisClient::set( const std::string & key, const std::string & value )
     }
 
     return Slice( buffer, length );
+}
+
+int32_t RedisClient::reattach( void * context, int32_t fd, void * privdata )
+{
+    redisContext * rc = static_cast<redisContext *>(privdata);
+
+    redisReconnect( rc );
+    return rc->fd;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
