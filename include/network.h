@@ -138,12 +138,18 @@ int32_t iolayer_connect( iolayer_t self,
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
+//                            参数3: 关联结果
 //                            参数3: 描述符
 //                            参数4: 关联的会话ID
+//      reattach        - 重新关联函数，返回新的描述符
+//                            参数1: 上下文参数
+//                            参数2: 上次关联的描述符
+//                            参数3: 绑定的私有函数
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
         int32_t fd, void * privdata,
-        int32_t (*cb)(void *, void *, int32_t, sid_t), void * context );
+        int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
+        int32_t (*reattach)( void *, int32_t, void * ), void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );

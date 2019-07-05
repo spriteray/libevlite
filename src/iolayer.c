@@ -260,16 +260,22 @@ int32_t iolayer_connect( iolayer_t self,
 
 // 描述符关联会话ID
 //      fd              - 描述符
-//      privdata        - 私有数据
+//      privdata        - 绑定的私有数据
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
+//                            参数3: 关联结果
 //                            参数3: 描述符
 //                            参数4: 关联的会话ID
+//      reattach        - 重新关联函数，返回新的描述符
+//                            参数1: 上下文参数
+//                            参数2: 上次关联的描述符
+//                            参数3: 绑定的私有函数
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
         int32_t fd, void * privdata,
-        int32_t (*cb)(void *, void *, int32_t, sid_t), void * context )
+        int32_t (*cb)(void *, void *, int32_t, sid_t),
+        int32_t (*reattach)( void *, int32_t, void * ), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -764,7 +770,7 @@ int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
         connector->fd = -1;
     }
 
-    // 2秒后尝试重连, 避免忙等
+    // 200毫秒后尝试重连, 避免进入重连死循环
     event_set( connector->event, -1, 0 );
     event_set_callback( connector->event, _reconnect_direct, connector );
     evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
@@ -1226,7 +1232,8 @@ int32_t _associate_direct( struct iolayer * self, uint8_t index, evsets_t sets, 
         {
             set_non_block( associater->fd );
             session_set_iolayer( session, self );
-            session_set_privdata( session, associater->privdata );
+            session_set_privdata( session,
+                associater->reattach, associater->privdata );
             session_start( session, eSessionType_Persist, associater->fd, sets );
         }
     }

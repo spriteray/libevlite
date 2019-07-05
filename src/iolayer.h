@@ -84,11 +84,18 @@ struct connector
 struct associater
 {
     int32_t     fd;
+    uint8_t     index;
+
+    // 连接事件
+    event_t     event;
+    evsets_t    evsets;
+
     void *      privdata;
 
     // 逻辑
     void *      context;
     int32_t     (*cb)( void *, void *, int32_t, sid_t );
+    int32_t     (*reattach)( void *, int32_t, void * );
 
     // 通信句柄
     struct iolayer *    parent;

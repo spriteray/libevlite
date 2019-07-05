@@ -472,7 +472,8 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     }
     else
     {
-        // TODO:
+        // 第三方会话重连
+        session->fd = session->reattach( session, session->context, session->privdata );
     }
 
     if ( session->fd < 0 )

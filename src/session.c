@@ -268,15 +268,16 @@ void session_set_iolayer( struct session * self, void * iolayer )
     self->iolayer = iolayer;
 }
 
-void session_set_privdata( struct session * self, void * data )
-{
-    self->privdata = data;
-}
-
 void session_set_endpoint( struct session * self, const char * host, uint16_t port )
 {
     self->port = port;
     strncpy( self->host, host, INET_ADDRSTRLEN );
+}
+
+void session_set_privdata( struct session * self, int32_t (*reattach)( void *, int32_t, void * ), void * data )
+{
+    self->privdata = data;
+    self->reattach = reattach;
 }
 
 ssize_t session_send( struct session * self, char * buf, size_t nbytes )
@@ -452,7 +453,7 @@ int32_t session_start_reconnect( struct session * self )
     // 停止会话
     _stop( self );
 
-    // 2秒后尝试重连, 避免忙等
+    // 200毫秒后尝试重连, 避免进入重连死循环
     event_set( self->evwrite, -1, 0 );
     event_set_callback( self->evwrite, channel_on_reconnect, self );
     evsets_add( sets, self->evwrite, TRY_RECONNECT_INTERVAL );
