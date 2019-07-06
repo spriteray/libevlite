@@ -59,6 +59,7 @@ public :
 
 private :
     static int32_t reattach( void * context, int32_t fd, void * privdata );
+    static int32_t associate( void * context, void * iocontext, int32_t result, int32_t fd, sid_t sid );
 
 private :
     IIOService *        m_Service;

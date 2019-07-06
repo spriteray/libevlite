@@ -72,7 +72,6 @@ struct connector
     uint16_t    port;
 
     // 逻辑
-    int32_t     mseconds;
     void *      context;
     int32_t     (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t);
 
@@ -85,13 +84,11 @@ struct associater
 {
     int32_t     fd;
     uint8_t     index;
+    void *      privdata;
 
     // 连接事件
     event_t     event;
     evsets_t    evsets;
-
-    void *      privdata;
-    int32_t     mseconds;
 
     // 逻辑
     void *      context;

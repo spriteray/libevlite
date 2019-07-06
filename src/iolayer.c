@@ -204,7 +204,6 @@ int32_t iolayer_listen( iolayer_t self,
 // 客户端开启
 //      host        - 远程服务器的地址
 //      port        - 远程服务器的端口
-//      seconds     - 连接超时时间
 //      cb          - 连接结果的回调
 //                          参数1: 上下文参数
 //                          参数2: 网络线程本地数据(线程安全)
@@ -214,7 +213,7 @@ int32_t iolayer_listen( iolayer_t self,
 //                          参数6: 连接成功后返回的会话ID
 //      context     - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
-        const char * host, uint16_t port, int32_t seconds,
+        const char * host, uint16_t port,
         int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
@@ -248,7 +247,6 @@ int32_t iolayer_connect( iolayer_t self,
 
     connector->cb       = cb;
     connector->context  = context;
-    connector->mseconds = seconds*1000;
     connector->parent   = layer;
     connector->port     = port;
     connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
@@ -262,7 +260,6 @@ int32_t iolayer_connect( iolayer_t self,
 // 描述符关联会话ID
 //      fd              - 描述符
 //      privdata        - 绑定的私有数据
-//      seconds         - 关联超时时间
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
@@ -275,7 +272,7 @@ int32_t iolayer_connect( iolayer_t self,
 //                            参数3: 绑定的私有函数
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
-        int32_t fd, void * privdata, int32_t seconds,
+        int32_t fd, void * privdata,
         int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
         int32_t (*reattach)( void *, int32_t, void * ), void * context )
 {
@@ -306,7 +303,6 @@ int32_t iolayer_associate( iolayer_t self,
     associater->context     = context;
     associater->parent      = layer;
     associater->privdata    = privdata;
-    associater->mseconds    = seconds * 1000;
     associater->index       = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
     // 提交到网络层
     iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
@@ -984,7 +980,7 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 
     event_set( connector->event, connector->fd, EV_WRITE );
     event_set_callback( connector->event, channel_on_connected, connector );
-    evsets_add( sets, connector->event, connector->mseconds );
+    evsets_add( sets, connector->event, TRY_RECONNECT_INTERVAL );
 
     return 0;
 }
@@ -1263,7 +1259,7 @@ int32_t _associate_direct( evsets_t sets, struct associater * associater )
 
     event_set( associater->event, associater->fd, EV_WRITE );
     event_set_callback( associater->event, channel_on_associated, associater );
-    evsets_add( sets, associater->event, associater->mseconds );
+    evsets_add( sets, associater->event, TRY_RECONNECT_INTERVAL );
 
     return 0;
 }

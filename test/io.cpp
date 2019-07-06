@@ -233,7 +233,7 @@ bool IIOService::listen( const char * host, uint16_t port )
     return ( iolayer_listen( m_IOLayer, host, port, onAcceptSession, context ) == 0 );
 }
 
-sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bool isblock )
+sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 {
     ConnectContext * context = new ConnectContext( host, port, this );
     if ( context == NULL )
@@ -241,13 +241,13 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bo
         return -1;
     }
 
-    if ( iolayer_connect( m_IOLayer, host, port, seconds, onConnectSession, context ) != 0 )
+    if ( iolayer_connect( m_IOLayer, host, port, onConnectSession, context ) != 0 )
     {
         return -1;
     }
 
     // 异步模式需要加入连接的队列中
-    if ( !isblock )
+    if ( seconds <= 0 )
     {
         pthread_mutex_lock( &m_Lock );
         m_ConnectContexts.push_back( context );
@@ -286,59 +286,11 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bo
     return connectedsid;
 }
 
-sid_t IIOService::associate( int32_t type, int32_t fd, void * privdata, int32_t seconds, int32_t (*reattach)( void *, int32_t, void * ), bool isblock )
+int32_t IIOService::associate( int32_t fd, void * privdata,
+            int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
+            int32_t (*reattach)(void *, int32_t, void *), void * context )
 {
-    AssociateContext * context = new AssociateContext( type, privdata, this );
-    if ( context == NULL )
-    {
-        return -1;
-    }
-
-    if ( iolayer_associate( m_IOLayer,
-                fd, privdata, seconds,
-                onAssociateSession, reattach, context ) != 0 )
-    {
-        return -1;
-    }
-
-    // 异步模式需要加入连接的队列中
-    if ( !isblock )
-    {
-        pthread_mutex_lock( &m_Lock );
-        m_AssociateContexts.push_back( context );
-        pthread_mutex_unlock( &m_Lock );
-
-        return 0;
-    }
-
-    // 计算超时时间
-    struct timeval now;
-    gettimeofday( &now, NULL );
-
-    pthread_mutex_lock( &m_Lock );
-    for ( ;; )
-    {
-        if ( context->sid != 0
-                && context->sid != (sid_t)-1 )
-        {
-            break;
-        }
-
-        struct timespec outtime;
-        outtime.tv_sec = now.tv_sec + seconds;
-        outtime.tv_nsec = now.tv_usec * 1000;
-        if ( ETIMEDOUT
-                == pthread_cond_timedwait( &m_Cond, &m_Lock, &outtime ) )
-        {
-            break;
-        }
-    }
-    pthread_mutex_unlock( &m_Lock );
-
-    sid_t associatedsid = context->sid;
-
-    delete context;
-    return associatedsid;
+    return iolayer_associate( m_IOLayer, fd, privdata, cb, reattach, context );
 }
 
 int32_t IIOService::send( sid_t id, const std::string & buffer )
@@ -461,40 +413,7 @@ void IIOService::notifyConnectResult( ConnectContext * context, int32_t result, 
     pthread_mutex_unlock( &m_Lock );
 }
 
-void IIOService::notifyAssociateResult( AssociateContext * context, int32_t result, sid_t id, int32_t ack )
-{
-    bool isremove = ( result == 0 || ack != 0 );
-
-    pthread_mutex_lock( &m_Lock );
-
-    // 会话ID的转换
-    context->sid = result != 0 ? -1 : id;
-
-    // 连接成功或者不再重连的情况下
-    // 需要从连接队列中删除
-    if ( isremove )
-    {
-        AssociateContexts::iterator it = m_AssociateContexts.begin();
-        for ( ; it != m_AssociateContexts.end(); )
-        {
-            if ( (*it) != context )
-            {
-                ++it;
-            }
-            else
-            {
-                it = m_AssociateContexts.erase( it );
-                delete context;
-                break;
-            }
-        }
-    }
-
-    pthread_cond_signal( &m_Cond );
-    pthread_mutex_unlock( &m_Lock );
-}
-
-void IIOService::attach( sid_t id, IIOSession * session, void * iocontext, const std::string & host, uint16_t port )
+void IIOService::initSession( sid_t id, IIOSession * session, void * iocontext, const std::string & host, uint16_t port )
 {
     session->init( id, iocontext, m_IOLayer, host, port );
 
@@ -518,37 +437,6 @@ char * IIOService::onTransformService( void * context, const char * buffer, size
     return service->onTransform( buffer, _nbytes );
 }
 
-int32_t IIOService::onAssociateSession( void * context, void * iocontext, int32_t result, int32_t fd, sid_t id )
-{
-    AssociateContext * ctx = static_cast<AssociateContext *>(context);
-
-    int32_t ack = 0;
-    IIOSession * session = NULL;
-    IIOService * service = ctx->service;
-
-    if ( result != 0 )
-    {
-        ack = service->onAssociateFailed( result, ctx->type, fd, ctx->privdata ) ? 0 : -2;
-    }
-    else
-    {
-        session = service->onAssociateSucceed( id, ctx->type, fd, ctx->privdata );
-        if ( session == NULL )
-        {
-            ack = -1;
-        }
-        else
-        {
-            service->attach( id, session, iocontext );
-        }
-
-    }
-    // 通知绑定结果
-    service->notifyAssociateResult( ctx, result, id, ack );
-
-    return ack;
-}
-
 int32_t IIOService::onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port )
 {
     IIOSession * session = NULL;
@@ -559,7 +447,7 @@ int32_t IIOService::onAcceptSession( void * context, void * iocontext, sid_t id,
     {
         return -1;
     }
-    ctx->service->attach( id, session, iocontext, host, port );
+    ctx->service->initSession( id, session, iocontext, host, port );
 
     return 0;
 }
@@ -585,7 +473,7 @@ int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t 
         }
         else
         {
-            service->attach( id, session, iocontext, host, port );
+            service->initSession( id, session, iocontext, host, port );
         }
     }
 
