@@ -4,8 +4,9 @@
 #include <hiredis/hiredis.h>
 #include "redis.h"
 
-CRedisSession::CRedisSession( redisContext * c )
-    : m_RedisConnection( c )
+CRedisSession::CRedisSession( redisContext * c, int32_t seconds )
+    : m_Timeoutseconds( seconds ),
+      m_RedisConnection( c )
 {}
 
 CRedisSession::~CRedisSession()
@@ -21,8 +22,8 @@ int32_t CRedisSession::onStart()
 {
     // TODO: 验证
 
-    setTimeout( 30 );
-    setKeepalive( 10 );
+    setTimeout( m_Timeoutseconds );
+    setKeepalive( m_Timeoutseconds / 3 );
     setEndpoint( m_RedisConnection->tcp.host, m_RedisConnection->tcp.port );
 
     return 0;
@@ -102,43 +103,89 @@ void CRedisSession::onShutdown( int32_t way )
     // TODO:
 }
 
-CRedisService::CRedisService()
-    : IIOService( 1, 10, true, false )
-{}
-
-CRedisService::~CRedisService()
-{}
-
-IIOSession * CRedisService::onAssociateSucceed( sid_t id, int32_t type, int32_t fd, void * privdata )
-{
-    redisContext * context = static_cast<redisContext *>(privdata);
-    CRedisSession * session = new CRedisSession( context );
-    if ( session != NULL )
-    {
-        // TODO:
-    }
-
-    return session;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
 RedisClient::RedisClient( IIOService * s )
     : m_Service( s )
-{}
+{
+    pthread_cond_init( &m_Cond, NULL );
+    pthread_mutex_init( &m_Lock, NULL );
+}
 
 RedisClient::~RedisClient()
-{}
-
-sid_t RedisClient::connect( const std::string & host, uint16_t port )
 {
-    redisContext * c = redisConnectNonBlock( host.c_str(), port );
-    if ( c == NULL )
+    for ( size_t i = 0; i < m_AssociateList.size(); ++i )
     {
-        return 0;
+        delete m_AssociateList[i];
     }
 
-    return m_Service->associate( 0, c->fd, c, 10, RedisClient::reattach, true );
+    pthread_cond_destroy( &m_Cond );
+    pthread_mutex_destroy( &m_Lock );
+}
+
+sid_t RedisClient::connect( const std::string & host, uint16_t port，int32_t seconds )
+{
+    redisContext * redisconn = NULL;
+    AssociateContext * context = new AssociateContext();
+
+    if ( seconds > 0 )
+    {
+        redisconn = redisConnectWithTimeout( host.c_str(), port, seconds );
+        if ( redisconn == NULL )
+        {
+            delete context;
+            return -1;
+        }
+    }
+    else
+    {
+        redisconn = redisConnectNonBlock( host.c_str(), port );
+        if ( redisconn == NULL )
+        {
+            delete context;
+            return -1;
+        }
+
+        pthread_mutex_lock( &m_Lock );
+        m_AssociateList.push_back( context );
+        pthread_mutex_unlock( &m_Lock );
+    }
+
+    if ( 0 != m_Service->associate(
+                redisconn->fd, redisconn,
+                RedisClient::associate, RedisClient::reattach, context ) )
+    {
+        return -1;
+    }
+
+    // 计算超时时间
+    struct timeval now;
+    gettimeofday( &now, NULL );
+
+    pthread_mutex_lock( &m_Lock );
+    for ( ;; )
+    {
+        if ( context->sid != 0
+            && context->sid != (sid_t)-1 )
+        {
+            break;
+        }
+
+        struct timespec outtime;
+        outtime.tv_sec = now.tv_sec + seconds;
+        outtime.tv_nsec = now.tv_usec * 1000;
+        if ( ETIMEDOUT
+            == pthread_cond_timedwait( &m_Cond, &m_Lock, &outtime ) )
+        {
+            break;
+        }
+    }
+    pthread_mutex_unlock( &m_Lock );
+
+    sid_t associatedsid = context->sid;
+
+    delete context;
+    return associatedsid;
 }
 
 int32_t RedisClient::send( sid_t id, const Slice & cmd )
@@ -190,6 +237,19 @@ Slice RedisClient::get( const std::string & key )
     return Slice( buffer, length );
 }
 
+Slice RedisClient::get( const std::vector<std::string> & keys )
+{
+    char * buffer = NULL;
+    //ssize_t length = redisFormatCommand( &buffer, "GET %s", key.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
 Slice RedisClient::set( const std::string & key, const std::string & value )
 {
     char * buffer = NULL;
@@ -213,11 +273,86 @@ int32_t RedisClient::reattach( void * context, int32_t fd, void * privdata )
     return rc->fd;
 }
 
+int32_t RedisClient::associate( <#void *context#>, <#void *iocontext#>, <#int32_t result#>, <#int32_t fd#>, <#int sid#> )
+{
+    AssociateContext * ctx = static_cast<AssociateContext *>(context);
+
+    int32_t ack = 0;
+    IIOSession * session = NULL;
+    IIOService * service = ctx->service;
+    redisContext * redisconn = static_cast<redisContext *>(privdata);
+
+    if ( result != 0 )
+    {
+        // ack = service->onConnectFailed( result, host, port ) ? 0 : -2;
+        // TODO: 绑定失败
+    }
+    else
+    {
+        // TODO: 绑定成功
+        CRedisSession * session = new CRedisSession( redisconn, 30 );
+        if ( session != NULL )
+        {
+            // 初始化会话
+            service->initSession( sid, session, iocontext );
+        }
+    }
+
+    // 通知连接结果
+    service->notifyAssociateResult( ctx, result, id, ack );
+
+    return ack;
+}
+
+void RedisClient::notifyAssociateResult( AssociateContext * context, int32_t result, sid_t id, int32_t ack )
+{
+    bool isremove = ( result == 0 || ack != 0 );
+
+    pthread_mutex_lock( &m_Lock );
+
+    // 会话ID的转换
+    context->sid = result != 0 ? -1 : id;
+
+    // 连接成功或者不再重连的情况下
+    // 需要从连接队列中删除
+    if ( isremove )
+    {
+        AssociateContexts::iterator it = m_AssociateList.begin();
+        for ( ; it != m_AssociateList.end(); )
+        {
+            if ( (*it) != context )
+            {
+                ++it;
+            }
+            else
+            {
+                it = m_AssociateList.erase( it );
+                delete context;
+                break;
+            }
+        }
+    }
+
+    pthread_cond_signal( &m_Cond );
+    pthread_mutex_unlock( &m_Lock );
+}
+
 ////////////////////////////////////////////////////////////////////////////////
+
+class CExampleService : public IIOService
+{
+public :
+    CExampleService()
+        : IIOService( 1, 10, true, false )
+    {}
+
+    virtual CExampleService()
+    {}
+};
 
 int main()
 {
-    CRedisService * s = new CRedisService();
+    CExampleService * s = new CExampleService();
     if ( s == NULL )
     {
         return -1;
@@ -242,7 +377,7 @@ int main()
 
     while( 1 )
     {
-        sleep( 1 );
+        sleep( 2 );
     }
 
     s->stop();

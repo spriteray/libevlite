@@ -7,7 +7,7 @@ struct redisContext;
 class CRedisSession : public IIOSession
 {
 public :
-    CRedisSession( redisContext * c );
+    CRedisSession( redisContext * c, int32_t seconds );
     virtual ~CRedisSession();
 
     virtual int32_t onStart();
@@ -18,16 +18,8 @@ public :
     virtual void    onShutdown( int32_t way );
 
 protected :
+    int32_t             m_Timeoutseconds;
     redisContext *      m_RedisConnection;
-};
-
-class CRedisService : public IIOService
-{
-public :
-    CRedisService();
-    virtual ~CRedisService();
-
-    virtual IIOSession * onAssociateSucceed( sid_t id, int32_t type, int32_t fd, void * privdata );
 };
 
 class RedisClient
@@ -37,9 +29,10 @@ public :
     ~RedisClient();
 
 public :
-    // 链接
+    // 连接
     sid_t connect(
-            const std::string & host, uint16_t port );
+            const std::string & host,
+            uint16_t port, int32_t seconds = 0 );
 
     // 发送
     int32_t send( sid_t id, const Slice & cmd );
@@ -51,6 +44,7 @@ public :
     static Slice ping();
     // 获取数据
     static Slice get( const std::string & key );
+    static Slice mget( const std::vector<std::string> & keys );
     // 更新命令
     static Slice set(
             const std::string & key, const std::string & value );
@@ -58,9 +52,29 @@ public :
     // 发布命令
 
 private :
+    struct AssociateContext
+    {
+        int32_t         fd;
+        void *          privdata;
+        sid_t           sid;
+        IIOService *    service;
+
+        AssociateContext( int32_t fd_, void * data_, IIOService * s_ )
+            : fd( fd_ ),
+              privdata( data_ ),
+              sid( 0 ),
+              service( s_ )
+        {}
+    };
+    std::vector<AssociateContext *>     AssocaiateContexts;
+
+    void notifyAssociateResult( AssociateContext * context, int32_t result, sid_t id, int32_t ack );
     static int32_t reattach( void * context, int32_t fd, void * privdata );
     static int32_t associate( void * context, void * iocontext, int32_t result, int32_t fd, sid_t sid );
 
 private :
+    pthread_cond_t      m_Cond;
+    pthread_mutex_t     m_Lock;
     IIOService *        m_Service;
+    AssociateContexts   m_AssociateList;
 };

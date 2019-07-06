@@ -146,7 +146,7 @@ public :
     // 参数:
     //      host    - 主机地址
     //      port    - 主机端口
-    //      seconds - 超时时间
+    //      seconds - 超时时间, <=0 非阻塞的连接; >0 带超时时间的阻塞连接
     //
     // 返回值:
     //      -1      - 连接失败
@@ -155,6 +155,16 @@ public :
     sid_t connect( const char * host, uint16_t port, int32_t seconds = 0 );
 
     // 关联描述符
+    // 参数:
+    //      fd      - 关联的描述符
+    //      privdata- 关联的私有数据
+    //      cb      - 关联成功后的回调函数
+    //      reattach- 重新绑定新的描述符(相当于重连)
+    //      context - 上下文参数
+    //
+    // 返回值:
+    //      -1      - 关联失败
+    //      0       - 正在连接
     int32_t associate( int32_t fd, void * privdata,
             int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
             int32_t (*reattach)(void *, int32_t, void *), void * context );
@@ -179,6 +189,7 @@ public :
     int32_t perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) );
 
     // 初始化会话
+    // 在定制化非常强的场景下使用
     void initSession( sid_t id, IIOSession * session, void * iocontext, const std::string & host = "", uint16_t port = 0 );
 
 private :

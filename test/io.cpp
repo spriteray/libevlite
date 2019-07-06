@@ -243,6 +243,7 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 
     if ( iolayer_connect( m_IOLayer, host, port, onConnectSession, context ) != 0 )
     {
+        delete context;
         return -1;
     }
 
