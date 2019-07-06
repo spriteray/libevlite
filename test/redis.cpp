@@ -1,6 +1,10 @@
 
+#include <errno.h>
+#include <cassert>
+#include <sys/time.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 #include <hiredis/hiredis.h>
 #include "redis.h"
 
@@ -21,6 +25,8 @@ CRedisSession::~CRedisSession()
 int32_t CRedisSession::onStart()
 {
     // TODO: 验证
+
+    printf( "CRedisSession::onStart() : %lu .\n", id() );
 
     setTimeout( m_Timeoutseconds );
     setKeepalive( m_Timeoutseconds / 3 );
@@ -56,7 +62,7 @@ ssize_t CRedisSession::onProcess( const char * buffer, size_t nbytes )
                 break;
 
             case REDIS_REPLY_ARRAY :
-                printf( "ARRAY : %s\n", reply->str );
+                printf( "ARRAY : %lu\n", reply->elements);
                 break;
 
             case REDIS_REPLY_INTEGER :
@@ -123,29 +129,37 @@ RedisClient::~RedisClient()
     pthread_mutex_destroy( &m_Lock );
 }
 
-sid_t RedisClient::connect( const std::string & host, uint16_t port，int32_t seconds )
+sid_t RedisClient::connect( const std::string & host, uint16_t port,int32_t seconds )
 {
+    // 计算超时时间
+    struct timeval now;
+    gettimeofday( &now, NULL );
+
     redisContext * redisconn = NULL;
-    AssociateContext * context = new AssociateContext();
+    AssociateContext * context = NULL;
 
     if ( seconds > 0 )
     {
-        redisconn = redisConnectWithTimeout( host.c_str(), port, seconds );
-        if ( redisconn == NULL )
+        struct timeval tv = { seconds/1000, (seconds%1000)*1000 };
+        redisconn = redisConnectWithTimeout( host.c_str(), port, tv );
+        if ( redisconn == NULL || redisconn->err != 0 )
         {
-            delete context;
             return -1;
         }
+
+        context = new AssociateContext( redisconn->fd, redisconn, this );
+        assert( context != NULL && "new AssociateContext failed" );
     }
     else
     {
         redisconn = redisConnectNonBlock( host.c_str(), port );
-        if ( redisconn == NULL )
+        if ( redisconn == NULL || redisconn->err != 0 )
         {
-            delete context;
             return -1;
         }
 
+        context = new AssociateContext( redisconn->fd, redisconn, this );
+        assert( context != NULL && "new AssociateContext failed" );
         pthread_mutex_lock( &m_Lock );
         m_AssociateList.push_back( context );
         pthread_mutex_unlock( &m_Lock );
@@ -155,12 +169,12 @@ sid_t RedisClient::connect( const std::string & host, uint16_t port，int32_t se
                 redisconn->fd, redisconn,
                 RedisClient::associate, RedisClient::reattach, context ) )
     {
+        delete context;
         return -1;
     }
 
-    // 计算超时时间
-    struct timeval now;
-    gettimeofday( &now, NULL );
+    // 非阻塞,直接返回
+    if ( seconds <= 0 ) return 0;
 
     pthread_mutex_lock( &m_Lock );
     for ( ;; )
@@ -237,10 +251,24 @@ Slice RedisClient::get( const std::string & key )
     return Slice( buffer, length );
 }
 
-Slice RedisClient::get( const std::vector<std::string> & keys )
+Slice RedisClient::mget( const std::vector<std::string> & keys )
 {
+    size_t argvlen[ keys.size()+1 ];
+    const char * argv[ keys.size()+1 ];
+
+    argv[0] = "MGET";
+    argvlen[0] = 4;
+
+    for ( size_t i = 1; i <= keys.size(); ++i )
+    {
+        argv[i] = keys[i-1].c_str();
+        argvlen[i] = keys[i-1].size();
+    }
+
     char * buffer = NULL;
-    //ssize_t length = redisFormatCommand( &buffer, "GET %s", key.c_str() );
+    ssize_t length = redisFormatCommandArgv(
+            &buffer,
+            keys.size()+1, argv, argvlen );
 
     if ( length < 0 )
     {
@@ -273,14 +301,13 @@ int32_t RedisClient::reattach( void * context, int32_t fd, void * privdata )
     return rc->fd;
 }
 
-int32_t RedisClient::associate( <#void *context#>, <#void *iocontext#>, <#int32_t result#>, <#int32_t fd#>, <#int sid#> )
+int32_t RedisClient::associate( void *context, void *iocontext, int32_t result, int32_t fd, sid_t sid )
 {
     AssociateContext * ctx = static_cast<AssociateContext *>(context);
 
     int32_t ack = 0;
-    IIOSession * session = NULL;
-    IIOService * service = ctx->service;
-    redisContext * redisconn = static_cast<redisContext *>(privdata);
+    IIOService * service = ctx->client->service();
+    redisContext * redisconn = static_cast<redisContext *>(ctx->privdata);
 
     if ( result != 0 )
     {
@@ -299,7 +326,7 @@ int32_t RedisClient::associate( <#void *context#>, <#void *iocontext#>, <#int32_
     }
 
     // 通知连接结果
-    service->notifyAssociateResult( ctx, result, id, ack );
+    ctx->client->notifyAssociateResult( ctx, result, sid, ack );
 
     return ack;
 }
@@ -346,7 +373,7 @@ public :
         : IIOService( 1, 10, true, false )
     {}
 
-    virtual CExampleService()
+    virtual ~CExampleService()
     {}
 };
 
@@ -366,17 +393,29 @@ int main()
         return -2;
     }
 
-    sid_t sid = rediscli->connect( "172.21.161.70", 6379 );
+    sid_t sid = rediscli->connect(
+            "172.21.161.70", 6379, 10 );
     printf( "connect succeed, %lu\n", sid );
 
     rediscli->send( sid,
             rediscli->set( "account", "lei.a.zhang" ) );
+    rediscli->send( sid,
+            rediscli->set( "account1", "lei.a.zhang" ) );
+    rediscli->send( sid,
+            rediscli->set( "account2", "lei.a.zhang" ) );
+
+    std::vector<std::string> cmds;
+    cmds.push_back( "account" );
+    cmds.push_back( "account1" );
+    cmds.push_back( "account2" );
 
     rediscli->send( sid,
             rediscli->get( "account" ) );
 
     while( 1 )
     {
+        rediscli->send( sid,
+                rediscli->mget(cmds) );
         sleep( 2 );
     }
 

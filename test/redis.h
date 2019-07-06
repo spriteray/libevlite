@@ -1,4 +1,6 @@
 
+#include <vector>
+
 #include "io.h"
 #include "slice.h"
 
@@ -29,6 +31,9 @@ public :
     ~RedisClient();
 
 public :
+    // 服务
+    IIOService * service() const { return m_Service; }
+
     // 连接
     sid_t connect(
             const std::string & host,
@@ -57,16 +62,19 @@ private :
         int32_t         fd;
         void *          privdata;
         sid_t           sid;
-        IIOService *    service;
+        RedisClient *   client;
 
-        AssociateContext( int32_t fd_, void * data_, IIOService * s_ )
+        AssociateContext( int32_t fd_, void * data_, RedisClient * c )
             : fd( fd_ ),
               privdata( data_ ),
               sid( 0 ),
-              service( s_ )
+              client( c )
+        {}
+
+        ~AssociateContext()
         {}
     };
-    std::vector<AssociateContext *>     AssocaiateContexts;
+    typedef std::vector<AssociateContext *>     AssociateContexts;
 
     void notifyAssociateResult( AssociateContext * context, int32_t result, sid_t id, int32_t ack );
     static int32_t reattach( void * context, int32_t fd, void * privdata );
