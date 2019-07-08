@@ -4,6 +4,7 @@
 #include "io.h"
 #include "slice.h"
 
+struct redisReply;
 struct redisContext;
 
 class CRedisSession : public IIOSession
@@ -18,6 +19,9 @@ public :
     virtual int32_t onKeepalive();
     virtual int32_t onError( int32_t result );
     virtual void    onShutdown( int32_t way );
+
+private :
+    void processReply( redisReply * reply );
 
 protected :
     int32_t             m_Timeoutseconds;
@@ -54,7 +58,11 @@ public :
     static Slice set(
             const std::string & key, const std::string & value );
     // 订阅命令
+    static Slice subscribe( const std::string & channel );
+    // 取消订阅命令
+    static Slice unsubscribe( const std::string & channel );
     // 发布命令
+    static Slice publish( const std::string & channel, const std::string & message );
 
 private :
     struct AssociateContext

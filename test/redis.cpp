@@ -44,39 +44,16 @@ ssize_t CRedisSession::onProcess( const char * buffer, size_t nbytes )
     }
 
     void * data = NULL;
-    redisReply * reply = NULL;
-
     while ( REDIS_OK
             == redisReaderGetReply( m_RedisConnection->reader, &data ) )
     {
-        reply = static_cast<redisReply *>( data );
-        if ( reply == NULL )
+        if ( data == NULL )
         {
             break;
         }
 
-        switch ( reply->type )
-        {
-            case REDIS_REPLY_STRING :
-                printf( "STRING : %s\n", reply->str );
-                break;
-
-            case REDIS_REPLY_ARRAY :
-                printf( "ARRAY : %lu\n", reply->elements);
-                break;
-
-            case REDIS_REPLY_INTEGER :
-                printf( "INTEGER : %s\n", reply->str );
-                break;
-
-            case REDIS_REPLY_NIL :
-            case REDIS_REPLY_STATUS :
-            case REDIS_REPLY_ERROR :
-                printf( "OTHER : %s\n", reply->str );
-                break;
-        }
-
-        freeReplyObject( reply );
+        processReply( static_cast<redisReply *>( data ) );
+        freeReplyObject( static_cast<redisReply *>( data ) );
     }
 
     return nbytes;
@@ -100,13 +77,42 @@ int32_t CRedisSession::onKeepalive()
 
 int32_t CRedisSession::onError( int32_t result )
 {
-    // TODO:
+    printf( "CRedisSession::onError(SID:%lu, %d) .\n", id(), result );
     return 0;
 }
 
 void CRedisSession::onShutdown( int32_t way )
 {
     // TODO:
+}
+
+void CRedisSession::processReply( redisReply * reply )
+{
+    switch ( reply->type )
+    {
+        case REDIS_REPLY_STRING :
+            printf( "STRING : %s\n", reply->str );
+            break;
+
+        case REDIS_REPLY_ARRAY :
+            printf( "ARRAY : %lu\n", reply->elements);
+            for ( size_t i = 0; i < reply->elements; ++i )
+            {
+                processReply( reply->element[i] );
+            }
+            break;
+
+        case REDIS_REPLY_INTEGER :
+            printf( "INTEGER : %llu\n", reply->integer );
+            break;
+
+        case REDIS_REPLY_NIL :
+        case REDIS_REPLY_STATUS :
+        case REDIS_REPLY_ERROR :
+            printf( "OTHER : %s\n", reply->str );
+            break;
+    }
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -293,12 +299,53 @@ Slice RedisClient::set( const std::string & key, const std::string & value )
     return Slice( buffer, length );
 }
 
+Slice RedisClient::subscribe( const std::string & channel )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "SUBSCRIBE %s", channel.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::unsubscribe( const std::string & channel )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "UNSUBSCRIBE %s", channel.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::publish( const std::string & channel, const std::string & message )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "PUBLISH %s \"%s\"", channel.c_str(), message.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
 int32_t RedisClient::reattach( void * context, int32_t fd, void * privdata )
 {
-    redisContext * rc = static_cast<redisContext *>(privdata);
+    redisContext * redisconn = static_cast<redisContext *>(privdata);
 
-    redisReconnect( rc );
-    return rc->fd;
+    printf( "RedisClient::reattach(%d, %s::%d) ...\n", fd, redisconn->tcp.host, redisconn->tcp.port );
+    redisReconnect( redisconn );
+    return redisconn->fd;
 }
 
 int32_t RedisClient::associate( void *context, void *iocontext, int32_t result, int32_t fd, sid_t sid )
@@ -401,22 +448,22 @@ int main()
             rediscli->set( "account", "lei.a.zhang" ) );
     rediscli->send( sid,
             rediscli->set( "account1", "lei.a.zhang" ) );
-    rediscli->send( sid,
-            rediscli->set( "account2", "lei.a.zhang" ) );
-
-    std::vector<std::string> cmds;
-    cmds.push_back( "account" );
-    cmds.push_back( "account1" );
-    cmds.push_back( "account2" );
 
     rediscli->send( sid,
             rediscli->get( "account" ) );
 
+    rediscli->send( sid,
+            rediscli->subscribe( "ope_channel" ) );
+
     while( 1 )
     {
-        rediscli->send( sid,
-                rediscli->mget(cmds) );
         sleep( 2 );
+
+        std::vector<std::string> cmds;
+        cmds.push_back( "account" );
+        cmds.push_back( "account1" );
+        rediscli->send( sid,
+                rediscli->mget( cmds ) );
     }
 
     s->stop();
