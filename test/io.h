@@ -66,7 +66,7 @@ public :
     // 关闭会话
     int32_t shutdown();
 
-private :
+protected :
     friend class IIOService;
 
     // 初始化会话
@@ -136,6 +136,9 @@ public :
     // 获取版本号
     static const char * version();
 
+    // 获取IOLAYER
+    iolayer_t iolayer() const { return m_IOLayer; }
+
     // 监听
     bool listen( const char * host, uint16_t port );
 
@@ -188,10 +191,6 @@ public :
             int32_t type, void * task, void (*recycle)(int32_t, void *) );
     int32_t perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) );
 
-    // 初始化会话
-    // 在定制化非常强的场景下使用
-    void initSession( sid_t id, IIOSession * session, void * iocontext, const std::string & host = "", uint16_t port = 0 );
-
 private :
     // 监听上下文
     struct ListenContext
@@ -236,6 +235,12 @@ private :
     typedef std::vector<ConnectContext *> ConnectContexts;
 
 private :
+    // 初始化会话
+    // 在定制化非常强的场景下使用
+    void initSession( sid_t id,
+            IIOSession * session, void * iocontext,
+            const std::string & host, uint16_t port );
+
     // 通知连接结果
     void notifyConnectResult(
             ConnectContext * context,

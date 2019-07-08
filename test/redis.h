@@ -24,6 +24,7 @@ private :
     void processReply( redisReply * reply );
 
 protected :
+    friend class RedisClient;
     int32_t             m_Timeoutseconds;
     redisContext *      m_RedisConnection;
 };

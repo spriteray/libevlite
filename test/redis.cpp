@@ -1,11 +1,14 @@
 
-#include <errno.h>
 #include <cassert>
+#include <algorithm>
+
+#include <errno.h>
 #include <sys/time.h>
 #include <unistd.h>
 #include <string.h>
 #include <pthread.h>
 #include <hiredis/hiredis.h>
+
 #include "redis.h"
 
 CRedisSession::CRedisSession( redisContext * c, int32_t seconds )
@@ -30,7 +33,6 @@ int32_t CRedisSession::onStart()
 
     setTimeout( m_Timeoutseconds );
     setKeepalive( m_Timeoutseconds / 3 );
-    setEndpoint( m_RedisConnection->tcp.host, m_RedisConnection->tcp.port );
 
     return 0;
 }
@@ -368,7 +370,20 @@ int32_t RedisClient::associate( void *context, void *iocontext, int32_t result, 
         if ( session != NULL )
         {
             // 初始化会话
-            service->initSession( sid, session, iocontext );
+            session->init( sid,
+                    iocontext, service->iolayer(),
+                    redisconn->tcp.host, redisconn->tcp.port );
+
+            ioservice_t ioservice;
+            ioservice.start     = CRedisSession::onStartSession;
+            ioservice.process   = CRedisSession::onProcessSession;
+            ioservice.transform = NULL;
+            ioservice.timeout   = CRedisSession::onTimeoutSession;
+            ioservice.keepalive = CRedisSession::onKeepaliveSession;
+            ioservice.error     = CRedisSession::onErrorSession;
+            ioservice.shutdown  = CRedisSession::onShutdownSession;
+            ioservice.perform   = CRedisSession::onPerformSession;
+            iolayer_set_service( service->iolayer(), sid, &ioservice, session );
         }
     }
 
@@ -391,19 +406,12 @@ void RedisClient::notifyAssociateResult( AssociateContext * context, int32_t res
     // 需要从连接队列中删除
     if ( isremove )
     {
-        AssociateContexts::iterator it = m_AssociateList.begin();
-        for ( ; it != m_AssociateList.end(); )
+        AssociateContexts::iterator it = std::find(
+                m_AssociateList.begin(), m_AssociateList.end(), context );
+        if ( it != m_AssociateList.end() )
         {
-            if ( (*it) != context )
-            {
-                ++it;
-            }
-            else
-            {
-                it = m_AssociateList.erase( it );
-                delete context;
-                break;
-            }
+            it = m_AssociateList.erase( it );
+            delete context;
         }
     }
 

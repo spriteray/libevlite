@@ -1,6 +1,7 @@
 
-#include <errno.h>
 #include <cassert>
+#include <algorithm>
+#include <errno.h>
 #include <sys/time.h>
 
 #include "io.h"
@@ -394,19 +395,12 @@ void IIOService::notifyConnectResult( ConnectContext * context, int32_t result, 
     // 需要从连接队列中删除
     if ( isremove )
     {
-        ConnectContexts::iterator it = m_ConnectContexts.begin();
-        for ( ; it != m_ConnectContexts.end(); )
+        ConnectContexts::iterator it = std::find(
+                m_ConnectContexts.begin(), m_ConnectContexts.end(), context );
+        if ( it != m_ConnectContexts.end() )
         {
-            if ( (*it) != context )
-            {
-                ++it;
-            }
-            else
-            {
-                it = m_ConnectContexts.erase( it );
-                delete context;
-                break;
-            }
+            it = m_ConnectContexts.erase( it );
+            delete context;
         }
     }
 
