@@ -7,11 +7,11 @@
 struct redisReply;
 struct redisContext;
 
-class CRedisSession : public IIOSession
+class IRedisSession : public IIOSession
 {
 public :
-    CRedisSession( redisContext * c, int32_t seconds );
-    virtual ~CRedisSession();
+    IRedisSession( redisContext * c, int32_t seconds );
+    virtual ~IRedisSession();
 
     virtual int32_t onStart();
     virtual ssize_t onProcess( const char * buffer, size_t nbytes );
@@ -24,16 +24,19 @@ private :
     void processReply( redisReply * reply );
 
 protected :
-    friend class RedisClient;
+    friend class IRedisClient;
     int32_t             m_Timeoutseconds;
     redisContext *      m_RedisConnection;
 };
 
-class RedisClient
+class IRedisClient
 {
 public :
-    RedisClient( IIOService * s );
-    ~RedisClient();
+    IRedisClient( IIOService * s );
+    virtual ~IRedisClient();
+
+    virtual bool onConnectFailed( int32_t result, int32_t fd, void * privdata ) { return false; }
+    virtual IRedisSession * onConnectSucceed( sid_t sid, int32_t fd, void * privdata ) { return NULL; }
 
 public :
     // 服务
@@ -79,9 +82,9 @@ private :
         int32_t         fd;
         void *          privdata;
         sid_t           sid;
-        RedisClient *   client;
+        IRedisClient *  client;
 
-        AssociateContext( int32_t fd_, void * data_, RedisClient * c )
+        AssociateContext( int32_t fd_, void * data_, IRedisClient * c )
             : fd( fd_ ),
               privdata( data_ ),
               sid( 0 ),
@@ -93,7 +96,9 @@ private :
     };
     typedef std::vector<AssociateContext *>     AssociateContexts;
 
-    void notifyAssociateResult( AssociateContext * context, int32_t result, sid_t id, int32_t ack );
+    sid_t waitForAssociate( AssociateContext * context, struct timeval & now, int32_t seconds );
+    void wakeupFromAssociating( AssociateContext * context, int32_t result, sid_t id, int32_t ack );
+
     static int32_t reattach( void * context, int32_t fd, void * privdata );
     static int32_t associate( void * context, void * iocontext, int32_t result, int32_t fd, sid_t sid );
 
