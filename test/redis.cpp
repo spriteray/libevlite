@@ -29,8 +29,6 @@ int32_t CRedisSession::onStart()
 {
     // TODO: 验证
 
-    printf( "CRedisSession::onStart() : %lu .\n", id() );
-
     setTimeout( m_Timeoutseconds );
     setKeepalive( m_Timeoutseconds / 3 );
 
@@ -233,6 +231,33 @@ Slice RedisClient::ping()
     return Slice( buffer, length );
 }
 
+Slice RedisClient::echo( const std::string & text )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "ECHO \"%s\"", text.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::select( int32_t index )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "SELECT %d", index );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
 Slice RedisClient::auth( const std::string & password )
 {
     char * buffer = NULL;
@@ -332,6 +357,32 @@ Slice RedisClient::publish( const std::string & channel, const std::string & mes
     char * buffer = NULL;
     ssize_t length = redisFormatCommand(
             &buffer, "PUBLISH %s \"%s\"", channel.c_str(), message.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::multi()
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "MULTI" );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice RedisClient::exec()
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "EXEC" );
 
     if ( length < 0 )
     {
@@ -450,6 +501,12 @@ int main()
 
     sid_t sid = rediscli->connect(
             "172.21.161.70", 6379, 10 );
+    if ( sid == (sid_t)-1 )
+    {
+        printf( "connect failed .\n" );
+        return -3;
+    }
+
     printf( "connect succeed, %lu\n", sid );
 
     rediscli->send( sid,

@@ -808,7 +808,7 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
 
 int32_t iolayer_reassociate( struct iolayer * self, struct associater * associater )
 {
-    // 首先必须先关闭以前的描述符
+    // TODO: 首先必须先关闭以前的描述符
     if ( associater->fd > 0 )
     {
         close( associater->fd );
