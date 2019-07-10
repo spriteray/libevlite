@@ -112,10 +112,7 @@ void IRedisSession::processReply( redisReply * reply )
             printf( "OTHER : %s\n", reply->str );
             break;
     }
-
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 IRedisClient::IRedisClient( IIOService * s )
     : m_Service( s )
@@ -270,16 +267,17 @@ Slice IRedisClient::get( const std::string & key )
 
 Slice IRedisClient::mget( const std::vector<std::string> & keys )
 {
-    size_t argvlen[ keys.size()+1 ];
-    const char * argv[ keys.size()+1 ];
+    size_t ncmds = keys.size() + 1;
+    size_t argvlen[ ncmds ];
+    const char * argv[ ncmds ];
 
     argv[0] = "MGET";
     argvlen[0] = 4;
 
-    for ( size_t i = 1; i <= keys.size(); ++i )
+    for ( size_t i = 0; i < keys.size(); ++i )
     {
-        argv[i] = keys[i-1].c_str();
-        argvlen[i] = keys[i-1].size();
+        argv[i+1] = keys[i].c_str();
+        argvlen[i+1] = keys[i].size();
     }
 
     char * buffer = NULL;
@@ -301,6 +299,138 @@ Slice IRedisClient::set( const std::string & key, const std::string & value )
     ssize_t length = redisFormatCommand(
             &buffer, "SET %s %b",
             key.c_str(), value.data(), value.size() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice IRedisClient::incr( const std::string & key )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "INCR %s", key.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice IRedisClient::incrby( const std::string & key, int32_t value )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "INCRBY %s %d", key.c_str(), value );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice IRedisClient::decr( const std::string & key )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "DECR %s", key.c_str() );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice IRedisClient::decrby( const std::string & key, int32_t value )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "DECRBY %s %d", key.c_str(), value );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice IRedisClient::lpush( const std::string & key, const std::vector<std::string> & values )
+{
+    size_t ncmds = values.size() + 2;
+
+    size_t argvlen[ ncmds ];
+    const char * argv[ ncmds ];
+
+    argv[0] = "LPUSH";
+    argvlen[0] = 5;
+    argv[1] = key.c_str();
+    argvlen[1] = key.size();
+
+    for ( size_t i = 0; i < values.size(); ++i )
+    {
+        argv[i+2] = values[i].c_str();
+        argvlen[i+2] = values[i].size();
+    }
+
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommandArgv(
+            &buffer,
+            ncmds, argv, argvlen );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice IRedisClient::rpush( const std::string & key, const std::vector<std::string> & values )
+{
+    size_t ncmds = values.size() + 2;
+
+    size_t argvlen[ ncmds ];
+    const char * argv[ ncmds ];
+
+    argv[0] = "RPUSH";
+    argvlen[0] = 5;
+    argv[1] = key.c_str();
+    argvlen[1] = key.size();
+
+    for ( size_t i = 0; i < values.size(); ++i )
+    {
+        argv[i+2] = values[i].c_str();
+        argvlen[i+2] = values[i].size();
+    }
+
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommandArgv(
+            &buffer,
+            ncmds, argv, argvlen );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
+Slice IRedisClient::lrange( const std::string & key, int32_t startidx, int32_t stopidx )
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand(
+            &buffer, "LRANGE %s %d %d", key.c_str(), startidx, stopidx );
 
     if ( length < 0 )
     {

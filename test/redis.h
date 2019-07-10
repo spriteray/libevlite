@@ -65,6 +65,16 @@ public :
     // 更新命令
     static Slice set(
             const std::string & key, const std::string & value );
+    // 自增
+    static Slice incr( const std::string & key );
+    static Slice incrby( const std::string & key, int32_t value );
+    // 自减
+    static Slice decr( const std::string & key );
+    static Slice decrby( const std::string & key, int32_t value );
+    // list
+    static Slice lpush( const std::string & key, const std::vector<std::string> & values );
+    static Slice rpush( const std::string & key, const std::vector<std::string> & values );
+    static Slice lrange( const std::string & key, int32_t startidx, int32_t stopidx );
     // 订阅命令
     static Slice subscribe( const std::string & channel );
     // 取消订阅命令
