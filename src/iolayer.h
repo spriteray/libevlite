@@ -92,7 +92,7 @@ struct associater
 
     // 逻辑
     void *      context;
-    int32_t     (*reattach)( void *, int32_t, void * );
+    int32_t     (*reattach)( int32_t, void * );
     int32_t     (*cb)( void *, void *, int32_t, int32_t, sid_t );
 
     // 通信句柄
@@ -153,14 +153,8 @@ void iolayer_client_option( int32_t fd );
 // 分配一个会话
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index );
 
-// 重新连接远程服务器
-int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector );
-
 // 销毁连接器
 int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector );
-
-// 重新关联远程服务器
-int32_t iolayer_reassociate( struct iolayer * self, struct associater * associater );
 
 // 销毁关联器
 int32_t iolayer_free_associater( struct iolayer * self, struct associater * associater );

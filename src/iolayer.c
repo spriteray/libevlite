@@ -26,8 +26,9 @@ static inline int32_t _broadcast2_loop( void * context, struct session * s );
 
 static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
-static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
+static int32_t _associate_direct( evsets_t sets, struct associater * associater );
 static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct task_assign * task );
+
 static ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _broadcast2_direct( struct iolayer * self, struct session_manager * manager, struct message * msg );
@@ -35,8 +36,6 @@ static int32_t _perform_direct( struct iolayer * self, struct session_manager * 
 static void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
-static int32_t _associate_direct( evsets_t sets, struct associater * associater );
-static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 
 static void _concrete_processor( void * context, uint8_t index, int16_t type, void * task );
 
@@ -259,22 +258,21 @@ int32_t iolayer_connect( iolayer_t self,
 
 // 描述符关联会话ID
 //      fd              - 描述符
-//      privdata        - 绑定的私有数据
+//      privdata        - 描述符相关的私有数据
+//      reattach        - 重新关联函数，返回新的描述符
+//                            参数1: 上次关联的描述符
+//                            参数2: 描述符相关的私有数据
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
 //                            参数3: 关联结果
 //                            参数3: 描述符
 //                            参数4: 关联的会话ID
-//      reattach        - 重新关联函数，返回新的描述符
-//                            参数1: 上下文参数
-//                            参数2: 上次关联的描述符
-//                            参数3: 绑定的私有函数
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
         int32_t fd, void * privdata,
-        int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
-        int32_t (*reattach)( void *, int32_t, void * ), void * context )
+        int32_t (*reattach)(int32_t, void *),
+        int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -770,23 +768,6 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint
     return session;
 }
 
-int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector )
-{
-    // 首先必须先关闭以前的描述符
-    if ( connector->fd > 0 )
-    {
-        close( connector->fd );
-        connector->fd = -1;
-    }
-
-    // 200毫秒后尝试重连, 避免进入重连死循环
-    event_set( connector->event, -1, 0 );
-    event_set_callback( connector->event, _reconnect_direct, connector );
-    evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
-
-    return 0;
-}
-
 int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector )
 {
     if ( connector->event )
@@ -803,24 +784,6 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
     }
 
     free( connector );
-    return 0;
-}
-
-int32_t iolayer_reassociate( struct iolayer * self, struct associater * associater )
-{
-    // TODO: 对于iolayer而言, 描述符是否一定要关掉
-    // TODO: 有待商榷
-    if ( associater->fd > 0 )
-    {
-        close( associater->fd );
-        associater->fd = -1;
-    }
-
-    // 200毫秒后尝试重连, 避免进入重连死循环
-    event_set( associater->event, -1, 0 );
-    event_set_callback( associater->event, _reassociate_direct, associater );
-    evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
-
     return 0;
 }
 
@@ -986,18 +949,15 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
     return 0;
 }
 
-void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
+int32_t _associate_direct( evsets_t sets, struct associater * associater )
 {
-    struct connector * connector = (struct connector *)arg;
+    associater->evsets = sets;
 
-    // 尝试重新连接
-    connector->fd = tcp_connect( connector->host, connector->port, iolayer_client_option );
-    if ( connector->fd < 0 )
-    {
-        syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
-    }
+    event_set( associater->event, associater->fd, EV_WRITE );
+    event_set_callback( associater->event, channel_on_associated, associater );
+    evsets_add( sets, associater->event, TRY_RECONNECT_INTERVAL );
 
-    _connect_direct( connector->evsets, connector );
+    return 0;
 }
 
 int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, struct task_assign * task )
@@ -1254,30 +1214,6 @@ int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, stru
     return count;
 }
 
-int32_t _associate_direct( evsets_t sets, struct associater * associater )
-{
-    associater->evsets = sets;
-
-    event_set( associater->event, associater->fd, EV_WRITE );
-    event_set_callback( associater->event, channel_on_associated, associater );
-    evsets_add( sets, associater->event, TRY_RECONNECT_INTERVAL );
-
-    return 0;
-}
-
-void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
-{
-    struct associater * associater = (struct associater *)arg;
-
-    associater->fd = associater->reattach( NULL, associater->fd, associater->privdata );
-    if ( associater->fd < 0 )
-    {
-        syslog(LOG_WARNING, "%s(fd:'%d', privdata:%p) failed, associater->reattach() failure .", __FUNCTION__, associater->fd, associater->privdata);
-    }
-
-    _associate_direct( associater->evsets, associater );
-}
-
 void _concrete_processor( void * context, uint8_t index, int16_t type, void * task )
 {
     struct iolayer * layer = (struct iolayer *)context;
@@ -1296,6 +1232,11 @@ void _concrete_processor( void * context, uint8_t index, int16_t type, void * ta
             // 连接远程服务器
         case eIOTaskType_Connect :
             _connect_direct( sets, (struct connector *)task );
+            break;
+
+            // 关联描述符和会话ID
+        case eIOTaskType_Associate :
+            _associate_direct( sets, (struct associater *)task );
             break;
 
             // 分配一个描述符
@@ -1326,11 +1267,6 @@ void _concrete_processor( void * context, uint8_t index, int16_t type, void * ta
             // 广播数据
         case eIOTaskType_Broadcast2 :
             _broadcast2_direct( layer, manager, (struct message *)task );
-            break;
-
-            // 关联描述符和会话ID
-        case eIOTaskType_Associate :
-            _associate_direct( sets, (struct associater *)task );
             break;
 
             // 逻辑任务

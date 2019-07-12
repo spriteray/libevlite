@@ -163,7 +163,8 @@ sid_t IRedisClient::connect( const std::string & host, uint16_t port,int32_t sec
     assert( context != NULL && "new AssociateContext failed" );
     if ( 0 != m_Service->associate(
                 redisconn->fd, redisconn,
-                IRedisClient::associate, IRedisClient::reattach, context ) )
+                IRedisClient::reattach,
+                IRedisClient::associate, context ) )
     {
         delete context;
         return -2;
@@ -508,12 +509,18 @@ Slice IRedisClient::exec()
     return Slice( buffer, length );
 }
 
-int32_t IRedisClient::reattach( void * context, int32_t fd, void * privdata )
+int32_t IRedisClient::reattach( int32_t fd, void * privdata )
 {
     redisContext * redisconn = static_cast<redisContext *>(privdata);
 
     printf( "IRedisClient::reattach(%d, %s::%d) ...\n", fd, redisconn->tcp.host, redisconn->tcp.port );
-    redisReconnect( redisconn );
+
+    int32_t ret = redisReconnect( redisconn );
+    if ( ret != REDIS_OK || redisconn->err != 0 )
+    {
+        return 0;
+    }
+
     return redisconn->fd;
 }
 

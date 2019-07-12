@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -32,6 +33,9 @@ static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t coun
 // 逻辑操作
 static ssize_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
+
+static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
+static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -207,6 +211,37 @@ int32_t _timeout( struct session * session )
     }
 
     return 0;
+}
+
+void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
+{
+    struct connector * connector = (struct connector *)arg;
+
+    // 尝试重新连接
+    connector->fd = tcp_connect( connector->host, connector->port, iolayer_client_option );
+    if ( connector->fd < 0 )
+    {
+        syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
+    }
+
+    event_set( connector->event, connector->fd, EV_WRITE );
+    event_set_callback( connector->event, channel_on_connected, connector );
+    evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
+}
+
+void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
+{
+    struct associater * associater = (struct associater *)arg;
+
+    associater->fd = associater->reattach( associater->fd, associater->privdata );
+    if ( associater->fd < 0 )
+    {
+        syslog(LOG_WARNING, "%s(fd:'%d', privdata:%p) failed, associater->reattach() failure .", __FUNCTION__, associater->fd, associater->privdata);
+    }
+
+    event_set( associater->event, associater->fd, EV_WRITE );
+    event_set_callback( associater->event, channel_on_associated, associater );
+    evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
 }
 
 int32_t channel_error( struct session * session, int32_t result )
@@ -473,7 +508,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     else
     {
         // 第三方会话重连
-        session->fd = session->reattach( session->context, session->fd, session->privdata );
+        session->fd = session->reattach( session->fd, session->privdata );
     }
 
     if ( session->fd < 0 )
@@ -543,7 +578,16 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         if ( result != 0 )
         {
             // 逻辑层需要继续连接
-            iolayer_reconnect( layer, connector );
+            // 首先必须先关闭以前的描述符
+            if ( connector->fd > 0 )
+            {
+                close( connector->fd );
+                connector->fd = -1;
+            }
+            // 200毫秒后尝试重连, 避免进入重连死循环
+            event_set( connector->event, -1, 0 );
+            event_set_callback( connector->event, _reconnect_direct, connector );
+            evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
         }
         else
         {
@@ -646,8 +690,11 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
     {
         if ( result != 0 )
         {
-            // 逻辑层需要继续连接
-            iolayer_reassociate( layer, associater );
+            // 逻辑层需要重新绑定
+            // 启动200ms的定时器尝试重新绑定(避免进入reattach死循环)
+            event_set( associater->event, -1, 0 );
+            event_set_callback( associater->event, _reassociate_direct, associater );
+            evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
         }
         else
         {

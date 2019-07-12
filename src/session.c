@@ -274,7 +274,7 @@ void session_set_endpoint( struct session * self, const char * host, uint16_t po
     strncpy( self->host, host, INET_ADDRSTRLEN );
 }
 
-void session_set_privdata( struct session * self, int32_t (*reattach)( void *, int32_t, void * ), void * data )
+void session_set_privdata( struct session * self, int32_t (*reattach)(int32_t, void *), void * data )
 {
     self->privdata = data;
     self->reattach = reattach;

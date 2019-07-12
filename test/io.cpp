@@ -289,10 +289,10 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 }
 
 int32_t IIOService::associate( int32_t fd, void * privdata,
-            int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
-            int32_t (*reattach)(void *, int32_t, void *), void * context )
+        int32_t (*reattach)(int32_t, void *),
+        int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t), void * context )
 {
-    return iolayer_associate( m_IOLayer, fd, privdata, cb, reattach, context );
+    return iolayer_associate( m_IOLayer, fd, privdata, reattach, cb, context );
 }
 
 int32_t IIOService::send( sid_t id, const std::string & buffer )

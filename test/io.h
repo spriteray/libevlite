@@ -161,16 +161,16 @@ public :
     // 参数:
     //      fd      - 关联的描述符
     //      privdata- 关联的私有数据
-    //      cb      - 关联成功后的回调函数
     //      reattach- 重新绑定新的描述符(相当于重连)
+    //      cb      - 关联成功后的回调函数
     //      context - 上下文参数
     //
     // 返回值:
     //      -1      - 关联失败
     //      0       - 正在连接
     int32_t associate( int32_t fd, void * privdata,
-            int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t),
-            int32_t (*reattach)(void *, int32_t, void *), void * context );
+            int32_t (*reattach)(int32_t, void *),
+            int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t), void * context );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );

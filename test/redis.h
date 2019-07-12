@@ -109,7 +109,7 @@ private :
     sid_t waitForAssociate( AssociateContext * context, struct timeval & now, int32_t seconds );
     void wakeupFromAssociating( AssociateContext * context, int32_t result, sid_t id, int32_t ack );
 
-    static int32_t reattach( void * context, int32_t fd, void * privdata );
+    static int32_t reattach( int32_t fd, void * privdata );
     static int32_t associate( void * context, void * iocontext, int32_t result, int32_t fd, sid_t sid );
 
 private :
