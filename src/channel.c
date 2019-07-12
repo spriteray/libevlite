@@ -536,12 +536,13 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 {
-    int32_t rc = 0, result = 0;
+    int32_t ack = 0, result = 0;
     struct connector * connector = (struct connector *)arg;
 
     sid_t id = 0;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( connector->parent );
+    void * iocontext = iothreads_get_context( layer->threads, connector->index );
 
     if ( ev & EV_WRITE )
     {
@@ -573,10 +574,21 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     }
 
     // 把连接结果回调给逻辑层
-    rc = connector->cb( connector->context,
-            iothreads_get_context(layer->threads, connector->index), result, connector->host, connector->port, id );
+    ack = connector->cb(
+            connector->context, iocontext,
+            result, connector->host, connector->port, id );
+    if ( ack != 0 )
+    {
+        // 逻辑层确认需要关闭该会话
+        if ( session )
+        {
+            session_manager_remove( session->manager, session );
+            session_end( session, id, 0 );
+        }
 
-    if ( rc == 0 )
+        iolayer_free_connector( layer, connector );
+    }
+    else
     {
         if ( result != 0 )
         {
@@ -594,7 +606,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         }
         else
         {
-            // 连接成功
+            // 连接成功, 可以进行IO操作
             set_non_block( connector->fd );
             session_set_iolayer( session, layer );
             session_set_endpoint( session, connector->host, connector->port );
@@ -603,15 +615,6 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             connector->fd = -1;
             iolayer_free_connector( layer, connector );
         }
-    }
-    else
-    {
-        if ( session )
-        {
-            session_manager_remove( session->manager, session );
-            session_end( session, id, 0 );
-        }
-        iolayer_free_connector( layer, connector );
     }
 }
 
@@ -649,12 +652,13 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_associated( int32_t fd, int16_t ev, void * arg )
 {
-    int32_t rc = 0, result = 0;
+    int32_t ack = 0, result = 0;
     struct associater * associater = (struct associater *)arg;
 
     sid_t id = 0;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( associater->parent );
+    void * iocontext = iothreads_get_context( layer->threads, associater->index );
 
     if ( ev & EV_WRITE )
     {
@@ -686,10 +690,21 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
     }
 
     // 把连接结果回调给逻辑层
-    rc = associater->cb( associater->context,
-            iothreads_get_context(layer->threads, associater->index), result, associater->fd, associater->privdata, id );
+    ack = associater->cb(
+            associater->context, iocontext,
+            result, associater->fd, associater->privdata, id );
+    if ( ack != 0 )
+    {
+        // 逻辑层确认需要关闭该会话
+        if ( session )
+        {
+            session_manager_remove( session->manager, session );
+            session_end( session, id, 0 );
+        }
 
-    if ( rc == 0 )
+        iolayer_free_associater( layer, associater );
+    }
+    else
     {
         if ( result != 0 )
         {
@@ -701,23 +716,13 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
         }
         else
         {
-            // 连接成功
+            // 关联成功, 该会话可以进行IO操作
             set_non_block( associater->fd );
             session_set_iolayer( session, layer );
             session_set_privdata( session, associater->reattach, associater->privdata );
             session_start( session, eSessionType_Persist, associater->fd, associater->evsets );
 
-            associater->fd = -1;
             iolayer_free_associater( layer, associater );
         }
-    }
-    else
-    {
-        if ( session )
-        {
-            session_manager_remove( session->manager, session );
-            session_end( session, id, 0 );
-        }
-        iolayer_free_associater( layer, associater );
     }
 }

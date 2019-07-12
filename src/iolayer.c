@@ -277,8 +277,9 @@ int32_t iolayer_associate( iolayer_t self,
     struct iolayer * layer = (struct iolayer *)self;
 
     assert( self != NULL && "Illegal IOLayer" );
-    assert( fd > 2 && "Illegal Descriptor" );
+    //assert( fd > 2 && "Illegal Descriptor" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
+    assert( reattach != NULL && "Illegal specified Reattach-Function" );
 
     struct associater * associater = (struct associater *)calloc( 1, sizeof(struct associater) );
     if ( associater == NULL )
@@ -768,7 +769,7 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint
     return session;
 }
 
-int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector )
+void iolayer_free_connector( struct iolayer * self, struct connector * connector )
 {
     if ( connector->event )
     {
@@ -784,10 +785,9 @@ int32_t iolayer_free_connector( struct iolayer * self, struct connector * connec
     }
 
     free( connector );
-    return 0;
 }
 
-int32_t iolayer_free_associater( struct iolayer * self, struct associater * associater )
+void iolayer_free_associater( struct iolayer * self, struct associater * associater )
 {
     if ( associater->event )
     {
@@ -796,14 +796,9 @@ int32_t iolayer_free_associater( struct iolayer * self, struct associater * asso
         associater->event = NULL;
     }
 
-    if ( associater->fd > 0 )
-    {
-        close( associater->fd );
-        associater->fd = -1;
-    }
+    // NOTICE: 释放关联器的时候，不会关闭描述符
 
     free( associater );
-    return 0;
 }
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
@@ -939,9 +934,10 @@ int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
 
 int32_t _connect_direct( evsets_t sets, struct connector * connector )
 {
-    // 开始关注连接事件
+    // 设置事件集
     connector->evsets = sets;
 
+    // 检查描述符连接状态
     event_set( connector->event, connector->fd, EV_WRITE );
     event_set_callback( connector->event, channel_on_connected, connector );
     evsets_add( sets, connector->event, TRY_RECONNECT_INTERVAL );
@@ -951,8 +947,10 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
 
 int32_t _associate_direct( evsets_t sets, struct associater * associater )
 {
+    // 设置事件集
     associater->evsets = sets;
 
+    // 检查描述符连接状态
     event_set( associater->event, associater->fd, EV_WRITE );
     event_set_callback( associater->event, channel_on_associated, associater );
     evsets_add( sets, associater->event, TRY_RECONNECT_INTERVAL );

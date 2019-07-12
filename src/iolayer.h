@@ -153,10 +153,9 @@ void iolayer_client_option( int32_t fd );
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index );
 
 // 销毁连接器
-int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector );
-
+void iolayer_free_connector( struct iolayer * self, struct connector * connector );
 // 销毁关联器
-int32_t iolayer_free_associater( struct iolayer * self, struct associater * associater );
+void iolayer_free_associater( struct iolayer * self, struct associater * associater );
 
 // 给当前线程分发一个会话
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );
