@@ -534,11 +534,11 @@ int32_t IRedisClient::associate( void * context, void * iocontext, int32_t resul
 
     if ( result != 0 )
     {
-        ack = client->onConnectFailed( result, fd, privdata ) ? 0 : -2;
+        ack = client->onConnectFailed( result, fd, redisconn ) ? 0 : -2;
     }
     else
     {
-        IRedisSession * session = client->onConnectSucceed( sid, fd, privdata );
+        IRedisSession * session = client->onConnectSucceed( sid, fd, redisconn );
         if ( session != NULL )
         {
             // 初始化会话
@@ -637,9 +637,9 @@ public :
     CRedisClient( IIOService * s ) : IRedisClient(s) {}
     virtual ~CRedisClient() {}
 
-    virtual IRedisSession * onConnectSucceed( sid_t sid, int32_t fd, void * privdata )
+    virtual IRedisSession * onConnectSucceed( sid_t sid, int32_t fd, redisContext * conn )
     {
-        return new IRedisSession( static_cast<redisContext *>(privdata), 30 );
+        return new IRedisSession( conn, 30 );
     }
 };
 

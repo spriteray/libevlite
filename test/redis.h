@@ -35,8 +35,8 @@ public :
     IRedisClient( IIOService * s );
     virtual ~IRedisClient();
 
-    virtual bool onConnectFailed( int32_t result, int32_t fd, void * privdata ) { return false; }
-    virtual IRedisSession * onConnectSucceed( sid_t sid, int32_t fd, void * privdata ) { return NULL; }
+    virtual bool onConnectFailed( int32_t result, int32_t fd, redisContext * conn ) { return false; }
+    virtual IRedisSession * onConnectSucceed( sid_t sid, int32_t fd, redisContext * conn ) { return NULL; }
 
 public :
     // 服务
