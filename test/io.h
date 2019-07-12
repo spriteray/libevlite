@@ -170,7 +170,7 @@ public :
     //      0       - 正在连接
     int32_t associate( int32_t fd, void * privdata,
             int32_t (*reattach)(int32_t, void *),
-            int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t), void * context );
+            int32_t (*cb)(void *, void *, int32_t, int32_t, void *, sid_t), void * context );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );

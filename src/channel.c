@@ -224,6 +224,7 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
         syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
     }
 
+    // 检查连接状态
     event_set( connector->event, connector->fd, EV_WRITE );
     event_set_callback( connector->event, channel_on_connected, connector );
     evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
@@ -233,12 +234,14 @@ void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
 {
     struct associater * associater = (struct associater *)arg;
 
+    // 尝试重新关联
     associater->fd = associater->reattach( associater->fd, associater->privdata );
     if ( associater->fd < 0 )
     {
         syslog(LOG_WARNING, "%s(fd:'%d', privdata:%p) failed, associater->reattach() failure .", __FUNCTION__, associater->fd, associater->privdata);
     }
 
+    // 检查连接状态
     event_set( associater->event, associater->fd, EV_WRITE );
     event_set_callback( associater->event, channel_on_associated, associater );
     evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
@@ -571,7 +574,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 
     // 把连接结果回调给逻辑层
     rc = connector->cb( connector->context,
-            iothreads_get_context( layer->threads, connector->index ), result, connector->host, connector->port, id );
+            iothreads_get_context(layer->threads, connector->index), result, connector->host, connector->port, id );
 
     if ( rc == 0 )
     {
@@ -684,7 +687,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
 
     // 把连接结果回调给逻辑层
     rc = associater->cb( associater->context,
-            iothreads_get_context( layer->threads, associater->index ), result, associater->fd, id );
+            iothreads_get_context(layer->threads, associater->index), result, associater->fd, associater->privdata, id );
 
     if ( rc == 0 )
     {

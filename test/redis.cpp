@@ -524,21 +524,21 @@ int32_t IRedisClient::reattach( int32_t fd, void * privdata )
     return redisconn->fd;
 }
 
-int32_t IRedisClient::associate( void * context, void * iocontext, int32_t result, int32_t fd, sid_t sid )
+int32_t IRedisClient::associate( void * context, void * iocontext, int32_t result, int32_t fd, void * privdata, sid_t sid )
 {
     AssociateContext * ctx = static_cast<AssociateContext *>(context);
 
     int32_t ack = 0;
     IRedisClient * client = ctx->client;
-    redisContext * redisconn = static_cast<redisContext *>(ctx->privdata);
+    redisContext * redisconn = static_cast<redisContext *>(privdata);
 
     if ( result != 0 )
     {
-        ack = client->onConnectFailed( result, fd, ctx->privdata ) ? 0 : -2;
+        ack = client->onConnectFailed( result, fd, privdata ) ? 0 : -2;
     }
     else
     {
-        IRedisSession * session = client->onConnectSucceed( sid, fd, ctx->privdata );
+        IRedisSession * session = client->onConnectSucceed( sid, fd, privdata );
         if ( session != NULL )
         {
             // 初始化会话

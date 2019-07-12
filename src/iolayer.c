@@ -56,9 +56,9 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     self->transform = NULL;
     self->nthreads  = nthreads;
     self->nclients  = nclients;
-    self->connectidx= 0;
+    self->roundrobin= 0;
     self->status    = eIOStatus_Running;
-    self->threads     = NULL;
+    self->threads   = NULL;
     self->managers  = NULL;
 
     // 初始化会话管理器
@@ -248,7 +248,7 @@ int32_t iolayer_connect( iolayer_t self,
     connector->context  = context;
     connector->parent   = layer;
     connector->port     = port;
-    connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
+    connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
     strncpy( connector->host, host, INET_ADDRSTRLEN );
 
     iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
@@ -272,7 +272,7 @@ int32_t iolayer_connect( iolayer_t self,
 int32_t iolayer_associate( iolayer_t self,
         int32_t fd, void * privdata,
         int32_t (*reattach)(int32_t, void *),
-        int32_t (*cb)(void *, void *, int32_t, int32_t, sid_t), void * context )
+        int32_t (*cb)(void *, void *, int32_t, int32_t, void *,sid_t), void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -301,7 +301,7 @@ int32_t iolayer_associate( iolayer_t self,
     associater->context     = context;
     associater->parent      = layer;
     associater->privdata    = privdata;
-    associater->index       = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->connectidx, 1) );
+    associater->index       = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
     // 提交到网络层
     iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
 

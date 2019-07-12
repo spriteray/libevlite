@@ -23,8 +23,7 @@ struct iolayer
     // 基础配置
     uint8_t     nthreads;
     uint32_t    nclients;
-    // 连接索引确保连接的均衡分配
-    uint32_t    connectidx;
+    uint32_t    roundrobin;         // 轮询负载均衡
 
     // 网络线程组
     iothreads_t threads;
@@ -93,7 +92,7 @@ struct associater
     // 逻辑
     void *      context;
     int32_t     (*reattach)( int32_t, void * );
-    int32_t     (*cb)( void *, void *, int32_t, int32_t, sid_t );
+    int32_t     (*cb)( void *, void *, int32_t, int32_t, void *, sid_t );
 
     // 通信句柄
     struct iolayer *    parent;

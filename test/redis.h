@@ -110,7 +110,7 @@ private :
     void wakeupFromAssociating( AssociateContext * context, int32_t result, sid_t id, int32_t ack );
 
     static int32_t reattach( int32_t fd, void * privdata );
-    static int32_t associate( void * context, void * iocontext, int32_t result, int32_t fd, sid_t sid );
+    static int32_t associate( void * context, void * iocontext, int32_t result, int32_t fd, void * privdata, sid_t sid );
 
 private :
     pthread_cond_t      m_Cond;
