@@ -464,6 +464,12 @@ int32_t session_start_reconnect( struct session * self )
         return -2;
     }
 
+    // NOTICE: 关联的会话是不会随便关闭描述符的
+    if ( self->type == eSessionType_Associate )
+    {
+        self->fd = -1;
+    }
+
     // 停止会话
     _stop( self );
 

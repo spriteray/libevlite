@@ -518,7 +518,7 @@ int32_t IRedisClient::reattach( int32_t fd, void * privdata )
     int32_t ret = redisReconnect( redisconn );
     if ( ret != REDIS_OK || redisconn->err != 0 )
     {
-        return 0;
+        return -1;
     }
 
     return redisconn->fd;
