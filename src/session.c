@@ -263,6 +263,20 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     return 0;
 }
 
+int8_t session_is_persist( struct session * self )
+{
+    if ( self->type == eSessionType_Accept )
+    {
+        return 0;
+    }
+    else if ( self->type == eSessionType_Connect )
+    {
+        return 1;
+    }
+
+    return self->reattach != NULL ? 1 : 0;
+}
+
 void session_set_iolayer( struct session * self, void * iolayer )
 {
     self->iolayer = iolayer;

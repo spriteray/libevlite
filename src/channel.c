@@ -197,7 +197,7 @@ int32_t _timeout( struct session * session )
         return session_shutdown( session );
     }
 
-    if ( session->type == eSessionType_Persist )
+    if ( session_is_persist( session ) )
     {
         // 尝试重连的永久会话
         session_start_reconnect( session );
@@ -234,6 +234,10 @@ void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
 {
     struct associater * associater = (struct associater *)arg;
 
+    // 这种情况不会出现
+    assert( associater->reattach != NULL
+            && "Illegal specified Reattach-Function" );
+
     // 尝试重新关联
     associater->fd = associater->reattach( associater->fd, associater->privdata );
     if ( associater->fd < 0 )
@@ -258,12 +262,13 @@ int32_t channel_error( struct session * session, int32_t result )
      */
     int32_t rc = 0;
     ioservice_t * service = &session->service;
+    int8_t ispersist = session_is_persist( session );
 
     rc = service->error( session->context, result );
 
-    if ( session->type == eSessionType_Once
-            || ( session->status&SESSION_EXITING )
-            || ( session->type == eSessionType_Persist && rc != 0 ) )
+    if ( ispersist == 0
+            || ( ispersist == 1 && rc != 0 )
+            || ( session->status&SESSION_EXITING ) )
     {
         // 临时会话
         // 等待终止的会话
@@ -503,13 +508,15 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     session->status &= ~SESSION_WRITING;
 
     // 连接远程服务器
-    if ( likely( session->privdata == NULL ) )
+    if ( session->type == eSessionType_Connect )
     {
         session->fd = tcp_connect(
                 session->host, session->port, iolayer_client_option );
     }
-    else
+    else if ( session->type == eSessionType_Associate )
     {
+        // 这种情况不会出现
+        assert( session->reattach != NULL );
         // 第三方会话重连
         session->fd = session->reattach( session->fd, session->privdata );
     }
@@ -521,7 +528,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     }
 
     // 绑定的情况下需要设置非阻塞状态
-    if ( session->privdata != NULL )
+    if ( session->type == eSessionType_Associate )
     {
         set_non_block( session->fd );
     }
@@ -610,7 +617,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             set_non_block( connector->fd );
             session_set_iolayer( session, layer );
             session_set_endpoint( session, connector->host, connector->port );
-            session_start( session, eSessionType_Persist, connector->fd, connector->evsets );
+            session_start( session, eSessionType_Connect, connector->fd, connector->evsets );
 
             connector->fd = -1;
             iolayer_free_connector( layer, connector );
@@ -709,10 +716,18 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
         if ( result != 0 )
         {
             // 逻辑层需要重新绑定
-            // 启动200ms的定时器尝试重新绑定(避免进入reattach死循环)
-            event_set( associater->event, -1, 0 );
-            event_set_callback( associater->event, _reassociate_direct, associater );
-            evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
+            if ( unlikely( associater->reattach == NULL ) )
+            {
+                // 没有设置重新关联函数
+                iolayer_free_associater( layer, associater );
+            }
+            else
+            {
+                // 启动200ms的定时器尝试重新绑定(避免进入reattach死循环)
+                event_set( associater->event, -1, 0 );
+                event_set_callback( associater->event, _reassociate_direct, associater );
+                evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
+            }
         }
         else
         {
@@ -720,7 +735,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
             set_non_block( associater->fd );
             session_set_iolayer( session, layer );
             session_set_privdata( session, associater->reattach, associater->privdata );
-            session_start( session, eSessionType_Persist, associater->fd, associater->evsets );
+            session_start( session, eSessionType_Associate, associater->fd, associater->evsets );
 
             iolayer_free_associater( layer, associater );
         }

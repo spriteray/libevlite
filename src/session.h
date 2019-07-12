@@ -36,8 +36,9 @@
 
 enum SessionType
 {
-    eSessionType_Once       = 1,    // 临时会话
-    eSessionType_Persist    = 2,    // 永久会话, 有断线重连的功能
+    eSessionType_Accept     = 1,    // Accept会话
+    eSessionType_Connect    = 2,    // Connect会话
+    eSessionType_Associate  = 3,    // Associate会话
 };
 
 struct session_setting
@@ -92,6 +93,9 @@ struct session
 
 // 会话开始
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
+
+// 会话是否是永久的
+int8_t session_is_persist( struct session * self );
 
 //
 void session_set_iolayer( struct session * self, void * iolayer );

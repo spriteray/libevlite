@@ -279,7 +279,7 @@ int32_t iolayer_associate( iolayer_t self,
     assert( self != NULL && "Illegal IOLayer" );
     //assert( fd > 2 && "Illegal Descriptor" );
     assert( cb != NULL && "Illegal specified Callback-Function" );
-    assert( reattach != NULL && "Illegal specified Reattach-Function" );
+    //assert( reattach != NULL && "Illegal specified Reattach-Function" );
 
     struct associater * associater = (struct associater *)calloc( 1, sizeof(struct associater) );
     if ( associater == NULL )
@@ -986,7 +986,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
 
     session_set_iolayer( session, layer );
     session_set_endpoint( session, task->host, task->port );
-    session_start( session, eSessionType_Once, task->fd, sets );
+    session_start( session, eSessionType_Accept, task->fd, sets );
 
     return 0;
 }
