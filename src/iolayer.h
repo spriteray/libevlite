@@ -143,7 +143,7 @@ struct task_perform2
 
 // 描述符分发策略
 // 分发到IO线程后会分配到唯一的会话ID
-#define DISPATCH_POLICY( layer, fd ) ( (fd) % ((layer)->nthreads) )
+#define DISPATCH_POLICY( layer, seq ) ( (seq) % ((layer)->nthreads) )
 
 // socket选项
 void iolayer_server_option( int32_t fd );
