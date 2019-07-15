@@ -606,6 +606,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
                 close( connector->fd );
                 connector->fd = -1;
             }
+
             // 200毫秒后尝试重连, 避免进入重连死循环
             event_set( connector->event, -1, 0 );
             event_set_callback( connector->event, _reconnect_direct, connector );
