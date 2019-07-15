@@ -267,13 +267,16 @@ int8_t session_is_persist( struct session * self )
 {
     if ( self->type == eSessionType_Accept )
     {
+        // Accept会话是临时的
         return 0;
     }
     else if ( self->type == eSessionType_Connect )
     {
+        // Connect会话是永久的
         return 1;
     }
 
+    // 设置了第三方重连函数的Associate会话
     return self->reattach != NULL ? 1 : 0;
 }
 
@@ -288,7 +291,7 @@ void session_set_endpoint( struct session * self, const char * host, uint16_t po
     strncpy( self->host, host, INET_ADDRSTRLEN );
 }
 
-void session_set_privdata( struct session * self, int32_t (*reattach)(int32_t, void *), void * data )
+void session_set_reattach( struct session * self, int32_t (*reattach)(int32_t, void *), void * data )
 {
     self->privdata = data;
     self->reattach = reattach;
@@ -454,7 +457,7 @@ int32_t session_start_reconnect( struct session * self )
 
     if ( self->status&SESSION_EXITING )
     {
-        // 会话等待退出,
+        // 会话等待退出
         return -1;
     }
 
@@ -464,7 +467,7 @@ int32_t session_start_reconnect( struct session * self )
         return -2;
     }
 
-    // NOTICE: 关联的会话是不会随便关闭描述符的
+    // NOTICE: 关联的会话, 网络层是不能关闭的, 必须交由逻辑层处理
     if ( self->type == eSessionType_Associate )
     {
         self->fd = -1;

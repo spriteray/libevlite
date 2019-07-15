@@ -100,7 +100,8 @@ int8_t session_is_persist( struct session * self );
 //
 void session_set_iolayer( struct session * self, void * iolayer );
 void session_set_endpoint( struct session * self, const char * host, uint16_t port );
-void session_set_privdata( struct session * self, int32_t (*reattach)( int32_t, void * ), void * data );
+// 设置第三方的重连函数
+void session_set_reattach( struct session * self, int32_t (*reattach)( int32_t, void * ), void * data );
 
 // 发送队列的长度
 #define session_sendqueue_count( self )         QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )

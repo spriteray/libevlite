@@ -734,7 +734,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
             // 关联成功, 该会话可以进行IO操作
             set_non_block( associater->fd );
             session_set_iolayer( session, layer );
-            session_set_privdata( session, associater->reattach, associater->privdata );
+            session_set_reattach( session, associater->reattach, associater->privdata );
             session_start( session, eSessionType_Associate, associater->fd, associater->evsets );
 
             iolayer_free_associater( layer, associater );
