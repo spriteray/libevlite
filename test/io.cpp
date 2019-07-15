@@ -1,6 +1,7 @@
 
-#include <errno.h>
 #include <cassert>
+#include <algorithm>
+#include <errno.h>
 #include <sys/time.h>
 
 #include "io.h"
@@ -25,6 +26,15 @@ void IIOSession::setKeepalive( int32_t seconds )
 {
     assert( m_Sid != 0 && m_Layer != NULL );
     iolayer_set_keepalive( m_Layer, m_Sid, seconds );
+}
+
+void IIOSession::setEndpoint( const std::string & host, uint16_t port )
+{
+    assert( m_Sid != 0 && m_Layer != NULL );
+
+    m_Host = host;
+    m_Port = port;
+    iolayer_set_endpoint( m_Layer, m_Sid, host.c_str(), port );
 }
 
 int32_t IIOSession::send( const std::string & buffer )
@@ -224,7 +234,7 @@ bool IIOService::listen( const char * host, uint16_t port )
     return ( iolayer_listen( m_IOLayer, host, port, onAcceptSession, context ) == 0 );
 }
 
-sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bool isblock )
+sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 {
     ConnectContext * context = new ConnectContext( host, port, this );
     if ( context == NULL )
@@ -232,13 +242,14 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bo
         return -1;
     }
 
-    if ( iolayer_connect( m_IOLayer, host, port, seconds, onConnectSession, context ) != 0 )
+    if ( iolayer_connect( m_IOLayer, host, port, onConnectSession, context ) != 0 )
     {
+        delete context;
         return -1;
     }
 
     // 异步模式需要加入连接的队列中
-    if ( !isblock )
+    if ( seconds <= 0 )
     {
         pthread_mutex_lock( &m_Lock );
         m_ConnectContexts.push_back( context );
@@ -275,6 +286,13 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds, bo
 
     delete context;
     return connectedsid;
+}
+
+int32_t IIOService::associate( int32_t fd, void * privdata,
+        int32_t (*reattach)(int32_t, void *),
+        int32_t (*cb)(void *, void *, int32_t, int32_t, void *, sid_t), void * context )
+{
+    return iolayer_associate( m_IOLayer, fd, privdata, reattach, cb, context );
 }
 
 int32_t IIOService::send( sid_t id, const std::string & buffer )
@@ -377,19 +395,12 @@ void IIOService::notifyConnectResult( ConnectContext * context, int32_t result, 
     // 需要从连接队列中删除
     if ( isremove )
     {
-        ConnectContexts::iterator it = m_ConnectContexts.begin();
-        for ( ; it != m_ConnectContexts.end(); )
+        ConnectContexts::iterator it = std::find(
+                m_ConnectContexts.begin(), m_ConnectContexts.end(), context );
+        if ( it != m_ConnectContexts.end() )
         {
-            if ( (*it) != context )
-            {
-                ++it;
-            }
-            else
-            {
-                it = m_ConnectContexts.erase( it );
-                delete context;
-                break;
-            }
+            it = m_ConnectContexts.erase( it );
+            delete context;
         }
     }
 
@@ -397,7 +408,7 @@ void IIOService::notifyConnectResult( ConnectContext * context, int32_t result, 
     pthread_mutex_unlock( &m_Lock );
 }
 
-void IIOService::attach( sid_t id, IIOSession * session, void * iocontext, const std::string & host, uint16_t port )
+void IIOService::initSession( sid_t id, IIOSession * session, void * iocontext, const std::string & host, uint16_t port )
 {
     session->init( id, iocontext, m_IOLayer, host, port );
 
@@ -431,7 +442,7 @@ int32_t IIOService::onAcceptSession( void * context, void * iocontext, sid_t id,
     {
         return -1;
     }
-    ctx->service->attach( id, session, iocontext, host, port );
+    ctx->service->initSession( id, session, iocontext, host, port );
 
     return 0;
 }
@@ -457,7 +468,7 @@ int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t 
         }
         else
         {
-            service->attach( id, session, iocontext, host, port );
+            service->initSession( id, session, iocontext, host, port );
         }
     }
 

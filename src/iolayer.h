@@ -23,8 +23,7 @@ struct iolayer
     // 基础配置
     uint8_t     nthreads;
     uint32_t    nclients;
-    // 连接索引确保连接的均衡分配
-    uint32_t    connectidx;
+    uint32_t    roundrobin;         // 轮询负载均衡
 
     // 网络线程组
     iothreads_t threads;
@@ -72,7 +71,6 @@ struct connector
     uint16_t    port;
 
     // 逻辑
-    int32_t     mseconds;
     void *      context;
     int32_t     (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t);
 
@@ -84,10 +82,17 @@ struct connector
 struct associater
 {
     int32_t     fd;
+    uint8_t     index;
+    void *      privdata;
+
+    // 连接事件
+    event_t     event;
+    evsets_t    evsets;
 
     // 逻辑
     void *      context;
-    int32_t     (*cb)( void *, void *, int32_t, sid_t );
+    int32_t     (*reattach)( int32_t, void * );
+    int32_t     (*cb)( void *, void *, int32_t, int32_t, void *, sid_t );
 
     // 通信句柄
     struct iolayer *    parent;
@@ -138,7 +143,7 @@ struct task_perform2
 
 // 描述符分发策略
 // 分发到IO线程后会分配到唯一的会话ID
-#define DISPATCH_POLICY( layer, fd ) ( (fd) % ((layer)->nthreads) )
+#define DISPATCH_POLICY( layer, seq ) ( (seq) % ((layer)->nthreads) )
 
 // socket选项
 void iolayer_server_option( int32_t fd );
@@ -147,11 +152,10 @@ void iolayer_client_option( int32_t fd );
 // 分配一个会话
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index );
 
-// 重新连接远程服务器
-int32_t iolayer_reconnect( struct iolayer * self, struct connector * connector );
-
 // 销毁连接器
-int32_t iolayer_free_connector( struct iolayer * self, struct connector * connector );
+void iolayer_free_connector( struct iolayer * self, struct connector * connector );
+// 销毁关联器
+void iolayer_free_associater( struct iolayer * self, struct associater * associater );
 
 // 给当前线程分发一个会话
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );

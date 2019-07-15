@@ -57,6 +57,9 @@
 		71D31A421B95E9D400C33F84 /* threads.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DE1B95E63A00C33F84 /* threads.c */; };
 		71D31A431B95E9D400C33F84 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DF1B95E63A00C33F84 /* timer.c */; };
 		71D31A441B95E9D400C33F84 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E01B95E63B00C33F84 /* utils.c */; };
+		71F9CAC922D0B18900990CF5 /* redis.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 71F9CAC622D0B18900990CF5 /* redis.cpp */; };
+		71F9CACA22D0B18900990CF5 /* redis.h in Headers */ = {isa = PBXBuildFile; fileRef = 71F9CAC722D0B18900990CF5 /* redis.h */; };
+		71F9CACB22D0B18900990CF5 /* slice.h in Headers */ = {isa = PBXBuildFile; fileRef = 71F9CAC822D0B18900990CF5 /* slice.h */; };
 		DD817EDE2130033800DCC7BA /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = DD817EDD2130033800DCC7BA /* config.h */; };
 /* End PBXBuildFile section */
 
@@ -134,6 +137,9 @@
 		71D31A181B95E8A700C33F84 /* test_sidlist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = test_sidlist.c; sourceTree = "<group>"; };
 		71D31A1D1B95E8FD00C33F84 /* chatroom_server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chatroom_server; sourceTree = BUILT_PRODUCTS_DIR; };
 		71D31A281B95E90E00C33F84 /* chatroom_client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = chatroom_client; sourceTree = BUILT_PRODUCTS_DIR; };
+		71F9CAC622D0B18900990CF5 /* redis.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = redis.cpp; sourceTree = "<group>"; };
+		71F9CAC722D0B18900990CF5 /* redis.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = redis.h; sourceTree = "<group>"; };
+		71F9CAC822D0B18900990CF5 /* slice.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = slice.h; sourceTree = "<group>"; };
 		DD817EDD2130033800DCC7BA /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
 		DD9D1F80215CD9F500806D0A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		DD9D1F81215CD9F500806D0A /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -235,6 +241,9 @@
 		71D31A081B95E8A700C33F84 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				71F9CAC622D0B18900990CF5 /* redis.cpp */,
+				71F9CAC722D0B18900990CF5 /* redis.h */,
+				71F9CAC822D0B18900990CF5 /* slice.h */,
 				71D31A091B95E8A700C33F84 /* accept-lock-echoserver.c */,
 				71D31A0A1B95E8A700C33F84 /* chatroom.h */,
 				71D31A0B1B95E8A700C33F84 /* chatroom_client.cpp */,
@@ -274,6 +283,8 @@
 				DD817EDE2130033800DCC7BA /* config.h in Headers */,
 				71D319F71B95E82600C33F84 /* iolayer.h in Headers */,
 				71D31A041B95E83700C33F84 /* event.h in Headers */,
+				71F9CACB22D0B18900990CF5 /* slice.h in Headers */,
+				71F9CACA22D0B18900990CF5 /* redis.h in Headers */,
 				71D31A051B95E83700C33F84 /* network.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -378,6 +389,7 @@
 			developmentRegion = English;
 			hasScannedForEncodings = 0;
 			knownRegions = (
+				English,
 				en,
 			);
 			mainGroup = 7156ECA61B95E57C00F6D4F8;
@@ -411,6 +423,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				71D31A011B95E82600C33F84 /* timer.c in Sources */,
+				71F9CAC922D0B18900990CF5 /* redis.cpp in Sources */,
 				71D319F81B95E82600C33F84 /* kqueue.c in Sources */,
 				71D319F51B95E82600C33F84 /* event.c in Sources */,
 				71D31A071B95E86B00C33F84 /* Makefile in Sources */,
@@ -595,7 +608,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.7.2;
+				DYLIB_CURRENT_VERSION = 9.8.0;
 				EXECUTABLE_PREFIX = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -609,7 +622,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.7.2;
+				DYLIB_CURRENT_VERSION = 9.8.0;
 				EXECUTABLE_PREFIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

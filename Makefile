@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.7.2
+VERSION 	= 9.8.0
 PREFIX		= /usr/local
 
 # 主版本号
@@ -25,6 +25,7 @@ endif
 # USE_ATOMIC		- 使用原子操作
 # USE_REUSESESSION	- 重用会话(提高效率)
 #
+
 # 默认选项
 LFLAGS		= -ggdb -lpthread
 CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
@@ -133,6 +134,9 @@ chatroom_server: io.o chatroom_server.o $(OBJS)
 chatroom_client: io.o chatroom_client.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
+redis_client : io.o redis.o $(OBJS)
+	$(CXX) $^ -o $@ $(LFLAGS) -lhiredis
+
 clean :
 	rm -rf *.o
 	rm -rf *.log
@@ -146,7 +150,7 @@ clean :
 	rm -rf test_events event.fifo
 	rm -rf test_queue test_sidlist
 	rm -rf chatroom_client chatroom_server
-	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher
+	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher redis_client
 
 # --------------------------------------------------------
 #

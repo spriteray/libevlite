@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <unistd.h>
+#include <syslog.h>
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
@@ -32,6 +33,9 @@ static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t coun
 // 逻辑操作
 static ssize_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
+
+static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
+static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
@@ -193,7 +197,7 @@ int32_t _timeout( struct session * session )
         return session_shutdown( session );
     }
 
-    if ( session->type == eSessionType_Persist )
+    if ( session_is_persist( session ) )
     {
         // 尝试重连的永久会话
         session_start_reconnect( session );
@@ -209,6 +213,44 @@ int32_t _timeout( struct session * session )
     return 0;
 }
 
+void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
+{
+    struct connector * connector = (struct connector *)arg;
+
+    // 尝试重新连接
+    connector->fd = tcp_connect( connector->host, connector->port, iolayer_client_option );
+    if ( connector->fd < 0 )
+    {
+        syslog(LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, connector->host, connector->port);
+    }
+
+    // 检查连接状态
+    event_set( connector->event, connector->fd, EV_WRITE );
+    event_set_callback( connector->event, channel_on_connected, connector );
+    evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
+}
+
+void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
+{
+    struct associater * associater = (struct associater *)arg;
+
+    // 这种情况不会出现
+    assert( associater->reattach != NULL
+            && "Illegal specified Reattach-Function" );
+
+    // 尝试重新关联
+    associater->fd = associater->reattach( associater->fd, associater->privdata );
+    if ( associater->fd < 0 )
+    {
+        syslog(LOG_WARNING, "%s(fd:'%d', privdata:%p) failed, associater->reattach() failure .", __FUNCTION__, associater->fd, associater->privdata);
+    }
+
+    // 检查连接状态
+    event_set( associater->event, associater->fd, EV_WRITE );
+    event_set_callback( associater->event, channel_on_associated, associater );
+    evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
+}
+
 int32_t channel_error( struct session * session, int32_t result )
 {
     /* 出错
@@ -220,12 +262,13 @@ int32_t channel_error( struct session * session, int32_t result )
      */
     int32_t rc = 0;
     ioservice_t * service = &session->service;
+    int8_t ispersist = session_is_persist( session );
 
     rc = service->error( session->context, result );
 
-    if ( session->type == eSessionType_Once
-            || ( session->status&SESSION_EXITING )
-            || ( session->type == eSessionType_Persist && rc != 0 ) )
+    if ( ispersist == 0
+            || ( ispersist == 1 && rc != 0 )
+            || ( session->status&SESSION_EXITING ) )
     {
         // 临时会话
         // 等待终止的会话
@@ -465,11 +508,29 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     session->status &= ~SESSION_WRITING;
 
     // 连接远程服务器
-    session->fd = tcp_connect( session->host, session->port, iolayer_client_option );
+    if ( session->type == eSessionType_Connect )
+    {
+        session->fd = tcp_connect(
+                session->host, session->port, iolayer_client_option );
+    }
+    else if ( session->type == eSessionType_Associate )
+    {
+        // 这种情况不会出现
+        assert( session->reattach != NULL );
+        // 第三方会话重连
+        session->fd = session->reattach( session->fd, session->privdata );
+    }
+
     if ( session->fd < 0 )
     {
         channel_error( session, eIOError_ConnectFailure );
         return;
+    }
+
+    // 绑定的情况下需要设置非阻塞状态
+    if ( session->type == eSessionType_Associate )
+    {
+        set_non_block( session->fd );
     }
 
     // 注册写事件, 以重新激活会话
@@ -482,12 +543,13 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 {
-    int32_t rc = 0, result = 0;
+    int32_t ack = 0, result = 0;
     struct connector * connector = (struct connector *)arg;
 
     sid_t id = 0;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( connector->parent );
+    void * iocontext = iothreads_get_context( layer->threads, connector->index );
 
     if ( ev & EV_WRITE )
     {
@@ -519,36 +581,48 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     }
 
     // 把连接结果回调给逻辑层
-    rc = connector->cb( connector->context,
-            iothreads_get_context( layer->threads, connector->index ), result, connector->host, connector->port, id );
-
-    if ( rc == 0 )
+    ack = connector->cb(
+            connector->context, iocontext,
+            result, connector->host, connector->port, id );
+    if ( ack != 0 )
     {
-        if ( result != 0 )
-        {
-            // 逻辑层需要继续连接
-            iolayer_reconnect( layer, connector );
-        }
-        else
-        {
-            // 连接成功
-            set_non_block( connector->fd );
-            session_set_iolayer( session, layer );
-            session_set_endpoint( session, connector->host, connector->port );
-            session_start( session, eSessionType_Persist, connector->fd, connector->evsets );
-
-            connector->fd = -1;
-            iolayer_free_connector( layer, connector );
-        }
-    }
-    else
-    {
+        // 逻辑层确认需要关闭该会话
         if ( session )
         {
             session_manager_remove( session->manager, session );
             session_end( session, id, 0 );
         }
+
         iolayer_free_connector( layer, connector );
+    }
+    else
+    {
+        if ( result != 0 )
+        {
+            // 逻辑层需要继续连接
+            // 首先必须先关闭以前的描述符
+            if ( connector->fd > 0 )
+            {
+                close( connector->fd );
+                connector->fd = -1;
+            }
+
+            // 200毫秒后尝试重连, 避免进入重连死循环
+            event_set( connector->event, -1, 0 );
+            event_set_callback( connector->event, _reconnect_direct, connector );
+            evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
+        }
+        else
+        {
+            // 连接成功, 可以进行IO操作
+            set_non_block( connector->fd );
+            session_set_iolayer( session, layer );
+            session_set_endpoint( session, connector->host, connector->port );
+            session_start( session, eSessionType_Connect, connector->fd, connector->evsets );
+
+            connector->fd = -1;
+            iolayer_free_connector( layer, connector );
+        }
     }
 }
 
@@ -581,5 +655,90 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
     else
     {
         _timeout( session );
+    }
+}
+
+void channel_on_associated( int32_t fd, int16_t ev, void * arg )
+{
+    int32_t ack = 0, result = 0;
+    struct associater * associater = (struct associater *)arg;
+
+    sid_t id = 0;
+    struct session * session = NULL;
+    struct iolayer * layer = (struct iolayer *)( associater->parent );
+    void * iocontext = iothreads_get_context( layer->threads, associater->index );
+
+    if ( ev & EV_WRITE )
+    {
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
+        // linux需要进一步检查连接是否成功
+        if ( is_connected( fd ) != 0 )
+        {
+            result = eIOError_ConnectStatus;
+        }
+#endif
+    }
+    else
+    {
+        result = eIOError_Timeout;
+    }
+
+    if ( result == 0 )
+    {
+        // 连接成功的情况下, 创建会话
+        session = iolayer_alloc_session( layer, associater->fd, associater->index );
+        if ( session != NULL )
+        {
+            id = session->id;
+        }
+        else
+        {
+            result = eIOError_OutMemory;
+        }
+    }
+
+    // 把连接结果回调给逻辑层
+    ack = associater->cb(
+            associater->context, iocontext,
+            result, associater->fd, associater->privdata, id );
+    if ( ack != 0 )
+    {
+        // 逻辑层确认需要关闭该会话
+        if ( session )
+        {
+            session_manager_remove( session->manager, session );
+            session_end( session, id, 0 );
+        }
+
+        iolayer_free_associater( layer, associater );
+    }
+    else
+    {
+        if ( result != 0 )
+        {
+            // 逻辑层需要重新绑定
+            if ( unlikely( associater->reattach == NULL ) )
+            {
+                // 没有设置重新关联函数
+                iolayer_free_associater( layer, associater );
+            }
+            else
+            {
+                // 启动200ms的定时器尝试重新绑定(避免进入reattach死循环)
+                event_set( associater->event, -1, 0 );
+                event_set_callback( associater->event, _reassociate_direct, associater );
+                evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
+            }
+        }
+        else
+        {
+            // 关联成功, 该会话可以进行IO操作
+            set_non_block( associater->fd );
+            session_set_iolayer( session, layer );
+            session_set_reattach( session, associater->reattach, associater->privdata );
+            session_start( session, eSessionType_Associate, associater->fd, associater->evsets );
+
+            iolayer_free_associater( layer, associater );
+        }
     }
 }

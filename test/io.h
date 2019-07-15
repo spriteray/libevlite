@@ -57,6 +57,7 @@ public :
     // 设置超时/保活时间
     void setTimeout( int32_t seconds );
     void setKeepalive( int32_t seconds );
+    void setEndpoint( const std::string & host, uint16_t port );
 
     // 发送数据
     int32_t send( const std::string & buffer );
@@ -65,7 +66,7 @@ public :
     // 关闭会话
     int32_t shutdown();
 
-private :
+protected :
     friend class IIOService;
 
     // 初始化会话
@@ -84,11 +85,11 @@ private :
     static void     onShutdownSession( void * context, int32_t way );
 
 private :
-    sid_t       m_Sid;
-    uint16_t    m_Port;
-    std::string m_Host;
-    iolayer_t   m_Layer;
-    void *      m_IOContext;
+    sid_t           m_Sid;
+    uint16_t        m_Port;
+    std::string     m_Host;
+    iolayer_t       m_Layer;
+    void *          m_IOContext;
 };
 
 //
@@ -135,6 +136,9 @@ public :
     // 获取版本号
     static const char * version();
 
+    // 获取IOLAYER
+    iolayer_t iolayer() const { return m_IOLayer; }
+
     // 监听
     bool listen( const char * host, uint16_t port );
 
@@ -145,14 +149,28 @@ public :
     // 参数:
     //      host    - 主机地址
     //      port    - 主机端口
-    //      seconds - 超时时间
-    //      isblock - 是否阻塞的连接
+    //      seconds - 超时时间, <=0 非阻塞的连接; >0 带超时时间的阻塞连接
     //
     // 返回值:
     //      -1      - 连接失败
     //      0       - 正在连接
     //      >0      - 连接成功返回会话ID
-    sid_t connect( const char * host, uint16_t port, int32_t seconds, bool isblock = false );
+    sid_t connect( const char * host, uint16_t port, int32_t seconds = 0 );
+
+    // 关联描述符
+    // 参数:
+    //      fd      - 关联的描述符
+    //      privdata- 关联的私有数据
+    //      reattach- 重新绑定新的描述符(相当于重连)
+    //      cb      - 关联成功后的回调函数
+    //      context - 上下文参数
+    //
+    // 返回值:
+    //      -1      - 关联失败
+    //      0       - 正在连接
+    int32_t associate( int32_t fd, void * privdata,
+            int32_t (*reattach)(int32_t, void *),
+            int32_t (*cb)(void *, void *, int32_t, int32_t, void *, sid_t), void * context );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
@@ -217,18 +235,18 @@ private :
     typedef std::vector<ConnectContext *> ConnectContexts;
 
 private :
+    // 初始化会话
+    // 在定制化非常强的场景下使用
+    void initSession( sid_t id,
+            IIOSession * session, void * iocontext,
+            const std::string & host, uint16_t port );
+
     // 通知连接结果
     void notifyConnectResult(
             ConnectContext * context,
             int32_t result, sid_t id, int32_t ack );
 
-    // 会话ID和会话的绑定
-    void attach( sid_t id,
-            IIOSession * session, void * iocontext,
-            const std::string & host, uint16_t port );
-
     static char * onTransformService( void * context, const char * buffer, size_t * nbytes );
-
     static int32_t onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port );
     static int32_t onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id );
 

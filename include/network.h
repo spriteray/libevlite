@@ -46,24 +46,21 @@ typedef void *      iolayer_t;
 
 //
 // IO服务
-//        start()       - 会话开始的回调
+//        start()       - 网络就绪的回调
 //        process()     - 收到数据包的回调
 //                        返回值为处理掉的数据包, <0: 处理出错
 //        transform()   - 发送数据包前的回调
 //                        返回需要发送的数据包
 //                        如果改造了数据包，请务必确保1.禁止原地改造; 2.数据包是必须是malloc()分配出来的
 //        keepalive()   - 保活定时器超时的回调
-//
 //        timeout()     - 超时的回调
 //        error()       - 出错的回调
 //                        对于accept()出来的客户端, 直接回调shutdown();
 //                        对于connect()出去的客户端, ==0, 尝试重连, !=0, 直接回调shutdown() .
-//
 //        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
 //                        way - 0, 逻辑层主动终止会话的情况,
 //                                 也就是直接调用iolayer_shutdown()或者iolayer_shutdowns();
 //                              1, 逻辑层被动终止会话的情况.
-//
 //        perform()     - 处理其他模块提交到网络层的任务
 //                        type - 任务类型
 //                        task - 任务数据
@@ -86,14 +83,14 @@ typedef struct
 //        immediately   - 是否立刻提交网络层, 0:否; 1:是(用于对网络实时性比较高的场景)
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime );
 
-// 网络层设置线程上下文参数(在listen()和connect()之前调用)
+// 网络层设置线程上下文参数(在listen(), connect(), associate()之前调用)
 //        self          -
 //        contexts      - 上下文参数数组, 每个网络线程设置上下文参数
 //        count         - 数组长度
 //                        确保长度和网络线程个数相等, 毕竟多个网络线程是对等的
 int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count );
 
-// 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法(在listen()和connect()之前调用)
+// 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法(在listen(), connect(), associate()之前调用)
 //        self          -
 //        transform     - 数据包改造方法(不建议原地改造)
 //                            参数1: 上下文参数
@@ -119,7 +116,6 @@ int32_t iolayer_listen( iolayer_t self,
 // 客户端开启
 //        host          - 远程服务器的地址
 //        port          - 远程服务器的端口
-//        seconds       - 连接超时时间
 //        cb            - 连接结果的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
@@ -129,23 +125,32 @@ int32_t iolayer_listen( iolayer_t self,
 //                            参数6: 连接成功后返回的会话ID
 //        context       - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
-        const char * host, uint16_t port, int32_t seconds,
+        const char * host, uint16_t port,
         int32_t (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t), void * context );
 
 // 描述符关联会话ID
 //      fd              - 描述符
+//      privdata        - 描述符相关的私有数据
+//      reattach        - 重新关联函数，返回新的描述符
+//                            参数1: 上次关联的描述符
+//                            参数2: 描述符相关的私有数据
 //      cb              - 关联成功后的回调
 //                            参数1: 上下文参数
 //                            参数2: 网络线程上下文参数
+//                            参数3: 关联结果
 //                            参数3: 描述符
-//                            参数4: 关联的会话ID
+//                            参数4: 描述符相关私有数据
+//                            参数5: 会话ID
 //      context         - 上下文参数
-int32_t iolayer_associate( iolayer_t self, int32_t fd,
-        int32_t (*cb)(void *, void *, int32_t, sid_t), void * context );
+int32_t iolayer_associate( iolayer_t self,
+        int32_t fd, void * privdata,
+        int32_t (*reattach)(int32_t, void *),
+        int32_t (*cb)(void *, void *, int32_t, int32_t, void *, sid_t), void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
+int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint16_t port );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 
 // 发送数据到会话
