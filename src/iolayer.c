@@ -124,15 +124,8 @@ void iolayer_destroy( iolayer_t self )
 //      host        - 绑定的地址
 //      port        - 监听的端口号
 //      cb          - 新会话创建成功后的回调,会被多个网络线程调用
-//                          参数1: 上下文参数;
-//                          参数2: 网络线程本地数据(线程安全)
-//                          参数3: 新会话ID;
-//                          参数4: 会话的IP地址;
-//                          参数5: 会话的端口号
 //      context     - 上下文参数
-int32_t iolayer_listen( iolayer_t self,
-        const char * host, uint16_t port,
-        int32_t (*cb)( void *, void *, sid_t, const char * , uint16_t ), void * context )
+int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, acceptor_t cb, void * context )
 {
     uint8_t i = 0, nthreads = 1;
     struct iolayer * layer = (struct iolayer *)self;
@@ -204,16 +197,8 @@ int32_t iolayer_listen( iolayer_t self,
 //      host        - 远程服务器的地址
 //      port        - 远程服务器的端口
 //      cb          - 连接结果的回调
-//                          参数1: 上下文参数
-//                          参数2: 网络线程本地数据(线程安全)
-//                          参数3: 连接结果
-//                          参数4: 连接的远程服务器的地址
-//                          参数5: 连接的远程服务器的端口
-//                          参数6: 连接成功后返回的会话ID
 //      context     - 上下文参数
-int32_t iolayer_connect( iolayer_t self,
-        const char * host, uint16_t port,
-        int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context )
+int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, connector_t cb, void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -260,19 +245,9 @@ int32_t iolayer_connect( iolayer_t self,
 //      fd              - 描述符
 //      privdata        - 描述符相关的私有数据
 //      reattach        - 重新关联函数，返回新的描述符
-//                            参数1: 上次关联的描述符
-//                            参数2: 描述符相关的私有数据
 //      cb              - 关联成功后的回调
-//                            参数1: 上下文参数
-//                            参数2: 网络线程上下文参数
-//                            参数3: 关联结果
-//                            参数3: 描述符
-//                            参数4: 关联的会话ID
 //      context         - 上下文参数
-int32_t iolayer_associate( iolayer_t self,
-        int32_t fd, void * privdata,
-        int32_t (*reattach)(int32_t, void *),
-        int32_t (*cb)(void *, void *, int32_t, int32_t, void *,sid_t), void * context )
+int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattacher_t reattach, associator_t cb, void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -327,8 +302,7 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
     return 0;
 }
 
-int32_t iolayer_set_transform( iolayer_t self,
-        char * (*transform)(void *, const char *, size_t *), void * context )
+int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -575,7 +549,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
     return 0;
 }
 
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, void (*recycle)(int32_t, void *) )
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle )
 {
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
@@ -597,7 +571,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, vo
     return iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
 }
 
-int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
+int32_t iolayer_perform2( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t perform )
 {
     uint8_t i = 0;
 
