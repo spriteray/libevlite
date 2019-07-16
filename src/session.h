@@ -75,7 +75,7 @@ struct session
 
     // 关联的第三方会话
     void *                  privdata;       // 私有数据
-    int32_t                 (*reattach)(int32_t, void *);
+    reattacher_t            reattach;       //
 
     // 接收缓冲区
     struct buffer           inbuffer;
@@ -101,7 +101,7 @@ int8_t session_is_persist( struct session * self );
 void session_set_iolayer( struct session * self, void * iolayer );
 void session_set_endpoint( struct session * self, const char * host, uint16_t port );
 // 设置第三方的重连函数
-void session_set_reattach( struct session * self, int32_t (*reattach)( int32_t, void * ), void * data );
+void session_set_reattach( struct session * self, reattacher_t reattach, void * data );
 
 // 发送队列的长度
 #define session_sendqueue_count( self )         QUEUE_COUNT(sendqueue)( &((self)->sendqueue) )

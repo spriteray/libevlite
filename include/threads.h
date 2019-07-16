@@ -42,6 +42,7 @@ extern "C"
 
 // 网络线程组
 typedef void * iothreads_t;
+typedef void (*processor_t)( void *, uint8_t, int16_t, void * );
 
 // 创建网络线程组
 // nthreads         - 网络线程组中的线程数
@@ -49,8 +50,7 @@ typedef void * iothreads_t;
 iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately );
 
 // 设置处理器
-void iothreads_set_processor( iothreads_t self,
-        void (*processor)(void *, uint8_t, int16_t, void *), void * context );
+void iothreads_set_processor( iothreads_t self, processor_t processor, void * context );
 
 // 获取网络线程组中指定线程的ID
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index );

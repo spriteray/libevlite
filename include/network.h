@@ -44,11 +44,61 @@ extern "C"
 typedef uint64_t    sid_t;
 typedef void *      iolayer_t;
 
-//
+// 任务克隆函数
+//      参数1: 任务本身
+typedef void * (*taskcloner_t)( void * );
+
+// 任务处理函数
+//      参数1: iocontext
+//      参数2: 任务
+typedef void (*taskexecutor_t)( void *, void * );
+
+// 任务回收函数
+//      参数1: 类型
+//      参数2: 任务
+typedef void (*taskrecycler_t)( int32_t, void * );
+
+//  重新关联函数，返回新的描述符
+//      参数1: 上次关联的描述符
+//      参数2: 描述符相关的私有数据
+typedef int32_t (*reattacher_t)( int32_t, void * );
+
+// 数据改造方法(不建议原地改造)
+//      参数1: 上下文参数
+//      参数2: 欲发送或者广播的消息内容
+//      参数3: 指向消息长度的指针, 返回改造后的数据包长度
+typedef char * (*transformer_t)( void *, const char * , size_t * );
+
+// 新会话创建成功后的回调
+//      参数1: 上下文参数;
+//      参数2: 网络线程上下文参数
+//      参数3: 新会话ID;
+//      参数4: 会话的IP地址;
+//      参数5: 会话的端口号
+typedef int32_t (*acceptor_t)( void *, void *, sid_t, const char * , uint16_t );
+
+//  连接结果的回调
+//      参数1: 上下文参数
+//      参数2: 网络线程上下文参数
+//      参数3: 连接结果
+//      参数4: 连接的远程服务器的地址
+//      参数5: 连接的远程服务器的端口
+//      参数6: 连接成功后返回的会话ID
+typedef int32_t (*connector_t)( void *, void *, int32_t, const char *, uint16_t, sid_t );
+
+//  关联成功后的回调
+//      参数1: 上下文参数
+//      参数2: 网络线程上下文参数
+//      参数3: 关联结果
+//      参数3: 描述符
+//      参数4: 描述符相关私有数据
+//      参数5: 会话ID
+typedef int32_t (*associator_t)( void *, void *, int32_t, int32_t, void *, sid_t );
+
 // IO服务
 //        start()       - 网络就绪的回调
 //        process()     - 收到数据包的回调
-//                        返回值为处理掉的数据包, <0: 处理出错
+//                        返回值为处理掉的数据包, <0: 出错,关闭连接
 //        transform()   - 发送数据包前的回调
 //                        返回需要发送的数据包
 //                        如果改造了数据包，请务必确保1.禁止原地改造; 2.数据包是必须是malloc()分配出来的
@@ -64,7 +114,6 @@ typedef void *      iolayer_t;
 //        perform()     - 处理其他模块提交到网络层的任务
 //                        type - 任务类型
 //                        task - 任务数据
-//
 typedef struct
 {
     int32_t (*start)( void * context );
@@ -81,7 +130,7 @@ typedef struct
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
 //        immediately   - 是否立刻提交网络层, 0:否; 1:是(用于对网络实时性比较高的场景)
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t realtime );
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediately );
 
 // 网络层设置线程上下文参数(在listen(), connect(), associate()之前调用)
 //        self          -
@@ -93,59 +142,32 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 // 网络层设置数据包改造方法, 该网络层的统一的数据包改造方法(在listen(), connect(), associate()之前调用)
 //        self          -
 //        transform     - 数据包改造方法(不建议原地改造)
-//                            参数1: 上下文参数
-//                            参数2: 欲发送或者广播的消息内容
-//                            参数3: 指向消息长度的指针, 返回改造后的数据包长度
-int32_t iolayer_set_transform( iolayer_t self,
-        char * (*transform)(void *, const char *, size_t *), void * context );
+int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * context );
 
 // 服务器开启
 //        host          - 绑定的地址
 //        port          - 监听的端口号
-//        cb            - 新会话创建成功后的回调,会被多个网络线程调用
-//                            参数1: 上下文参数;
-//                            参数2: 网络线程上下文参数
-//                            参数3: 新会话ID;
-//                            参数4: 会话的IP地址;
-//                            参数5: 会话的端口号
+//        callback      - 新会话创建成功后的回调,会被多个网络线程调用
 //        context       - 上下文参数
 int32_t iolayer_listen( iolayer_t self,
-        const char * host, uint16_t port,
-        int32_t (*cb)(void *, void *, sid_t, const char * , uint16_t), void * context );
+        const char * host, uint16_t port, acceptor_t callback, void * context );
 
 // 客户端开启
 //        host          - 远程服务器的地址
 //        port          - 远程服务器的端口
-//        cb            - 连接结果的回调
-//                            参数1: 上下文参数
-//                            参数2: 网络线程上下文参数
-//                            参数3: 连接结果
-//                            参数4: 连接的远程服务器的地址
-//                            参数5: 连接的远程服务器的端口
-//                            参数6: 连接成功后返回的会话ID
+//        callback      - 连接结果的回调
 //        context       - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
-        const char * host, uint16_t port,
-        int32_t (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t), void * context );
+        const char * host, uint16_t port, connector_t callback, void * context );
 
 // 描述符关联会话ID
 //      fd              - 描述符
 //      privdata        - 描述符相关的私有数据
 //      reattach        - 重新关联函数，返回新的描述符
-//                            参数1: 上次关联的描述符
-//                            参数2: 描述符相关的私有数据
-//      cb              - 关联成功后的回调
-//                            参数1: 上下文参数
-//                            参数2: 网络线程上下文参数
-//                            参数3: 关联结果
-//                            参数3: 描述符
-//                            参数4: 描述符相关私有数据
-//                            参数5: 会话ID
+//      callback        - 关联成功后的回调
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
-        int32_t fd, void * privdata,
-        int32_t (*reattach)(int32_t, void *),
-        int32_t (*cb)(void *, void *, int32_t, int32_t, void *, sid_t), void * context );
+        int32_t fd, void * privdata, reattacher_t reattach, associator_t callback, void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
@@ -176,8 +198,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 //      type            - 任务类型
 //      task            - 任务数据
 //      recycle         - 任务回收函数
-int32_t iolayer_perform( iolayer_t self, sid_t id,
-        int32_t type, void * task, void (*recycle)( int32_t, void * ) );
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
 
 // 提交任务到网络层(广播所有网络线程)
 //      task            - 任务
@@ -185,8 +206,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id,
 //      perform         - 任务处理函数
 //                          参数1: iocontext
 //                          参数2: task
-int32_t iolayer_perform2( iolayer_t self, void * task,
-        void * (*clone)( void * ), void (*perform)( void * , void * ) );
+int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t perform );
 
 // 停止网络服务
 // 行为定义:

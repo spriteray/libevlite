@@ -169,8 +169,7 @@ public :
     //      -1      - 关联失败
     //      0       - 正在连接
     int32_t associate( int32_t fd, void * privdata,
-            int32_t (*reattach)(int32_t, void *),
-            int32_t (*cb)(void *, void *, int32_t, int32_t, void *, sid_t), void * context );
+            reattacher_t reattach, associator_t cb, void * context );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
@@ -188,8 +187,8 @@ public :
 
     // 提交任务到网络层
     int32_t perform( sid_t sid,
-            int32_t type, void * task, void (*recycle)(int32_t, void *) );
-    int32_t perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) );
+            int32_t type, void * task, taskrecycler_t recycle );
+    int32_t perform( void * task, taskcloner_t clone, taskexecutor_t perform );
 
 private :
     // 监听上下文

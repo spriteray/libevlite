@@ -55,7 +55,7 @@ iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately )
     return iothreads;
 }
 
-void iothreads_set_processor( iothreads_t self, void (*processor)( void *, uint8_t, int16_t, void * ), void * context )
+void iothreads_set_processor( iothreads_t self, processor_t processor, void * context )
 {
     struct iothreads * iothreads = (struct iothreads *)(self);
 

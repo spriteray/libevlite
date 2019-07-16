@@ -33,7 +33,7 @@ static ssize_t _send_direct( struct iolayer * self, struct session_manager * man
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _broadcast2_direct( struct iolayer * self, struct session_manager * manager, struct message * msg );
 static int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task );
-static void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task );
+static void _performs_direct( struct iolayer * self, uint8_t index, struct task_performs * task );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 
@@ -123,23 +123,16 @@ void iolayer_destroy( iolayer_t self )
 // 服务器开启
 //      host        - 绑定的地址
 //      port        - 监听的端口号
-//      cb          - 新会话创建成功后的回调,会被多个网络线程调用
-//                          参数1: 上下文参数;
-//                          参数2: 网络线程本地数据(线程安全)
-//                          参数3: 新会话ID;
-//                          参数4: 会话的IP地址;
-//                          参数5: 会话的端口号
+//      callback    - 新会话创建成功后的回调,会被多个网络线程调用
 //      context     - 上下文参数
-int32_t iolayer_listen( iolayer_t self,
-        const char * host, uint16_t port,
-        int32_t (*cb)( void *, void *, sid_t, const char * , uint16_t ), void * context )
+int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, acceptor_t callback, void * context )
 {
     uint8_t i = 0, nthreads = 1;
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
-    assert( cb != NULL && "Illegal specified Callback-Function" );
+    assert( callback != NULL && "Illegal specified Callback-Function" );
 
 #ifdef EVENT_HAVE_REUSEPORT
     nthreads = layer->nthreads;
@@ -179,11 +172,11 @@ int32_t iolayer_listen( iolayer_t self,
             return -3;
         }
 
-        acceptor->cb        = cb;
-        acceptor->context   = context;
         acceptor->parent    = layer;
         acceptor->port      = port;
         acceptor->host[0]   = 0;
+        acceptor->context   = context;
+        acceptor->cb        = callback;
 #ifdef EVENT_HAVE_REUSEPORT
         acceptor->index     = i;
 #else
@@ -203,23 +196,15 @@ int32_t iolayer_listen( iolayer_t self,
 // 客户端开启
 //      host        - 远程服务器的地址
 //      port        - 远程服务器的端口
-//      cb          - 连接结果的回调
-//                          参数1: 上下文参数
-//                          参数2: 网络线程本地数据(线程安全)
-//                          参数3: 连接结果
-//                          参数4: 连接的远程服务器的地址
-//                          参数5: 连接的远程服务器的端口
-//                          参数6: 连接成功后返回的会话ID
+//      callback    - 连接结果的回调
 //      context     - 上下文参数
-int32_t iolayer_connect( iolayer_t self,
-        const char * host, uint16_t port,
-        int32_t (*cb)( void *, void *, int32_t, const char *, uint16_t , sid_t), void * context )
+int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, connector_t callback, void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
     assert( self != NULL && "Illegal IOLayer" );
     assert( host != NULL && "Illegal specified Host" );
-    assert( cb != NULL && "Illegal specified Callback-Function" );
+    assert( callback != NULL && "Illegal specified Callback-Function" );
 
     struct connector * connector = (struct connector *)calloc( 1, sizeof(struct connector) );
     if ( connector == NULL )
@@ -244,10 +229,10 @@ int32_t iolayer_connect( iolayer_t self,
         return -3;
     }
 
-    connector->cb       = cb;
-    connector->context  = context;
     connector->parent   = layer;
     connector->port     = port;
+    connector->context  = context;
+    connector->cb       = callback;
     connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
     strncpy( connector->host, host, INET_ADDRSTRLEN );
 
@@ -260,25 +245,15 @@ int32_t iolayer_connect( iolayer_t self,
 //      fd              - 描述符
 //      privdata        - 描述符相关的私有数据
 //      reattach        - 重新关联函数，返回新的描述符
-//                            参数1: 上次关联的描述符
-//                            参数2: 描述符相关的私有数据
-//      cb              - 关联成功后的回调
-//                            参数1: 上下文参数
-//                            参数2: 网络线程上下文参数
-//                            参数3: 关联结果
-//                            参数3: 描述符
-//                            参数4: 关联的会话ID
+//      callback        - 关联成功后的回调
 //      context         - 上下文参数
-int32_t iolayer_associate( iolayer_t self,
-        int32_t fd, void * privdata,
-        int32_t (*reattach)(int32_t, void *),
-        int32_t (*cb)(void *, void *, int32_t, int32_t, void *,sid_t), void * context )
+int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattacher_t reattach, associator_t callback, void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
     assert( self != NULL && "Illegal IOLayer" );
     //assert( fd > 2 && "Illegal Descriptor" );
-    assert( cb != NULL && "Illegal specified Callback-Function" );
+    assert( callback != NULL && "Illegal specified Callback-Function" );
     //assert( reattach != NULL && "Illegal specified Reattach-Function" );
 
     struct associater * associater = (struct associater *)calloc( 1, sizeof(struct associater) );
@@ -297,7 +272,7 @@ int32_t iolayer_associate( iolayer_t self,
     }
 
     associater->fd          = fd;
-    associater->cb          = cb;
+    associater->cb          = callback;
     associater->reattach    = reattach;
     associater->context     = context;
     associater->parent      = layer;
@@ -327,8 +302,7 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
     return 0;
 }
 
-int32_t iolayer_set_transform( iolayer_t self,
-        char * (*transform)(void *, const char *, size_t *), void * context )
+int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -575,7 +549,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
     return 0;
 }
 
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, void (*recycle)(int32_t, void *) )
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle )
 {
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
@@ -597,12 +571,12 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, vo
     return iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
 }
 
-int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
+int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t perform )
 {
     uint8_t i = 0;
 
     pthread_t threadid = pthread_self();
-    struct task_perform2 tasklist[ 256 ];   // 栈中分配更快
+    struct task_performs tasklist[ 256 ];   // 栈中分配更快
     struct iolayer * layer = (struct iolayer *)self;
 
     // clone task
@@ -618,12 +592,12 @@ int32_t iolayer_perform2( iolayer_t self, void * task, void * (*clone)( void * )
         if ( threadid == iothreads_get_id( layer->threads, i ) )
         {
             // 本线程内直接广播
-            _perform2_direct( layer, i, &(tasklist[i]) );
+            _performs_direct( layer, i, &(tasklist[i]) );
         }
         else
         {
             // 跨线程提交广播任务
-            iothreads_post( layer->threads, i, eIOTaskType_Perform2, &(tasklist[i]), sizeof(struct task_perform2) );
+            iothreads_post( layer->threads, i, eIOTaskType_Performs, &(tasklist[i]), sizeof(struct task_performs) );
         }
     }
 
@@ -1161,7 +1135,7 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
     return rc;
 }
 
-void _perform2_direct( struct iolayer * self, uint8_t index, struct task_perform2 * task )
+void _performs_direct( struct iolayer * self, uint8_t index, struct task_performs * task )
 {
     task->perform( iothreads_get_context( self->threads, index ), task->task );
 }
@@ -1273,8 +1247,8 @@ void _concrete_processor( void * context, uint8_t index, int16_t type, void * ta
             break;
 
             // 逻辑任务
-        case eIOTaskType_Perform2 :
-            _perform2_direct( layer, index, (struct task_perform2 *)task );
+        case eIOTaskType_Performs :
+            _performs_direct( layer, index, (struct task_performs *)task );
             break;
     }
 }

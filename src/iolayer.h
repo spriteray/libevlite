@@ -19,80 +19,80 @@ enum
 struct iolayer
 {
     // 网络层状态
-    uint8_t     status;
+    uint8_t             status;
     // 基础配置
-    uint8_t     nthreads;
-    uint32_t    nclients;
-    uint32_t    roundrobin;         // 轮询负载均衡
+    uint8_t             nthreads;
+    uint32_t            nclients;
+    uint32_t            roundrobin;         // 轮询负载均衡
 
     // 网络线程组
-    iothreads_t threads;
+    iothreads_t         threads;
     // 会话管理器
-    void **     managers;
+    void **             managers;
 
     // 数据改造接口
-    void *      context;
-    char *      (*transform)( void *, const char *, size_t * );
+    void *              context;
+    transformer_t       transform;
 };
 
 // 接收器
 struct acceptor
 {
-    int32_t     fd;
-    uint8_t     index;
+    int32_t             fd;
+    uint8_t             index;
 
     // 接收事件
-    event_t     event;
+    event_t             event;
 
     // 绑定的地址以及监听的端口号
-    char        host[INET_ADDRSTRLEN];
-    uint16_t    port;
+    char                host[INET_ADDRSTRLEN];
+    uint16_t            port;
 
     // 逻辑
-    void *      context;
-    int32_t     (*cb)(void *, void *, sid_t, const char *, uint16_t);
+    acceptor_t          cb;
+    void *              context;
 
     // 通信层句柄
-    struct iolayer * parent;
+    struct iolayer *    parent;
 };
 
 // 连接器
 struct connector
 {
-    int32_t     fd;
-    uint8_t     index;
+    int32_t             fd;
+    uint8_t             index;
 
     // 连接事件
-    event_t     event;
-    evsets_t    evsets;
+    event_t             event;
+    evsets_t            evsets;
 
     // 连接服务器的地址和端口号
-    char        host[INET_ADDRSTRLEN];
-    uint16_t    port;
+    char                host[INET_ADDRSTRLEN];
+    uint16_t            port;
 
     // 逻辑
-    void *      context;
-    int32_t     (*cb)(void *, void *, int32_t, const char *, uint16_t, sid_t);
+    connector_t         cb;
+    void *              context;
 
     // 通信层句柄
-    struct iolayer * parent;
+    struct iolayer *    parent;
 };
 
 // 关联器
 struct associater
 {
-    int32_t     fd;
-    uint8_t     index;
-    void *      privdata;
+    int32_t             fd;
+    uint8_t             index;
+    void *              privdata;
 
     // 连接事件
-    event_t     event;
-    evsets_t    evsets;
+    event_t             event;
+    evsets_t            evsets;
 
     // 逻辑
-    void *      context;
-    int32_t     (*reattach)( int32_t, void * );
-    int32_t     (*cb)( void *, void *, int32_t, int32_t, void *, sid_t );
+    void *              context;
+    reattacher_t        reattach;
+    associator_t        cb;
 
     // 通信句柄
     struct iolayer *    parent;
@@ -105,36 +105,36 @@ struct associater
 // NOTICE: task_assign长度已经达到48bytes
 struct task_assign
 {
-    int32_t     fd;                             // 4bytes
+    int32_t             fd;
 
-    uint16_t    port;                           // 2bytes
-    char        host[INET_ADDRSTRLEN];          // 16bytes + 2bytes
+    uint16_t            port;
+    char                host[INET_ADDRSTRLEN];
 
-    void *      context;                        // 8bytes
-    int32_t     (*cb)(void *, void *, sid_t, const char *, uint16_t);    // 8bytes
+    acceptor_t          cb;
+    void *              context;
 };
 
 struct task_send
 {
-    sid_t       id;             // 8bytes
-    char *      buf;            // 8bytes
-    size_t      nbytes;         // 8bytes
-    int32_t     isfree;         // 4bytes
+    sid_t               id;             // 8bytes
+    char *              buf;            // 8bytes
+    size_t              nbytes;         // 8bytes
+    int32_t             isfree;         // 4bytes
 };
 
 struct task_perform
 {
-    sid_t       id;
-    int32_t     type;
-    void *      task;
-    void        (*recycle)( int32_t, void * );
+    sid_t               id;
+    int32_t             type;
+    void *              task;
+    taskrecycler_t      recycle;
 };
 
-struct task_perform2
+struct task_performs
 {
-    void *      task;
-    void *      (*clone)( void * );
-    void        (*perform)( void *, void * );
+    void *              task;
+    taskcloner_t        clone;
+    taskexecutor_t      perform;
 };
 
 // 看样子内存对齐不需要使用了

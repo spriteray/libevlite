@@ -288,9 +288,7 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
     return connectedsid;
 }
 
-int32_t IIOService::associate( int32_t fd, void * privdata,
-        int32_t (*reattach)(int32_t, void *),
-        int32_t (*cb)(void *, void *, int32_t, int32_t, void *, sid_t), void * context )
+int32_t IIOService::associate( int32_t fd, void * privdata, reattacher_t reattach, associator_t cb, void * context )
 {
     return iolayer_associate( m_IOLayer, fd, privdata, reattach, cb, context );
 }
@@ -344,7 +342,7 @@ int32_t IIOService::broadcast( const sids_t & ids, const char * buffer, size_t n
     return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buffer, nbytes );
 }
 
-int32_t IIOService::perform( sid_t sid, int32_t type, void * task, void (*recycle)(int32_t, void *) )
+int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle )
 {
     int32_t rc = iolayer_perform(
             m_IOLayer, sid, type, task, recycle );
@@ -357,9 +355,9 @@ int32_t IIOService::perform( sid_t sid, int32_t type, void * task, void (*recycl
     return rc;
 }
 
-int32_t IIOService::perform( void * task, void * (*clone)( void * ), void (*perform)( void *, void * ) )
+int32_t IIOService::perform( void * task, taskcloner_t clone, taskexecutor_t perform )
 {
-    return iolayer_perform2( m_IOLayer, task, clone, perform );
+    return iolayer_performs( m_IOLayer, task, clone, perform );
 }
 
 int32_t IIOService::shutdown( sid_t id )

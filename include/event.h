@@ -53,6 +53,7 @@ extern "C"
 
 typedef void * event_t;
 typedef void * evsets_t;
+typedef void (*eventcb_t)( int32_t, int16_t, void * );
 
 //
 // 事件的方法
@@ -70,7 +71,7 @@ void event_set( event_t self, int32_t fd, int16_t ev );
 //      self    -
 //      cb      - 回调函数
 //      arg     - 回调函数的参数
-void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), void * arg );
+void event_set_callback( event_t self, eventcb_t cb, void * arg );
 
 // 获取事件关注的描述符FD
 int32_t event_get_fd( event_t self );
