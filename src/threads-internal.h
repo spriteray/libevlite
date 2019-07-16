@@ -44,7 +44,7 @@ struct iothreads
 
     // 任务处理器
     void * context;
-    void (*processor)( void *, uint8_t, int16_t, void * );
+    processor_t processor;
 
     uint8_t nthreads;
     uint8_t runflags;

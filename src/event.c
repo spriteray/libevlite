@@ -157,7 +157,7 @@ void event_set( event_t self, int32_t fd, int16_t ev )
     e->events = ev;
 }
 
-void event_set_callback( event_t self, void (*cb)(int32_t, int16_t, void *), void * arg )
+void event_set_callback( event_t self, eventcb_t cb, void * arg )
 {
     struct event * e = (struct event *)self;
 

@@ -19,20 +19,20 @@ enum
 struct iolayer
 {
     // 网络层状态
-    uint8_t     status;
+    uint8_t             status;
     // 基础配置
-    uint8_t     nthreads;
-    uint32_t    nclients;
-    uint32_t    roundrobin;         // 轮询负载均衡
+    uint8_t             nthreads;
+    uint32_t            nclients;
+    uint32_t            roundrobin;         // 轮询负载均衡
 
     // 网络线程组
-    iothreads_t threads;
+    iothreads_t         threads;
     // 会话管理器
-    void **     managers;
+    void **             managers;
 
     // 数据改造接口
-    void *      context;
-    char *      (*transform)( void *, const char *, size_t * );
+    void *              context;
+    transformer_t       transform;
 };
 
 // 接收器

@@ -54,7 +54,7 @@ struct event
 
     // cb 一定要合法
     void * arg;
-    void (*cb)( int32_t, int16_t, void * );
+    eventcb_t cb;
 
     void * evsets;
 
