@@ -130,7 +130,7 @@ struct task_perform
     taskrecycler_t      recycle;
 };
 
-struct task_perform2
+struct task_performs
 {
     void *              task;
     taskcloner_t        clone;

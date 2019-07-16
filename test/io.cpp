@@ -357,7 +357,7 @@ int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_
 
 int32_t IIOService::perform( void * task, taskcloner_t clone, taskexecutor_t perform )
 {
-    return iolayer_perform2( m_IOLayer, task, clone, perform );
+    return iolayer_performs( m_IOLayer, task, clone, perform );
 }
 
 int32_t IIOService::shutdown( sid_t id )
