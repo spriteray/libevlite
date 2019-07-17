@@ -571,7 +571,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
     return iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
 }
 
-int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t perform )
+int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute )
 {
     uint8_t i = 0;
 
@@ -583,7 +583,7 @@ int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taske
     for ( i = 0; i < layer->nthreads; ++i )
     {
         tasklist[i].clone = clone;
-        tasklist[i].perform = perform;
+        tasklist[i].perform = execute;
         tasklist[i].task = i == 0 ? task : clone( task );
     }
 
