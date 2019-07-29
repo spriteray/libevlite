@@ -45,7 +45,7 @@ struct acceptor
     event_t             event;
 
     // 绑定的地址以及监听的端口号
-    char                host[INET_ADDRSTRLEN];
+    char *              host;
     uint16_t            port;
 
     // 逻辑
@@ -67,7 +67,7 @@ struct connector
     evsets_t            evsets;
 
     // 连接服务器的地址和端口号
-    char                host[INET_ADDRSTRLEN];
+    char *              host;
     uint16_t            port;
 
     // 逻辑
@@ -108,7 +108,7 @@ struct task_assign
     int32_t             fd;
 
     uint16_t            port;
-    char                host[INET_ADDRSTRLEN];
+    char                host[INET6_ADDRSTRLEN];
 
     acceptor_t          cb;
     void *              context;

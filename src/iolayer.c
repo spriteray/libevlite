@@ -174,7 +174,6 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
 
         acceptor->parent    = layer;
         acceptor->port      = port;
-        acceptor->host[0]   = 0;
         acceptor->context   = context;
         acceptor->cb        = callback;
 #ifdef EVENT_HAVE_REUSEPORT
@@ -184,7 +183,7 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
 #endif
         if ( host != NULL )
         {
-            strncpy( acceptor->host, host, INET_ADDRSTRLEN );
+            acceptor->host = strdup( host );
         }
 
         iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
@@ -234,7 +233,7 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
     connector->context  = context;
     connector->cb       = callback;
     connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
-    strncpy( connector->host, host, INET_ADDRSTRLEN );
+    connector->host     = strdup( host );
 
     iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
 
@@ -750,6 +749,12 @@ void iolayer_free_connector( struct iolayer * self, struct connector * connector
         evsets_del( connector->evsets, connector->event );
         event_destroy( connector->event );
         connector->event = NULL;
+    }
+
+    if ( connector->host != NULL )
+    {
+        free( connector->host );
+        connector->host = NULL;
     }
 
     if ( connector->fd > 0 )

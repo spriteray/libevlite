@@ -67,6 +67,11 @@ int32_t _reset_session( struct session * self )
     self->status    = 0;
     self->msgoffset = 0;
 
+    if ( self->host != NULL )
+    {
+        free( self->host );
+        self->host = NULL;
+    }
     // 销毁网络事件
     if ( self->evread )
     {
@@ -96,6 +101,13 @@ int32_t _del_session( struct session * self )
     self->id        = 0;
     self->status    = 0;
     self->msgoffset = 0;
+
+    // 销毁host
+    if ( self->host != NULL )
+    {
+        free( self->host );
+        self->host = NULL;
+    }
 
     // 销毁网络事件
     if ( self->evread )
@@ -287,8 +299,14 @@ void session_set_iolayer( struct session * self, void * iolayer )
 
 void session_set_endpoint( struct session * self, const char * host, uint16_t port )
 {
+    if ( self->host != NULL )
+    {
+        free( self->host );
+        self->host = NULL;
+    }
+
     self->port = port;
-    strncpy( self->host, host, INET_ADDRSTRLEN );
+    self->host = strdup( host );
 }
 
 void session_set_reattach( struct session * self, reattacher_t reattach, void * data )

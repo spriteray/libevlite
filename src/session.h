@@ -58,8 +58,8 @@ struct session
     int32_t                 fd;
     int8_t                  type;
     int8_t                  status;
+    char *                  host;
     uint16_t                port;
-    char                    host[INET_ADDRSTRLEN];
 
     // 读写以及超时事件
     event_t                 evread;
