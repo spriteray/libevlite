@@ -666,7 +666,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-void iolayer_server_option( int32_t fd )
+int32_t iolayer_server_option( int32_t fd )
 {
     int32_t flag = 0;
 
@@ -702,9 +702,11 @@ void iolayer_server_option( int32_t fd )
     //    size_t recvbuf_size = RECV_BUFFER_SIZE;
     //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
+
+    return 0;
 }
 
-void iolayer_client_option( int32_t fd )
+int32_t iolayer_client_option( int32_t fd )
 {
     int32_t flag = 0;
 
@@ -723,6 +725,8 @@ void iolayer_client_option( int32_t fd )
     //    size_t recvbuf_size = RECV_BUFFER_SIZE;
     //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
+
+    return 0;
 }
 
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index )

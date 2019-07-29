@@ -146,8 +146,8 @@ struct task_performs
 #define DISPATCH_POLICY( layer, seq ) ( (seq) % ((layer)->nthreads) )
 
 // socket选项
-void iolayer_server_option( int32_t fd );
-void iolayer_client_option( int32_t fd );
+int32_t iolayer_server_option( int32_t fd );
+int32_t iolayer_client_option( int32_t fd );
 
 // 分配一个会话
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index );
