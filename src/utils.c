@@ -57,6 +57,20 @@ int64_t microseconds()
     return now;
 }
 
+int32_t is_ipv6only( int32_t fd )
+{
+    int yes = 1;
+    socklen_t length = sizeof(yes);
+
+    if ( setsockopt( fd,
+                IPPROTO_IPV6, IPV6_V6ONLY, &yes, length ) == -1 )
+    {
+        return -1;
+    }
+
+    return 0;
+}
+
 int32_t is_connected( int32_t fd )
 {
     int32_t value = -1;

@@ -670,6 +670,9 @@ int32_t iolayer_server_option( int32_t fd )
 {
     int32_t flag = 0;
 
+    // 是否是IPV6-Only
+    // is_ipv6only( fd );
+
     // Socket非阻塞
     set_non_block( fd );
 
