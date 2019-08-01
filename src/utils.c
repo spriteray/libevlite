@@ -127,8 +127,8 @@ int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
     cfd = accept( fd, (struct sockaddr *)&cli_addr, &len );
     if ( cfd != -1 )
     {
+        // 解析获得目标ip和端口
         struct sockaddr * saddr = (struct sockaddr *)&cli_addr;
-
         switch ( saddr->sa_family )
         {
             case AF_INET :
@@ -143,7 +143,6 @@ int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
                         &((struct sockaddr_in6 *)saddr)->sin6_addr, remotehost, INET6_ADDRSTRLEN );
                 break;
         }
-
     }
 
     return cfd;
@@ -167,6 +166,7 @@ int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t
     {
         return -1;
     }
+
     for ( p = res; p != NULL; p = p->ai_next )
     {
         fd = socket( p->ai_family, p->ai_socktype, p->ai_protocol );
@@ -182,7 +182,7 @@ int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t
             continue;
         }
 
-        // BIND
+        // bind
         if ( bind( fd, p->ai_addr, p->ai_addrlen ) == -1 )
         {
             close( fd );
@@ -201,7 +201,6 @@ int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t
     }
 
     freeaddrinfo( res );
-
     if ( p == NULL )
     {
         return -2;
@@ -228,6 +227,7 @@ int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_
     {
         return -1;
     }
+
     for ( p = res; p != NULL; p = p->ai_next )
     {
         int32_t rc = -1;
@@ -259,7 +259,6 @@ int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_
     }
 
     freeaddrinfo( res );
-
     if ( p == NULL )
     {
         return -2;
