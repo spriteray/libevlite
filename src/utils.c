@@ -253,8 +253,8 @@ int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_
             continue;
         }
 
+        // 连接成功后退出
         // TODO: FIX Linux TCP Self_Connecttion
-
         break;
     }
 
