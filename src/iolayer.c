@@ -174,7 +174,6 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
 
         acceptor->parent    = layer;
         acceptor->port      = port;
-        acceptor->host[0]   = 0;
         acceptor->context   = context;
         acceptor->cb        = callback;
 #ifdef EVENT_HAVE_REUSEPORT
@@ -184,7 +183,7 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
 #endif
         if ( host != NULL )
         {
-            strncpy( acceptor->host, host, INET_ADDRSTRLEN );
+            acceptor->host = strdup( host );
         }
 
         iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
@@ -234,7 +233,7 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
     connector->context  = context;
     connector->cb       = callback;
     connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
-    strncpy( connector->host, host, INET_ADDRSTRLEN );
+    connector->host     = strdup( host );
 
     iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
 
@@ -571,7 +570,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
     return iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
 }
 
-int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t perform )
+int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute )
 {
     uint8_t i = 0;
 
@@ -583,7 +582,7 @@ int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taske
     for ( i = 0; i < layer->nthreads; ++i )
     {
         tasklist[i].clone = clone;
-        tasklist[i].perform = perform;
+        tasklist[i].perform = execute;
         tasklist[i].task = i == 0 ? task : clone( task );
     }
 
@@ -667,9 +666,12 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-void iolayer_server_option( int32_t fd )
+int32_t iolayer_server_option( int32_t fd )
 {
     int32_t flag = 0;
+
+    // 是否是IPV6-Only
+    // is_ipv6only( fd );
 
     // Socket非阻塞
     set_non_block( fd );
@@ -703,9 +705,11 @@ void iolayer_server_option( int32_t fd )
     //    size_t recvbuf_size = RECV_BUFFER_SIZE;
     //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
+
+    return 0;
 }
 
-void iolayer_client_option( int32_t fd )
+int32_t iolayer_client_option( int32_t fd )
 {
     int32_t flag = 0;
 
@@ -724,6 +728,8 @@ void iolayer_client_option( int32_t fd )
     //    size_t recvbuf_size = RECV_BUFFER_SIZE;
     //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
+
+    return 0;
 }
 
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index )
@@ -750,6 +756,12 @@ void iolayer_free_connector( struct iolayer * self, struct connector * connector
         evsets_del( connector->evsets, connector->event );
         event_destroy( connector->event );
         connector->event = NULL;
+    }
+
+    if ( connector->host != NULL )
+    {
+        free( connector->host );
+        connector->host = NULL;
     }
 
     if ( connector->fd > 0 )

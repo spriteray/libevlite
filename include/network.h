@@ -44,19 +44,19 @@ extern "C"
 typedef uint64_t    sid_t;
 typedef void *      iolayer_t;
 
-// 任务克隆函数
-//      参数1: 任务本身
-typedef void * (*taskcloner_t)( void * );
-
-// 任务处理函数
-//      参数1: iocontext
-//      参数2: 任务
-typedef void (*taskexecutor_t)( void *, void * );
-
 // 任务回收函数
 //      参数1: 类型
 //      参数2: 任务
 typedef void (*taskrecycler_t)( int32_t, void * );
+
+// 任务克隆函数
+//      参数1: 任务
+typedef void * (*taskcloner_t)( void * );
+
+// 任务处理函数
+//      参数1: 网络线程上下文参数
+//      参数2: 任务
+typedef void (*taskexecutor_t)( void *, void * );
 
 //  重新关联函数，返回新的描述符
 //      参数1: 上次关联的描述符
@@ -70,10 +70,10 @@ typedef int32_t (*reattacher_t)( int32_t, void * );
 typedef char * (*transformer_t)( void *, const char * , size_t * );
 
 // 新会话创建成功后的回调
-//      参数1: 上下文参数;
+//      参数1: 上下文参数
 //      参数2: 网络线程上下文参数
-//      参数3: 新会话ID;
-//      参数4: 会话的IP地址;
+//      参数3: 新会话ID
+//      参数4: 会话的IP地址
 //      参数5: 会话的端口号
 typedef int32_t (*acceptor_t)( void *, void *, sid_t, const char * , uint16_t );
 
@@ -106,7 +106,8 @@ typedef int32_t (*associator_t)( void *, void *, int32_t, int32_t, void *, sid_t
 //        timeout()     - 超时的回调
 //        error()       - 出错的回调
 //                        对于accept()出来的客户端, 直接回调shutdown();
-//                        对于connect()出去的客户端, ==0, 尝试重连, !=0, 直接回调shutdown() .
+//                        对于connect()出去的客户端, ==0, 尝试重连, !=0, 直接回调shutdown();
+//                        对于assoicate()关联的客户端, 设置过reattach函数, 行为类似connect(), 未设置过的, 直接回调shutdown() .
 //        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
 //                        way - 0, 逻辑层主动终止会话的情况,
 //                                 也就是直接调用iolayer_shutdown()或者iolayer_shutdowns();
@@ -203,10 +204,8 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
 // 提交任务到网络层(广播所有网络线程)
 //      task            - 任务
 //      clone           - 任务复制函数
-//      perform         - 任务处理函数
-//                          参数1: iocontext
-//                          参数2: task
-int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t perform );
+//      execute         - 任务处理函数
+int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 
 // 停止网络服务
 // 行为定义:

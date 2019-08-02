@@ -45,7 +45,7 @@ struct acceptor
     event_t             event;
 
     // 绑定的地址以及监听的端口号
-    char                host[INET_ADDRSTRLEN];
+    char *              host;
     uint16_t            port;
 
     // 逻辑
@@ -67,7 +67,7 @@ struct connector
     evsets_t            evsets;
 
     // 连接服务器的地址和端口号
-    char                host[INET_ADDRSTRLEN];
+    char *              host;
     uint16_t            port;
 
     // 逻辑
@@ -108,7 +108,7 @@ struct task_assign
     int32_t             fd;
 
     uint16_t            port;
-    char                host[INET_ADDRSTRLEN];
+    char                host[INET6_ADDRSTRLEN];
 
     acceptor_t          cb;
     void *              context;
@@ -146,8 +146,8 @@ struct task_performs
 #define DISPATCH_POLICY( layer, seq ) ( (seq) % ((layer)->nthreads) )
 
 // socket选项
-void iolayer_server_option( int32_t fd );
-void iolayer_client_option( int32_t fd );
+int32_t iolayer_server_option( int32_t fd );
+int32_t iolayer_client_option( int32_t fd );
 
 // 分配一个会话
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index );

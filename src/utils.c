@@ -11,6 +11,8 @@
 #include <sys/time.h>
 #include <sys/syscall.h>
 
+#include <netdb.h>
+
 #include "utils.h"
 
 #if defined EVENT_OS_LINUX
@@ -53,6 +55,20 @@ int64_t microseconds()
     }
 
     return now;
+}
+
+int32_t is_ipv6only( int32_t fd )
+{
+    int yes = 1;
+    socklen_t length = sizeof(yes);
+
+    if ( setsockopt( fd,
+                IPPROTO_IPV6, IPV6_V6ONLY, &yes, length ) == -1 )
+    {
+        return -1;
+    }
+
+    return 0;
 }
 
 int32_t is_connected( int32_t fd )
@@ -101,118 +117,151 @@ int32_t set_non_block( int32_t fd )
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
 {
     int32_t cfd = -1;
-    struct sockaddr_in in_addr;
-    socklen_t len = sizeof( struct sockaddr );
+    struct sockaddr_storage cli_addr;
+    socklen_t len = sizeof( cli_addr );
 
     *remoteport = 0;
     remotehost[0] = 0;
+    bzero( &cli_addr, len );
 
-    bzero( &in_addr, sizeof(in_addr) );
-
-    cfd = accept( fd, (struct sockaddr *)&in_addr, &len );
+    cfd = accept( fd, (struct sockaddr *)&cli_addr, &len );
     if ( cfd != -1 )
     {
-        *remoteport = ntohs( in_addr.sin_port );
-        strncpy( remotehost, inet_ntoa(in_addr.sin_addr), INET_ADDRSTRLEN );
+        // 解析获得目标ip和端口
+        struct sockaddr * saddr = (struct sockaddr *)&cli_addr;
+        switch ( saddr->sa_family )
+        {
+            case AF_INET :
+                *remoteport = ntohs( ((struct sockaddr_in *)saddr)->sin_port );
+                inet_ntop( saddr->sa_family,
+                        &((struct sockaddr_in *)saddr)->sin_addr, remotehost, INET_ADDRSTRLEN );
+                break;
+
+            case AF_INET6 :
+                *remoteport = ntohs( ((struct sockaddr_in6 *)saddr)->sin6_port );
+                inet_ntop( saddr->sa_family,
+                        &((struct sockaddr_in6 *)saddr)->sin6_addr, remotehost, INET6_ADDRSTRLEN );
+                break;
+        }
     }
 
     return cfd;
 }
 
-int32_t tcp_listen( const char * host, uint16_t port, void (*options)(int32_t) )
+int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t) )
 {
     int32_t fd = -1;
-    struct sockaddr_in addr;
+    char strport[ 6 ];
+    struct addrinfo hints, *res, *p;
 
-    fd = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
-    if ( fd < 0 )
+    bzero( &hints, sizeof(hints) );
+    snprintf( strport, sizeof(strport), "%d", port );
+    // 设置参数
+    hints.ai_flags = AI_PASSIVE;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    // 获取地址信息
+    if ( getaddrinfo( host, strport, &hints, &res ) != 0 )
     {
         return -1;
     }
 
-    // 对描述符的选项操作
-    options( fd );
-
-    bzero( &addr, sizeof(addr) );
-    addr.sin_family = AF_INET;
-    addr.sin_port   = htons( port );
-    if ( host == NULL
-            || strlen(host) == 0 )
+    for ( p = res; p != NULL; p = p->ai_next )
     {
-        addr.sin_addr.s_addr = INADDR_ANY;
-    }
-    else
-    {
-        addr.sin_addr.s_addr = inet_addr( host );
-
-        if ( addr.sin_addr.s_addr == INADDR_NONE )
+        fd = socket( p->ai_family, p->ai_socktype, p->ai_protocol );
+        if ( fd < 0 )
         {
-            // TODO: 转换地址出错
+            continue;
         }
+
+        // 对描述符的选项操作
+        if ( options( fd ) != 0 )
+        {
+            close( fd );
+            continue;
+        }
+
+        // bind
+        if ( bind( fd, p->ai_addr, p->ai_addrlen ) == -1 )
+        {
+            close( fd );
+            continue;
+        }
+
+        // listen
+        if ( listen( fd, SOMAXCONN ) == -1 )
+        {
+            close( fd );
+            continue;
+        }
+
+        // 绑定成功后退出循环
+        break;
     }
 
-    if ( bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) == -1 )
+    freeaddrinfo( res );
+    if ( p == NULL )
     {
-        close( fd );
         return -2;
-    }
-
-    if ( listen( fd, SOMAXCONN ) == -1 )
-    {
-        close( fd );
-        return -3;
     }
 
     return fd;
 }
 
-int32_t tcp_connect( const char * host, uint16_t port, void (*options)(int32_t) )
+int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_t) )
 {
     int32_t fd = -1;
-    int32_t rc = -1;
-    struct sockaddr_in addr;
+    char strport[ 6 ];
+    struct addrinfo hints, *res, *p;
 
-    if ( host == NULL )
+    bzero( &hints, sizeof(hints) );
+    snprintf( strport, sizeof(strport), "%d", port );
+    // 设置参数
+    hints.ai_flags = AI_PASSIVE;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+    // 获取地址信息
+    if ( getaddrinfo( host, strport, &hints, &res ) != 0 )
     {
         return -1;
     }
 
-    fd = socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
-    if ( fd < 0 )
+    for ( p = res; p != NULL; p = p->ai_next )
     {
-        return -2;
-    }
+        int32_t rc = -1;
 
-    // 对描述符的选项操作
-    options( fd );
+        fd = socket( p->ai_family, p->ai_socktype, p->ai_protocol );
+        if ( fd < 0 )
+        {
+            continue;
+        }
 
-    bzero( &addr, sizeof(addr) );
-    addr.sin_family = AF_INET;
-    addr.sin_port   = htons(port);
-    inet_pton(AF_INET, host, (void *)&(addr.sin_addr.s_addr));
-
-    rc = connect( fd, (struct sockaddr *)&addr, sizeof(struct sockaddr) );
-    if ( rc == -1 && errno != EINPROGRESS )
-    {
-        // 连接出错
-        close( fd );
-        fd = -1;
-    }
-
-    if ( fd >= 0 )
-    {
-        // Fix: Linux TCP Self-Connection
-        struct sockaddr_in laddr;
-        socklen_t llen = sizeof(struct sockaddr);
-
-        rc = getsockname( fd, (struct sockaddr *)&laddr, &llen );
-        if ( rc == 0
-                && addr.sin_port == laddr.sin_port
-                && addr.sin_addr.s_addr == laddr.sin_addr.s_addr )
+        // 对描述符的选项操作
+        if ( options( fd ) != 0 )
         {
             close( fd );
-            fd = -1;
+            continue;
         }
+
+        // 连接
+        rc = connect( fd, p->ai_addr, p->ai_addrlen );
+        if ( rc == -1 && errno != EINPROGRESS )
+        {
+            close( fd );
+            continue;
+        }
+
+        // 连接成功后退出
+        // TODO: FIX Linux TCP Self_Connecttion
+        break;
+    }
+
+    freeaddrinfo( res );
+    if ( p == NULL )
+    {
+        return -2;
     }
 
     return fd;
