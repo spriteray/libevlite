@@ -484,6 +484,10 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             // 分发策略
             iolayer_assign_session( layer, acceptor->index, DISPATCH_POLICY(layer, cfd), &(task) );
         }
+        else if ( errno == EMFILE )
+        {
+            iolayer_accept_fdlimits( acceptor );
+        }
     }
 }
 

@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 
 #include "config.h"
@@ -172,6 +173,10 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
             return -3;
         }
 
+        // Read the section named
+        // "The special problem of accept()ing when you can't" in libev's doc.
+        // By Marc Lehmann, author of libev
+        acceptor->idlefd    = open( "/dev/null", O_RDONLY|O_CLOEXEC );
         acceptor->parent    = layer;
         acceptor->port      = port;
         acceptor->context   = context;
@@ -785,6 +790,19 @@ void iolayer_free_associater( struct iolayer * self, struct associater * associa
     // NOTICE: 释放关联器的时候，不会关闭描述符
 
     free( associater );
+}
+
+void iolayer_accept_fdlimits( struct acceptor * acceptor )
+{
+    close( acceptor->idlefd );
+
+    acceptor->idlefd = accept( acceptor->fd, NULL, NULL );
+    if ( acceptor->idlefd > 0 )
+    {
+        close( acceptor->idlefd );
+    }
+
+    acceptor->idlefd = open( "/dev/null", O_RDONLY|O_CLOEXEC );
 }
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
