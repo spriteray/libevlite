@@ -173,10 +173,6 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
             return -3;
         }
 
-        // Read the section named
-        // "The special problem of accept()ing when you can't" in libev's doc.
-        // By Marc Lehmann, author of libev
-        acceptor->idlefd    = open( "/dev/null", O_RDONLY|O_CLOEXEC );
         acceptor->parent    = layer;
         acceptor->port      = port;
         acceptor->context   = context;
@@ -190,6 +186,7 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
         {
             acceptor->host = strdup( host );
         }
+        acceptor->idlefd    = open( "/dev/null", O_RDONLY|O_CLOEXEC );
 
         iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
     }

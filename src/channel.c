@@ -486,6 +486,9 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
         }
         else if ( errno == EMFILE )
         {
+            // Read the section named
+            // "The special problem of accept()ing when you can't" in libev's doc.
+            // By Marc Lehmann, author of libev
             iolayer_accept_fdlimits( acceptor );
         }
     }
