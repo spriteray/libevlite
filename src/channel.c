@@ -496,8 +496,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
         struct task_assign task;
 
         task.host = (char *)malloc( INET6_ADDRSTRLEN );
-        assert( task.host != NULL && "allocate INET_ADDSTRLEN failed" );
-
+        assert( task.host != NULL && "allocate task.host failed" );
         cfd = tcp_accept( fd, task.host, &(task.port) );
         if ( cfd > 0 )
         {
