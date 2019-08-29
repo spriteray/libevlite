@@ -95,8 +95,8 @@ struct session
 // 会话开始
 int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t sets );
 
-// 会话是否是永久的
-int8_t session_is_persist( struct session * self );
+// 会话是否支持重连
+int8_t session_is_reattch( struct session * self );
 
 //
 void session_set_iolayer( struct session * self, void * iolayer );

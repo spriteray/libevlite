@@ -25,7 +25,7 @@ struct PacketHead
 int32_t onStart( void * context )
 {
     struct session * s = (struct session *)context;
-    iolayer_set_readpersist( s->layer, s->id, 1 );
+    iolayer_set_persist( s->layer, s->id, 1 );
     return 0;
 }
 

@@ -197,7 +197,7 @@ int32_t _timeout( struct session * session )
         return session_shutdown( session );
     }
 
-    if ( session_is_persist( session ) )
+    if ( session_is_reattch( session ) )
     {
         // 尝试重连的永久会话
         session_start_reconnect( session );
@@ -262,12 +262,12 @@ int32_t channel_error( struct session * session, int32_t result )
      */
     int32_t rc = 0;
     ioservice_t * service = &session->service;
-    int8_t ispersist = session_is_persist( session );
+    int8_t isattach = session_is_reattch( session );
 
     rc = service->error( session->context, result );
 
-    if ( ispersist == 0
-            || ( ispersist == 1 && rc != 0 )
+    if ( isattach == 0
+            || ( isattach == 1 && rc != 0 )
             || ( session->status&SESSION_EXITING ) )
     {
         // 临时会话
@@ -338,60 +338,83 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
         if ( nprocess < 0 )
         {
             // 处理出错, 尝试终止会话
-            session_shutdown( session );
-            return;
-        }
-
-        if ( nread > 0
-                || (nread == -1 && errno == EINTR)
-                || (nread == -1 && errno == EAGAIN)
-                || (nread == -1 && errno == EWOULDBLOCK) )
-        {
-            // 会话正常
-            session_add_event( session, EV_READ );
-            return;
-        }
-
-        if ( nread == -2 )
-        {
-            // expand() failure
-            channel_error( session, eIOError_OutMemory );
-        }
-        else if ( nread == -1 )
-        {
-            // read() failure
-            switch ( errno )
+            if ( session->setting.persist_mode != 0 )
             {
-                case EBADF :
-                case EISDIR :
-                    channel_error( session, eIOError_SocketInvalid );
-                    break;
-
-                case EFAULT :
-                    channel_error( session, eIOError_InBufferInvalid );
-                    break;
-
-                case EINVAL :
-                    channel_error( session, eIOError_ReadInvalid );
-                    break;
-
-                case EIO :
-                    channel_error( session, eIOError_ReadIOError );
-                    break;
-
-                default :
-                    channel_error( session, eIOError_ReadFailure );
-                    break;
+                session_del_event( session, EV_READ );
             }
+
+            session_shutdown( session );
         }
-        else if ( nread == 0 )
+        else
         {
-            // peer shutdown
-            channel_error( session, eIOError_PeerShutdown );
+            if ( nread > 0
+                    || (nread == -1 && errno == EINTR)
+                    || (nread == -1 && errno == EAGAIN)
+                    || (nread == -1 && errno == EWOULDBLOCK) )
+            {
+                if ( session->setting.persist_mode == 0 )
+                {
+                    // 会话正常
+                    session_add_event( session, EV_READ );
+                }
+            }
+            else
+            {
+                // 出错了
+                if ( session->setting.persist_mode != 0 )
+                {
+                    session_del_event( session, EV_READ );
+                }
+
+                if ( nread == -2 )
+                {
+                    // expand() failure
+                    channel_error( session, eIOError_OutMemory );
+                }
+                else if ( nread == -1 )
+                {
+                    // read() failure
+                    switch ( errno )
+                    {
+                        case EBADF :
+                        case EISDIR :
+                            channel_error( session, eIOError_SocketInvalid );
+                            break;
+
+                        case EFAULT :
+                            channel_error( session, eIOError_InBufferInvalid );
+                            break;
+
+                        case EINVAL :
+                            channel_error( session, eIOError_ReadInvalid );
+                            break;
+
+                        case EIO :
+                            channel_error( session, eIOError_ReadIOError );
+                            break;
+
+                        default :
+                            channel_error( session, eIOError_ReadFailure );
+                            break;
+                    }
+                }
+                else if ( nread == 0 )
+                {
+                    // peer shutdown
+                    channel_error( session, eIOError_PeerShutdown );
+                }
+            }
         }
     }
     else
     {
+        // 删除读事件
+        if ( session->setting.persist_mode != 0 )
+        {
+            session_del_event( session, EV_READ );
+        }
+
+        // 回调超时
         _timeout( session );
     }
 }

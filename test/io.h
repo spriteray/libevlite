@@ -55,6 +55,7 @@ public :
     void * iocontext() const { return m_IOContext; }
 
     // 设置超时/保活时间
+    void enablePersist();
     void setTimeout( int32_t seconds );
     void setKeepalive( int32_t seconds );
     void setEndpoint( const std::string & host, uint16_t port );
