@@ -99,7 +99,8 @@ int8_t session_is_persist( struct session * self );
 
 //
 void session_set_iolayer( struct session * self, void * iolayer );
-void session_set_endpoint( struct session * self, const char * host, uint16_t port );
+void session_set_endpoint( struct session * self, char * host, uint16_t port );
+void session_copy_endpoint( struct session * self, const char * host, uint16_t port );
 // 设置第三方的重连函数
 void session_set_reattach( struct session * self, reattacher_t reattach, void * data );
 

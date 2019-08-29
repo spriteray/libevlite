@@ -297,7 +297,19 @@ void session_set_iolayer( struct session * self, void * iolayer )
     self->iolayer = iolayer;
 }
 
-void session_set_endpoint( struct session * self, const char * host, uint16_t port )
+void session_set_endpoint( struct session * self, char * host, uint16_t port )
+{
+    if ( self->host != NULL )
+    {
+        free( self->host );
+        self->host = NULL;
+    }
+
+    self->port = port;
+    self->host = host;
+}
+
+void session_copy_endpoint( struct session * self, const char * host, uint16_t port )
 {
     if ( self->host != NULL )
     {

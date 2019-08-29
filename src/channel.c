@@ -469,6 +469,9 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
         int32_t cfd = -1;
         struct task_assign task;
 
+        task.host = (char *)malloc( INET6_ADDRSTRLEN );
+        assert( task.host != NULL && "allocate INET_ADDSTRLEN failed" );
+
         cfd = tcp_accept( fd, task.host, &(task.port) );
         if ( cfd > 0 )
         {
@@ -490,6 +493,7 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             // "The special problem of accept()ing when you can't" in libev's doc.
             // By Marc Lehmann, author of libev
             iolayer_accept_fdlimits( acceptor );
+            free( task.host );
         }
     }
 }
@@ -624,7 +628,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             // 连接成功, 可以进行IO操作
             set_non_block( connector->fd );
             session_set_iolayer( session, layer );
-            session_set_endpoint( session, connector->host, connector->port );
+            session_copy_endpoint( session, connector->host, connector->port );
             session_start( session, eSessionType_Connect, connector->fd, connector->evsets );
 
             connector->fd = -1;

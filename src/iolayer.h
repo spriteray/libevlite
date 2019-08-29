@@ -109,8 +109,8 @@ struct task_assign
 {
     int32_t             fd;
 
+    char *              host;
     uint16_t            port;
-    char                host[INET6_ADDRSTRLEN];
 
     acceptor_t          cb;
     void *              context;
