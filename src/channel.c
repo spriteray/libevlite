@@ -313,6 +313,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
     struct session * session = (struct session *)arg;
     struct iolayer * iolayer = (struct iolayer *)session->iolayer;
 
+    // 不常驻事件库的情况下, 取消READING标志
     if ( session->setting.persist_mode == 0 )
     {
         session->status &= ~SESSION_READING;
@@ -338,6 +339,8 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
         if ( nprocess < 0 )
         {
             // 处理出错, 尝试终止会话
+
+            // 先删除常驻事件库中的读事件
             if ( session->setting.persist_mode != 0 )
             {
                 session_del_event( session, EV_READ );
@@ -352,15 +355,19 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
                     || (nread == -1 && errno == EAGAIN)
                     || (nread == -1 && errno == EWOULDBLOCK) )
             {
+                // 会话正常
+
+                // 不常驻事件库的情况下, 注册读事件
                 if ( session->setting.persist_mode == 0 )
                 {
-                    // 会话正常
                     session_add_event( session, EV_READ );
                 }
             }
             else
             {
                 // 出错了
+
+                // 删除常驻事件库中的读事件
                 if ( session->setting.persist_mode != 0 )
                 {
                     session_del_event( session, EV_READ );
@@ -408,7 +415,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
     }
     else
     {
-        // 删除读事件
+        // 删除常驻事件库的读事件
         if ( session->setting.persist_mode != 0 )
         {
             session_del_event( session, EV_READ );
