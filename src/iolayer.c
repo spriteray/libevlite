@@ -5,6 +5,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <fcntl.h>
 #include <sys/socket.h>
 
 #include "config.h"
@@ -185,6 +186,7 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
         {
             acceptor->host = strdup( host );
         }
+        acceptor->idlefd    = open( "/dev/null", O_RDONLY|O_CLOEXEC );
 
         iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
     }
@@ -418,7 +420,7 @@ int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint1
         return -3;
     }
 
-    session_set_endpoint( session, host, port );
+    session_copy_endpoint( session, host, port );
 
     return 0;
 }
@@ -787,6 +789,19 @@ void iolayer_free_associater( struct iolayer * self, struct associater * associa
     free( associater );
 }
 
+void iolayer_accept_fdlimits( struct acceptor * acceptor )
+{
+    close( acceptor->idlefd );
+
+    acceptor->idlefd = accept( acceptor->fd, NULL, NULL );
+    if ( acceptor->idlefd > 0 )
+    {
+        close( acceptor->idlefd );
+    }
+
+    acceptor->idlefd = open( "/dev/null", O_RDONLY|O_CLOEXEC );
+}
+
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
 #ifdef EVENT_HAVE_REUSEPORT
@@ -955,7 +970,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     {
         syslog(LOG_WARNING,
                 "%s(fd:%d, host:'%s', port:%d) failed .", __FUNCTION__, task->fd, task->host, task->port );
-        close( task->fd );
+        close( task->fd ); free( task->host );
         return -1;
     }
 
@@ -966,7 +981,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     {
         // 逻辑层不接受这个会话
         session_manager_remove( manager, session );
-        close( task->fd );
+        close( task->fd ); free( task->host );
         return 1;
     }
 

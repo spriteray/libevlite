@@ -83,6 +83,8 @@ public :
     static Slice publish( const std::string & channel, const std::string & message );
     // 事务开始
     static Slice multi();
+    // pipeline
+    static Slice pipeline();
     // 提交事务
     static Slice exec();
 

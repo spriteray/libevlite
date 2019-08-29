@@ -52,6 +52,8 @@ struct acceptor
     acceptor_t          cb;
     void *              context;
 
+    // 空闲描述符
+    int32_t             idlefd;
     // 通信层句柄
     struct iolayer *    parent;
 };
@@ -107,8 +109,8 @@ struct task_assign
 {
     int32_t             fd;
 
+    char *              host;
     uint16_t            port;
-    char                host[INET6_ADDRSTRLEN];
 
     acceptor_t          cb;
     void *              context;
@@ -156,6 +158,9 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint
 void iolayer_free_connector( struct iolayer * self, struct connector * connector );
 // 销毁关联器
 void iolayer_free_associater( struct iolayer * self, struct associater * associater );
+
+// 处理EMFILE
+void iolayer_accept_fdlimits( struct acceptor * acceptor );
 
 // 给当前线程分发一个会话
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );
