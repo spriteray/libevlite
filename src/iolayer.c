@@ -351,7 +351,7 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     return 0;
 }
 
-int32_t iolayer_set_readpersist( iolayer_t self, sid_t id, int32_t onoff )
+int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff )
 {
     // NOT Thread-Safe
     uint8_t index = SID_INDEX(id);
@@ -360,7 +360,7 @@ int32_t iolayer_set_readpersist( iolayer_t self, sid_t id, int32_t onoff )
     // 参数检查
     assert( layer != NULL && "Illegal IOLayer" );
     assert( layer->threads != NULL && "Illegal IOThreadGroup" );
-    assert( "iolayer_set_readpersist() must be in the specified thread"
+    assert( "iolayer_set_persist() must be in the specified thread"
             && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
 
     if ( index >= layer->nthreads )
