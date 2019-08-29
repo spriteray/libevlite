@@ -496,6 +496,19 @@ Slice IRedisClient::multi()
     return Slice( buffer, length );
 }
 
+Slice IRedisClient::pipeline()
+{
+    char * buffer = NULL;
+    ssize_t length = redisFormatCommand( &buffer, "PIPELINE" );
+
+    if ( length < 0 )
+    {
+        return Slice();
+    }
+
+    return Slice( buffer, length );
+}
+
 Slice IRedisClient::exec()
 {
     char * buffer = NULL;
