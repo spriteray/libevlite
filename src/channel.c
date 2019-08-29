@@ -313,7 +313,10 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
     struct session * session = (struct session *)arg;
     struct iolayer * iolayer = (struct iolayer *)session->iolayer;
 
-    session->status &= ~SESSION_READING;
+    if ( session->setting.persist_mode == 0 )
+    {
+        session->status &= ~SESSION_READING;
+    }
 
     if ( ev & EV_READ )
     {

@@ -417,7 +417,7 @@ void session_add_event( struct session * self, int16_t ev )
     if ( !(status&SESSION_EXITING)
             && (ev&EV_READ) && !(status&SESSION_READING) )
     {
-        event_set( self->evread, self->fd, ev );
+        event_set( self->evread, self->fd, ev|self->setting.persist_mode );
         event_set_callback( self->evread, channel_on_read, self );
         evsets_add( sets, self->evread, self->setting.timeout_msecs );
 

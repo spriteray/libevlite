@@ -173,6 +173,7 @@ int32_t iolayer_associate( iolayer_t self,
 // 会话参数的设置, 只能在ioservice_t中使用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
+int32_t iolayer_set_readpersist( iolayer_t self, sid_t id, int32_t onoff );
 int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint16_t port );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 

@@ -43,6 +43,7 @@ enum SessionType
 
 struct session_setting
 {
+    int32_t persist_mode;
     int32_t timeout_msecs;
     int32_t keepalive_msecs;
     int32_t max_inbuffer_len;
