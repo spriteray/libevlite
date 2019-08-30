@@ -54,9 +54,14 @@ public :
     // 获取线程上下文参数
     void * iocontext() const { return m_IOContext; }
 
+    // 激活/关闭读事件永驻事件库
+    // 激活后, 极端的情况下能提高IO性能40%左右
+    void enablePersist();
+    void disablePersist();
     // 设置超时/保活时间
     void setTimeout( int32_t seconds );
     void setKeepalive( int32_t seconds );
+    // 设置host和port
     void setEndpoint( const std::string & host, uint16_t port );
 
     // 发送数据

@@ -171,10 +171,13 @@ int32_t iolayer_associate( iolayer_t self,
         int32_t fd, void * privdata, reattacher_t reattach, associator_t callback, void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
+// 建议在ioservice_t::onStart()中调用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint16_t port );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
+// 设置读事件常驻事件库( 激活后, 极端的情况下能提高IO性能40%左右 )
+int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
 
 // 发送数据到会话
 //      id              - 会话ID

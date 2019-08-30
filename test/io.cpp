@@ -28,6 +28,18 @@ void IIOSession::setKeepalive( int32_t seconds )
     iolayer_set_keepalive( m_Layer, m_Sid, seconds );
 }
 
+void IIOSession::enablePersist()
+{
+    assert( m_Sid != 0 && m_Layer != NULL );
+    iolayer_set_persist( m_Layer, m_Sid, 1 );
+}
+
+void IIOSession::disablePersist()
+{
+    assert( m_Sid != 0 && m_Layer != NULL );
+    iolayer_set_persist( m_Layer, m_Sid, 0 );
+}
+
 void IIOSession::setEndpoint( const std::string & host, uint16_t port )
 {
     assert( m_Sid != 0 && m_Layer != NULL );

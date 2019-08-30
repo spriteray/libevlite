@@ -351,6 +351,43 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     return 0;
 }
 
+int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff )
+{
+    // NOT Thread-Safe
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_persist() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
+
+    if ( index >= layer->nthreads )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct session_manager * manager = _get_manager( layer, index );
+    if ( manager == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
+        return -2;
+    }
+
+    struct session * session = session_manager_get( manager, id );
+    if ( session == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
+        return -3;
+    }
+
+    session->setting.persist_mode = onoff == 0 ? 0 : EV_PERSIST;
+
+    return 0;
+}
+
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
 {
     // NOT Thread-Safe

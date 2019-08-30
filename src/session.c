@@ -275,7 +275,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     return 0;
 }
 
-int8_t session_is_persist( struct session * self )
+int8_t session_is_reattch( struct session * self )
 {
     if ( self->type == eSessionType_Accept )
     {
@@ -417,7 +417,7 @@ void session_add_event( struct session * self, int16_t ev )
     if ( !(status&SESSION_EXITING)
             && (ev&EV_READ) && !(status&SESSION_READING) )
     {
-        event_set( self->evread, self->fd, ev );
+        event_set( self->evread, self->fd, ev|self->setting.persist_mode );
         event_set_callback( self->evread, channel_on_read, self );
         evsets_add( sets, self->evread, self->setting.timeout_msecs );
 
