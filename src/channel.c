@@ -387,19 +387,15 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
                         case EISDIR :
                             channel_error( session, eIOError_SocketInvalid );
                             break;
-
                         case EFAULT :
                             channel_error( session, eIOError_InBufferInvalid );
                             break;
-
                         case EINVAL :
                             channel_error( session, eIOError_ReadInvalid );
                             break;
-
                         case EIO :
                             channel_error( session, eIOError_ReadIOError );
                             break;
-
                         default :
                             channel_error( session, eIOError_ReadFailure );
                             break;
