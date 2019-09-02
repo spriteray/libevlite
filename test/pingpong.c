@@ -26,6 +26,7 @@ int32_t onStart( void * context )
 {
     struct session * s = (struct session *)context;
     iolayer_set_persist( s->layer, s->id, 1 );
+    //iolayer_set_timeout( s->layer, s->id, 10 );
     return 0;
 }
 
@@ -70,7 +71,7 @@ ssize_t onProcess( void * context, const char * buf, size_t nbytes )
 
 int32_t onTimeout( void * context )
 {
-    return 0;
+    return -1;
 }
 
 int32_t onKeepalive( void * context )
