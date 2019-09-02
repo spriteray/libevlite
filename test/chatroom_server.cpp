@@ -115,8 +115,9 @@ int32_t CChatRoomSession::onStart()
     CSHead head;
     head.msgid = 0;
     head.length = sizeof(head);
-
     m_Service->post( id(), &head );
+
+    enablePersist();
 
     return 0;
 }
