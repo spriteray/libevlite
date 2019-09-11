@@ -552,7 +552,11 @@ int32_t IRedisClient::associate( void * context, void * iocontext, int32_t resul
     else
     {
         IRedisSession * session = client->onConnectSucceed( sid, fd, redisconn );
-        if ( session != NULL )
+        if ( session == NULL )
+        {
+            ack = -1;
+        }
+        else
         {
             // 初始化会话
             session->init( sid,
