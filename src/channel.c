@@ -346,6 +346,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
                 session_del_event( session, EV_READ );
             }
 
+            session_close( session );
             session_shutdown( session );
         }
         else

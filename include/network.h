@@ -110,8 +110,7 @@ typedef int32_t (*associator_t)( void *, void *, int32_t, int32_t, void *, sid_t
 //                        对于assoicate()关联的客户端, 设置过reattach函数, 行为类似connect(), 未设置过的, 直接回调shutdown() .
 //        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
 //                        way - 0, 逻辑层主动终止会话的情况,
-//                                 也就是直接调用iolayer_shutdown()或者iolayer_shutdowns();
-//                              1, 逻辑层被动终止会话的情况.
+//                              1, 逻辑层被动终止会话的情况, timeout(), error() 或者对端关闭了连接
 //        perform()     - 处理其他模块提交到网络层的任务
 //                        type - 任务类型
 //                        task - 任务数据
