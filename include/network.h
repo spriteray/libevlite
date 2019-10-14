@@ -108,13 +108,14 @@ typedef int32_t (*associator_t)( void *, void *, int32_t, int32_t, void *, sid_t
 //                        对于accept()出来的客户端, 直接回调shutdown();
 //                        对于connect()出去的客户端, ==0, 尝试重连, !=0, 直接回调shutdown();
 //                        对于assoicate()关联的客户端, 设置过reattach函数, 行为类似connect(), 未设置过的, 直接回调shutdown() .
-//        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
-//                        way - 0, 逻辑层主动终止会话的情况,
-//                                 也就是直接调用iolayer_shutdown()或者iolayer_shutdowns();
-//                              1, 逻辑层被动终止会话的情况.
-//        perform()     - 处理其他模块提交到网络层的任务
+//        perform()     - 处理其他模块提交到网络层的任务, <0: 出错,关闭连接
 //                        type - 任务类型
 //                        task - 任务数据
+//        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
+//                        way - 0, 逻辑层主动终止会话的情况,
+//                                      1) 显式的iolayer_shutdown()或者iolayer_shutdowns()
+//                                      2) 显式的iolayer_perform()或者iolayer_performs()
+//                              1, 逻辑层被动终止会话的情况, timeout(), error(), process()出错
 typedef struct
 {
     int32_t (*start)( void * context );
