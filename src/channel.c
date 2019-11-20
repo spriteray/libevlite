@@ -556,20 +556,20 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     {
         // 这种情况不会出现
         assert( session->reattach != NULL );
+
         // 第三方会话重连
         session->fd = session->reattach( session->fd, session->privdata );
+        // 绑定的情况下需要设置非阻塞状态
+        if ( session->fd >= 0 )
+        {
+            set_non_block( session->fd );
+        }
     }
 
     if ( session->fd < 0 )
     {
         channel_error( session, eIOError_ConnectFailure );
         return;
-    }
-
-    // 绑定的情况下需要设置非阻塞状态
-    if ( session->type == eSessionType_Associate )
-    {
-        set_non_block( session->fd );
     }
 
     // 注册写事件, 以重新激活会话
