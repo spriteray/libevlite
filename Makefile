@@ -28,8 +28,8 @@ endif
 
 # 默认选项
 LFLAGS		= -ggdb -lpthread
-CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
-CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
+CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
+CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -ggdb -fPIC -O0 -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)
@@ -160,6 +160,6 @@ clean :
 	$(CC) $(CFLAGS) -c $^ -o $@
 
 %.o : %.cpp
-	$(CXX) $(CXXFLAGS) -c $^ -o $@
+	$(CXX) $(CXXFLAGS)  -Itest/ -Iexamples/ -c $^ -o $@
 
-VPATH = src:include:test
+VPATH = src:include:test:examples
