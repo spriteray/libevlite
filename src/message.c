@@ -12,6 +12,7 @@
 #include "message.h"
 
 #define MIN_BUFFER_LENGTH       128
+#define MAX_BUFFER_LENGTH       65535
 
 static inline void _align( struct buffer * self );
 static inline size_t _offset( struct buffer * self );
@@ -85,7 +86,7 @@ int32_t _expand( struct buffer * self, size_t length )
 ssize_t _read_withvector( struct buffer * self, int32_t fd  )
 {
     struct iovec vec[ 2 ];
-    char extra[ RECV_BUFFER_SIZE ];
+    char extra[ MAX_BUFFER_LENGTH ];
 
     ssize_t nread = 0;
     size_t left = _left(self);
@@ -122,7 +123,7 @@ ssize_t _read_withsize( struct buffer * self, int32_t fd, ssize_t nbytes )
         }
         else
         {
-            nbytes = RECV_BUFFER_SIZE;
+            nbytes = MAX_BUFFER_LENGTH;
         }
     }
 

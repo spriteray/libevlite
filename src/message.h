@@ -43,7 +43,7 @@ size_t buffer_take( struct buffer * self, char * buf, size_t length );
 void buffer_swap( struct buffer * buf1, struct buffer * buf2 );
 
 // nbytes = -1 : 将SOCKET的数据全部读取到BUFF中
-// nbytes = 0  : 尽量读取数据到BUFF中(最多一次性读取2*RECV_BUFFER_SIZE-1)
+// nbytes = 0  : 尽量读取数据到BUFF中(最多一次性读取2*MAX_BUFFER_LENGTH-1)
 // nbytes > 0  : 读取指定长度的数据到BUFF中
 // -1, 系统调用read()返回出错; -2, 返回expand()失败
 ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes );

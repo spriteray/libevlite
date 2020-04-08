@@ -622,10 +622,10 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 {
     int32_t bucket = SID_SEQ(id) & (table->size-1);
 
-    struct hashnode * node = NULL;
-    struct hashnode * entries = table->entries + bucket;
+    struct hashnode * node = NULL, * entries = NULL;
+    struct hashnode * head = table->entries + bucket;
 
-    for ( ; entries != NULL; entries = entries->next )
+    for ( entries = head; entries != NULL; entries = entries->next )
     {
         if ( entries->session != NULL )
         {
@@ -647,9 +647,9 @@ struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag 
 
         if ( node != NULL )
         {
-            node->next = NULL;
+            node->next = head->next;
             node->session = NULL;
-            entries->next = node;
+            head->next = node;
         }
     }
 
