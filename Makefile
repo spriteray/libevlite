@@ -77,14 +77,14 @@ OBJS 	= utils.o \
 			iolayer.o
 
 # ------------------------------------------------------------------------------
+all : $(REALNAME)
+
 install : all
 	rm -rf $(INCLUDEPATH)/evlite
 	cp -a include $(INCLUDEPATH)/evlite
 	rm -rf $(LIBPATH)/$(REALNAME); cp $(REALNAME) $(LIBPATH)
 	rm -rf $(LIBPATH)/$(SONAME); ln -s $(REALNAME) $(LIBPATH)/$(SONAME)
 	rm -rf $(LIBPATH)/$(LIBNAME); ln -s $(REALNAME) $(LIBPATH)/$(LIBNAME)
-
-all : $(REALNAME)
 
 $(REALNAME) : $(OBJS)
 	$(CC) $(SOFLAGS) $(LFLAGS) $^ -o $@
