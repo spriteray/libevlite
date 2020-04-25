@@ -157,9 +157,9 @@ clean :
 # gmake的规则
 #
 %.o : %.c
-	$(CC) $(CFLAGS) -c $^ -o $@
+	$(CC) $(CFLAGS) -Wno-unused-function -c $^ -o $@
 
 %.o : %.cpp
-	$(CXX) $(CXXFLAGS)  -Itest/ -Iexamples/ -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -Wno-unused-function -Itest/ -Iexamples/ -c $^ -o $@
 
 VPATH = src:include:test:examples
