@@ -17,8 +17,9 @@
 #define TRY_RECONNECT_INTERVAL          200
 
 // 发送接收缓冲区设置
-#define SEND_BUFFER_SIZE                65536
-#define RECV_BUFFER_SIZE                65536
+// 默认为0, 由内核动态控制
+#define SEND_BUFFER_SIZE                0
+#define RECV_BUFFER_SIZE                0
 
 // 任务类型
 enum

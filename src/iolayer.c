@@ -736,13 +736,14 @@ int32_t iolayer_server_option( int32_t fd )
 #endif
 
     // 发送接收缓冲区
+    // NOTICE: 内核可以动态调整发送和接受缓冲区的, 所以不建议设置该选项
 #if SEND_BUFFER_SIZE > 0
-    //    size_t sendbuf_size = SEND_BUFFER_SIZE;
-    //    setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+    size_t sendbuf_size = SEND_BUFFER_SIZE;
+    setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
 #endif
 #if RECV_BUFFER_SIZE > 0
-    //    size_t recvbuf_size = RECV_BUFFER_SIZE;
-    //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+    size_t recvbuf_size = RECV_BUFFER_SIZE;
+    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
 
     return 0;
@@ -759,13 +760,14 @@ int32_t iolayer_client_option( int32_t fd )
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
     // 发送接收缓冲区
+    // NOTICE: 内核可以动态调整发送和接受缓冲区的, 所以不建议设置该选项
 #if SEND_BUFFER_SIZE > 0
-    //    size_t sendbuf_size = SEND_BUFFER_SIZE;
-    //    setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+    size_t sendbuf_size = SEND_BUFFER_SIZE;
+    setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
 #endif
 #if RECV_BUFFER_SIZE > 0
-    //    size_t recvbuf_size = RECV_BUFFER_SIZE;
-    //    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+    size_t recvbuf_size = RECV_BUFFER_SIZE;
+    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
 #endif
 
     return 0;

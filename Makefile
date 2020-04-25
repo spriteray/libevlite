@@ -77,14 +77,14 @@ OBJS 	= utils.o \
 			iolayer.o
 
 # ------------------------------------------------------------------------------
+all : $(REALNAME)
+
 install : all
 	rm -rf $(INCLUDEPATH)/evlite
 	cp -a include $(INCLUDEPATH)/evlite
 	rm -rf $(LIBPATH)/$(REALNAME); cp $(REALNAME) $(LIBPATH)
 	rm -rf $(LIBPATH)/$(SONAME); ln -s $(REALNAME) $(LIBPATH)/$(SONAME)
 	rm -rf $(LIBPATH)/$(LIBNAME); ln -s $(REALNAME) $(LIBPATH)/$(LIBNAME)
-
-all : $(REALNAME)
 
 $(REALNAME) : $(OBJS)
 	$(CC) $(SOFLAGS) $(LFLAGS) $^ -o $@
@@ -157,9 +157,9 @@ clean :
 # gmake的规则
 #
 %.o : %.c
-	$(CC) $(CFLAGS) -c $^ -o $@
+	$(CC) $(CFLAGS) -Wno-unused-function -c $^ -o $@
 
 %.o : %.cpp
-	$(CXX) $(CXXFLAGS) -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -Wno-unused-function -Itest/ -Iexamples/ -c $^ -o $@
 
-VPATH = src:include:test
+VPATH = src:include:test:examples
