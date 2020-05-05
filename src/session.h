@@ -47,6 +47,7 @@ struct session_setting
     int32_t timeout_msecs;
     int32_t keepalive_msecs;
     int32_t max_inbuffer_len;
+    int32_t sendqueue_limit;
 };
 
 QUEUE_HEAD( sendqueue, struct message * );

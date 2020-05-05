@@ -54,6 +54,7 @@ enum
     eIOError_InBufferInvalid    = 0x0001000B,   // read()失败, 接收缓冲区非法
     eIOError_ReadIOError        = 0x0001000C,   // read()失败, IO错误
     eIOError_ReadInvalid        = 0x0001000D,   // read()失败, EINVAL
+    eIOError_SendQueueLimit     = 0x0001000E,   // 发送队列过大
 };
 
 #endif
