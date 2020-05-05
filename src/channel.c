@@ -456,7 +456,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
                     else
                     {
                         // 客户端无法正常接收数据，导致发送队列过度增长
-                        // 避免服务器内存耗尽
+                        // 避免服务器内存耗尽，必须将该会话关闭
                         channel_error( session, eIOError_SendQueueLimit );
                     }
                 }
