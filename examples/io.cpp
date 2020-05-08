@@ -40,6 +40,12 @@ void IIOSession::disablePersist()
     iolayer_set_persist( m_Layer, m_Sid, 0 );
 }
 
+void IIOSession::setSendqueueLimit( uint32_t limit )
+{
+    assert( m_Sid != 0 && m_Layer != NULL );
+    iolayer_set_sndqlimit( m_Layer, m_Sid, limit );
+}
+
 void IIOSession::setEndpoint( const std::string & host, uint16_t port )
 {
     assert( m_Sid != 0 && m_Layer != NULL );

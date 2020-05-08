@@ -198,6 +198,29 @@ int32_t IRedisClient::send( sid_t id, const Slice & cmd )
     return m_Service->send( id, cmd.data(), cmd.size(), true );
 }
 
+int32_t IRedisClient::send( sid_t id, const Slices & cmds )
+{
+    if ( cmds.empty() )
+    {
+        return -1;
+    }
+
+    std::string buffer;
+
+    for ( size_t i = 0; i < cmds.size(); ++i )
+    {
+        if ( cmds[i].empty() )
+        {
+            continue;
+        }
+
+        buffer += std::string( cmds[i].data(), cmds[i].size() );
+        std::free( ( void * )( cmds[i].data() ) );
+    }
+
+    return m_Service->send( id, buffer );
+}
+
 Slice IRedisClient::ping()
 {
     char * buffer = NULL;
@@ -496,19 +519,6 @@ Slice IRedisClient::multi()
     return Slice( buffer, length );
 }
 
-Slice IRedisClient::pipeline()
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "PIPELINE" );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
 Slice IRedisClient::exec()
 {
     char * buffer = NULL;
@@ -694,8 +704,8 @@ int main()
     rediscli->send( sid,
             rediscli->get( "account" ) );
 
-    rediscli->send( sid,
-            rediscli->subscribe( "ope_channel" ) );
+    //rediscli->send( sid,
+    //        rediscli->subscribe( "ope_channel" ) );
 
     while( 1 )
     {
@@ -706,6 +716,11 @@ int main()
         cmds.push_back( "account1" );
         rediscli->send( sid,
                 rediscli->mget( cmds ) );
+
+        Slices pipeline;
+        pipeline.push_back( rediscli->echo( "key_0" ) );
+        pipeline.push_back( rediscli->get( "key_0" ) );
+        rediscli->send( sid, pipeline );
     }
 
     s->stop();

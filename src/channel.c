@@ -441,13 +441,24 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
             else
             {
                 // 正常发送 或者 socket缓冲区已满
+                uint32_t queuesize = session_sendqueue_count( session );
 
-                if ( session_sendqueue_count(session) > 0 )
+                if ( queuesize > 0 )
                 {
-                    // NOTICE: 为什么不判断会话是否正在终止呢?
-                    // 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
-                    // 直到发送队列为空
-                    session_add_event( session, EV_WRITE );
+                    if ( session->setting.sendqueue_limit <= 0
+                            || queuesize < (uint32_t)session->setting.sendqueue_limit )
+                    {
+                        // NOTICE: 为什么不判断会话是否正在终止呢?
+                        // 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
+                        // 直到发送队列为空
+                        session_add_event( session, EV_WRITE );
+                    }
+                    else
+                    {
+                        // 客户端无法正常接收数据，导致发送队列过度增长
+                        // 避免服务器内存耗尽，必须将该会话关闭
+                        channel_error( session, eIOError_SendQueueLimit );
+                    }
                 }
                 else
                 {

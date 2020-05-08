@@ -63,6 +63,8 @@ public :
     void setKeepalive( int32_t seconds );
     // 设置host和port
     void setEndpoint( const std::string & host, uint16_t port );
+    // 设置发送队列长度
+    void setSendqueueLimit( uint32_t limit );
 
     // 发送数据
     int32_t send( const std::string & buffer );

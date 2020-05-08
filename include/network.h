@@ -179,6 +179,8 @@ int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint1
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 // 设置读事件常驻事件库( 默认为0; 激活后, 极端的情况下能提高IO性能40%左右 )
 int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
+// 设置发送队列阈值, 超过阈值关闭连接( 默认为0: 不限制 )
+int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
 
 // 发送数据到会话
 //      id              - 会话ID

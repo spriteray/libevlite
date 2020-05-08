@@ -49,6 +49,7 @@ public :
 
     // 发送
     int32_t send( sid_t id, const Slice & cmd );
+    int32_t send( sid_t id, const Slices & cmds );
 
 public :
     // PING
@@ -83,8 +84,6 @@ public :
     static Slice publish( const std::string & channel, const std::string & message );
     // 事务开始
     static Slice multi();
-    // pipeline
-    static Slice pipeline();
     // 提交事务
     static Slice exec();
 
