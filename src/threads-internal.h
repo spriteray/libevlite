@@ -3,6 +3,7 @@
 #define THREADS_INTERNAL_H
 
 #include "threads.h"
+#include "iolayer.h"
 
 // 队列默认大小
 // 这个选项需要测试期间不断调整以适应场景的需要
@@ -14,6 +15,8 @@
 //
 // 网络线程
 //
+
+STAILQ_HEAD( acceptorlist, acceptor );
 
 struct iothread
 {
@@ -27,6 +30,9 @@ struct iothread
     event_t             cmdevent;
     struct msgqueue *   queue;
     char                padding[ 8 ];
+
+    // 回收列表
+    struct acceptorlist acceptorlist;
 };
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
@@ -54,5 +60,7 @@ struct iothreads
     pthread_cond_t cond;
     pthread_mutex_t lock;
 };
+
+struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index );
 
 #endif

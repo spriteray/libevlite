@@ -13,6 +13,7 @@
 #include "channel.h"
 #include "session.h"
 #include "network-internal.h"
+#include "threads-internal.h"
 
 #include "iolayer.h"
 
@@ -25,7 +26,7 @@ static inline struct session_manager * _get_manager( struct iolayer * self, uint
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 static inline int32_t _broadcast2_loop( void * context, struct session * s );
 
-static int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor );
+static int32_t _listen_direct( struct acceptorlist * acceptorlist, evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static int32_t _associate_direct( evsets_t sets, struct associater * associater );
 static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t sets, struct task_assign * task );
@@ -827,7 +828,31 @@ struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint
     return session;
 }
 
-void iolayer_free_connector( struct iolayer * self, struct connector * connector )
+void iolayer_free_acceptor( struct acceptor * acceptor )
+{
+    if ( acceptor->event )
+    {
+        evsets_del( acceptor->evsets, acceptor->event );
+        event_destroy( acceptor->event );
+        acceptor->event = NULL;
+    }
+
+    if ( acceptor->host != NULL )
+    {
+        free( acceptor->host );
+        acceptor->host = NULL;
+    }
+
+    if ( acceptor->fd > 0 )
+    {
+        close( acceptor->fd );
+        acceptor->fd = -1;
+    }
+
+    free( acceptor );
+}
+
+void iolayer_free_connector( struct connector * connector )
 {
     if ( connector->event )
     {
@@ -851,7 +876,7 @@ void iolayer_free_connector( struct iolayer * self, struct connector * connector
     free( connector );
 }
 
-void iolayer_free_associater( struct iolayer * self, struct associater * associater )
+void iolayer_free_associater( struct associater * associater )
 {
     if ( associater->event )
     {
@@ -998,9 +1023,11 @@ int32_t _broadcast2_loop( void * context, struct session * s )
     return 0;
 }
 
-int32_t _listen_direct( evsets_t sets, struct acceptor * acceptor )
+int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct acceptor * acceptor )
 {
     // 开始关注accept事件
+    acceptor->evsets = sets;
+    STAILQ_INSERT_TAIL( acceptlist, acceptor, linker );
 
     event_set( acceptor->event, acceptor->fd, EV_READ|EV_PERSIST );
     event_set_callback( acceptor->event, channel_on_accept, acceptor );
@@ -1301,7 +1328,8 @@ void _concrete_processor( void * context, uint8_t index, int16_t type, void * ta
     {
             // 打开一个服务器
         case eIOTaskType_Listen :
-            _listen_direct( sets, (struct acceptor *)task );
+            _listen_direct(
+                    iothreads_get_acceptlist(layer->threads, index), sets, (struct acceptor *)task );
             break;
 
             // 连接远程服务器

@@ -7,6 +7,7 @@
 #include "event.h"
 #include "threads.h"
 #include "network.h"
+#include "queue.h"
 
 #include "session.h"
 
@@ -43,6 +44,7 @@ struct acceptor
 
     // 接收事件
     event_t             event;
+    evsets_t            evsets;
 
     // 绑定的地址以及监听的端口号
     char *              host;
@@ -56,6 +58,8 @@ struct acceptor
     int32_t             idlefd;
     // 通信层句柄
     struct iolayer *    parent;
+    // 便于回收资源
+    STAILQ_ENTRY(acceptor) linker;
 };
 
 // 连接器
@@ -154,10 +158,12 @@ int32_t iolayer_client_option( int32_t fd );
 // 分配一个会话
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index );
 
+// 销毁接收器
+void iolayer_free_acceptor( struct acceptor * acceptor );
 // 销毁连接器
-void iolayer_free_connector( struct iolayer * self, struct connector * connector );
+void iolayer_free_connector( struct connector * connector );
 // 销毁关联器
-void iolayer_free_associater( struct iolayer * self, struct associater * associater );
+void iolayer_free_associater( struct associater * associater );
 
 // 处理EMFILE
 void iolayer_accept_fdlimits( struct acceptor * acceptor );
