@@ -643,7 +643,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             session_end( session, id, 0 );
         }
 
-        iolayer_free_connector( layer, connector );
+        iolayer_free_connector( connector );
     }
     else
     {
@@ -671,7 +671,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             session_start( session, eSessionType_Connect, connector->fd, connector->evsets );
 
             connector->fd = -1;
-            iolayer_free_connector( layer, connector );
+            iolayer_free_connector( connector );
         }
     }
 }
@@ -760,7 +760,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
             session_end( session, id, 0 );
         }
 
-        iolayer_free_associater( layer, associater );
+        iolayer_free_associater( associater );
     }
     else
     {
@@ -770,7 +770,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
             if ( unlikely( associater->reattach == NULL ) )
             {
                 // 没有设置重新关联函数
-                iolayer_free_associater( layer, associater );
+                iolayer_free_associater( associater );
             }
             else
             {
@@ -788,7 +788,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
             session_set_reattach( session, associater->reattach, associater->privdata );
             session_start( session, eSessionType_Associate, associater->fd, associater->evsets );
 
-            iolayer_free_associater( layer, associater );
+            iolayer_free_associater( associater );
         }
     }
 }

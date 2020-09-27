@@ -66,6 +66,17 @@ void iothreads_set_processor( iothreads_t self, processor_t processor, void * co
     return;
 }
 
+struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threads != NULL );
+
+    return &(iothreads->threads[index].acceptorlist);
+}
+
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 {
     struct iothreads * iothreads = (struct iothreads *)(self);
@@ -188,6 +199,9 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
         return -1;
     }
 
+    // 初始化列表
+    STAILQ_INIT( &self->acceptorlist );
+
     self->cmdevent = event_create();
     self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE );
     if ( self->queue == NULL || self->cmdevent == NULL )
@@ -256,6 +270,15 @@ int32_t iothread_stop( struct iothread * self )
     {
         evsets_destroy( self->sets );
         self->sets = NULL;
+    }
+
+    struct acceptor * acceptor = STAILQ_FIRST( &self->acceptorlist );
+    for ( ; acceptor != NULL; )
+    {
+        struct acceptor * next = STAILQ_NEXT( acceptor, linker );
+
+        iolayer_free_acceptor( acceptor );
+        acceptor = next;
     }
 
     return 0;

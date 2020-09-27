@@ -37,8 +37,6 @@
 
    - ##### 监听端口/开启服务端 iolayer_listen()
 
-     - 此处存在一次性内存泄漏(272bytes)
-
    - ##### 连接远程服务/开启客户端 iolayer_connect()
 
    - ##### 关联描述符的读写事件 iolayer_associate()
