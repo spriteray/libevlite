@@ -181,7 +181,8 @@ int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, accept
 #ifdef EVENT_HAVE_REUSEPORT
         acceptor->index     = i;
 #else
-        acceptor->index     = DISPATCH_POLICY(layer, acceptor->fd);
+        acceptor->index     = DISPATCH_POLICY( layer,
+                                __sync_fetch_and_add(&layer->roundrobin, 1) );
 #endif
         if ( host != NULL )
         {
@@ -235,7 +236,8 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
     connector->port     = port;
     connector->context  = context;
     connector->cb       = callback;
-    connector->index    = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
+    connector->index    = DISPATCH_POLICY( layer,
+                            __sync_fetch_and_add(&layer->roundrobin, 1) );
     connector->host     = strdup( host );
 
     iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
@@ -279,7 +281,8 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
     associater->context     = context;
     associater->parent      = layer;
     associater->privdata    = privdata;
-    associater->index       = DISPATCH_POLICY( layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
+    associater->index       = DISPATCH_POLICY( layer,
+                                __sync_fetch_and_add(&layer->roundrobin, 1) );
     // 提交到网络层
     iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
 
@@ -847,6 +850,11 @@ void iolayer_free_acceptor( struct acceptor * acceptor )
     {
         close( acceptor->fd );
         acceptor->fd = -1;
+    }
+    if ( acceptor->idlefd > 0 )
+    {
+        close( acceptor->idlefd );
+        acceptor->idlefd = -1;
     }
 
     free( acceptor );
