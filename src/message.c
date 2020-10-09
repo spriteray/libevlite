@@ -100,7 +100,7 @@ ssize_t _read_withvector( struct buffer * self, int32_t fd  )
     if ( nread > (ssize_t)left )
     {
         self->length += left;
-        buffer_append( self, extra, (uint32_t)(nread-left) );
+        buffer_append( self, extra, (size_t)(nread-left) );
     }
     else if ( nread > 0 )
     {
