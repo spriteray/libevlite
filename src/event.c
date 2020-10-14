@@ -340,7 +340,6 @@ int32_t evsets_del( evsets_t self, event_t ev )
 
     if ( e->status & EVSTATUS_TIMER )
     {
-        e->timer_msecs = -1;
         event_queue_remove( sets, e, EVSTATUS_TIMER );
     }
     if ( e->status & EVSTATUS_ACTIVE )
@@ -463,8 +462,14 @@ int32_t evsets_process_active( struct eventset * self )
             event_queue_remove( self, ev, EVSTATUS_ACTIVE );
 
             // Timeouts and persistent events work together
-            if ( ev->results&EV_TIMEOUT )
+            if ( ev->timer_msecs > 0 )
             {
+                if ( !(ev->results & EV_TIMEOUT) )
+                {
+                    // IO事件发生后(并非超时), 移除定时器
+                    event_queue_remove( self, ev, EVSTATUS_TIMER );
+                }
+                // 重置定时器
                 event_queue_insert( self, ev, EVSTATUS_TIMER );
             }
         }
