@@ -147,14 +147,15 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * context );
 
 // 服务器开启
+//        type          - 服务器类型: 1-TCP;2-UDP
 //        host          - 绑定的地址
 //        port          - 监听的端口号
 //        callback      - 新会话创建成功后的回调,会被多个网络线程调用
 //        context       - 上下文参数
-int32_t iolayer_listen( iolayer_t self,
+int32_t iolayer_listen( iolayer_t self, uint8_t type,
         const char * host, uint16_t port, acceptor_t callback, void * context );
 
-// 客户端开启
+// TCP客户端开启
 //        host          - 远程服务器的地址
 //        port          - 远程服务器的端口
 //        callback      - 连接结果的回调
@@ -181,6 +182,8 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
 // 设置发送队列阈值, 超过阈值关闭连接( 默认为0: 不限制 )
 int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
+// 设置udp的发送接收窗口
+int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t rcvwnd );
 
 // 发送数据到会话
 //      id              - 会话ID

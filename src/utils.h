@@ -53,6 +53,10 @@ int32_t set_non_block( int32_t fd );
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport );
 int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t) );
 int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_t) );
+int32_t udp_bind( const char * host, uint16_t port, int32_t (*options)(int32_t), struct sockaddr_storage * addr );
+int32_t udp_connect( struct sockaddr_storage * localaddr,
+        struct sockaddr_storage * remoteaddr, int32_t (*options)(int32_t) );
+void parse_endpoint( struct sockaddr_storage * addr, char * host, uint16_t * port );
 
 //
 // 基础算法类

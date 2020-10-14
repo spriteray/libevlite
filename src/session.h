@@ -33,6 +33,7 @@
 #define SESSION_KEEPALIVING 0x04    // 等待保活事件
 #define SESSION_SHUTDOWNING 0x08    // 正在终止中..., 被逻辑层终止的会话
 #define SESSION_EXITING     0x10    // 等待退出, 数据全部发送完毕后, 即可终止
+#define SESSION_SCHEDULING  0x20    // UDP会话正在调度
 
 enum SessionType
 {
@@ -41,6 +42,7 @@ enum SessionType
     eSessionType_Associate  = 3,    // Associate会话
 };
 
+struct session;
 struct session_setting
 {
     int32_t persist_mode;
@@ -48,8 +50,14 @@ struct session_setting
     int32_t keepalive_msecs;
     int32_t max_inbuffer_len;
     int32_t sendqueue_limit;
+    int32_t sendwindow_size;
+    int32_t recvwindow_size;
+    ssize_t (*receive)( struct session * s );
+    ssize_t (*transmit)( struct session * s );
+    ssize_t (*send)( struct session * s, char * buf, size_t nbytes );
 };
 
+struct driver;
 QUEUE_HEAD( sendqueue, struct message * );
 QUEUE_PROTOTYPE( sendqueue, struct message * )
 
@@ -75,6 +83,9 @@ struct session
     void *                  context;
     ioservice_t             service;
 
+    // udp驱动
+    struct driver *         driver;
+
     // 关联的第三方会话
     void *                  privdata;       // 私有数据
     reattacher_t            reattach;       //
@@ -98,6 +109,9 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 
 // 会话是否支持重连
 int8_t session_is_reattch( struct session * self );
+
+// 初始化UDP驱动
+int32_t session_init_driver( struct session * self, struct buffer * buffer );
 
 //
 void session_set_iolayer( struct session * self, void * iolayer );

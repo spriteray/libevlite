@@ -14,6 +14,7 @@
 #include <netdb.h>
 
 #include "utils.h"
+#include "config.h"
 
 #if defined EVENT_OS_LINUX
 
@@ -128,21 +129,7 @@ int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
     if ( cfd != -1 )
     {
         // 解析获得目标ip和端口
-        struct sockaddr * saddr = (struct sockaddr *)&cli_addr;
-        switch ( saddr->sa_family )
-        {
-            case AF_INET :
-                *remoteport = ntohs( ((struct sockaddr_in *)saddr)->sin_port );
-                inet_ntop( saddr->sa_family,
-                        &((struct sockaddr_in *)saddr)->sin_addr, remotehost, INET_ADDRSTRLEN );
-                break;
-
-            case AF_INET6 :
-                *remoteport = ntohs( ((struct sockaddr_in6 *)saddr)->sin6_port );
-                inet_ntop( saddr->sa_family,
-                        &((struct sockaddr_in6 *)saddr)->sin6_addr, remotehost, INET6_ADDRSTRLEN );
-                break;
-        }
+        parse_endpoint( &cli_addr, remotehost, remoteport );
     }
 
     return cfd;
@@ -265,6 +252,131 @@ int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_
     }
 
     return fd;
+}
+
+int32_t udp_bind( const char * host, uint16_t port, int32_t (*options)(int32_t), struct sockaddr_storage * addr )
+{
+    int32_t fd = -1;
+    char strport[ 6 ];
+    struct addrinfo hints, *res, *p;
+
+    bzero( &hints, sizeof(hints) );
+    snprintf( strport, sizeof(strport), "%d", port );
+    // 设置参数
+    hints.ai_flags = AI_PASSIVE;
+    hints.ai_family = AF_UNSPEC;
+    hints.ai_socktype = SOCK_DGRAM;
+    hints.ai_protocol = IPPROTO_UDP;
+    // 获取地址信息
+    if ( getaddrinfo( host, strport, &hints, &res ) != 0 )
+    {
+        return -1;
+    }
+
+    for ( p = res; p != NULL; p = p->ai_next )
+    {
+#ifndef EVENT_USE_LOCALHOST
+        char bindhost[ 64 ];
+        switch ( p->ai_addr->sa_family )
+        {
+            case AF_INET :
+                inet_ntop( p->ai_addr->sa_family,
+                        &((struct sockaddr_in *)p->ai_addr)->sin_addr, bindhost, INET_ADDRSTRLEN );
+                break;
+
+            case AF_INET6 :
+                inet_ntop( p->ai_addr->sa_family,
+                        &((struct sockaddr_in6 *)p->ai_addr)->sin6_addr, bindhost, INET6_ADDRSTRLEN );
+                break;
+        }
+        // 内核4.4.0之前的版本无法绑定127.0.0.1
+        if ( strcmp(bindhost, "::1") == 0
+                || strcmp(bindhost, "127.0.0.1") == 0 )
+        {
+            continue;
+        }
+#endif
+
+        fd = socket( p->ai_family, p->ai_socktype, p->ai_protocol );
+        if ( fd < 0 )
+        {
+            continue;
+        }
+
+        // 对描述符的选项操作
+        if ( options( fd ) != 0 )
+        {
+            close( fd );
+            continue;
+        }
+
+        // bind
+        if ( bind( fd, p->ai_addr, p->ai_addrlen ) == -1 )
+        {
+            close( fd );
+            continue;
+        }
+
+        // 绑定成功后退出循环
+        memcpy( addr, p->ai_addr, p->ai_addrlen );
+        break;
+    }
+
+    freeaddrinfo( res );
+    if ( p == NULL )
+    {
+        return -2;
+    }
+
+    return fd;
+}
+
+int32_t udp_connect( struct sockaddr_storage * localaddr, struct sockaddr_storage * remoteaddr, int32_t (*options)(int32_t) )
+{
+    int32_t newfd = socket(
+            ((struct sockaddr *)localaddr)->sa_family, SOCK_DGRAM, IPPROTO_UDP );
+    if ( newfd <= 0 )
+    {
+        return -1;
+    }
+
+    options( newfd );
+
+    // 绑定
+    if ( bind( newfd, (struct sockaddr *)localaddr, sizeof(struct sockaddr) ) < 0 )
+    {
+        close( newfd );
+        return -2;
+    }
+
+    // 连接
+    int32_t rc = connect( newfd, (struct sockaddr *)remoteaddr, sizeof(struct sockaddr) );
+    if ( rc == -1 && errno != EINPROGRESS )
+    {
+        close( newfd );
+        return -3;
+    }
+
+    return newfd;
+}
+
+void parse_endpoint( struct sockaddr_storage * addr, char * host, uint16_t * port )
+{
+    struct sockaddr * saddr = (struct sockaddr *)addr;
+    switch ( saddr->sa_family )
+    {
+        case AF_INET :
+            *port = ntohs( ((struct sockaddr_in *)saddr)->sin_port );
+            inet_ntop( saddr->sa_family,
+                    &((struct sockaddr_in *)saddr)->sin_addr, host, INET_ADDRSTRLEN );
+            break;
+
+        case AF_INET6 :
+            *port = ntohs( ((struct sockaddr_in6 *)saddr)->sin6_port );
+            inet_ntop( saddr->sa_family,
+                    &((struct sockaddr_in6 *)saddr)->sin6_addr, host, INET6_ADDRSTRLEN );
+            break;
+    }
 }
 
 // -----------------------------------------------------------------------------

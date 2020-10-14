@@ -11,6 +11,9 @@ extern "C"
 
 #include "utils.h"
 
+#define MIN_BUFFER_LENGTH       128
+#define MAX_BUFFER_LENGTH       65536
+
 //
 // 缓冲区
 //
@@ -37,7 +40,9 @@ int32_t buffer_set( struct buffer * self, char * buf, size_t length );
 //
 int32_t buffer_erase( struct buffer * self, size_t length );
 int32_t buffer_append( struct buffer * self, const char * buf, size_t length );
+int32_t buffer_append2( struct buffer * self, struct buffer * buffer );
 size_t buffer_take( struct buffer * self, char * buf, size_t length );
+int32_t buffer_reserve( struct buffer * self, size_t length );
 
 // 两个缓冲区相互交换
 void buffer_swap( struct buffer * buf1, struct buffer * buf2 );
@@ -47,6 +52,7 @@ void buffer_swap( struct buffer * buf1, struct buffer * buf2 );
 // nbytes > 0  : 读取指定长度的数据到BUFF中
 // -1, 系统调用read()返回出错; -2, 返回expand()失败
 ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes );
+ssize_t buffer_receive( struct buffer * self, int32_t fd, struct sockaddr_storage * addr );
 
 
 //
