@@ -212,11 +212,20 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
     connector->port     = port;
     connector->context  = context;
     connector->cb       = callback;
-    connector->index    = DISPATCH_POLICY( layer,
-                                __sync_fetch_and_add(&layer->roundrobin, 1) );
     connector->host     = strdup( host );
 
-    iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
+    int8_t index = iothreads_get_index( layer->threads );
+    if ( index >= 0 )
+    {
+        connector->index = index;
+        _connect_direct( iothreads_get_sets(layer->threads, index), connector );
+    }
+    else
+    {
+        connector->index = DISPATCH_POLICY(
+                layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
+        iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
+    }
 
     return 0;
 }
@@ -257,10 +266,21 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
     associater->context     = context;
     associater->parent      = layer;
     associater->privdata    = privdata;
-    associater->index       = DISPATCH_POLICY( layer,
-                                    __sync_fetch_and_add(&layer->roundrobin, 1) );
-    // 提交到网络层
-    iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
+
+    int8_t index = iothreads_get_index( layer->threads );
+    if ( index >= 0 )
+    {
+        associater->index = index;
+        _associate_direct( iothreads_get_sets(layer->threads, index), associater );
+    }
+    else
+    {
+        // 随机找一个io线程
+        associater->index = DISPATCH_POLICY(
+                layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
+        // 提交到网络层
+        iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
+    }
 
     return 0;
 }
@@ -677,7 +697,7 @@ int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taske
     if ( clone == NULL )
     {
         uint8_t index = milliseconds() % layer->nthreads;
-        struct task_performs inner_task = { .task=task, .perform=execute };
+        struct task_performs inner_task = { task, execute };
 
         if ( threadid == iothreads_get_id( layer->threads, index ) )
         {

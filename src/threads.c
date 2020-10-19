@@ -77,6 +77,23 @@ struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index 
     return &(iothreads->threads[index].acceptorlist);
 }
 
+int8_t iothreads_get_index( iothreads_t self )
+{
+    int8_t i = 0;
+    pthread_t tid = pthread_self();
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    for ( i = 0; i < iothreads->nthreads; ++i )
+    {
+        if ( iothreads->threads[i].id == tid )
+        {
+            return i;
+        }
+    }
+
+    return -1;
+}
+
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 {
     struct iothreads * iothreads = (struct iothreads *)(self);
