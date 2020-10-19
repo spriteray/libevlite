@@ -204,7 +204,7 @@ bool CChatRoomService::init( const char * host, uint16_t port )
 
     start();
 
-    rc = listen( host, port );
+    rc = listen( 1, host, port );
     if ( !rc )
     {
         printf( "CChatRoomService::listen(%s::%d) failed .\n", host, port );

@@ -45,7 +45,6 @@
 
      - 设置会话的超时时间 iolayer_set_timeout()
      - 设置会话的保活时间 iolayer_set_keepalive()
-     - 设置会话的地址和端口 iolayer_set_endpoint()
      - 设置会话的IO服务逻辑 iolayer_set_service()
      - 设置会话的读事件常驻事件集 iolayer_set_persist()
      - 设置会话的发送队列长度限制 iolayer_set_sndqlimit()
