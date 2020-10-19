@@ -668,29 +668,49 @@ int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taske
 {
     uint8_t i = 0;
 
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( execute != NULL && "Illegal specified Execute-Function" );
+
     pthread_t threadid = pthread_self();
     struct task_performs tasklist[ 256 ];   // 栈中分配更快
     struct iolayer * layer = (struct iolayer *)self;
 
-    // clone task
-    for ( i = 0; i < layer->nthreads; ++i )
+    if ( clone == NULL )
     {
-        tasklist[i].clone = clone;
-        tasklist[i].perform = execute;
-        tasklist[i].task = i == 0 ? task : clone( task );
-    }
+        uint8_t index = milliseconds() % layer->nthreads;
+        struct task_performs inner_task = { .task=task, .perform=execute };
 
-    for ( i = 0; i < layer->nthreads; ++i )
-    {
-        if ( threadid == iothreads_get_id( layer->threads, i ) )
+        if ( threadid == iothreads_get_id( layer->threads, index ) )
         {
-            // 本线程内直接广播
-            _performs_direct( layer, i, &(tasklist[i]) );
+            // 本线程内直接执行
+            _performs_direct( layer, index, &inner_task );
         }
         else
         {
-            // 跨线程提交广播任务
-            iothreads_post( layer->threads, i, eIOTaskType_Performs, &(tasklist[i]), sizeof(struct task_performs) );
+            // 跨线程提交执行任务
+            iothreads_post( layer->threads, index, eIOTaskType_Performs, &inner_task, sizeof(struct task_performs) );
+        }
+    }
+    else
+    {
+        for ( i = 0; i < layer->nthreads; ++i )
+        {
+            tasklist[i].perform = execute;
+            tasklist[i].task = i == 0 ? task : clone( task );
+        }
+
+        for ( i = 0; i < layer->nthreads; ++i )
+        {
+            if ( threadid == iothreads_get_id( layer->threads, i ) )
+            {
+                // 本线程内直接广播
+                _performs_direct( layer, i, &(tasklist[i]) );
+            }
+            else
+            {
+                // 跨线程提交广播任务
+                iothreads_post( layer->threads, i, eIOTaskType_Performs, &(tasklist[i]), sizeof(struct task_performs) );
+            }
         }
     }
 

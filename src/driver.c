@@ -148,9 +148,13 @@ ssize_t driver_transmit( struct session * session )
     {
         struct message * message = NULL;
 
+        // 取出第一条消息
         QUEUE_TOP(sendqueue)( &session->sendqueue, &message );
-        ssize_t len = ikcp_send( session->driver->kcp,
-                message_get_buffer(message), (int32_t)message_get_length(message) );
+        // 发送数据给KCP
+        ssize_t len = ikcp_send(
+                session->driver->kcp,
+                message_get_buffer(message),
+                (int32_t)message_get_length(message) );
         if ( len < 0 )
         {
             break;

@@ -149,7 +149,6 @@ struct task_perform
 struct task_performs
 {
     void *              task;
-    taskcloner_t        clone;
     taskexecutor_t      perform;
 };
 
