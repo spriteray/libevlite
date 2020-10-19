@@ -210,9 +210,9 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 //      recycle         - 任务回收函数
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
 
-// 提交任务到网络层(广播所有网络线程)
+// 提交任务到网络层
 //      task            - 任务
-//      clone           - 任务复制函数
+//      clone           - 任务复制函数, 如果为NULL, 随机选择一个网络线程投递
 //      execute         - 任务处理函数
 int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 

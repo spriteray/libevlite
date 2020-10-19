@@ -666,11 +666,10 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
 
 int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute )
 {
-    uint8_t i = 0;
-
     assert( self != NULL && "Illegal IOLayer" );
     assert( execute != NULL && "Illegal specified Execute-Function" );
 
+    uint8_t i = 0;
     pthread_t threadid = pthread_self();
     struct task_performs tasklist[ 256 ];   // 栈中分配更快
     struct iolayer * layer = (struct iolayer *)self;
