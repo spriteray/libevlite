@@ -9,13 +9,6 @@
 #include "io.h"
 #include "slice.h"
 
-typedef std::vector<std::string> RedisStrList;
-
-struct ResultHelper
-{
-    template<typename T> static T parse( redisReply * reply ) { return T(); }
-};
-
 class IRedisClient : public IIOService
 {
 public :
@@ -37,8 +30,8 @@ public :
     void finalize();
 
     // 订阅
-    int32_t subscribe( const Slice & cmd, uint32_t ctxid = 0 );
-    int32_t unsubscribe( sid_t sid, const Slice & cmd );
+    int32_t subscribe( const std::string & channel );
+    int32_t unsubscribe( const std::string & channel );
     // 提交
     int32_t submit( const Slice & cmd, uint32_t ctxid = 0 );
     // 提交(支持pipeline)
@@ -56,6 +49,8 @@ private :
     virtual void * initIOContext();
     virtual void finalIOContext( void * context );
 
+    static void * cloneTask( void * task );
+    static void performTask( void * iocontext, void * task );
     static int32_t reattach( int32_t fd, void * privdata );
     static int32_t associatecb( void * context,
             void * iocontext, int32_t result, int32_t fd, void * privdata, sid_t sid );

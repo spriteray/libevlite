@@ -1,7 +1,7 @@
 
 #include <hiredis/hiredis.h>
 
-#include "command.h"
+#include "helper.h"
 
 Slice RedisCommand::ping()
 {
@@ -273,4 +273,36 @@ Slice RedisCommand::publish( const std::string & channel, const std::string & me
     }
 
     return Slice( buffer, length );
+}
+
+template<> long long int ResultHelper::parse<long long int>( redisReply * reply )
+{
+    assert( reply->type == REDIS_REPLY_INTEGER );
+    return reply->integer;
+}
+
+template<> std::string ResultHelper::parse<std::string>( redisReply * reply )
+{
+    assert( reply->type == REDIS_REPLY_STRING );
+    return std::string( reply->str, reply->len );
+}
+
+template<> RedisStrList ResultHelper::parse<RedisStrList>( redisReply * reply )
+{
+    RedisStrList values;
+
+    assert( reply->type == REDIS_REPLY_ARRAY );
+    for ( size_t i = 0; i < reply->elements; ++i )
+    {
+        if ( reply->element[i]->type != REDIS_REPLY_STRING )
+        {
+            values.push_back( std::string() );
+        }
+        else
+        {
+            values.push_back( std::string(reply->element[i]->str, reply->element[i]->len) );
+        }
+    }
+
+    return values;
 }

@@ -40,4 +40,11 @@ public :
     static Slice publish( const std::string & channel, const std::string & message );
 };
 
+typedef std::vector<std::string> RedisStrList;
+
+struct ResultHelper
+{
+    template<typename T> static T parse( redisReply * reply ) { return T(); }
+};
+
 #endif

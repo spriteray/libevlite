@@ -9,49 +9,12 @@
 #include <pthread.h>
 #include <hiredis/hiredis.h>
 
-#include "command.h"
+#include "helper.h"
 #include "redis.h"
 
 struct redisContext;
 class RedisDBTask;
 class RedisConnection;
-
-
-template<> long long int ResultHelper::parse<long long int>( redisReply * reply )
-{
-    assert( reply->type == REDIS_REPLY_INTEGER );
-    return reply->integer;
-}
-
-template<> std::string ResultHelper::parse<std::string>( redisReply * reply )
-{
-    assert( reply->type == REDIS_REPLY_STRING );
-    return std::string( reply->str, reply->len );
-}
-
-template<> RedisStrList ResultHelper::parse<RedisStrList>( redisReply * reply )
-{
-    RedisStrList values;
-
-    assert( reply->type == REDIS_REPLY_ARRAY );
-    for ( size_t i = 0; i < reply->elements; ++i )
-    {
-        if ( reply->element[i]->type != REDIS_REPLY_STRING )
-        {
-            values.push_back( std::string() );
-        }
-        else
-        {
-            values.push_back( std::string(reply->element[i]->str, reply->element[i]->len) );
-        }
-    }
-
-    return values;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
-///////////////////////////////////////////////////////////////////////////////
 
 class RedisConnectionPool
 {
@@ -66,6 +29,7 @@ public :
 
 public :
     int32_t perform( RedisDBTask * t );
+    int32_t perform( const std::string & channel, RedisDBTask * t );
     void fetchAndPerformTask( RedisConnection * c );
 
     IRedisClient * getRedisClient() const { return m_Client; }
@@ -76,33 +40,32 @@ public :
     void addConnection( sid_t sid, RedisConnection * c );
     void addIdleConnection( sid_t sid, RedisConnection * c );
 
+    void addChannel( const std::string & channel, sid_t sid );
+    void removeChannel( const std::string & channel );
+
 private :
     typedef std::deque<RedisDBTask *> TaskQueue;
+    typedef std::unordered_map<std::string, sid_t> ChannelManager;
     typedef std::unordered_map<sid_t, RedisConnection *> ConnectionManager;
 
     IRedisClient *          m_Client;
     uint32_t                m_MaxConnections;
     TaskQueue               m_TaskQueue;
     std::deque<sid_t>       m_IdleSidlist;
+    ChannelManager          m_ChannelManager;
     ConnectionManager       m_ConnectionManager;
 };
 
 class RedisDBTask
 {
 public :
-    RedisDBTask( const Slice & cmd, uint32_t ctxid )
-        : m_Counter( 1 ),
-          m_ContextID( ctxid ),
-          m_RedisCommand( cmd )
-    {}
-
-    RedisDBTask( size_t count, const Slice & cmd, uint32_t ctxid )
+    RedisDBTask( int32_t count, const Slice & cmd, uint32_t ctxid )
         : m_Counter( count ),
           m_ContextID( ctxid ),
           m_RedisCommand( cmd )
     {}
 
-    ~RedisDBTask()
+    virtual ~RedisDBTask()
     {
         if ( !m_RedisCommand.empty() )
         {
@@ -111,26 +74,68 @@ public :
         }
     }
 
-    static void perform( void * iocontext, void * task )
+    virtual void * clone()
     {
-        RedisDBTask * t = static_cast<RedisDBTask *>(task);
-        RedisConnectionPool * pool = static_cast<RedisConnectionPool *>(iocontext);
+        return new RedisDBTask( m_Counter, m_RedisCommand, m_ContextID );
+    }
 
-        pool->perform( t );
+    virtual void perform( RedisConnectionPool * pool )
+    {
+        pool->perform( this );
     }
 
 public :
-    size_t decrCounter() { return --m_Counter; }
+    uint32_t decrCounter()
+    {
+        if ( m_Counter == (uint32_t)-1 )
+        {
+            return -1;
+        }
 
-    void setCounter( size_t c ) { m_Counter = c; }
-    size_t getCounter() const { return m_Counter; }
+        return --m_Counter;
+    }
+
+    void setCounter( uint32_t c ) { m_Counter = c; }
+    uint32_t getCounter() const { return m_Counter; }
     uint32_t getContextID() const { return m_ContextID; }
     const Slice & getCommand() const { return m_RedisCommand; }
 
-private :
-    size_t      m_Counter;        // 任务计数器
+protected :
+    uint32_t    m_Counter;        // 任务计数器
     uint32_t    m_ContextID;
     Slice       m_RedisCommand;
+};
+
+class UnsubscribeTask : public RedisDBTask
+{
+public :
+    UnsubscribeTask( const std::string & channel, const Slice & cmd )
+        : RedisDBTask( 1, cmd, 0 ),
+          m_Channel( channel )
+    {}
+
+    virtual ~UnsubscribeTask()
+    {}
+
+    virtual void * clone()
+    {
+        char * buf = (char *)malloc( m_RedisCommand.size() );
+        if ( buf == NULL )
+        {
+            return NULL;
+        }
+
+        memcpy( buf, m_RedisCommand.data(), m_RedisCommand.size() );
+        return new UnsubscribeTask( m_Channel, Slice(buf, m_RedisCommand.size()) );
+    }
+
+    virtual void perform( RedisConnectionPool * pool )
+    {
+        pool->perform( m_Channel, this );
+    }
+
+protected :
+    std::string m_Channel;
 };
 
 class RedisConnection : public IIOSession
@@ -164,7 +169,7 @@ public :
             Slice cmd = RedisCommand::auth(m_Token);
             if ( !cmd.empty() )
             {
-                m_Task = new RedisDBTask( cmd, 0 );
+                m_Task = new RedisDBTask( 1, cmd, 0 );
                 send( cmd.data(), cmd.size(), false );
             }
         }
@@ -281,15 +286,24 @@ public :
 
             case REDIS_REPLY_ARRAY :
                 {
-                    if ( isAboutSubscribe(
-                                reply, "unsubscribe") )
+                    switch ( isAboutSubscribe(reply) )
                     {
-                        m_Task->setCounter( 1 );
-                        freeReplyObject( reply );
-                    }
-                    else
-                    {
-                        redisclient->datasets( 0, reply );
+                        case 0 :
+                            redisclient->datasets( 0, reply );
+                            break;
+
+                        case 1 :
+                            getConnectionPool()->addChannel(
+                                    std::string(reply->element[1]->str, reply->element[1]->len), id() );
+                            freeReplyObject( reply );
+                            break;
+
+                        case 2 :
+                            m_Task->setCounter( 1 );
+                            getConnectionPool()->removeChannel(
+                                    std::string(reply->element[1]->str, reply->element[1]->len) );
+                            freeReplyObject( reply );
+                            break;
                     }
                 }
                 break;
@@ -308,18 +322,28 @@ private :
         return static_cast<RedisConnectionPool *>(iocontext());
     }
 
-    bool isAboutSubscribe( redisReply * reply, const char * tag ) const
+    int32_t isAboutSubscribe( redisReply * reply ) const
     {
-        return reply->elements == 3
-            && reply->element[0]->type == REDIS_REPLY_STRING
-            && strncmp( reply->element[0]->str, tag, reply->element[0]->len ) == 0;
+        if ( reply->elements == 3
+            && reply->element[0]->type == REDIS_REPLY_STRING )
+        {
+            if ( strncmp( reply->element[0]->str, "subscribe", reply->element[0]->len ) == 0 )
+            {
+                return 1;
+            }
+            else if ( strncmp( reply->element[0]->str, "unsubscribe", reply->element[0]->len ) == 0 )
+            {
+                return 2;
+            }
+        }
+
+        return 0;
     }
 
 protected :
     friend class IRedisClient;
     RedisDBTask *       m_Task;
     std::string         m_Token;
-    bool                m_IsVerify;
     redisContext *      m_RedisConnection;
 };
 
@@ -352,6 +376,21 @@ int32_t RedisConnectionPool::perform( RedisDBTask * task )
     }
 
     return 0;
+}
+
+int32_t RedisConnectionPool::perform( const std::string & channel, RedisDBTask * task )
+{
+    ChannelManager::iterator result = m_ChannelManager.find( channel );
+    if ( result != m_ChannelManager.end() )
+    {
+        RedisConnection * connection = getConnection( result->second );
+        if ( connection != NULL )
+        {
+            connection->send( task->getCommand().data(), task->getCommand().size(), false );
+        }
+    }
+
+    delete task; return 0;
 }
 
 void RedisConnectionPool::fetchAndPerformTask( RedisConnection * connection )
@@ -424,6 +463,16 @@ void RedisConnectionPool::removeConnection( sid_t sid )
     }
 }
 
+void RedisConnectionPool::addChannel( const std::string & channel, sid_t sid )
+{
+    m_ChannelManager.insert( std::make_pair( channel, sid ) );
+}
+
+void RedisConnectionPool::removeChannel( const std::string & channel )
+{
+    m_ChannelManager.erase( channel );
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
 ///////////////////////////////////////////////////////////////////////////////
@@ -463,24 +512,26 @@ void IRedisClient::finalize()
     stop();
 }
 
-int32_t IRedisClient::subscribe( const Slice & cmd, uint32_t ctxid )
+int32_t IRedisClient::subscribe( const std::string & channel )
 {
-    if ( cmd.empty() || ctxid == 0 )
-    {
-        return -1;
-    }
-
-    return perform( new RedisDBTask(-1, cmd, ctxid), NULL, RedisDBTask::perform );
-}
-
-int32_t IRedisClient::unsubscribe( sid_t sid, const Slice & cmd )
-{
+    Slice cmd = RedisCommand::subscribe( channel );
     if ( cmd.empty() )
     {
         return -1;
     }
 
-    return send( sid, cmd.data(), cmd.size(), true );
+    return perform( new RedisDBTask(-1, cmd, 0), NULL, performTask );
+}
+
+int32_t IRedisClient::unsubscribe( const std::string & channel )
+{
+    Slice cmd = RedisCommand::unsubscribe( channel );
+    if ( cmd.empty() )
+    {
+        return -1;
+    }
+
+    return perform( new UnsubscribeTask(channel, cmd), cloneTask, performTask );
 }
 
 int32_t IRedisClient::submit( const Slice & cmd, uint32_t ctxid )
@@ -490,7 +541,7 @@ int32_t IRedisClient::submit( const Slice & cmd, uint32_t ctxid )
         return -1;
     }
 
-    return perform( new RedisDBTask(cmd, ctxid), NULL, RedisDBTask::perform );
+    return perform( new RedisDBTask(1, cmd, ctxid), NULL, performTask );
 }
 
 int32_t IRedisClient::submit( const Slices & cmds, uint32_t ctxid )
@@ -527,7 +578,7 @@ int32_t IRedisClient::submit( const Slices & cmds, uint32_t ctxid )
         std::free( ( void * )( cmds[i].data() ) );
     }
 
-    return perform( new RedisDBTask(count, Slice(buffer, len), ctxid), NULL, RedisDBTask::perform );
+    return perform( new RedisDBTask(count, Slice(buffer, len), ctxid), NULL, performTask );
 }
 
 void * IRedisClient::initIOContext()
@@ -563,6 +614,16 @@ int32_t IRedisClient::attach()
     }
 
     return 0;
+}
+
+void * IRedisClient::cloneTask( void * task )
+{
+    return static_cast<RedisDBTask *>(task)->clone();
+}
+
+void IRedisClient::performTask( void * iocontext, void * task )
+{
+    static_cast<RedisDBTask *>(task)->perform( static_cast<RedisConnectionPool *>(iocontext) );
 }
 
 int32_t IRedisClient::reattach( int32_t fd, void * privdata )
@@ -686,7 +747,8 @@ int main()
             "172.21.161.70", 6379, 4, "123456" );
 
     // 订阅
-    rediscli->subscribe( RedisCommand::subscribe("ope"), 1 );
+    rediscli->subscribe( "ope" );
+    rediscli->unsubscribe( "ope" );
 
     while( 1 )
     {
@@ -703,6 +765,7 @@ int main()
         //pipeline.push_back( RedisCommand::echo( "key_0" ) );
         //pipeline.push_back( RedisCommand::get( "key_0" ) );
         //rediscli->submit( pipeline );
+        rediscli->unsubscribe( "ope" );
     }
 
     rediscli->finalize();

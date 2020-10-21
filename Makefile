@@ -134,7 +134,7 @@ chatroom_server: io.o chatroom_server.o $(OBJS)
 chatroom_client: io.o chatroom_client.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
-redis_client : io.o redis.o command.o $(OBJS)
+redis_client : io.o redis.o helper.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS) -lhiredis
 
 pingpong_client : pingpongclient.o $(OBJS)
