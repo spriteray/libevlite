@@ -9,113 +9,309 @@
 #include <pthread.h>
 #include <hiredis/hiredis.h>
 
+#include "command.h"
 #include "redis.h"
 
-IRedisSession::IRedisSession( redisContext * c, int32_t seconds )
-    : m_Timeoutseconds( seconds ),
-      m_RedisConnection( c )
-{}
-
-IRedisSession::~IRedisSession()
+class RedisDBTask
 {
-    if ( m_RedisConnection != NULL )
+public :
+    RedisDBTask( const Slice & cmd )
+        : m_Counter( -1 ),
+          m_RedisCommand( cmd )
+    {}
+
+    RedisDBTask( const Slice & cmd, uint32_t ctxid )
+        : m_Counter( 1 ),
+          m_ContextID( ctxid ),
+          m_RedisCommand( cmd )
+    {}
+
+    RedisDBTask( size_t count, const Slice & cmd, uint32_t ctxid )
+        : m_Counter( count ),
+          m_ContextID( ctxid ),
+          m_RedisCommand( cmd )
+    {}
+
+    ~RedisDBTask()
     {
-        redisFree( m_RedisConnection );
-        m_RedisConnection = NULL;
-    }
-}
-
-int32_t IRedisSession::onStart()
-{
-    // TODO: 验证
-
-    setTimeout( m_Timeoutseconds );
-    setKeepalive( m_Timeoutseconds / 3 );
-
-    return 0;
-}
-
-ssize_t IRedisSession::onProcess( const char * buffer, size_t nbytes )
-{
-    if ( 0 != redisReaderFeed(
-                m_RedisConnection->reader, buffer, nbytes ) )
-    {
-        return -1;
-    }
-
-    void * data = NULL;
-    while ( REDIS_OK
-            == redisReaderGetReply( m_RedisConnection->reader, &data ) )
-    {
-        if ( data == NULL )
+        if ( !m_RedisCommand.empty() )
         {
-            break;
+            std::free( (void *)m_RedisCommand.data() );
+            m_RedisCommand.clear();
+        }
+    }
+
+    static void perform( void * iocontext, void * task )
+    {
+        RedisDBTask * t = static_cast<RedisDBTask *>(task);
+        RedisConnectionPool * pool = static_cast<RedisConnectionPool *>(iocontext);
+
+        pool->perform( t );
+    }
+
+public :
+    size_t decrCounter() { return --m_Counter; }
+
+    size_t getCounter() const { return m_Counter; }
+    uint32_t getContextID() const { return m_ContextID; }
+    const Slice & getCommand() const { return m_RedisCommand; }
+
+private :
+    size_t      m_Counter;        // 任务计数器
+    uint32_t    m_ContextID;
+    Slice       m_RedisCommand;
+};
+
+class RedisConnectionPool;
+class RedisConnection : public IIOSession
+{
+public :
+    RedisConnection( redisContext * c )
+        : m_Task( NULL ),
+          m_RedisConnection( c )
+    {}
+
+    virtual ~RedisConnection()
+    {
+        if ( m_RedisConnection != NULL )
+        {
+            redisFree( m_RedisConnection );
+            m_RedisConnection = NULL;
+        }
+    }
+
+    virtual int32_t onStart()
+    {
+        // TODO: 验证
+        // TODO: 心跳
+        // TODO: 保活
+
+        // 添加到连接池
+        getConnectionPool()->addConnection( id(), this );
+
+        return 0;
+    }
+
+    virtual ssize_t onProcess( const char * buffer, size_t nbytes )
+    {
+        RedisConnectionPool * pool = getConnectionPool();
+        IRedisClient * redisclient = pool->getRedisClient();
+
+        if ( 0 != redisReaderFeed(
+                    m_RedisConnection->reader, buffer, nbytes ) )
+        {
+            return -1;
         }
 
-        processReply( static_cast<redisReply *>( data ) );
-        freeReplyObject( static_cast<redisReply *>( data ) );
-    }
-
-    return nbytes;
-}
-
-int32_t IRedisSession::onTimeout()
-{
-    return 0;
-}
-
-int32_t IRedisSession::onKeepalive()
-{
-    Slice cmd = IRedisClient::ping();
-    if ( !cmd.empty() )
-    {
-        send( cmd.data(), cmd.size(), true );
-    }
-
-    return 0;
-}
-
-int32_t IRedisSession::onError( int32_t result )
-{
-    printf( "IRedisSession::onError(SID:%lu, %d) .\n", id(), result );
-    return 0;
-}
-
-void IRedisSession::onShutdown( int32_t way )
-{
-    // TODO:
-}
-
-void IRedisSession::processReply( redisReply * reply )
-{
-    switch ( reply->type )
-    {
-        case REDIS_REPLY_STRING :
-            printf( "STRING : %s\n", reply->str );
-            break;
-
-        case REDIS_REPLY_ARRAY :
-            printf( "ARRAY : %lu\n", reply->elements);
-            for ( size_t i = 0; i < reply->elements; ++i )
+        void * data = NULL;
+        while ( REDIS_OK
+                == redisReaderGetReply( m_RedisConnection->reader, &data ) )
+        {
+            if ( data == NULL )
             {
-                processReply( reply->element[i] );
+                break;
             }
-            break;
 
-        case REDIS_REPLY_INTEGER :
-            printf( "INTEGER : %llu\n", reply->integer );
-            break;
+            redisReply * reply = static_cast<redisReply *>( data );
 
-        case REDIS_REPLY_NIL :
-        case REDIS_REPLY_STATUS :
-        case REDIS_REPLY_ERROR :
-            printf( "OTHER : %s\n", reply->str );
-            break;
+            assert( m_Task != NULL && "Empty Task" );
+
+            if ( m_Task->getContextID() == 0 )
+            {
+                debugReply( reply );
+                freeReplyObject( reply );
+            }
+            else
+            {
+                redisclient->datasets( m_Task->getContextID(), reply );
+            }
+
+            if ( m_Task->decrCounter() == 0 )
+            {
+                delete m_Task; m_Task = NULL;
+                pool->addIdleConnection( id(), this );
+            }
+        }
+
+        return nbytes;
+    }
+
+    virtual int32_t onTimeout()
+    {
+        return 0;
+    }
+
+    virtual int32_t onKeepalive()
+    {
+        // TODO:
+        return 0;
+    }
+
+    virtual int32_t onError( int32_t result )
+    {
+        // TODO:
+        return 0;
+    }
+
+    virtual void    onShutdown( int32_t way )
+    {
+        // TODO:
+    }
+
+public :
+    //
+    void setTask( RedisDBTask * task ) { m_Task = task; }
+
+    static void debugReply( redisReply * reply )
+    {
+        switch ( reply->type )
+        {
+            case REDIS_REPLY_STRING :
+                printf( "STRING : %s\n", reply->str );
+                break;
+
+            case REDIS_REPLY_ARRAY :
+                printf( "ARRAY : %lu\n", reply->elements);
+                for ( size_t i = 0; i < reply->elements; ++i )
+                {
+                    debugReply( reply->element[i] );
+                }
+                break;
+
+            case REDIS_REPLY_INTEGER :
+                printf( "INTEGER : %llu\n", reply->integer );
+                break;
+
+            case REDIS_REPLY_NIL :
+                printf( "NIL : %s\n", reply->str );
+                break;
+
+            case REDIS_REPLY_STATUS :
+                printf( "STATUS : %s\n", reply->str );
+                break;
+
+            case REDIS_REPLY_ERROR :
+                printf( "ERROR : %s\n", reply->str );
+                break;
+        }
+    }
+
+private :
+    RedisConnectionPool * getConnectionPool() { return static_cast<RedisConnectionPool *>(iocontext()); }
+
+protected :
+    friend class IRedisClient;
+    RedisDBTask *       m_Task;
+    redisContext *      m_RedisConnection;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+int32_t RedisConnectionPool::perform( RedisDBTask * task )
+{
+    sid_t sid = takeIdleConnection();
+    if ( sid == 0 )
+    {
+        //
+        m_TaskQueue.push_back( task );
+
+        //
+        if ( m_ConnectionManager.size() < m_MaxConnections )
+        {
+            m_Client->attach();
+        }
+
+        return 0;
+    }
+
+    RedisConnection * connection = getConnection( sid );
+    if ( connection != NULL )
+    {
+        connection->setTask( task );
+        connection->send( task->getCommand().data(), task->getCommand().size(), false );
+    }
+
+    return 0;
+}
+
+void RedisConnectionPool::fetchAndPerformTask( RedisConnection * connection )
+{
+    if ( m_TaskQueue.empty() )
+    {
+        return;
+    }
+
+    RedisDBTask * task = m_TaskQueue.front();
+    if ( task != NULL )
+    {
+        m_TaskQueue.pop_front();
+
+        connection->setTask( task );
+        connection->send( task->getCommand().data(), task->getCommand().size(), false );
     }
 }
 
-IRedisClient::IRedisClient( IIOService * s )
-    : m_Service( s )
+sid_t RedisConnectionPool::takeIdleConnection()
+{
+    sid_t sid = 0;
+
+    if ( !m_IdleSidlist.empty() )
+    {
+        sid = m_IdleSidlist.front();
+        m_IdleSidlist.pop_front();
+    }
+
+    return sid;
+}
+
+RedisConnection * RedisConnectionPool::getConnection( sid_t sid ) const
+{
+    ConnectionManager::const_iterator result = m_ConnectionManager.find( sid );
+    if ( result != m_ConnectionManager.end() )
+    {
+        return result->second;
+    }
+
+    return NULL;
+}
+
+void RedisConnectionPool::addIdleConnection( sid_t sid, RedisConnection * connection )
+{
+    if ( m_TaskQueue.empty() )
+    {
+        m_IdleSidlist.push_back( sid );
+    }
+    else
+    {
+        fetchAndPerformTask( connection );
+    }
+}
+
+void RedisConnectionPool::addConnection( sid_t sid, RedisConnection * connection )
+{
+    m_ConnectionManager.insert( std::make_pair(sid, connection) );
+
+    if ( m_TaskQueue.empty() )
+    {
+        m_IdleSidlist.push_back( sid );
+    }
+    else
+    {
+        fetchAndPerformTask( connection );
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+
+IRedisClient::IRedisClient( uint8_t nthreads, uint32_t nconnections )
+    : IIOService( nthreads, nconnections, true, false ),
+      m_Port( 0 ),
+      m_ThreadCount( nthreads ),
+      m_Connections( nconnections )
 {
     pthread_cond_init( &m_Cond, NULL );
     pthread_mutex_init( &m_Lock, NULL );
@@ -123,89 +319,76 @@ IRedisClient::IRedisClient( IIOService * s )
 
 IRedisClient::~IRedisClient()
 {
-    for ( size_t i = 0; i < m_AssociateList.size(); ++i )
-    {
-        delete m_AssociateList[i];
-    }
-
     pthread_cond_destroy( &m_Cond );
     pthread_mutex_destroy( &m_Lock );
 }
 
-sid_t IRedisClient::connect( const std::string & host, uint16_t port,int32_t seconds )
+bool IRedisClient::initialize(
+        const std::string & host, uint16_t port, uint32_t nconnections, const std::string & token )
 {
-    sid_t associatedsid = 0;
-    redisContext * redisconn = NULL;
+    m_Host = host;
+    m_Port = port;
+    m_Token = token;
 
-    // 计算超时时间
-    struct timeval now;
-    gettimeofday( &now, NULL );
-
-    // 分情况连接redis服务器
-    if ( seconds <= 0 )
+    if ( !start() )
     {
-        redisconn = redisConnectNonBlock( host.c_str(), port );
-    }
-    else
-    {
-        struct timeval tv = {seconds/1000, (seconds%1000)*1000};
-        redisconn = redisConnectWithTimeout( host.c_str(), port, tv );
+        return false;
     }
 
-    // 连接失败
-    if ( redisconn == NULL || redisconn->err != 0 )
+    for ( uint32_t i = 0; i < nconnections; ++i )
     {
-        return -1;
+        attach();
     }
 
-    // 关联描述符到IIOService中
-    AssociateContext * context = new AssociateContext( redisconn->fd, redisconn, this );
-    assert( context != NULL && "new AssociateContext failed" );
-    if ( 0 != m_Service->associate(
-                redisconn->fd, redisconn,
-                IRedisClient::reattach,
-                IRedisClient::associate, context ) )
-    {
-        delete context;
-        return -2;
-    }
-
-    // 非阻塞,直接返回
-    // 异步模式需要加入连接的队列中
-    if ( seconds <= 0 )
-    {
-        pthread_mutex_lock( &m_Lock );
-        m_AssociateList.push_back( context );
-        pthread_mutex_unlock( &m_Lock );
-    }
-    else
-    {
-        // 等待关联结果
-        associatedsid = waitForAssociate( context, now, seconds );
-        delete context;
-    }
-
-    return associatedsid;
+    return true;
 }
 
-int32_t IRedisClient::send( sid_t id, const Slice & cmd )
+void IRedisClient::finalize()
+{
+    halt();
+    stop();
+}
+
+int32_t IRedisClient::subscribe( const Slice & cmd )
 {
     if ( cmd.empty() )
     {
         return -1;
     }
 
-    return m_Service->send( id, cmd.data(), cmd.size(), true );
+    return perform( new RedisDBTask(cmd), NULL, RedisDBTask::perform );
 }
 
-int32_t IRedisClient::send( sid_t id, const Slices & cmds )
+int32_t IRedisClient::submit( const Slice & cmd, uint32_t ctxid )
+{
+    if ( cmd.empty() )
+    {
+        return -1;
+    }
+
+    return perform( new RedisDBTask(cmd, ctxid), NULL, RedisDBTask::perform );
+}
+
+int32_t IRedisClient::submit( const Slices & cmds, uint32_t ctxid )
 {
     if ( cmds.empty() )
     {
         return -1;
     }
 
-    std::string buffer;
+    char * buffer = NULL;
+    size_t len = 0, count = 0;
+
+    for ( size_t i = 0; i < cmds.size(); ++i )
+    {
+        len += cmds[i].size();
+    }
+
+    buffer = (char *)malloc( len );
+    assert( buffer != NULL && "allocate this Buffer failed" );
+
+    len = 0;
+    count = 0;
 
     for ( size_t i = 0; i < cmds.size(); ++i )
     {
@@ -214,329 +397,53 @@ int32_t IRedisClient::send( sid_t id, const Slices & cmds )
             continue;
         }
 
-        buffer += std::string( cmds[i].data(), cmds[i].size() );
+        memcpy( buffer+len, cmds[i].data(), cmds[i].size() );
+        ++count;
+        len += cmds[i].size();
         std::free( ( void * )( cmds[i].data() ) );
     }
 
-    return m_Service->send( id, buffer );
+    return perform( new RedisDBTask(count, Slice(buffer, len), ctxid), NULL, RedisDBTask::perform );
 }
 
-Slice IRedisClient::ping()
+void * IRedisClient::initIOContext()
 {
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "PING" );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
+    return new RedisConnectionPool( this, m_Connections/m_ThreadCount );
 }
 
-Slice IRedisClient::echo( const std::string & text )
+void IRedisClient::finalIOContext( void * iocontext )
 {
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "ECHO \"%s\"", text.c_str() );
-
-    if ( length < 0 )
+    RedisConnectionPool * pool = static_cast<RedisConnectionPool *>( iocontext );
+    if ( pool != NULL )
     {
-        return Slice();
+        delete pool;
     }
-
-    return Slice( buffer, length );
 }
 
-Slice IRedisClient::select( int32_t index )
+int32_t IRedisClient::attach()
 {
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "SELECT %d", index );
-
-    if ( length < 0 )
+    // 连接远程redis
+    redisContext * redisconn = redisConnectNonBlock( m_Host.c_str(), m_Port );
+    if ( redisconn == NULL || redisconn->err != 0 )
     {
-        return Slice();
+        return -1;
     }
 
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::auth( const std::string & password )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "AUTH %s", password.c_str() );
-
-    if ( length < 0 )
+    // 关联描述符到IIOService中
+    if ( 0 != associate(
+                redisconn->fd, redisconn,
+                IRedisClient::reattach,
+                IRedisClient::associatecb, this ) )
     {
-        return Slice();
+        return -2;
     }
 
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::get( const std::string & key )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "GET %s", key.c_str() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::mget( const std::vector<std::string> & keys )
-{
-    size_t ncmds = keys.size() + 1;
-    size_t argvlen[ ncmds ];
-    const char * argv[ ncmds ];
-
-    argv[0] = "MGET";
-    argvlen[0] = 4;
-
-    for ( size_t i = 0; i < keys.size(); ++i )
-    {
-        argv[i+1] = keys[i].c_str();
-        argvlen[i+1] = keys[i].size();
-    }
-
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommandArgv(
-            &buffer,
-            keys.size()+1, argv, argvlen );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::set( const std::string & key, const std::string & value )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "SET %s %b",
-            key.c_str(), value.data(), value.size() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::incr( const std::string & key )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "INCR %s", key.c_str() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::incrby( const std::string & key, int32_t value )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "INCRBY %s %d", key.c_str(), value );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::decr( const std::string & key )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "DECR %s", key.c_str() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::decrby( const std::string & key, int32_t value )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "DECRBY %s %d", key.c_str(), value );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::lpush( const std::string & key, const std::vector<std::string> & values )
-{
-    size_t ncmds = values.size() + 2;
-
-    size_t argvlen[ ncmds ];
-    const char * argv[ ncmds ];
-
-    argv[0] = "LPUSH";
-    argvlen[0] = 5;
-    argv[1] = key.c_str();
-    argvlen[1] = key.size();
-
-    for ( size_t i = 0; i < values.size(); ++i )
-    {
-        argv[i+2] = values[i].c_str();
-        argvlen[i+2] = values[i].size();
-    }
-
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommandArgv(
-            &buffer,
-            ncmds, argv, argvlen );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::rpush( const std::string & key, const std::vector<std::string> & values )
-{
-    size_t ncmds = values.size() + 2;
-
-    size_t argvlen[ ncmds ];
-    const char * argv[ ncmds ];
-
-    argv[0] = "RPUSH";
-    argvlen[0] = 5;
-    argv[1] = key.c_str();
-    argvlen[1] = key.size();
-
-    for ( size_t i = 0; i < values.size(); ++i )
-    {
-        argv[i+2] = values[i].c_str();
-        argvlen[i+2] = values[i].size();
-    }
-
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommandArgv(
-            &buffer,
-            ncmds, argv, argvlen );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::lrange( const std::string & key, int32_t startidx, int32_t stopidx )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "LRANGE %s %d %d", key.c_str(), startidx, stopidx );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::subscribe( const std::string & channel )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "SUBSCRIBE %s", channel.c_str() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::unsubscribe( const std::string & channel )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "UNSUBSCRIBE %s", channel.c_str() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::publish( const std::string & channel, const std::string & message )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand(
-            &buffer, "PUBLISH %s \"%s\"", channel.c_str(), message.c_str() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::multi()
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "MULTI" );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice IRedisClient::exec()
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "EXEC" );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
+    return 0;
 }
 
 int32_t IRedisClient::reattach( int32_t fd, void * privdata )
 {
     redisContext * redisconn = static_cast<redisContext *>(privdata);
-
-    printf( "IRedisClient::reattach(%d, %s::%d) ...\n", fd, redisconn->tcp.host, redisconn->tcp.port );
 
     int32_t ret = redisReconnect( redisconn );
     if ( ret != REDIS_OK || redisconn->err != 0 )
@@ -547,182 +454,90 @@ int32_t IRedisClient::reattach( int32_t fd, void * privdata )
     return redisconn->fd;
 }
 
-int32_t IRedisClient::associate( void * context, void * iocontext, int32_t result, int32_t fd, void * privdata, sid_t sid )
+int32_t IRedisClient::associatecb( void * context, void * iocontext, int32_t result, int32_t fd, void * privdata, sid_t sid )
 {
-    AssociateContext * ctx = static_cast<AssociateContext *>(context);
-
-    int32_t ack = 0;
-    IRedisClient * client = ctx->client;
-    redisContext * redisconn = static_cast<redisContext *>(privdata);
-
     if ( result != 0 )
     {
-        ack = client->onConnectFailed( result, fd, redisconn ) ? 0 : -2;
+        return -1;
+    }
+
+    IRedisClient * client = static_cast<IRedisClient *>(context);
+    redisContext * redisconn = static_cast<redisContext *>(privdata);
+
+    RedisConnection * connection = new RedisConnection( redisconn );
+    if ( connection == NULL )
+    {
+        return -2;
     }
     else
     {
-        IRedisSession * session = client->onConnectSucceed( sid, fd, redisconn );
-        if ( session == NULL )
-        {
-            ack = -1;
-        }
-        else
-        {
-            // 初始化会话
-            session->init( sid,
-                    iocontext, client->service()->iolayer(),
-                    redisconn->tcp.host, redisconn->tcp.port );
+        // 初始化会话
+        connection->init( sid,
+                iocontext, client->iolayer(),
+                redisconn->tcp.host, redisconn->tcp.port );
 
-            ioservice_t ioservice;
-            ioservice.start     = IRedisSession::onStartSession;
-            ioservice.process   = IRedisSession::onProcessSession;
-            ioservice.transform = NULL;
-            ioservice.timeout   = IRedisSession::onTimeoutSession;
-            ioservice.keepalive = IRedisSession::onKeepaliveSession;
-            ioservice.error     = IRedisSession::onErrorSession;
-            ioservice.shutdown  = IRedisSession::onShutdownSession;
-            ioservice.perform   = IRedisSession::onPerformSession;
-            iolayer_set_service( client->service()->iolayer(), sid, &ioservice, session );
-        }
+        ioservice_t ioservice;
+        ioservice.start     = RedisConnection::onStartSession;
+        ioservice.process   = RedisConnection::onProcessSession;
+        ioservice.transform = NULL;
+        ioservice.timeout   = RedisConnection::onTimeoutSession;
+        ioservice.keepalive = RedisConnection::onKeepaliveSession;
+        ioservice.error     = RedisConnection::onErrorSession;
+        ioservice.shutdown  = RedisConnection::onShutdownSession;
+        ioservice.perform   = RedisConnection::onPerformSession;
+        iolayer_set_service( client->iolayer(), sid, &ioservice, connection );
     }
 
-    // 通知连接结果
-    client->wakeupFromAssociating( ctx, result, sid, ack );
-
-    return ack;
-}
-
-sid_t IRedisClient::waitForAssociate( AssociateContext * context, struct timeval & now, int32_t seconds )
-{
-    pthread_mutex_lock( &m_Lock );
-
-    for ( ;; )
-    {
-        if ( context->sid != 0
-            && context->sid != (sid_t)-1 )
-        {
-            break;
-        }
-
-        struct timespec outtime;
-        outtime.tv_sec = now.tv_sec + seconds;
-        outtime.tv_nsec = now.tv_usec * 1000;
-        if ( ETIMEDOUT
-            == pthread_cond_timedwait( &m_Cond, &m_Lock, &outtime ) )
-        {
-            break;
-        }
-    }
-
-    pthread_mutex_unlock( &m_Lock );
-
-    return context->sid;
-}
-
-void IRedisClient::wakeupFromAssociating( AssociateContext * context, int32_t result, sid_t id, int32_t ack )
-{
-    bool isremove = ( result == 0 || ack != 0 );
-
-    pthread_mutex_lock( &m_Lock );
-
-    // 会话ID的转换
-    context->sid = result != 0 ? -1 : id;
-
-    // 连接成功或者不再重连的情况下
-    // 需要从连接队列中删除
-    if ( isremove )
-    {
-        AssociateContexts::iterator it = std::find(
-                m_AssociateList.begin(), m_AssociateList.end(), context );
-        if ( it != m_AssociateList.end() )
-        {
-            it = m_AssociateList.erase( it );
-            delete context;
-        }
-    }
-
-    pthread_cond_signal( &m_Cond );
-    pthread_mutex_unlock( &m_Lock );
+    return 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class CExampleService : public IIOService
-{
-public :
-    CExampleService()
-        : IIOService( 1, 10, true, false )
-    {}
-
-    virtual ~CExampleService()
-    {}
-};
-
 class CRedisClient : public IRedisClient
 {
 public :
-    CRedisClient( IIOService * s ) : IRedisClient(s) {}
+    CRedisClient() : IRedisClient(4, 1000) {}
     virtual ~CRedisClient() {}
 
-    virtual IRedisSession * onConnectSucceed( sid_t sid, int32_t fd, redisContext * conn )
+    virtual void datasets( uint32_t ctxid, redisReply * response )
     {
-        return new IRedisSession( conn, 30 );
+        // TODO:
+        RedisConnection::debugReply( response );
+        freeReplyObject( response );
     }
 };
 
 int main()
 {
-    CExampleService * s = new CExampleService();
-    if ( s == NULL )
-    {
-        return -1;
-    }
-
-    s->start();
-
-    CRedisClient * rediscli = new CRedisClient( s );
+    CRedisClient * rediscli = new CRedisClient();
     if ( rediscli == NULL )
     {
         return -2;
     }
 
-    sid_t sid = rediscli->connect(
-            "172.21.161.70", 6379, 10 );
-    if ( sid == (sid_t)-1 )
-    {
-        printf( "connect failed .\n" );
-        return -3;
-    }
+    // 初始化
+    rediscli->initialize( "172.21.161.70", 6379 );
 
-    printf( "connect succeed, %lu\n", sid );
-
-    rediscli->send( sid,
-            rediscli->set( "account", "lei.a.zhang" ) );
-    rediscli->send( sid,
-            rediscli->set( "account1", "lei.a.zhang" ) );
-
-    rediscli->send( sid,
-            rediscli->get( "account" ) );
-
-    //rediscli->send( sid,
-    //        rediscli->subscribe( "ope_channel" ) );
+    // 订阅
+    rediscli->subscribe( RedisCommand::subscribe("ope") );
 
     while( 1 )
     {
         sleep( 2 );
 
-        std::vector<std::string> cmds;
-        cmds.push_back( "account" );
-        cmds.push_back( "account1" );
-        rediscli->send( sid,
-                rediscli->mget( cmds ) );
+        //std::vector<std::string> cmds;
+        //cmds.push_back( "account" );
+        //cmds.push_back( "account1" );
+        //rediscli->submit( RedisCommand::mget( cmds ) );
 
-        Slices pipeline;
-        pipeline.push_back( rediscli->echo( "key_0" ) );
-        pipeline.push_back( rediscli->get( "key_0" ) );
-        rediscli->send( sid, pipeline );
+        rediscli->submit( RedisCommand::set( "roleid1", "17648020619275" ) );
+
+        //Slices pipeline;
+        //pipeline.push_back( RedisCommand::echo( "key_0" ) );
+        //pipeline.push_back( RedisCommand::get( "key_0" ) );
+        //rediscli->submit( pipeline );
     }
 
-    s->stop();
-    delete s;
+    rediscli->finalize();
+    delete rediscli;
 }

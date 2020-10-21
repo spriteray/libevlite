@@ -134,7 +134,7 @@ chatroom_server: io.o chatroom_server.o $(OBJS)
 chatroom_client: io.o chatroom_client.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
-redis_client : io.o redis.o $(OBJS)
+redis_client : io.o redis.o command.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS) -lhiredis
 
 pingpong_client : pingpongclient.o $(OBJS)
@@ -163,6 +163,6 @@ clean :
 	$(CC) $(CFLAGS) -Wno-unused-function -c $^ -o $@
 
 %.o : %.cpp
-	$(CXX) $(CXXFLAGS) -Wno-unused-function -Itest/ -Iexamples/ -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -std=c++11 -Wno-unused-function -Itest/ -Iexamples/ -c $^ -o $@
 
 VPATH = src:include:test:examples
