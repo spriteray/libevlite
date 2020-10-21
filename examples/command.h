@@ -14,8 +14,6 @@ public :
     static Slice ping();
     // ECHO
     static Slice echo( const std::string & text );
-    // 切换数据库
-    static Slice select( int32_t index );
     // 验证命令
     static Slice auth( const std::string & password );
     // 获取数据
@@ -40,11 +38,6 @@ public :
     static Slice unsubscribe( const std::string & channel );
     // 发布命令
     static Slice publish( const std::string & channel, const std::string & message );
-    // 事务开始
-    static Slice multi();
-    // 提交事务
-    static Slice exec();
-
 };
 
 #endif

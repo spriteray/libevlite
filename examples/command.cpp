@@ -30,19 +30,6 @@ Slice RedisCommand::echo( const std::string & text )
     return Slice( buffer, length );
 }
 
-Slice RedisCommand::select( int32_t index )
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "SELECT %d", index );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
 Slice RedisCommand::auth( const std::string & password )
 {
     char * buffer = NULL;
@@ -279,32 +266,6 @@ Slice RedisCommand::publish( const std::string & channel, const std::string & me
     char * buffer = NULL;
     ssize_t length = redisFormatCommand(
             &buffer, "PUBLISH %s \"%s\"", channel.c_str(), message.c_str() );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice RedisCommand::multi()
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "MULTI" );
-
-    if ( length < 0 )
-    {
-        return Slice();
-    }
-
-    return Slice( buffer, length );
-}
-
-Slice RedisCommand::exec()
-{
-    char * buffer = NULL;
-    ssize_t length = redisFormatCommand( &buffer, "EXEC" );
 
     if ( length < 0 )
     {
