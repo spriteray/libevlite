@@ -44,6 +44,10 @@ extern "C"
 typedef uint64_t    sid_t;
 typedef void *      iolayer_t;
 
+// 网络类型
+#define NETWORK_TCP 1           // TCP
+#define NETWORK_KCP 2           // KCP
+
 // 任务回收函数
 //      参数1: 类型
 //      参数2: 任务
@@ -147,7 +151,7 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * context );
 
 // 服务器开启
-//        type          - 服务器类型: 1-TCP;2-UDP
+//        type          - 网络类型: NETWORK_TCP or NETWORK_KCP
 //        host          - 绑定的地址
 //        port          - 监听的端口号
 //        callback      - 新会话创建成功后的回调,会被多个网络线程调用

@@ -127,7 +127,7 @@ void iolayer_destroy( iolayer_t self )
 }
 
 // 服务器开启
-//      type        - 服务器类型, 1-TCP;2-UDP
+//      type        - 网络类型: NETWORK_TCP or NETWORK_KCP
 //      host        - 绑定的地址
 //      port        - 监听的端口号
 //      callback    - 新会话创建成功后的回调,会被多个网络线程调用
@@ -138,15 +138,15 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
 
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
-    assert( (type == 1 || type == 2) && "Illegal type" );
     assert( callback != NULL && "Illegal specified Callback-Function" );
+    assert( (type == NETWORK_TCP || type == NETWORK_KCP) && "Illegal type" );
 
-    if ( type == 2 )
+    if ( type == NETWORK_KCP )
     {
         // UDP服务端
         return _socket_listen( layer, type, 0, host, port, callback, context );
     }
-    else if ( type == 1 )
+    else if ( type == NETWORK_TCP )
     {
         // TCP服务端
 #ifndef EVENT_HAVE_REUSEPORT
@@ -1075,7 +1075,7 @@ int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
     acceptor->index     = DISPATCH_POLICY( layer,
             __sync_fetch_and_add(&layer->roundrobin, 1) );
 
-    if ( type == 1 )
+    if ( type == NETWORK_TCP )
     {
 #ifdef EVENT_HAVE_REUSEPORT
         acceptor->index     = index;
@@ -1092,7 +1092,7 @@ int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
             return -3;
         }
     }
-    else if ( type == 2 )
+    else if ( type == NETWORK_KCP )
     {
 #ifndef SO_REUSEPORT
         assert( 0 && "Not Support REUSEPORT" );
@@ -1221,9 +1221,9 @@ int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct 
     STAILQ_INSERT_TAIL( acceptlist, acceptor, linker );
 
     event_set( acceptor->event, acceptor->fd, EV_READ|EV_PERSIST );
-    if ( acceptor->type == 1 )
+    if ( acceptor->type == NETWORK_TCP )
         event_set_callback( acceptor->event, channel_on_accept, acceptor );
-    else if ( acceptor->type == 2 )
+    else if ( acceptor->type == NETWORK_KCP )
         event_set_callback( acceptor->event, channel_on_udpaccept, acceptor );
     evsets_add( sets, acceptor->event, 0 );
 
@@ -1282,13 +1282,13 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
         return 1;
     }
 
-    if ( task->type == 1 )
+    if ( task->type == NETWORK_TCP )
     {
         session_set_iolayer( session, layer );
         session_set_endpoint( session, task->host, task->port );
         session_start( session, eSessionType_Accept, task->fd, sets );
     }
-    else if ( task->type == 2 )
+    else if ( task->type == NETWORK_KCP )
     {
         rc = session_init_driver( session, task->buffer );
         if ( rc != 0 )
