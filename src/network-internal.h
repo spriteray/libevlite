@@ -34,8 +34,8 @@ enum
     eIOTaskType_Shutdown        = 7,
     eIOTaskType_Shutdowns       = 8,
     eIOTaskType_Broadcast2      = 9,
-    eIOTaskType_Perform         = 10,
-    eIOTaskType_Performs        = 11,
+    eIOTaskType_Invoke          = 10,
+    eIOTaskType_Perform         = 11,
 };
 
 // 网络服务错误码定义

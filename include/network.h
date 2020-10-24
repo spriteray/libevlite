@@ -48,20 +48,6 @@ typedef void *      iolayer_t;
 #define NETWORK_TCP 1           // TCP
 #define NETWORK_KCP 2           // KCP
 
-// 任务回收函数
-//      参数1: 类型
-//      参数2: 任务
-typedef void (*taskrecycler_t)( int32_t, void * );
-
-// 任务克隆函数
-//      参数1: 任务
-typedef void * (*taskcloner_t)( void * );
-
-// 任务处理函数
-//      参数1: 网络线程上下文参数
-//      参数2: 任务
-typedef void (*taskexecutor_t)( void *, void * );
-
 //  重新关联函数，返回新的描述符
 //      参数1: 上次关联的描述符
 //      参数2: 描述符相关的私有数据
@@ -206,18 +192,28 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes );
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
-// 提交任务到网络层(会话ID所在网络线程)
+// 提交任务到网络层
+//      task            - 任务
+//      clone           - 任务复制函数, 如果为NULL, 随机选择一个网络线程投递
+//                          参数: 任务
+//      execute         - 任务处理函数
+//                          参数1: 网络线程上下文参数
+//                          参数2: 任务
+// 任务处理和复制函数
+typedef void * (*taskcloner_t)( void * );
+typedef void (*taskexecutor_t)( void *, void * );
+int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
+
+// 给指定的会话分派任务
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
 //      recycle         - 任务回收函数
+//                          参数1: 类型
+//                          参数2: 任务
+// 任务回收函数
+typedef void (*taskrecycler_t)( int32_t, void * );
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
-
-// 提交任务到网络层
-//      task            - 任务
-//      clone           - 任务复制函数, 如果为NULL, 随机选择一个网络线程投递
-//      execute         - 任务处理函数
-int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 
 // 停止网络服务
 // 行为定义:
