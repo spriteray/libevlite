@@ -357,6 +357,11 @@ int32_t IIOService::broadcast( const sids_t & ids, const char * buffer, size_t n
     return iolayer_broadcast( m_IOLayer, const_cast<sid_t *>( &(*start) ), count, buffer, nbytes );
 }
 
+int32_t IIOService::invoke( void * task, taskcloner_t clone, taskexecutor_t execute )
+{
+    return iolayer_invoke( m_IOLayer, task, clone, execute );
+}
+
 int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle )
 {
     int32_t rc = iolayer_perform(
@@ -368,11 +373,6 @@ int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_
     }
 
     return rc;
-}
-
-int32_t IIOService::perform( void * task, taskcloner_t clone, taskexecutor_t perform )
-{
-    return iolayer_performs( m_IOLayer, task, clone, perform );
 }
 
 int32_t IIOService::shutdown( sid_t id )

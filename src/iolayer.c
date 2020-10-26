@@ -34,8 +34,8 @@ static int32_t _assign_direct( struct iolayer * self, uint8_t index, evsets_t se
 static ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, struct task_send * task );
 static int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg );
 static int32_t _broadcast2_direct( struct iolayer * self, struct session_manager * manager, struct message * msg );
+static void _invoke_direct( struct iolayer * self, uint8_t index, struct task_invoke * task );
 static int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task );
-static void _performs_direct( struct iolayer * self, uint8_t index, struct task_performs * task );
 static int32_t _shutdown_direct( struct session_manager * manager, sid_t id );
 static int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids );
 
@@ -613,6 +613,58 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
     return 0;
 }
 
+int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute )
+{
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( execute != NULL && "Illegal specified Execute-Function" );
+
+    uint8_t i = 0;
+    pthread_t threadid = pthread_self();
+    struct task_invoke tasklist[ 256 ];   // 栈中分配更快
+    struct iolayer * layer = (struct iolayer *)self;
+
+    if ( clone == NULL )
+    {
+        uint8_t index = milliseconds() % layer->nthreads;
+        struct task_invoke inner_task = { task, execute };
+
+        if ( threadid == iothreads_get_id( layer->threads, index ) )
+        {
+            // 本线程内直接执行
+            _invoke_direct( layer, index, &inner_task );
+        }
+        else
+        {
+            // 跨线程提交执行任务
+            iothreads_post( layer->threads, index, eIOTaskType_Invoke, &inner_task, sizeof(struct task_invoke) );
+        }
+    }
+    else
+    {
+        for ( i = 0; i < layer->nthreads; ++i )
+        {
+            tasklist[i].perform = execute;
+            tasklist[i].task = i == 0 ? task : clone( task );
+        }
+
+        for ( i = 0; i < layer->nthreads; ++i )
+        {
+            if ( threadid == iothreads_get_id( layer->threads, i ) )
+            {
+                // 本线程内直接广播
+                _invoke_direct( layer, i, &(tasklist[i]) );
+            }
+            else
+            {
+                // 跨线程提交广播任务
+                iothreads_post( layer->threads, i, eIOTaskType_Invoke, &(tasklist[i]), sizeof(struct task_invoke) );
+            }
+        }
+    }
+
+    return 0;
+}
+
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle )
 {
     uint8_t index = SID_INDEX(id);
@@ -633,58 +685,6 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
 
     // 跨线程提交发送任务
     return iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof(ptask) );
-}
-
-int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute )
-{
-    assert( self != NULL && "Illegal IOLayer" );
-    assert( execute != NULL && "Illegal specified Execute-Function" );
-
-    uint8_t i = 0;
-    pthread_t threadid = pthread_self();
-    struct task_performs tasklist[ 256 ];   // 栈中分配更快
-    struct iolayer * layer = (struct iolayer *)self;
-
-    if ( clone == NULL )
-    {
-        uint8_t index = milliseconds() % layer->nthreads;
-        struct task_performs inner_task = { task, execute };
-
-        if ( threadid == iothreads_get_id( layer->threads, index ) )
-        {
-            // 本线程内直接执行
-            _performs_direct( layer, index, &inner_task );
-        }
-        else
-        {
-            // 跨线程提交执行任务
-            iothreads_post( layer->threads, index, eIOTaskType_Performs, &inner_task, sizeof(struct task_performs) );
-        }
-    }
-    else
-    {
-        for ( i = 0; i < layer->nthreads; ++i )
-        {
-            tasklist[i].perform = execute;
-            tasklist[i].task = i == 0 ? task : clone( task );
-        }
-
-        for ( i = 0; i < layer->nthreads; ++i )
-        {
-            if ( threadid == iothreads_get_id( layer->threads, i ) )
-            {
-                // 本线程内直接广播
-                _performs_direct( layer, i, &(tasklist[i]) );
-            }
-            else
-            {
-                // 跨线程提交广播任务
-                iothreads_post( layer->threads, i, eIOTaskType_Performs, &(tasklist[i]), sizeof(struct task_performs) );
-            }
-        }
-    }
-
-    return 0;
 }
 
 int32_t iolayer_shutdown( iolayer_t self, sid_t id )
@@ -1251,6 +1251,11 @@ int32_t _broadcast2_direct( struct iolayer * self, struct session_manager * mana
     return count;
 }
 
+void _invoke_direct( struct iolayer * self, uint8_t index, struct task_invoke * task )
+{
+    task->perform( iothreads_get_context( self->threads, index ), task->task );
+}
+
 int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task  )
 {
     int32_t rc = 0;
@@ -1275,11 +1280,6 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
     task->recycle( task->type, task->task );
 
     return rc;
-}
-
-void _performs_direct( struct iolayer * self, uint8_t index, struct task_performs * task )
-{
-    task->perform( iothreads_get_context( self->threads, index ), task->task );
 }
 
 int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
@@ -1385,13 +1385,13 @@ void _concrete_processor( void * context, uint8_t index, int16_t type, void * ta
             break;
 
             // 逻辑任务
-        case eIOTaskType_Perform :
-            _perform_direct( layer, manager, (struct task_perform *)task );
+        case eIOTaskType_Invoke :
+            _invoke_direct( layer, index, (struct task_invoke *)task );
             break;
 
             // 逻辑任务
-        case eIOTaskType_Performs :
-            _performs_direct( layer, index, (struct task_performs *)task );
+        case eIOTaskType_Perform :
+            _perform_direct( layer, manager, (struct task_perform *)task );
             break;
     }
 }

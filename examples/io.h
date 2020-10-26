@@ -193,9 +193,8 @@ public :
     int32_t shutdown( const sids_t & ids );
 
     // 提交任务到网络层
-    int32_t perform( sid_t sid,
-            int32_t type, void * task, taskrecycler_t recycle );
-    int32_t perform( void * task, taskcloner_t clone, taskexecutor_t perform );
+    int32_t invoke( void * task, taskcloner_t clone, taskexecutor_t execute );
+    int32_t perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle );
 
 private :
     // 监听上下文

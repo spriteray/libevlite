@@ -128,18 +128,18 @@ struct task_send
     int32_t             isfree;         // 4bytes
 };
 
+struct task_invoke
+{
+    void *              task;
+    taskexecutor_t      perform;
+};
+
 struct task_perform
 {
     sid_t               id;
     int32_t             type;
     void *              task;
     taskrecycler_t      recycle;
-};
-
-struct task_performs
-{
-    void *              task;
-    taskexecutor_t      perform;
 };
 
 // 看样子内存对齐不需要使用了
