@@ -206,8 +206,7 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
 //      参数1: 类型
 //      参数2: 任务
 typedef void (*taskrecycler_t)( int32_t, void * );
-// 分派任务给指定的会话
-// 通过ioservice_t::perform()回调执行该任务
+// 分派任务给指定的会话, 通过ioservice_t::perform()回调执行该任务
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
