@@ -136,22 +136,20 @@ int32_t _del_session( struct session * self )
 // 会话停止(删除网络事件以及关闭描述符)
 void _stop( struct session * self )
 {
-    evsets_t sets = self->evsets;
-
     // 删除网络事件
     if ( self->status&SESSION_READING )
     {
-        evsets_del( sets, self->evread );
+        evsets_del( self->evsets, self->evread );
         self->status &= ~SESSION_READING;
     }
     if ( self->status&SESSION_WRITING )
     {
-        evsets_del( sets, self->evwrite );
+        evsets_del( self->evsets, self->evwrite );
         self->status &= ~SESSION_WRITING;
     }
     if ( self->status&SESSION_KEEPALIVING )
     {
-        evsets_del( sets, self->evkeepalive );
+        evsets_del( self->evsets, self->evkeepalive );
         self->status &= ~SESSION_KEEPALIVING;
     }
 
@@ -410,7 +408,6 @@ ssize_t session_sendmessage( struct session * self, struct message * message )
 void session_add_event( struct session * self, int16_t ev )
 {
     int8_t status = self->status;
-    evsets_t sets = self->evsets;
 
     // 注册读事件
     // 不在等待读事件的正常会话
@@ -419,8 +416,8 @@ void session_add_event( struct session * self, int16_t ev )
     {
         event_set( self->evread, self->fd, ev|self->setting.persist_mode );
         event_set_callback( self->evread, channel_on_read, self );
-        evsets_add( sets, self->evread, self->setting.timeout_msecs );
-
+        evsets_add( self->evsets, self->evread, self->setting.timeout_msecs );
+        // 修改读状态
         self->status |= SESSION_READING;
     }
 
@@ -439,8 +436,8 @@ void session_add_event( struct session * self, int16_t ev )
 
         event_set( self->evwrite, self->fd, ev );
         event_set_callback( self->evwrite, channel_on_write, self );
-        evsets_add( sets, self->evwrite, wait_for_shutdown );
-
+        evsets_add( self->evsets, self->evwrite, wait_for_shutdown );
+        // 修改写状态
         self->status |= SESSION_WRITING;
     }
 }

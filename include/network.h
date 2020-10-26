@@ -175,7 +175,6 @@ int32_t iolayer_associate( iolayer_t self,
 // 建议在ioservice_t::onStart()中调用
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
-int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint16_t port );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 // 设置读事件常驻事件库( 默认为0; 激活后, 极端的情况下能提高IO性能40%左右 )
 int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
@@ -207,9 +206,9 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 //      recycle         - 任务回收函数
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
 
-// 提交任务到网络层(广播所有网络线程)
+// 提交任务到网络层
 //      task            - 任务
-//      clone           - 任务复制函数
+//      clone           - 任务复制函数, 如果为NULL, 随机选择一个网络线程投递
 //      execute         - 任务处理函数
 int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 

@@ -49,10 +49,7 @@ void IIOSession::setSendqueueLimit( uint32_t limit )
 void IIOSession::setEndpoint( const std::string & host, uint16_t port )
 {
     assert( m_Sid != 0 && m_Layer != NULL );
-
-    m_Host = host;
-    m_Port = port;
-    iolayer_set_endpoint( m_Layer, m_Sid, host.c_str(), port );
+    m_Host = host; m_Port = port;
 }
 
 int32_t IIOSession::send( const std::string & buffer )

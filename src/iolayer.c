@@ -236,11 +236,21 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
     connector->port     = port;
     connector->context  = context;
     connector->cb       = callback;
-    connector->index    = DISPATCH_POLICY( layer,
-                            __sync_fetch_and_add(&layer->roundrobin, 1) );
     connector->host     = strdup( host );
 
-    iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
+    // 就地投递给本网络线程
+    int8_t index = iothreads_get_index( layer->threads );
+    if ( index >= 0 )
+    {
+        connector->index = index;
+        _connect_direct( iothreads_get_sets(layer->threads, index), connector );
+    }
+    else
+    {
+        connector->index = DISPATCH_POLICY(
+                layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
+        iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
+    }
 
     return 0;
 }
@@ -281,10 +291,22 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
     associater->context     = context;
     associater->parent      = layer;
     associater->privdata    = privdata;
-    associater->index       = DISPATCH_POLICY( layer,
-                                __sync_fetch_and_add(&layer->roundrobin, 1) );
-    // 提交到网络层
-    iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
+
+    // 就地投递给本网络线程
+    int8_t index = iothreads_get_index( layer->threads );
+    if ( index >= 0 )
+    {
+        associater->index = index;
+        _associate_direct( iothreads_get_sets(layer->threads, index), associater );
+    }
+    else
+    {
+        // 随机找一个io线程
+        associater->index = DISPATCH_POLICY(
+                layer, __sync_fetch_and_add(&layer->roundrobin, 1) );
+        // 提交到网络层
+        iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
+    }
 
     return 0;
 }
@@ -466,43 +488,6 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
     return 0;
 }
 
-int32_t iolayer_set_endpoint( iolayer_t self, sid_t id, const char * host, uint16_t port )
-{
-    // NOT Thread-Safe
-    uint8_t index = SID_INDEX(id);
-    struct iolayer * layer = (struct iolayer *)self;
-
-    // 参数检查
-    assert( layer != NULL && "Illegal IOLayer" );
-    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
-    assert( "iolayer_set_endpoint() must be in the specified thread"
-            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
-
-    if ( index >= layer->nthreads )
-    {
-        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
-        return -1;
-    }
-
-    struct session_manager * manager = _get_manager( layer, index );
-    if ( manager == NULL )
-    {
-        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
-        return -2;
-    }
-
-    struct session * session = session_manager_get( manager, id );
-    if ( session == NULL )
-    {
-        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
-        return -3;
-    }
-
-    session_copy_endpoint( session, host, port );
-
-    return 0;
-}
-
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context )
 {
     // NOT Thread-Safe
@@ -652,31 +637,50 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
 
 int32_t iolayer_performs( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute )
 {
-    uint8_t i = 0;
+    assert( self != NULL && "Illegal IOLayer" );
+    assert( execute != NULL && "Illegal specified Execute-Function" );
 
+    uint8_t i = 0;
     pthread_t threadid = pthread_self();
     struct task_performs tasklist[ 256 ];   // 栈中分配更快
     struct iolayer * layer = (struct iolayer *)self;
 
-    // clone task
-    for ( i = 0; i < layer->nthreads; ++i )
+    if ( clone == NULL )
     {
-        tasklist[i].clone = clone;
-        tasklist[i].perform = execute;
-        tasklist[i].task = i == 0 ? task : clone( task );
-    }
+        uint8_t index = milliseconds() % layer->nthreads;
+        struct task_performs inner_task = { task, execute };
 
-    for ( i = 0; i < layer->nthreads; ++i )
-    {
-        if ( threadid == iothreads_get_id( layer->threads, i ) )
+        if ( threadid == iothreads_get_id( layer->threads, index ) )
         {
-            // 本线程内直接广播
-            _performs_direct( layer, i, &(tasklist[i]) );
+            // 本线程内直接执行
+            _performs_direct( layer, index, &inner_task );
         }
         else
         {
-            // 跨线程提交广播任务
-            iothreads_post( layer->threads, i, eIOTaskType_Performs, &(tasklist[i]), sizeof(struct task_performs) );
+            // 跨线程提交执行任务
+            iothreads_post( layer->threads, index, eIOTaskType_Performs, &inner_task, sizeof(struct task_performs) );
+        }
+    }
+    else
+    {
+        for ( i = 0; i < layer->nthreads; ++i )
+        {
+            tasklist[i].perform = execute;
+            tasklist[i].task = i == 0 ? task : clone( task );
+        }
+
+        for ( i = 0; i < layer->nthreads; ++i )
+        {
+            if ( threadid == iothreads_get_id( layer->threads, i ) )
+            {
+                // 本线程内直接广播
+                _performs_direct( layer, i, &(tasklist[i]) );
+            }
+            else
+            {
+                // 跨线程提交广播任务
+                iothreads_post( layer->threads, i, eIOTaskType_Performs, &(tasklist[i]), sizeof(struct task_performs) );
+            }
         }
     }
 

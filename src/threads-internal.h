@@ -61,6 +61,7 @@ struct iothreads
     pthread_mutex_t lock;
 };
 
+int8_t iothreads_get_index( iothreads_t self );
 struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index );
 
 #endif
