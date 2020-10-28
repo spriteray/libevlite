@@ -49,6 +49,17 @@
     #endif
 #endif
 
+// EVENT_USE_LOCALHOST
+#if defined EVENT_OS_WIN32
+    #define EVENT_USE_LOCALHOST
+#elif defined EVENT_OS_MACOS
+    #define EVENT_USE_LOCALHOST
+#elif defined EVENT_OS_LINUX
+    #if LINUX_VERSION_CODE > KERNEL_VERSION(4,4,0)
+        #define EVENT_USE_LOCALHOST
+    #endif
+#endif
+
 // EVENT_HAVE_EVENTFD
 #if defined EVENT_OS_LINUX
     // eventfd() is available on Linux since kernel 2.6.22.

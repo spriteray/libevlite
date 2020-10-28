@@ -17,7 +17,7 @@ struct evtimer * evtimer_create( int32_t max_precision, int32_t bucket_count )
         t->bucket_count = bucket_count;
         t->max_precision = max_precision;
 
-        t->bucket_array = (struct event_list *)malloc( bucket_count * sizeof(struct event_list) );
+        t->bucket_array = (struct event_list *)calloc( bucket_count, sizeof(struct event_list) );
         if ( t->bucket_array == NULL )
         {
             free( t );

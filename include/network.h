@@ -44,6 +44,10 @@ extern "C"
 typedef uint64_t    sid_t;
 typedef void *      iolayer_t;
 
+// 网络类型
+#define NETWORK_TCP 1           // TCP
+#define NETWORK_KCP 2           // KCP
+
 // IO服务
 //        start()       - 网络就绪的回调
 //        process()     - 收到数据包的回调
@@ -115,7 +119,7 @@ typedef int32_t (*acceptor_t)( void *, void *, sid_t, const char * , uint16_t );
 //        port          - 监听的端口号
 //        callback      - 新会话创建成功后的回调(参考acceptor_t的定义),会被多个网络线程调用
 //        context       - 上下文参数
-int32_t iolayer_listen( iolayer_t self,
+int32_t iolayer_listen( iolayer_t self, uint8_t type,
         const char * host, uint16_t port, acceptor_t callback, void * context );
 
 //  连接结果的回调
@@ -164,6 +168,8 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
 // 设置发送队列阈值, 超过阈值关闭连接( 默认为0: 不限制 )
 int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
+// 设置udp的发送接收窗口
+int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t rcvwnd );
 
 // 发送数据到会话
 //      id              - 会话ID
@@ -200,8 +206,7 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
 //      参数1: 类型
 //      参数2: 任务
 typedef void (*taskrecycler_t)( int32_t, void * );
-// 分派任务给指定的会话
-// 通过ioservice_t::perform()回调执行该任务
+// 分派任务给指定的会话, 通过ioservice_t::perform()回调执行该任务
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据

@@ -11,9 +11,6 @@
 #include "network-internal.h"
 #include "message.h"
 
-#define MIN_BUFFER_LENGTH       128
-#define MAX_BUFFER_LENGTH       65535
-
 static inline void _align( struct buffer * self );
 static inline size_t _offset( struct buffer * self );
 static inline size_t _left( struct buffer * self );
@@ -100,7 +97,7 @@ ssize_t _read_withvector( struct buffer * self, int32_t fd  )
     if ( nread > (ssize_t)left )
     {
         self->length += left;
-        buffer_append( self, extra, (uint32_t)(nread-left) );
+        buffer_append( self, extra, (size_t)(nread-left) );
     }
     else if ( nread > 0 )
     {
@@ -198,6 +195,11 @@ int32_t buffer_append( struct buffer * self, const char * buf, size_t length )
     return 0;
 }
 
+int32_t buffer_append2( struct buffer * self, struct buffer * buffer )
+{
+    return buffer_append( self, buffer_data(buffer), buffer_length(buffer) );
+}
+
 size_t buffer_take( struct buffer * self, char * buf, size_t length )
 {
     length = ( length > self->length ? self->length : length );
@@ -206,6 +208,11 @@ size_t buffer_take( struct buffer * self, char * buf, size_t length )
     buffer_erase( self, length );
 
     return length;
+}
+
+int32_t buffer_reserve( struct buffer * self, size_t length )
+{
+    return _expand( self, length );
 }
 
 void buffer_swap( struct buffer * buf1, struct buffer * buf2 )
@@ -226,6 +233,33 @@ ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes )
 
     // -1和>0 都是读取定长的数据到BUFF中
     return _read_withsize( self, fd, nbytes );
+}
+
+ssize_t buffer_receive( struct buffer * self, int32_t fd, struct sockaddr_storage * addr )
+{
+    ssize_t nread = -1;
+    socklen_t addrlen = sizeof(*addr);
+
+    if ( ioctl( fd, FIONREAD, &nread ) != 0 || nread <= 0 )
+    {
+        nread = MAX_BUFFER_LENGTH;
+    }
+
+    if ( _expand( self, nread ) != 0 )
+    {
+        return -2;
+    }
+
+    bzero( addr, addrlen );
+    nread = recvfrom( fd,
+            self->buffer+self->length, nread,
+            0, (struct sockaddr *)addr, &addrlen );
+    if ( nread > 0 )
+    {
+        self->length += nread;
+    }
+
+    return nread;
 }
 
 // -----------------------------------------------------------------------------

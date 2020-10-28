@@ -12,6 +12,8 @@
 #include "network.h"
 #include "channel.h"
 #include "session.h"
+#include "message.h"
+#include "acceptq.h"
 #include "network-internal.h"
 #include "threads-internal.h"
 
@@ -25,6 +27,8 @@ static inline int32_t _new_managers( struct iolayer * self );
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 static inline int32_t _broadcast2_loop( void * context, struct session * s );
+static inline void _free_task_assign( struct task_assign * task );
+static int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context );
 
 static int32_t _listen_direct( struct acceptorlist * acceptorlist, evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
@@ -123,77 +127,49 @@ void iolayer_destroy( iolayer_t self )
 }
 
 // 服务器开启
+//      type        - 网络类型: NETWORK_TCP or NETWORK_KCP
 //      host        - 绑定的地址
 //      port        - 监听的端口号
 //      callback    - 新会话创建成功后的回调,会被多个网络线程调用
 //      context     - 上下文参数
-int32_t iolayer_listen( iolayer_t self, const char * host, uint16_t port, acceptor_t callback, void * context )
+int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_t port, acceptor_t callback, void * context )
 {
-    uint8_t i = 0, nthreads = 1;
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
     assert( callback != NULL && "Illegal specified Callback-Function" );
+    assert( (type == NETWORK_TCP || type == NETWORK_KCP) && "Illegal type" );
 
-#ifdef EVENT_HAVE_REUSEPORT
-    nthreads = layer->nthreads;
-    syslog(LOG_INFO,
-            "%s(host:'%s', port:%d) use SO_REUSEPORT .",
-            __FUNCTION__, host == NULL ? "" : host, port);
-#endif
-
-    for ( i = 0; i < nthreads; ++i )
+    if ( type == NETWORK_KCP )
     {
-        struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof(struct acceptor) );
-        if ( acceptor == NULL )
-        {
-            syslog(LOG_WARNING,
-                    "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
-                    __FUNCTION__, host == NULL ? "" : host, port);
-            return -1;
-        }
-
-        acceptor->event = event_create();
-        if ( acceptor->event == NULL )
-        {
-            syslog(LOG_WARNING,
-                    "%s(host:'%s', port:%d) failed, can't create AcceptEvent .",
-                    __FUNCTION__, host == NULL ? "" : host, port);
-            free( acceptor );
-            return -2;
-        }
-
-        acceptor->fd = tcp_listen( host, port, iolayer_server_option );
-        if ( acceptor->fd <= 0 )
-        {
-            syslog(LOG_WARNING,
-                    "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
-                    __FUNCTION__, host == NULL ? "" : host, port);
-            free( acceptor );
-            return -3;
-        }
-
-        acceptor->parent    = layer;
-        acceptor->port      = port;
-        acceptor->context   = context;
-        acceptor->cb        = callback;
-#ifdef EVENT_HAVE_REUSEPORT
-        acceptor->index     = i;
+        // UDP服务端
+        return _socket_listen( layer, type, 0, host, port, callback, context );
+    }
+    else if ( type == NETWORK_TCP )
+    {
+        // TCP服务端
+#ifndef EVENT_HAVE_REUSEPORT
+        // normal
+        return _socket_listen( layer, type, 0, host, port, callback, context );
 #else
-        acceptor->index     = DISPATCH_POLICY( layer,
-                                __sync_fetch_and_add(&layer->roundrobin, 1) );
-#endif
-        if ( host != NULL )
+        // reuseport
+        uint8_t i = 0;
+        syslog(LOG_INFO,
+                "%s(host:'%s', port:%d) use SO_REUSEPORT .", __FUNCTION__, host == NULL ? "" : host, port);
+        for ( i = 0; i < layer->nthreads; ++i )
         {
-            acceptor->host = strdup( host );
+            int32_t rc = _socket_listen( layer, type, i, host, port, callback, context );
+            if ( rc < 0 )
+            {
+                return rc;
+            }
         }
-        acceptor->idlefd    = open( "/dev/null", O_RDONLY|O_CLOEXEC );
-
-        iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
+        return 0;
+#endif
     }
 
-    return 0;
+    return -1;
 }
 
 // 客户端开启
@@ -447,6 +423,44 @@ int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit )
     }
 
     session->setting.sendqueue_limit = queuelimit;
+
+    return 0;
+}
+
+int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t rcvwnd )
+{
+    // NOT Thread-Safe
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_sndqlimit() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
+
+    if ( index >= layer->nthreads )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct session_manager * manager = _get_manager( layer, index );
+    if ( manager == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
+        return -2;
+    }
+
+    struct session * session = session_manager_get( manager, id );
+    if ( session == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
+        return -3;
+    }
+
+    session->setting.sendwindow_size = sndwnd;
+    session->setting.recvwindow_size = rcvwnd;
 
     return 0;
 }
@@ -818,6 +832,47 @@ int32_t iolayer_client_option( int32_t fd )
     return 0;
 }
 
+int32_t iolayer_udp_option( int32_t fd )
+{
+    int32_t flag = 0;
+
+    // 是否是IPV6-Only
+    // is_ipv6only( fd );
+
+    //
+    set_cloexec( fd );
+
+    // Socket非阻塞
+    set_non_block( fd );
+
+    flag = 1;
+    setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flag, sizeof(flag) );
+    flag = 1;
+    setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof(flag) );
+
+#if SAFE_SHUTDOWN == 0
+    {
+        struct linger ling;
+        ling.l_onoff = 1;
+        ling.l_linger = 0;
+        setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
+    }
+#endif
+
+    // 发送接收缓冲区
+    // NOTICE: 内核可以动态调整发送和接受缓冲区的, 所以不建议设置该选项
+#if SEND_BUFFER_SIZE > 0
+    size_t sendbuf_size = SEND_BUFFER_SIZE;
+    setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
+#endif
+#if RECV_BUFFER_SIZE > 0
+    size_t recvbuf_size = RECV_BUFFER_SIZE;
+    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
+#endif
+
+    return 0;
+}
+
 struct session * iolayer_alloc_session( struct iolayer * self, int32_t key, uint8_t index )
 {
     struct session * session = NULL;
@@ -860,6 +915,13 @@ void iolayer_free_acceptor( struct acceptor * acceptor )
         close( acceptor->idlefd );
         acceptor->idlefd = -1;
     }
+
+    if ( acceptor->acceptq != NULL )
+    {
+        acceptqueue_destroy( acceptor->acceptq );
+        acceptor->acceptq = NULL;
+    }
+    buffer_clear( &acceptor->buffer );
 
     free( acceptor );
 }
@@ -915,12 +977,8 @@ void iolayer_accept_fdlimits( struct acceptor * acceptor )
     acceptor->idlefd = open( "/dev/null", O_RDONLY|O_CLOEXEC );
 }
 
-int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task )
 {
-#ifdef EVENT_HAVE_REUSEPORT
-    return _assign_direct( self, acceptidx,
-            iothreads_get_sets( self->threads, acceptidx ), task );
-#else
     evsets_t sets = iothreads_get_sets( self->threads, index );
     pthread_t threadid = iothreads_get_id( self->threads, index );
 
@@ -928,8 +986,18 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_
     {
         return _assign_direct( self, index, sets, task );
     }
+
     // 跨线程提交发送任务
     return iothreads_post( self->threads, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
+}
+
+int32_t iolayer_assign_session_direct( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
+{
+#ifndef EVENT_HAVE_REUSEPORT
+    return iolayer_assign_session( self, index, task );
+#else
+    return _assign_direct( self, acceptidx,
+            iothreads_get_sets( self->threads, acceptidx ), task );
 #endif
 }
 
@@ -972,6 +1040,95 @@ struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
     }
 
     return (struct session_manager *)( self->managers[index<<3] );
+}
+
+int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context )
+{
+    struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof(struct acceptor) );
+    if ( acceptor == NULL )
+    {
+        syslog(LOG_WARNING,
+                "%s(host:'%s', port:%d) failed, Out-Of-Memory .",
+                __FUNCTION__, host == NULL ? "" : host, port);
+        return -1;
+    }
+
+    acceptor->event = event_create();
+    if ( acceptor->event == NULL )
+    {
+        syslog(LOG_WARNING,
+                "%s(host:'%s', port:%d) failed, can't create AcceptEvent .",
+                __FUNCTION__, host == NULL ? "" : host, port);
+        iolayer_free_acceptor( acceptor );
+        return -2;
+    }
+
+    acceptor->type      = type;
+    acceptor->parent    = layer;
+    acceptor->port      = port;
+    acceptor->context   = context;
+    acceptor->cb        = callback;
+    if ( host != NULL )
+    {
+        acceptor->host  = strdup( host );
+    }
+    acceptor->index     = DISPATCH_POLICY( layer,
+            __sync_fetch_and_add(&layer->roundrobin, 1) );
+
+    if ( type == NETWORK_TCP )
+    {
+#ifdef EVENT_HAVE_REUSEPORT
+        acceptor->index     = index;
+#endif
+        acceptor->idlefd    = open( "/dev/null", O_RDONLY|O_CLOEXEC );
+
+        acceptor->fd = tcp_listen( host, port, iolayer_server_option );
+        if ( acceptor->fd <= 0 )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, tcp_listen() failure .",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            iolayer_free_acceptor( acceptor );
+            return -3;
+        }
+    }
+    else if ( type == NETWORK_KCP )
+    {
+#ifndef SO_REUSEPORT
+        assert( 0 && "Not Support REUSEPORT" );
+        syslog(LOG_WARNING,
+                "%s(host:'%s', port:%d) failed, Not support REUSEPORT .",
+                __FUNCTION__, host == NULL ? "" : host, port);
+        return -3;
+#endif
+        // 初始化BUFF
+        buffer_init( &acceptor->buffer );
+
+        // 接收队列
+        acceptor->acceptq = acceptqueue_create( 4096 );
+        if ( acceptor->acceptq == NULL )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, can't create AcceptQueue .",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            iolayer_free_acceptor( acceptor );
+            return -4;
+        }
+
+        acceptor->fd = udp_bind( host, port, iolayer_udp_option, &(acceptor->addr) );
+        if ( acceptor->fd <= 0 )
+        {
+            syslog(LOG_WARNING,
+                    "%s(host:'%s', port:%d) failed, udp_bind() failure .",
+                    __FUNCTION__, host == NULL ? "" : host, port);
+            iolayer_free_acceptor( acceptor );
+            return -5;
+        }
+    }
+
+    // 提交
+    iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
+    return 0;
 }
 
 int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree )
@@ -1035,6 +1192,28 @@ int32_t _broadcast2_loop( void * context, struct session * s )
     return 0;
 }
 
+void _free_task_assign( struct task_assign * task )
+{
+    if ( task->fd > 0 )
+    {
+        close( task->fd );
+        task->fd = 0;
+    }
+
+    if ( task->host != NULL )
+    {
+        free( task->host );
+        task->host = NULL;
+    }
+
+    if ( task->buffer != NULL )
+    {
+        buffer_clear( task->buffer );
+        free( task->buffer );
+        task->buffer = NULL;
+    }
+}
+
 int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct acceptor * acceptor )
 {
     // 开始关注accept事件
@@ -1042,7 +1221,10 @@ int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct 
     STAILQ_INSERT_TAIL( acceptlist, acceptor, linker );
 
     event_set( acceptor->event, acceptor->fd, EV_READ|EV_PERSIST );
-    event_set_callback( acceptor->event, channel_on_accept, acceptor );
+    if ( acceptor->type == NETWORK_TCP )
+        event_set_callback( acceptor->event, channel_on_accept, acceptor );
+    else if ( acceptor->type == NETWORK_KCP )
+        event_set_callback( acceptor->event, channel_on_udpaccept, acceptor );
     evsets_add( sets, acceptor->event, 0 );
 
     return 0;
@@ -1085,7 +1267,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     {
         syslog(LOG_WARNING,
                 "%s(fd:%d, host:'%s', port:%d) failed .", __FUNCTION__, task->fd, task->host, task->port );
-        close( task->fd ); free( task->host );
+        _free_task_assign( task );
         return -1;
     }
 
@@ -1096,13 +1278,38 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     {
         // 逻辑层不接受这个会话
         session_manager_remove( manager, session );
-        close( task->fd ); free( task->host );
+        _free_task_assign( task );
         return 1;
     }
 
-    session_set_iolayer( session, layer );
-    session_set_endpoint( session, task->host, task->port );
-    session_start( session, eSessionType_Accept, task->fd, sets );
+    if ( task->type == NETWORK_TCP )
+    {
+        session_set_iolayer( session, layer );
+        session_set_endpoint( session, task->host, task->port );
+        session_start( session, eSessionType_Accept, task->fd, sets );
+    }
+    else if ( task->type == NETWORK_KCP )
+    {
+        rc = session_init_driver( session, task->buffer );
+        if ( rc != 0 )
+        {
+            syslog(LOG_WARNING,
+                    "%s(fd:%d, host:'%s', port:%d) failed, initialize driver .", __FUNCTION__, task->fd, task->host, task->port );
+            session_manager_remove( manager, session );
+            _free_task_assign( task );
+            return -2;
+        }
+
+        //
+        session_set_iolayer( session, layer );
+        session_set_endpoint( session, task->host, task->port );
+        session_start( session, eSessionType_Accept, task->fd, sets );
+
+        // UDP需要回调连接过程中的数据包
+        channel_udpprocess( session );
+        // 清空任务buffer
+        buffer_clear( task->buffer ); free( task->buffer );
+    }
 
     return 0;
 }

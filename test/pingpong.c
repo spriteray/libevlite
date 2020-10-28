@@ -4,15 +4,21 @@
 #include <signal.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <string.h>
+#include <assert.h>
+#include <time.h>
 
 #include "network.h"
 
+//#define __DEBUG__
 #define METHOD        1
 
 struct session
 {
-    sid_t id;
-    iolayer_t layer;
+    sid_t       id;
+    iolayer_t   layer;
+    char        host[64];
+    uint16_t    port;
 };
 
 struct PacketHead
@@ -26,7 +32,11 @@ int32_t onStart( void * context )
 {
     struct session * s = (struct session *)context;
     iolayer_set_persist( s->layer, s->id, 1 );
-    //iolayer_set_timeout( s->layer, s->id, 10 );
+    iolayer_set_wndsize( s->layer, s->id, 64, 64 );
+#if defined __DEBUG__
+    printf( "START[%lu] : %lu -> %s:%d\n", time(NULL), s->id, s->host, s->port );
+    iolayer_set_timeout( s->layer, s->id, 30 );
+#endif
     return 0;
 }
 
@@ -37,6 +47,10 @@ ssize_t onProcess( void * context, const char * buf, size_t nbytes )
 
 #if METHOD
 
+#if defined __DEBUG__
+    printf( "PROCESS[%lu] : %lu -> %ld\n", time(NULL), s->id, nbytes );
+    //iolayer_set_timeout( s->layer, s->id, 10 );
+#endif
     iolayer_send( s->layer, s->id, buf, nbytes, 0 );
     nprocess = nbytes;
 
@@ -71,6 +85,10 @@ ssize_t onProcess( void * context, const char * buf, size_t nbytes )
 
 int32_t onTimeout( void * context )
 {
+#if defined __DEBUG__
+    struct session * s = (struct session *)context;
+    printf( "TIMEOUT[%lu] : %lu -> %s:%d\n", time(NULL), s->id, s->host, s->port );
+#endif
     return -1;
 }
 
@@ -87,6 +105,9 @@ int32_t onError( void * context, int32_t result )
 void onShutdown( void * context, int32_t way )
 {
     struct session * s = (struct session *)context;
+#if defined __DEBUG__
+    printf( "SHUTDOWN[%lu] : %lu -> %s:%d\n", time(NULL), s->id, s->host, s->port );
+#endif
     free( s );
 }
 
@@ -104,6 +125,8 @@ int32_t onLayerAccept( void * context, void * local, sid_t id, const char * host
     {
         session->id = id;
         session->layer = layer;
+        session->port = port;
+        strncpy( session->host, host, 63 );
 
         ioservice_t ioservice;
         ioservice.start        = onStart;
@@ -130,15 +153,16 @@ void signal_handle( int32_t signo )
 
 int main( int32_t argc, char ** argv )
 {
-    if ( argc != 4 )
+    if ( argc != 5 )
     {
-        printf("pingpong [host] [port] [threads] \n");
+        printf("pingpong [type] [host] [port] [threads] \n");
         return -1;
     }
 
-    char * host = argv[1];
-    uint16_t port = atoi(argv[2]);
-    uint8_t nthreads = atoi(argv[3]);
+    uint8_t type = atoi(argv[1]);
+    char * host = argv[2];
+    uint16_t port = atoi(argv[3]);
+    uint8_t nthreads = atoi(argv[4]);
 
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signal_handle );
@@ -149,7 +173,12 @@ int main( int32_t argc, char ** argv )
         return -2;
     }
 
-    iolayer_listen( layer, host, port, onLayerAccept, layer) ;
+    if ( iolayer_listen( layer, type, host, port, onLayerAccept, layer ) < 0 )
+    {
+        printf( "pingpong %s::%d failed .\n", host, port );
+        iolayer_destroy( layer );
+        return -3;
+    }
 
     g_Running = 1;
 

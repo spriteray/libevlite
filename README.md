@@ -30,7 +30,7 @@
      - nclients: 推荐连接数
      - immediately: 数据是否会立刻推送到网络层，对实时性要求很高的场景, 建议设置为1
 
-   - ##### 设置网络通信层的方法(非线程安全)
+   - ##### 设置网络通信层的方法(仅在IO线程中才能使用)
 
      - 设置线程上下文: iolayer_set_iocontext()
      - 设置网络层数据改造方法: iolayer_set_transform()
@@ -41,13 +41,14 @@
 
    - ##### 关联描述符的读写事件 iolayer_associate()
 
-   - ##### 设置会话的方法(非线程安全)
+   - ##### 设置会话的方法(仅在IO线程中才能使用)
 
      - 设置会话的超时时间 iolayer_set_timeout()
      - 设置会话的保活时间 iolayer_set_keepalive()
      - 设置会话的IO服务逻辑 iolayer_set_service()
      - 设置会话的读事件常驻事件集 iolayer_set_persist()
      - 设置会话的发送队列长度限制 iolayer_set_sndqlimit()
+     - 设置会话的发送接收窗口(仅限UDP有效) iolayer_set_wndsize()
 
    - ##### 发送数据 iolayer_send()
 
@@ -55,12 +56,12 @@
 
    - ##### 关闭会话 iolayer_shutdown(), iolayer_shutdowns()
 
+   - ##### 提交任务到网络层 iolayer_invoke(), iolayer_perform()
+
    - ##### 停止服务 iolayer_stop()
 
      - 停止对外提供接入服务, 不再接受新的连接;
      - 停止所有连接的接收服务, 不再回调ioservice_t::process()
-
-   - ##### 提交任务到网络层 iolayer_invoke(), iolayer_perform()
 
    - ##### 销毁网络层 iolayer_destroy()
 

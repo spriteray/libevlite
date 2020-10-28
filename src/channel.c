@@ -10,8 +10,11 @@
 
 #include "config.h"
 #include "utils.h"
+#include "driver.h"
 #include "iolayer.h"
 #include "channel.h"
+#include "acceptq.h"
+#include "event-internal.h"
 #include "network-internal.h"
 
 // iov_max
@@ -26,14 +29,14 @@ const int32_t iov_max = 128;
 #endif
 
 // 发送接收数据
-static ssize_t _transmit( struct session * session );
-static inline ssize_t _receive( struct session * session );
 static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
 // 逻辑操作
 static ssize_t _process( struct session * session );
 static int32_t _timeout( struct session * session );
 
+static void _on_backconnected( int32_t fd, int16_t ev, void * arg );
+static void _assign_direct( int32_t fd, int16_t ev, void * arg );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 
@@ -41,7 +44,32 @@ static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-ssize_t _transmit( struct session * session )
+ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
+{
+    ssize_t writen = -1;
+
+#if defined (TCP_CORK)
+    int32_t corked = 1;
+    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+#endif
+
+    writen = writev( fd, array, count );
+
+#if defined (TCP_CORK)
+    corked = 0;
+    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
+#endif
+
+    return writen;
+}
+
+ssize_t channel_receive( struct session * session )
+{
+    // 从socket中读取数据
+    return buffer_read( &session->inbuffer, session->fd, 0 );
+}
+
+ssize_t channel_transmit( struct session * session )
 {
     uint32_t i = 0;
     ssize_t writen = 0;
@@ -100,37 +128,12 @@ ssize_t _transmit( struct session * session )
 
     if ( writen > 0 && session_sendqueue_count(session) > 0 )
     {
-        ssize_t againlen = _transmit( session );
+        ssize_t againlen = channel_transmit( session );
         if ( againlen > 0 )
         {
             writen += againlen;
         }
     }
-
-    return writen;
-}
-
-ssize_t _receive( struct session * session )
-{
-    // 尽量读数据
-    return buffer_read( &session->inbuffer, session->fd, 0 );
-}
-
-ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
-{
-    ssize_t writen = -1;
-
-#if defined (TCP_CORK)
-    int32_t corked = 1;
-    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
-#endif
-
-    writen = writev( fd, array, count );
-
-#if defined (TCP_CORK)
-    corked = 0;
-    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof(corked) );
-#endif
 
     return writen;
 }
@@ -149,6 +152,26 @@ ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
     }
 
     return writen;
+}
+
+void channel_udpprocess( struct session * session )
+{
+    // 重组
+    if ( session->driver != NULL )
+    {
+        // udp驱动处理输入的数据
+        driver_input( session->driver, &session->inbuffer );
+    }
+
+    if ( _process( session ) < 0 )
+    {
+        if ( session->setting.persist_mode != 0 )
+        {
+            session_del_event( session, EV_READ );
+        }
+
+        session_shutdown( session );
+    }
 }
 
 // -----------------------------------------------------------------------------
@@ -211,6 +234,30 @@ int32_t _timeout( struct session * session )
     }
 
     return 0;
+}
+
+void _assign_direct( int32_t fd, int16_t ev, void * arg )
+{
+    struct udpentry * entry = (struct udpentry *)arg;
+    struct iolayer * layer = entry->acceptor->parent;
+
+    // 分配任务
+    struct task_assign task;
+    task.fd = fd;
+    task.port = entry->port;
+    task.host = strdup( entry->host );
+    task.cb = entry->acceptor->cb;
+    task.type = entry->acceptor->type;
+    task.context = entry->acceptor->context;
+    // 交换buffer
+    task.buffer = (struct buffer *)malloc(sizeof(struct buffer));
+    assert( task.buffer != NULL && "create struct buffer failed" );
+    buffer_init( task.buffer );
+    buffer_swap( task.buffer, &(entry->buffer) );
+    iolayer_assign_session( layer, DISPATCH_POLICY(layer, fd), &task );
+
+    // 移除接受队列
+    acceptqueue_remove( entry->acceptor->acceptq, entry->host, entry->port );
 }
 
 void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
@@ -327,7 +374,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
          * -2    - expand() failure
          */
         ssize_t nprocess = 0;
-        ssize_t nread = _receive( session );
+        ssize_t nread = session->setting.receive( session );
 
         // 只有iolayer处于运行状态下的时候
         // 才会回调逻辑层处理数据
@@ -433,7 +480,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
         if ( session_sendqueue_count(session) > 0 )
         {
             // 发送数据
-            ssize_t writen = _transmit( session );
+            ssize_t writen = session->setting.transmit( session );
             if ( writen < 0 && errno != EAGAIN )
             {
                 channel_error( session, eIOError_WriteFailure );
@@ -521,10 +568,12 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 
             task.fd = cfd;
             task.cb = acceptor->cb;
+            task.type = acceptor->type;
             task.context = acceptor->context;
 
             // 分发策略
-            iolayer_assign_session( layer, acceptor->index, DISPATCH_POLICY(layer, cfd), &(task) );
+            iolayer_assign_session_direct( layer,
+                    acceptor->index, DISPATCH_POLICY(layer, cfd), &(task) );
         }
         else if ( errno == EMFILE )
         {
@@ -534,6 +583,73 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             iolayer_accept_fdlimits( acceptor );
             free( task.host );
         }
+    }
+}
+
+void channel_on_udpaccept( int32_t fd, int16_t ev, void * arg )
+{
+    struct acceptor * acceptor = (struct acceptor *)arg;
+    struct iolayer * layer = (struct iolayer *)(acceptor->parent);
+
+    if ( likely( (ev & EV_READ)
+                && layer->status == eIOStatus_Running) )
+    {
+        char host[ 64 ];
+        uint16_t port = 0;
+        struct sockaddr_storage remoteaddr;
+
+        // 收包
+        ssize_t n = buffer_receive( &acceptor->buffer, acceptor->fd, &remoteaddr );
+        if ( n <= 0 )
+        {
+            syslog(LOG_WARNING, "%s(fd:%d, %s::%d) failed, buffer_receive() %ld .",
+                    __FUNCTION__, fd, acceptor->host, acceptor->port, n );
+            buffer_erase( &acceptor->buffer, -1 );
+            return;
+        }
+
+        // 解析对端地址
+        parse_endpoint( &remoteaddr, host, &port );
+
+#ifndef EVENT_USE_LOCALHOST
+        // 内核4.4.0之前的版本, 客户端和服务器无法同一地址
+        if ( strcmp( host, acceptor->host ) == 0 )
+        {
+            syslog(LOG_WARNING, "%s(fd:%d, %s::%d) failed, this Connection come from LOCALHOST(%s::%d) .",
+                    __FUNCTION__, fd, acceptor->host, acceptor->port, host, port );
+            buffer_erase( &acceptor->buffer, -1 );
+            return;
+        }
+#endif
+
+        struct udpentry * entry = acceptqueue_find( acceptor->acceptq, host, port );
+        if ( entry == NULL )
+        {
+            // 反向连接
+            int32_t newfd = udp_connect( &acceptor->addr, &remoteaddr, iolayer_udp_option );
+            if ( newfd < 0 )
+            {
+                syslog(LOG_WARNING, "%s(fd:%d, %s::%d) failed, udp_connect(%s::%d) failed .",
+                        __FUNCTION__, fd, acceptor->host, acceptor->port, host, port );
+                buffer_erase( &acceptor->buffer, -1 );
+                return;
+            }
+
+            // 新的连接
+            entry = acceptqueue_append( acceptor->acceptq, host, port );
+            assert( entry != NULL && "acceptqueue_append() failed" );
+            entry->acceptor = acceptor;
+            entry->event = event_create();
+            assert( entry->event != NULL && "event_create() failed" );
+            // 查看反向连接是否成功
+            event_set( entry->event, newfd, EV_WRITE );
+            event_set_callback( entry->event, _on_backconnected, entry );
+            evsets_add( entry->acceptor->evsets, entry->event, TRY_RECONNECT_INTERVAL );
+        }
+
+        // 缓存收到的数据包
+        buffer_append2( &entry->buffer, &acceptor->buffer );
+        buffer_erase( &acceptor->buffer, -1 );
     }
 }
 
@@ -790,5 +906,42 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
 
             iolayer_free_associater( associater );
         }
+    }
+}
+
+void _on_backconnected( int32_t fd, int16_t ev, void * arg )
+{
+    int32_t result = 0;
+    struct udpentry * entry = (struct udpentry *)arg;
+
+    if ( ev & EV_WRITE )
+    {
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
+        // linux需要进一步检查连接是否成功
+        if ( is_connected( fd ) != 0 )
+        {
+            result = eIOError_ConnectStatus;
+        }
+#endif
+    }
+    else
+    {
+        result = eIOError_Timeout;
+    }
+
+    if ( result == 0 )
+    {
+        // NOTICE: 防止竞态条件发生, 下一帧分配会话
+        // 反向连接成功+listenfd收到的包在同一帧中出现, 所以最好的做法就是下一帧再分配会话，这就解决所有问题了
+        event_set( entry->event, fd, 0 );
+        event_set_callback( entry->event, _assign_direct, entry );
+        evsets_add( entry->acceptor->evsets, entry->event, TIMER_MAX_PRECISION );
+    }
+    else
+    {
+        syslog(LOG_WARNING, "%s(fd:%d, %s::%d) failed, this Connection(fd:%d, %s::%d)'s status(result:%d) is INVALID .",
+                __FUNCTION__, entry->acceptor->fd, entry->acceptor->host, entry->acceptor->port, fd, entry->host, entry->port, result );
+        close( fd );
+        acceptqueue_remove( entry->acceptor->acceptq, entry->host, entry->port );
     }
 }

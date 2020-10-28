@@ -11,6 +11,8 @@
 #include "session.h"
 
 //
+ssize_t channel_transmit( struct session * session );
+ssize_t channel_receive( struct session * session );
 ssize_t channel_send( struct session * session, char * buf, size_t nbytes );
 
 // 会话出错
@@ -21,10 +23,14 @@ int32_t channel_error( struct session * session, int32_t result );
 // 丢弃发送队列中的数据
 int32_t channel_shutdown( struct session * session );
 
+// 处理UDP临时数据
+void channel_udpprocess( struct session * session );
+
 // 事件的回调函数集合
 void channel_on_read( int32_t fd, int16_t ev, void * arg );
 void channel_on_write( int32_t fd, int16_t ev, void * arg );
 void channel_on_accept( int32_t fd, int16_t ev, void * arg );
+void channel_on_udpaccept( int32_t fd, int16_t ev, void * arg );
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg );
 void channel_on_connected( int32_t fd, int16_t ev, void * arg );

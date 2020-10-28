@@ -40,10 +40,16 @@ void IIOSession::disablePersist()
     iolayer_set_persist( m_Layer, m_Sid, 0 );
 }
 
-void IIOSession::setSendqueueLimit( uint32_t limit )
+void IIOSession::setSendqueueLimit( int32_t limit )
 {
     assert( m_Sid != 0 && m_Layer != NULL );
     iolayer_set_sndqlimit( m_Layer, m_Sid, limit );
+}
+
+void IIOSession::setWindowSize( int32_t sndwnd, int32_t rcvwnd )
+{
+    assert( m_Sid != 0 && m_Layer != NULL );
+    iolayer_set_wndsize( m_Layer, m_Sid, sndwnd, rcvwnd );
 }
 
 void IIOSession::setEndpoint( const std::string & host, uint16_t port )
@@ -234,7 +240,7 @@ bool IIOService::isConnecting( const char * host, uint16_t port )
     return found;
 }
 
-bool IIOService::listen( const char * host, uint16_t port )
+bool IIOService::listen( uint8_t type, const char * host, uint16_t port )
 {
     ListenContext * context = new ListenContext( port, this );
     if ( context == NULL )
@@ -246,7 +252,7 @@ bool IIOService::listen( const char * host, uint16_t port )
     m_ListenContexts.push_back( context );
     pthread_mutex_unlock( &m_Lock );
 
-    return ( iolayer_listen( m_IOLayer, host, port, onAcceptSession, context ) == 0 );
+    return ( iolayer_listen( m_IOLayer, type, host, port, onAcceptSession, context ) == 0 );
 }
 
 sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )

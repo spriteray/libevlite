@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.8.8
+VERSION 	= 9.8.9
 PREFIX		= /usr/local
 
 # 主版本号
@@ -69,7 +69,7 @@ INCLUDEPATH	= $(PREFIX)/include
 #
 
 # ------------------------------------------------------------------------------
-OBJS 	= utils.o \
+OBJS 	= acceptq.o ikcp.o driver.o utils.o \
 		  	epoll.o kqueue.o timer.o \
 			event.o \
 			threads.o \
@@ -91,7 +91,7 @@ $(REALNAME) : $(OBJS)
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : test_events test_addtimer test_queue test_sidlist echoserver-lock echoserver iothreads_dispatcher
+test : pingpong_client test_events test_addtimer test_queue test_sidlist echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
@@ -134,8 +134,11 @@ chatroom_server: io.o chatroom_server.o $(OBJS)
 chatroom_client: io.o chatroom_client.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS)
 
-redis_client : io.o redis.o $(OBJS)
+redis_client : io.o redis.o helper.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS) -lhiredis
+
+pingpong_client : pingpongclient.o $(OBJS)
+	$(CXX) $^ -o $@ $(LFLAGS) 
 
 clean :
 	rm -rf *.o
@@ -150,7 +153,7 @@ clean :
 	rm -rf test_events event.fifo
 	rm -rf test_queue test_sidlist
 	rm -rf chatroom_client chatroom_server
-	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher redis_client
+	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher redis_client pingpong_client
 
 # --------------------------------------------------------
 #
@@ -160,6 +163,6 @@ clean :
 	$(CC) $(CFLAGS) -Wno-unused-function -c $^ -o $@
 
 %.o : %.cpp
-	$(CXX) $(CXXFLAGS) -Wno-unused-function -Itest/ -Iexamples/ -c $^ -o $@
+	$(CXX) $(CXXFLAGS) -std=c++11 -Wno-unused-function -Itest/ -Iexamples/ -c $^ -o $@
 
 VPATH = src:include:test:examples

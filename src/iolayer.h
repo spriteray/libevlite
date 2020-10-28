@@ -17,6 +17,8 @@ enum
     eIOStatus_Stopped       = 2,    // 停止
 };
 
+struct acceptqueue;
+
 struct iolayer
 {
     // 网络层状态
@@ -39,27 +41,33 @@ struct iolayer
 // 接收器
 struct acceptor
 {
-    int32_t             fd;
-    uint8_t             index;
+    int32_t                 fd;
+    uint8_t                 type;
+    uint8_t                 index;
 
     // 接收事件
-    event_t             event;
-    evsets_t            evsets;
+    event_t                 event;
+    evsets_t                evsets;
 
     // 绑定的地址以及监听的端口号
-    char *              host;
-    uint16_t            port;
+    char *                  host;
+    uint16_t                port;
+    struct sockaddr_storage addr;
 
     // 逻辑
-    acceptor_t          cb;
-    void *              context;
+    acceptor_t              cb;
+    void *                  context;
 
     // 空闲描述符
-    int32_t             idlefd;
+    int32_t                 idlefd;
     // 通信层句柄
-    struct iolayer *    parent;
+    struct iolayer *        parent;
+    //
+    struct buffer           buffer;
+    struct acceptqueue *    acceptq;
+
     // 便于回收资源
-    STAILQ_ENTRY(acceptor) linker;
+    STAILQ_ENTRY(acceptor)  linker;
 };
 
 // 连接器
@@ -108,13 +116,15 @@ struct associater
 // NOTICE: 网络任务的最大长度不超过56
 //
 
-// NOTICE: task_assign长度已经达到48bytes
+// NOTICE: task_assign长度已经达到40bytes
 struct task_assign
 {
     int32_t             fd;
+    uint8_t             type;
+    uint16_t            port;
 
     char *              host;
-    uint16_t            port;
+    struct buffer *     buffer;
 
     acceptor_t          cb;
     void *              context;
@@ -151,6 +161,7 @@ struct task_perform
 #define DISPATCH_POLICY( layer, seq ) ( (seq) % ((layer)->nthreads) )
 
 // socket选项
+int32_t iolayer_udp_option( int32_t fd );
 int32_t iolayer_server_option( int32_t fd );
 int32_t iolayer_client_option( int32_t fd );
 
@@ -168,6 +179,7 @@ void iolayer_free_associater( struct associater * associater );
 void iolayer_accept_fdlimits( struct acceptor * acceptor );
 
 // 给当前线程分发一个会话
-int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );
+int32_t iolayer_assign_session_direct( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );
 
 #endif

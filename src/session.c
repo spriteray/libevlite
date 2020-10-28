@@ -7,6 +7,7 @@
 #include <stdlib.h>
 
 #include "iolayer.h"
+#include "driver.h"
 #include "channel.h"
 #include "network-internal.h"
 #include "session.h"
@@ -154,7 +155,14 @@ void _stop( struct session * self )
     }
 
     // 清空接收缓冲区
-    buffer_erase( &self->inbuffer, buffer_length(&self->inbuffer) );
+    buffer_erase( &self->inbuffer, -1 );
+
+    // 销毁UDP驱动
+    if ( self->driver != NULL )
+    {
+        driver_destroy( self->driver );
+        self->driver = NULL;
+    }
 
     // 关闭描述符
     if ( self->fd > 0 )
@@ -182,7 +190,7 @@ ssize_t _send_only( struct session * self, char * buf, size_t nbytes )
         assert( self->msgoffset == 0 && "SendQueue Offset Invalid" );
 
         // 直接发送
-        ntry = channel_send( self, buf, nbytes );
+        ntry = self->setting.send( self, buf, nbytes );
         if ( ntry < 0 )
         {
             // 发送出错的情况下
@@ -261,10 +269,32 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 
     // TODO: 设置默认的最大接收缓冲区
 
+    // Session收发函数定义
+    // NOTICE: 因为会话start()回调会发送数据，所以必须在start()之前设置
+    if ( self->driver == NULL )
+    {
+        self->setting.send = channel_send;
+        self->setting.receive = channel_receive;
+        self->setting.transmit = channel_transmit;
+    }
+    else
+    {
+        self->setting.send = driver_send;
+        self->setting.receive = driver_receive;
+        self->setting.transmit = driver_transmit;
+    }
+
     // 不需要每次开始会话的时候初始化
     // 只需要在manager创建会话的时候初始化一次，即可
 
     self->service.start( self->context );
+
+    // NOTICE: 目前可以知道的是linux kernel >= 4.18, 能感知到对端断开
+    if ( self->driver != NULL )
+    {
+        driver_set_wndsize( self->driver,
+                self->setting.sendwindow_size, self->setting.recvwindow_size );
+    }
 
     // 关注读事件, 按需开启保活心跳
     session_add_event( self, EV_READ );
@@ -293,6 +323,17 @@ int8_t session_is_reattch( struct session * self )
 void session_set_iolayer( struct session * self, void * iolayer )
 {
     self->iolayer = iolayer;
+}
+
+int32_t session_init_driver( struct session * self, struct buffer * buffer )
+{
+    self->driver = driver_create( self, buffer );
+    if ( self->driver != NULL )
+    {
+        return 0;
+    }
+
+    return -1;
 }
 
 void session_set_endpoint( struct session * self, char * host, uint16_t port )
@@ -422,7 +463,8 @@ void session_add_event( struct session * self, int16_t ev )
     }
 
     // 注册写事件
-    if ( (ev&EV_WRITE) && !(status&SESSION_WRITING) )
+    if ( self->driver == NULL
+            && (ev&EV_WRITE) && !(status&SESSION_WRITING) )
     {
         int32_t wait_for_shutdown = 0;
 
