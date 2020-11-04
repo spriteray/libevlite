@@ -70,7 +70,9 @@ public :
     // 设置host和port
     void setEndpoint( const std::string & host, uint16_t port );
     // 设置发送队列长度
-    void setSendqueueLimit( uint32_t limit );
+    void setSendqueueLimit( int32_t limit );
+    // 设置KCP的窗口大小
+    void setWindowSize( int32_t sndwnd, int32_t rcvwnd );
 
     // 发送数据
     int32_t send( const std::string & buffer );
