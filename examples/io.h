@@ -11,6 +11,12 @@
 
 typedef std::vector<sid_t> sids_t;
 
+enum class NetType
+{
+    TCP     = NETWORK_TCP,
+    KCP     = NETWORK_KCP,
+};
+
 //
 // 会话, 非线程安全的
 //
@@ -64,9 +70,7 @@ public :
     // 设置host和port
     void setEndpoint( const std::string & host, uint16_t port );
     // 设置发送队列长度
-    void setSendqueueLimit( int32_t limit );
-    // 设置窗口大小
-    void setWindowSize( int32_t sndwnd, int32_t rcvwnd );
+    void setSendqueueLimit( uint32_t limit );
 
     // 发送数据
     int32_t send( const std::string & buffer );
@@ -149,7 +153,7 @@ public :
     iolayer_t iolayer() const { return m_IOLayer; }
 
     // 监听
-    bool listen( uint8_t type, const char * host, uint16_t port );
+    bool listen( NetType type, const char * host, uint16_t port );
 
     // 是否正在异步连接
     bool isConnecting( const char * host, uint16_t port );

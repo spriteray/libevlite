@@ -28,7 +28,7 @@ static inline struct session_manager * _get_manager( struct iolayer * self, uint
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 static inline int32_t _broadcast2_loop( void * context, struct session * s );
 static inline void _free_task_assign( struct task_assign * task );
-static int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context );
+static int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context );
 
 static int32_t _listen_direct( struct acceptorlist * acceptorlist, evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
@@ -144,14 +144,14 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     if ( type == NETWORK_KCP )
     {
         // UDP服务端
-        return _socket_listen( layer, type, 0, host, port, callback, context );
+        return _server_listen( layer, type, 0, host, port, callback, context );
     }
     else if ( type == NETWORK_TCP )
     {
         // TCP服务端
 #ifndef EVENT_HAVE_REUSEPORT
         // normal
-        return _socket_listen( layer, type, 0, host, port, callback, context );
+        return _server_listen( layer, type, 0, host, port, callback, context );
 #else
         // reuseport
         uint8_t i = 0;
@@ -159,7 +159,7 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
                 "%s(host:'%s', port:%d) use SO_REUSEPORT .", __FUNCTION__, host == NULL ? "" : host, port);
         for ( i = 0; i < layer->nthreads; ++i )
         {
-            int32_t rc = _socket_listen( layer, type, i, host, port, callback, context );
+            int32_t rc = _server_listen( layer, type, i, host, port, callback, context );
             if ( rc < 0 )
             {
                 return rc;
@@ -1042,7 +1042,7 @@ struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
     return (struct session_manager *)( self->managers[index<<3] );
 }
 
-int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context )
+int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context )
 {
     struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof(struct acceptor) );
     if ( acceptor == NULL )
