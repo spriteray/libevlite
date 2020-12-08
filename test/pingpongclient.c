@@ -101,6 +101,7 @@ PingpongClient * pingpongclient_init( uint8_t type )
         return NULL;
     }
 
+    client->kcp->stream = 1;
     ikcp_nodelay( client->kcp, 1, 10, 2, 1 );
     ikcp_setoutput( client->kcp, kcp_output );
 

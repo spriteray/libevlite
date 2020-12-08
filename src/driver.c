@@ -49,6 +49,8 @@ struct driver * driver_create( struct session * s, struct buffer * buffer )
 
         // 设置kcp的属性
         ikcp_nodelay( self->kcp, 1, 100, 2, 1 );
+        // 流模式
+        self->kcp->stream = 1;
         // 最小RTO
         self->kcp->rx_minrto = 20;
         // NOTICE: MTU就用默认值
