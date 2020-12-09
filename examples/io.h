@@ -71,6 +71,10 @@ public :
     void setEndpoint( const std::string & host, uint16_t port );
     // 设置发送队列长度
     void setSendqueueLimit( int32_t limit );
+    // 设置KCP的MTU
+    void setMTU( int32_t mtu );
+    // 设置KCP的MinRTO
+    void setMinRTO( int32_t minrto );
     // 设置KCP的窗口大小
     void setWindowSize( int32_t sndwnd, int32_t rcvwnd );
 

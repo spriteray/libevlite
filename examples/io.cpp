@@ -46,6 +46,18 @@ void IIOSession::setSendqueueLimit( int32_t limit )
     iolayer_set_sndqlimit( m_Layer, m_Sid, limit );
 }
 
+void IIOSession::setMTU( int32_t mtu )
+{
+    assert( m_Sid != 0 && m_Layer != nullptr );
+    iolayer_set_mtu( m_Layer, m_Sid, mtu );
+}
+
+void IIOSession::setMinRTO( int32_t minrto )
+{
+    assert( m_Sid != 0 && m_Layer != nullptr );
+    iolayer_set_minrto( m_Layer, m_Sid, minrto );
+}
+
 void IIOSession::setWindowSize( int32_t sndwnd, int32_t rcvwnd )
 {
     assert( m_Sid != 0 && m_Layer != nullptr );

@@ -286,15 +286,8 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 
     // 不需要每次开始会话的时候初始化
     // 只需要在manager创建会话的时候初始化一次，即可
-
-    self->service.start( self->context );
-
     // NOTICE: 目前可以知道的是linux kernel >= 4.18, 能感知到对端断开
-    if ( self->driver != NULL )
-    {
-        driver_set_wndsize( self->driver,
-                self->setting.sendwindow_size, self->setting.recvwindow_size );
-    }
+    self->service.start( self->context );
 
     // 关注读事件, 按需开启保活心跳
     session_add_event( self, EV_READ );

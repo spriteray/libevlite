@@ -51,10 +51,6 @@ struct driver * driver_create( struct session * s, struct buffer * buffer )
         ikcp_nodelay( self->kcp, 1, 100, 2, 1 );
         // 流模式
         self->kcp->stream = 1;
-        // 最小RTO
-        self->kcp->rx_minrto = 20;
-        // NOTICE: MTU就用默认值
-        // NOTICE: 发送接收窗口由逻辑层设置
         ikcp_setoutput( self->kcp, _kcp_output );
     }
 
@@ -211,6 +207,16 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
     }
 
     return 0;
+}
+
+void driver_set_mtu( struct driver * self, int32_t mtu )
+{
+    ikcp_setmtu( self->kcp, mtu );
+}
+
+void driver_set_minrto( struct driver * self, int32_t minrto )
+{
+    self->kcp->rx_minrto = minrto;
 }
 
 void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd )
