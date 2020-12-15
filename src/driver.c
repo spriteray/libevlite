@@ -48,7 +48,7 @@ struct driver * driver_create( struct session * s, struct buffer * buffer )
         buffer_swap( &self->buffer, buffer );
 
         // 设置kcp的属性
-        ikcp_nodelay( self->kcp, 1, 100, 2, 1 );
+        ikcp_nodelay( self->kcp, 1, 40, 2, 1 );
         // 流模式
         self->kcp->stream = 1;
         ikcp_setoutput( self->kcp, _kcp_output );
