@@ -10,8 +10,6 @@
 
 #include "driver.h"
 
-#define SEND_WINDOWSIZE_THRESHOLD       4
-
 static inline int32_t _kcp_can_send( struct driver * self );
 static inline uint32_t _kcp_milliseconds( struct driver * self );
 static inline struct session * _get_session( struct driver * self );
@@ -49,8 +47,9 @@ struct driver * driver_create( struct session * s, struct buffer * buffer )
 
         // 设置kcp的属性
         ikcp_nodelay( self->kcp, 1, 40, 2, 1 );
-        // 流模式
-        self->kcp->stream = 1;
+        // 定制属性(逻辑层无法修改)
+        self->kcp->stream = 1;          // 流模式
+        self->kcp->dead_link = 50;      // 最大重传次数
         ikcp_setoutput( self->kcp, _kcp_output );
     }
 
@@ -317,5 +316,5 @@ int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * user )
 
 int32_t _kcp_can_send( struct driver * self )
 {
-    return (uint32_t)ikcp_waitsnd( self->kcp ) < SEND_WINDOWSIZE_THRESHOLD * self->kcp->snd_wnd;
+    return (uint32_t)ikcp_waitsnd( self->kcp ) < 6 * self->kcp->snd_wnd;
 }
