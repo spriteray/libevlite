@@ -56,10 +56,10 @@ private :
 
     // 编码
     std::string encode();
-    // 设置CURL选项
-    void initCurlOptions( int32_t timeout_ms, CURLSH * share = nullptr );
     // 准备
     void prepare( HttpMethod method );
+    // 设置CURL选项
+    void initCurlOptions( int32_t timeout_ms, CURLSH * share = nullptr );
     // 回调函数
     static int32_t writeCallback( void * buffer, size_t size, size_t nmemb, void * data );
     static int32_t setSocketOption( void * clientp, curl_socket_t curlfd, curlsocktype purpose );

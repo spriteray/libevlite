@@ -6,8 +6,8 @@
 class TestRequest : public CurlRequest
 {
 public :
-    TestRequest()
-        : CurlRequest( "http://172.21.161.138:3340/login" ),
+    TestRequest( const std::string & url )
+        : CurlRequest( url ),
           m_Timestamp( milliseconds() )
     {}
 
@@ -63,7 +63,12 @@ int main()
 
     for ( size_t i = 0; i < 10; ++i )
     {
-        agent->perform( eHttpMethod_Get, new TestRequest(), 1000 );
+        agent->perform(
+                eHttpMethod_Get,
+                new TestRequest("http://ipinfo.io"), 1000 );
+        //agent->perform(
+        //        eHttpMethod_Get,
+        //        new TestRequest("http://172.21.161.138:3340/login"), 1000 );
         sleep(1);
     }
 

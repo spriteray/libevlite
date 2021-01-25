@@ -1,5 +1,7 @@
 
+#include <assert.h>
 #include "xcurl.h"
+#include "utils.h"
 
 CurlRequest::CurlRequest( const std::string & url )
     : m_Url(url),
@@ -158,6 +160,7 @@ void CurlRequest::initCurlOptions( int32_t timeout_ms, CURLSH * share )
     curl_easy_setopt( m_Curl, CURLOPT_SSL_VERIFYPEER, 0 );
     curl_easy_setopt( m_Curl, CURLOPT_SSL_VERIFYHOST, 0 );
     curl_easy_setopt( m_Curl, CURLOPT_PRIVATE, this );
+    // curl_easy_setopt( m_Curl, CURLOPT_VERBOSE, 1 );
     curl_easy_setopt( m_Curl, CURLOPT_SOCKOPTFUNCTION, setSocketOption );
 
     if ( m_Headers != nullptr )
@@ -430,6 +433,7 @@ void CurlHelper::onTimer( int32_t fd, int16_t ev, void * arg )
 int CurlHelper::timerCallback( CURLM * handler, long timeout_ms, void * param )
 {
     CurlAgent * agent = static_cast<CurlAgent *>(param);
+    printf( "CurlHelper::timerCallback(Timeout:%ld) : Timestamp:%lu .\n", timeout_ms, milliseconds() );
 
     (void)handler;
 
@@ -447,10 +451,12 @@ int CurlHelper::timerCallback( CURLM * handler, long timeout_ms, void * param )
 
 int CurlHelper::socketCallback( CURL * handler, curl_socket_t s, int what, void * cbp, void * sockp )
 {
-    // const char *whatstr[]={ "none", "IN", "OUT", "INOUT", "REMOVE" };
-
     event_t event = static_cast<event_t>(sockp);
     CurlAgent * agent = static_cast<CurlAgent *>(cbp);
+
+    const char *whatstr[]={ "none", "IN", "OUT", "INOUT", "REMOVE" };
+    printf( "CurlHelper::socketCallback(handler:%p, fd:%d) : Timestamp:%lu, Action:%s .\n",
+            handler, s, milliseconds(), whatstr[what] );
 
     if ( what == CURL_POLL_REMOVE )
     {
@@ -470,6 +476,7 @@ int CurlHelper::socketCallback( CURL * handler, curl_socket_t s, int what, void 
         else
         {
             event = event_create();
+            assert( event != nullptr );
             curl_multi_assign( agent->handler(), s, event );
         }
 
