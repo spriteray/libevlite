@@ -225,7 +225,7 @@ void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd )
 
 void _kcp_refresh_state( struct driver * self )
 {
-    int32_t timeout = 0, current = 0;
+    int32_t timeout = 0;
     struct session * session = _get_session( self );
 
     // 调度
@@ -244,7 +244,7 @@ void _kcp_refresh_state( struct driver * self )
     // 因为调用过ikcp_send(), 所以不用计算超时时间了
     if ( timeout == 0 )
     {
-        current = _kcp_milliseconds(self);
+        uint32_t current = _kcp_milliseconds(self);
         timeout = ikcp_check( self->kcp, current ) - current;
     }
 

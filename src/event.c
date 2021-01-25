@@ -52,27 +52,19 @@ int32_t event_queue_insert( struct eventset * self, struct event * ev, int32_t t
     switch( type )
     {
         case EVSTATUS_INSERTED :
-            {
-                TAILQ_INSERT_TAIL( &(self->eventlist), ev, eventlink );
-            }
+            TAILQ_INSERT_TAIL( &(self->eventlist), ev, eventlink );
             break;
 
         case EVSTATUS_ACTIVE :
-            {
-                TAILQ_INSERT_TAIL( &(self->activelist), ev, activelink );
-            }
+            TAILQ_INSERT_TAIL( &(self->activelist), ev, activelink );
             break;
 
         case EVSTATUS_TIMER :
-            {
-                evtimer_append( self->core_timer, ev );
-            }
+            evtimer_append( self->core_timer, ev );
             break;
 
         default :
-            {
-                return -1;
-            }
+            return -1;
             break;
     }
 
