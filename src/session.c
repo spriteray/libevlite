@@ -16,6 +16,7 @@ static struct session * _new_session();
 static int32_t _del_session( struct session * self );
 static int32_t _reset_session( struct session * self );
 static inline void _stop( struct session * self );
+static inline void _init_settings( struct session_setting * self );
 
 // 发送数据
 // _send_only()仅发送,
@@ -39,6 +40,8 @@ struct session * _new_session()
 
     // 初始化接收缓冲区
     buffer_init( &self->inbuffer );
+    // 初始化设置
+    _init_settings( &self->setting );
 
     // 初始化网络事件
     self->evread = event_create();
@@ -67,6 +70,9 @@ int32_t _reset_session( struct session * self )
     self->id        = 0;
     self->status    = 0;
     self->msgoffset = 0;
+
+    // 初始化设置
+    _init_settings( &self->setting );
 
     if ( self->host != NULL )
     {
@@ -170,6 +176,18 @@ void _stop( struct session * self )
         close( self->fd );
         self->fd = -1;
     }
+}
+
+void _init_settings( struct session_setting * self )
+{
+    self->persist_mode = 0;
+    self->timeout_msecs = -1;
+    self->keepalive_msecs = -1;
+    self->max_inbuffer_len = 0;
+    self->sendqueue_limit = 0;
+    self->send = NULL;
+    self->receive = NULL;
+    self->transmit = NULL;
 }
 
 //
@@ -459,7 +477,7 @@ void session_add_event( struct session * self, int16_t ev )
     if ( self->driver == NULL
             && (ev&EV_WRITE) && !(status&SESSION_WRITING) )
     {
-        int32_t wait_for_shutdown = 0;
+        int32_t wait_for_shutdown = -1;
 
         // 在等待退出的会话上总是会添加10s的定时器
         if ( status&SESSION_EXITING )
@@ -501,7 +519,7 @@ int32_t session_start_keepalive( struct session * self )
     int8_t status = self->status;
     evsets_t sets = self->evsets;
 
-    if ( self->setting.keepalive_msecs > 0 && !(status&SESSION_KEEPALIVING) )
+    if ( self->setting.keepalive_msecs >= 0 && !(status&SESSION_KEEPALIVING) )
     {
         event_set( self->evkeepalive, -1, 0 );
         event_set_callback( self->evkeepalive, channel_on_keepalive, self );

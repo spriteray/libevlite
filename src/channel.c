@@ -702,7 +702,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     // 注册写事件, 以重新激活会话
     event_set( session->evwrite, session->fd, EV_WRITE );
     event_set_callback( session->evwrite, channel_on_reconnected, session );
-    evsets_add( session->evsets, session->evwrite, 0 );
+    evsets_add( session->evsets, session->evwrite, -1 );
 
     session->status |= SESSION_WRITING;
 }

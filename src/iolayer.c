@@ -1317,7 +1317,7 @@ int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct 
         event_set_callback( acceptor->event, channel_on_accept, acceptor );
     else if ( acceptor->type == NETWORK_KCP )
         event_set_callback( acceptor->event, channel_on_udpaccept, acceptor );
-    evsets_add( sets, acceptor->event, 0 );
+    evsets_add( sets, acceptor->event, -1 );
 
     return 0;
 }

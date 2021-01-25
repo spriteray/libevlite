@@ -241,7 +241,7 @@ int main(int argc, char* argv[])
 
     event_set( cli->event, cli->fd, EV_READ|EV_PERSIST );
     event_set_callback( cli->event, pingpongclient_on_read, cli );
-    evsets_add( cli->evsets, cli->event, 0 );
+    evsets_add( cli->evsets, cli->event, -1 );
 
     // 初始状态
     g_IsInput = 1; g_IsRunning = 1;

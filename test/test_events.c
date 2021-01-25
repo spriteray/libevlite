@@ -31,7 +31,7 @@ void fifo_read( int32_t fd, int16_t ev, void * arg )
     event_t evfifo = (event_t)arg;
     evsets_t evsets = event_get_sets( evfifo );
 
-    rc = evsets_add( evsets, evfifo, 0 );
+    rc = evsets_add( evsets, evfifo, -1 );
 
     printf("fifo_read called with fd: %d, event: %d, arg: %p\n", fd, ev, arg);
 
@@ -119,7 +119,7 @@ int32_t main()
     event_set_callback( evfifo, fifo_read, evfifo );
     printf("event_set() succeed, %p .\n", evfifo );
 
-    evsets_add( evsets, evfifo, 0 );
+    evsets_add( evsets, evfifo, -1 );
     printf("evsets_add() succeed .\n");
 
     while( !done )

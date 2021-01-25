@@ -104,7 +104,7 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
 
             event_set( event, newfd, EV_READ|EV_PERSIST );
             event_set_callback( event, process_message, event );
-            evsets_add( coreset, event, 0 );
+            evsets_add( coreset, event, -1 );
         }
         else
         {
@@ -162,7 +162,7 @@ int main( int argc, char ** argv )
     }
     event_set( evaccept, fd, EV_READ|EV_PERSIST );
     event_set_callback( evaccept, accept_new_session, coreset );
-    evsets_add( coreset, evaccept, 0 );
+    evsets_add( coreset, evaccept, -1 );
 
     // running ...
     naccept = 0;

@@ -13,7 +13,7 @@
 static inline int32_t _kcp_can_send( struct driver * self );
 static inline uint32_t _kcp_milliseconds( struct driver * self );
 static inline struct session * _get_session( struct driver * self );
-static inline void _kcp_schedule( struct driver * self, uint32_t timeout );
+static inline void _kcp_schedule( struct driver * self, int32_t timeout );
 
 static void _kcp_refresh_state( struct driver * self );
 static void _kcp_timer( int32_t fd, int16_t ev, void * arg );
@@ -225,7 +225,7 @@ void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd )
 
 void _kcp_refresh_state( struct driver * self )
 {
-    uint32_t timeout = 0, current = 0;
+    int32_t timeout = 0, current = 0;
     struct session * session = _get_session( self );
 
     // 调度
@@ -278,7 +278,7 @@ struct session * _get_session( struct driver * self )
     return (struct session *)self->kcp->user;
 }
 
-void _kcp_schedule( struct driver * self, uint32_t timeout )
+void _kcp_schedule( struct driver * self, int32_t timeout )
 {
     struct session * session = _get_session( self );
 
