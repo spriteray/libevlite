@@ -10,12 +10,10 @@
 
 #include "driver.h"
 
-#define SEND_WINDOWSIZE_THRESHOLD       4
-
 static inline int32_t _kcp_can_send( struct driver * self );
 static inline uint32_t _kcp_milliseconds( struct driver * self );
 static inline struct session * _get_session( struct driver * self );
-static inline void _kcp_schedule( struct driver * self, uint32_t timeout );
+static inline void _kcp_schedule( struct driver * self, int32_t timeout );
 
 static void _kcp_refresh_state( struct driver * self );
 static void _kcp_timer( int32_t fd, int16_t ev, void * arg );
@@ -48,11 +46,10 @@ struct driver * driver_create( struct session * s, struct buffer * buffer )
         buffer_swap( &self->buffer, buffer );
 
         // 设置kcp的属性
-        ikcp_nodelay( self->kcp, 1, 100, 2, 1 );
-        // 最小RTO
-        self->kcp->rx_minrto = 20;
-        // NOTICE: MTU就用默认值
-        // NOTICE: 发送接收窗口由逻辑层设置
+        ikcp_nodelay( self->kcp, 1, 40, 2, 1 );
+        // 定制属性(逻辑层无法修改)
+        self->kcp->stream = 1;          // 流模式
+        self->kcp->dead_link = 50;      // 最大重传次数
         ikcp_setoutput( self->kcp, _kcp_output );
     }
 
@@ -211,6 +208,16 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
     return 0;
 }
 
+void driver_set_mtu( struct driver * self, int32_t mtu )
+{
+    ikcp_setmtu( self->kcp, mtu );
+}
+
+void driver_set_minrto( struct driver * self, int32_t minrto )
+{
+    self->kcp->rx_minrto = minrto;
+}
+
 void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd )
 {
     ikcp_wndsize( self->kcp, sndwnd, rcvwnd );
@@ -218,7 +225,7 @@ void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd )
 
 void _kcp_refresh_state( struct driver * self )
 {
-    uint32_t timeout = 0, current = 0;
+    int32_t timeout = 0;
     struct session * session = _get_session( self );
 
     // 调度
@@ -237,7 +244,7 @@ void _kcp_refresh_state( struct driver * self )
     // 因为调用过ikcp_send(), 所以不用计算超时时间了
     if ( timeout == 0 )
     {
-        current = _kcp_milliseconds(self);
+        uint32_t current = _kcp_milliseconds(self);
         timeout = ikcp_check( self->kcp, current ) - current;
     }
 
@@ -271,7 +278,7 @@ struct session * _get_session( struct driver * self )
     return (struct session *)self->kcp->user;
 }
 
-void _kcp_schedule( struct driver * self, uint32_t timeout )
+void _kcp_schedule( struct driver * self, int32_t timeout )
 {
     struct session * session = _get_session( self );
 
@@ -309,5 +316,5 @@ int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * user )
 
 int32_t _kcp_can_send( struct driver * self )
 {
-    return (uint32_t)ikcp_waitsnd( self->kcp ) < SEND_WINDOWSIZE_THRESHOLD * self->kcp->snd_wnd;
+    return (uint32_t)ikcp_waitsnd( self->kcp ) < 6 * self->kcp->snd_wnd;
 }

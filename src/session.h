@@ -50,8 +50,6 @@ struct session_setting
     int32_t keepalive_msecs;
     int32_t max_inbuffer_len;
     int32_t sendqueue_limit;
-    int32_t sendwindow_size;
-    int32_t recvwindow_size;
     ssize_t (*receive)( struct session * s );
     ssize_t (*transmit)( struct session * s );
     ssize_t (*send)( struct session * s, char * buf, size_t nbytes );

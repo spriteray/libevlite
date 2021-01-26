@@ -329,11 +329,11 @@ void trylock_accept_mutex( struct iothread * thr )
 #if USE_LIBEVENT
             event_set( a->ev_accept, a->socketfd, EV_READ, accept_new_session, thr );
             event_base_set( thr->core_sets, a->ev_accept );
-            event_add( a->ev_accept, 0 );
+            event_add( a->ev_accept, -1 );
 #else
             event_set( a->ev_accept, a->socketfd, EV_READ );
             event_set_callback( a->ev_accept, accept_new_session, thr );
-            evsets_add(thr->core_sets, a->ev_accept, 0 );
+            evsets_add(thr->core_sets, a->ev_accept, -1 );
 #endif
             a->holding = 1;
         }

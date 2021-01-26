@@ -52,27 +52,19 @@ int32_t event_queue_insert( struct eventset * self, struct event * ev, int32_t t
     switch( type )
     {
         case EVSTATUS_INSERTED :
-            {
-                TAILQ_INSERT_TAIL( &(self->eventlist), ev, eventlink );
-            }
+            TAILQ_INSERT_TAIL( &(self->eventlist), ev, eventlink );
             break;
 
         case EVSTATUS_ACTIVE :
-            {
-                TAILQ_INSERT_TAIL( &(self->activelist), ev, activelink );
-            }
+            TAILQ_INSERT_TAIL( &(self->activelist), ev, activelink );
             break;
 
         case EVSTATUS_TIMER :
-            {
-                evtimer_append( self->core_timer, ev );
-            }
+            evtimer_append( self->core_timer, ev );
             break;
 
         default :
-            {
-                return -1;
-            }
+            return -1;
             break;
     }
 
@@ -299,7 +291,7 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
         }
     }
 
-    if ( tv > 0 )
+    if ( tv >= 0 )
     {
         // 如果已经在定时器中了,
         // 一定要删除，以当前时间当前索引重新加入定时器中
@@ -462,7 +454,7 @@ int32_t evsets_process_active( struct eventset * self )
             event_queue_remove( self, ev, EVSTATUS_ACTIVE );
 
             // Timeouts and persistent events work together
-            if ( ev->timer_msecs > 0 )
+            if ( ev->timer_msecs >= 0 )
             {
                 if ( !(ev->results & EV_TIMEOUT) )
                 {

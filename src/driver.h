@@ -22,7 +22,9 @@ struct driver * driver_create( struct session * s, struct buffer * buffer );
 // 输入数据(KCP重组)
 ssize_t driver_input( struct driver * self, struct buffer * buffer );
 
-// 设置窗口
+// 设置窗口, MTU, MINRTO
+void driver_set_mtu( struct driver * self, int32_t mtu );
+void driver_set_minrto( struct driver * self, int32_t minrto );
 void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd );
 
 // 发送/接收数据

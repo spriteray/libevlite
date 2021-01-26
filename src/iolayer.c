@@ -9,6 +9,7 @@
 #include <sys/socket.h>
 
 #include "config.h"
+#include "driver.h"
 #include "network.h"
 #include "channel.h"
 #include "session.h"
@@ -28,7 +29,7 @@ static inline struct session_manager * _get_manager( struct iolayer * self, uint
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 static inline int32_t _broadcast2_loop( void * context, struct session * s );
 static inline void _free_task_assign( struct task_assign * task );
-static int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context );
+static int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context );
 
 static int32_t _listen_direct( struct acceptorlist * acceptorlist, evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
@@ -144,14 +145,14 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     if ( type == NETWORK_KCP )
     {
         // UDP服务端
-        return _socket_listen( layer, type, 0, host, port, callback, context );
+        return _server_listen( layer, type, 0, host, port, callback, context );
     }
     else if ( type == NETWORK_TCP )
     {
         // TCP服务端
 #ifndef EVENT_HAVE_REUSEPORT
         // normal
-        return _socket_listen( layer, type, 0, host, port, callback, context );
+        return _server_listen( layer, type, 0, host, port, callback, context );
 #else
         // reuseport
         uint8_t i = 0;
@@ -159,7 +160,7 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
                 "%s(host:'%s', port:%d) use SO_REUSEPORT .", __FUNCTION__, host == NULL ? "" : host, port);
         for ( i = 0; i < layer->nthreads; ++i )
         {
-            int32_t rc = _socket_listen( layer, type, i, host, port, callback, context );
+            int32_t rc = _server_listen( layer, type, i, host, port, callback, context );
             if ( rc < 0 )
             {
                 return rc;
@@ -323,6 +324,7 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
+    assert( seconds >= 0 && "Invalid Timeout" );
     assert( layer != NULL && "Illegal IOLayer" );
     assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_timeout() must be in the specified thread"
@@ -427,6 +429,92 @@ int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit )
     return 0;
 }
 
+int32_t iolayer_set_mtu( iolayer_t self, sid_t id, int32_t mtu )
+{
+    // NOT Thread-Safe
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_mtu() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
+
+    if ( index >= layer->nthreads )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct session_manager * manager = _get_manager( layer, index );
+    if ( manager == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
+        return -2;
+    }
+
+    struct session * session = session_manager_get( manager, id );
+    if ( session == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
+        return -3;
+    }
+
+    if ( session->driver == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session does not support setting the MTU .", __FUNCTION__, id );
+        return -3;
+    }
+
+    driver_set_mtu( session->driver, mtu );
+
+    return 0;
+}
+
+int32_t iolayer_set_minrto( iolayer_t self, sid_t id, int32_t minrto )
+{
+    // NOT Thread-Safe
+    uint8_t index = SID_INDEX(id);
+    struct iolayer * layer = (struct iolayer *)self;
+
+    // 参数检查
+    assert( layer != NULL && "Illegal IOLayer" );
+    assert( layer->threads != NULL && "Illegal IOThreadGroup" );
+    assert( "iolayer_set_minrto() must be in the specified thread"
+            && pthread_equal(iothreads_get_id(layer->threads, index), pthread_self()) != 0 );
+
+    if ( index >= layer->nthreads )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        return -1;
+    }
+
+    struct session_manager * manager = _get_manager( layer, index );
+    if ( manager == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session's manager[%u] is invalid .", __FUNCTION__, id, index );
+        return -2;
+    }
+
+    struct session * session = session_manager_get( manager, id );
+    if ( session == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
+        return -3;
+    }
+
+    if ( session->driver == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session does not support setting the MinRTO.", __FUNCTION__, id );
+        return -3;
+    }
+
+    driver_set_minrto( session->driver, minrto );
+
+    return 0;
+}
+
 int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t rcvwnd )
 {
     // NOT Thread-Safe
@@ -459,8 +547,13 @@ int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t r
         return -3;
     }
 
-    session->setting.sendwindow_size = sndwnd;
-    session->setting.recvwindow_size = rcvwnd;
+    if ( session->driver == NULL )
+    {
+        syslog(LOG_WARNING, "%s(SID=%ld) failed, the Session does not support setting the WindowSize .", __FUNCTION__, id );
+        return -3;
+    }
+
+    driver_set_wndsize( session->driver, sndwnd, rcvwnd );
 
     return 0;
 }
@@ -472,6 +565,7 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
+    assert( seconds >= 0 && "Invalid Timeout" );
     assert( layer != NULL && "Illegal IOLayer" );
     assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_keepalive() must be in the specified thread"
@@ -1042,7 +1136,7 @@ struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
     return (struct session_manager *)( self->managers[index<<3] );
 }
 
-int32_t _socket_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context )
+int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context )
 {
     struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof(struct acceptor) );
     if ( acceptor == NULL )
@@ -1225,7 +1319,7 @@ int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct 
         event_set_callback( acceptor->event, channel_on_accept, acceptor );
     else if ( acceptor->type == NETWORK_KCP )
         event_set_callback( acceptor->event, channel_on_udpaccept, acceptor );
-    evsets_add( sets, acceptor->event, 0 );
+    evsets_add( sets, acceptor->event, -1 );
 
     return 0;
 }

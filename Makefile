@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.8.9
+VERSION 	= 9.8.10
 PREFIX		= /usr/local
 
 # 主版本号
@@ -91,7 +91,7 @@ $(REALNAME) : $(OBJS)
 	rm -rf $(SONAME); ln -s $@ $(SONAME)
 	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : pingpong_client test_events test_addtimer test_queue test_sidlist echoserver-lock echoserver iothreads_dispatcher
+test : test_multicurl pingpong_client test_events test_addtimer test_queue test_sidlist echoserver-lock echoserver iothreads_dispatcher
 
 test_events : test_events.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
@@ -140,6 +140,9 @@ redis_client : io.o redis.o helper.o $(OBJS)
 pingpong_client : pingpongclient.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS) 
 
+test_multicurl :  xcurl.o test_multicurl.o $(OBJS)
+	$(CXX) $^ -o $@ $(LFLAGS) -lcurl 
+
 clean :
 	rm -rf *.o
 	rm -rf *.log
@@ -153,7 +156,7 @@ clean :
 	rm -rf test_events event.fifo
 	rm -rf test_queue test_sidlist
 	rm -rf chatroom_client chatroom_server
-	rm -rf test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher redis_client pingpong_client
+	rm -rf test_multicurl test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher redis_client pingpong_client
 
 # --------------------------------------------------------
 #

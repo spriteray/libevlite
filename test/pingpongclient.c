@@ -101,6 +101,7 @@ PingpongClient * pingpongclient_init( uint8_t type )
         return NULL;
     }
 
+    client->kcp->stream = 1;
     ikcp_nodelay( client->kcp, 1, 10, 2, 1 );
     ikcp_setoutput( client->kcp, kcp_output );
 
@@ -240,7 +241,7 @@ int main(int argc, char* argv[])
 
     event_set( cli->event, cli->fd, EV_READ|EV_PERSIST );
     event_set_callback( cli->event, pingpongclient_on_read, cli );
-    evsets_add( cli->evsets, cli->event, 0 );
+    evsets_add( cli->evsets, cli->event, -1 );
 
     // 初始状态
     g_IsInput = 1; g_IsRunning = 1;

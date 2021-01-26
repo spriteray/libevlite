@@ -9,8 +9,8 @@
 IIOSession::IIOSession()
     : m_Sid( 0 ),
       m_Port( 0 ),
-      m_Layer( NULL ),
-      m_IOContext( NULL )
+      m_Layer( nullptr ),
+      m_IOContext( nullptr )
 {}
 
 IIOSession::~IIOSession()
@@ -18,43 +18,55 @@ IIOSession::~IIOSession()
 
 void IIOSession::setTimeout( int32_t seconds )
 {
-    assert( m_Sid != 0 && m_Layer != NULL );
+    assert( m_Sid != 0 && m_Layer != nullptr );
     iolayer_set_timeout( m_Layer, m_Sid, seconds );
 }
 
 void IIOSession::setKeepalive( int32_t seconds )
 {
-    assert( m_Sid != 0 && m_Layer != NULL );
+    assert( m_Sid != 0 && m_Layer != nullptr );
     iolayer_set_keepalive( m_Layer, m_Sid, seconds );
 }
 
 void IIOSession::enablePersist()
 {
-    assert( m_Sid != 0 && m_Layer != NULL );
+    assert( m_Sid != 0 && m_Layer != nullptr );
     iolayer_set_persist( m_Layer, m_Sid, 1 );
 }
 
 void IIOSession::disablePersist()
 {
-    assert( m_Sid != 0 && m_Layer != NULL );
+    assert( m_Sid != 0 && m_Layer != nullptr );
     iolayer_set_persist( m_Layer, m_Sid, 0 );
 }
 
 void IIOSession::setSendqueueLimit( int32_t limit )
 {
-    assert( m_Sid != 0 && m_Layer != NULL );
+    assert( m_Sid != 0 && m_Layer != nullptr );
     iolayer_set_sndqlimit( m_Layer, m_Sid, limit );
+}
+
+void IIOSession::setMTU( int32_t mtu )
+{
+    assert( m_Sid != 0 && m_Layer != nullptr );
+    iolayer_set_mtu( m_Layer, m_Sid, mtu );
+}
+
+void IIOSession::setMinRTO( int32_t minrto )
+{
+    assert( m_Sid != 0 && m_Layer != nullptr );
+    iolayer_set_minrto( m_Layer, m_Sid, minrto );
 }
 
 void IIOSession::setWindowSize( int32_t sndwnd, int32_t rcvwnd )
 {
-    assert( m_Sid != 0 && m_Layer != NULL );
+    assert( m_Sid != 0 && m_Layer != nullptr );
     iolayer_set_wndsize( m_Layer, m_Sid, sndwnd, rcvwnd );
 }
 
 void IIOSession::setEndpoint( const std::string & host, uint16_t port )
 {
-    assert( m_Sid != 0 && m_Layer != NULL );
+    assert( m_Sid != 0 && m_Layer != nullptr );
     m_Host = host; m_Port = port;
 }
 
@@ -130,15 +142,15 @@ int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task 
 // ----------------------------------------------------------------------------
 
 IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool immediately, bool transform )
-    : m_IOLayer( NULL ),
+    : m_IOLayer( nullptr ),
       m_Transform( transform ),
       m_Immediately( immediately ),
       m_ThreadsCount( nthreads ),
       m_SessionsCount( nclients ),
-      m_IOContextGroup( NULL )
+      m_IOContextGroup( nullptr )
 {
-    pthread_cond_init( &m_Cond, NULL );
-    pthread_mutex_init( &m_Lock, NULL );
+    pthread_cond_init( &m_Cond, nullptr );
+    pthread_mutex_init( &m_Lock, nullptr );
 }
 
 IIOService::~IIOService()
@@ -157,13 +169,13 @@ bool IIOService::start()
     m_IOLayer = iolayer_create(
             m_ThreadsCount,
             m_SessionsCount, m_Immediately ? 1 : 0 );
-    if ( m_IOLayer == NULL )
+    if ( m_IOLayer == nullptr )
     {
         return false;
     }
 
     m_IOContextGroup = new void * [ m_ThreadsCount ];
-    if ( m_IOContextGroup != NULL )
+    if ( m_IOContextGroup != nullptr )
     {
         for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
         {
@@ -179,10 +191,10 @@ bool IIOService::start()
 
 void IIOService::stop()
 {
-    if ( m_IOLayer != NULL )
+    if ( m_IOLayer != nullptr )
     {
         iolayer_destroy( m_IOLayer );
-        m_IOLayer = NULL;
+        m_IOLayer = nullptr;
     }
 
     for ( size_t i = 0; i < m_ListenContexts.size(); ++i )
@@ -195,11 +207,11 @@ void IIOService::stop()
         delete m_ConnectContexts[i];
     }
 
-    if ( m_IOContextGroup != NULL )
+    if ( m_IOContextGroup != nullptr )
     {
         for ( uint8_t i = 0; i < m_ThreadsCount; ++i )
         {
-            if ( m_IOContextGroup != NULL )
+            if ( m_IOContextGroup != nullptr )
             {
                 finalIOContext( m_IOContextGroup[i] );
             }
@@ -214,7 +226,7 @@ void IIOService::stop()
 
 void IIOService::halt()
 {
-    if ( m_IOLayer != NULL )
+    if ( m_IOLayer != nullptr )
     {
         // 停止网络库
         iolayer_stop( m_IOLayer );
@@ -240,10 +252,10 @@ bool IIOService::isConnecting( const char * host, uint16_t port )
     return found;
 }
 
-bool IIOService::listen( uint8_t type, const char * host, uint16_t port )
+bool IIOService::listen( NetType type, const char * host, uint16_t port )
 {
     ListenContext * context = new ListenContext( port, this );
-    if ( context == NULL )
+    if ( context == nullptr )
     {
         return false;
     }
@@ -252,13 +264,13 @@ bool IIOService::listen( uint8_t type, const char * host, uint16_t port )
     m_ListenContexts.push_back( context );
     pthread_mutex_unlock( &m_Lock );
 
-    return ( iolayer_listen( m_IOLayer, type, host, port, onAcceptSession, context ) == 0 );
+    return ( iolayer_listen( m_IOLayer, (uint8_t)type, host, port, onAcceptSession, context ) == 0 );
 }
 
 sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 {
     ConnectContext * context = new ConnectContext( host, port, this );
-    if ( context == NULL )
+    if ( context == nullptr )
     {
         return -1;
     }
@@ -281,7 +293,7 @@ sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
 
     // 计算超时时间
     struct timeval now;
-    gettimeofday( &now, NULL );
+    gettimeofday( &now, nullptr );
 
     pthread_mutex_lock( &m_Lock );
     for ( ;; )
@@ -434,7 +446,7 @@ void IIOService::initSession( sid_t id, IIOSession * session, void * iocontext, 
     ioservice_t ioservice;
     ioservice.start     = IIOSession::onStartSession;
     ioservice.process   = IIOSession::onProcessSession;
-    ioservice.transform = m_Transform ? IIOSession::onTransformSession : NULL;
+    ioservice.transform = m_Transform ? IIOSession::onTransformSession : nullptr;
     ioservice.timeout   = IIOSession::onTimeoutSession;
     ioservice.keepalive = IIOSession::onKeepaliveSession;
     ioservice.error     = IIOSession::onErrorSession;
@@ -453,11 +465,11 @@ char * IIOService::onTransformService( void * context, const char * buffer, size
 
 int32_t IIOService::onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port )
 {
-    IIOSession * session = NULL;
+    IIOSession * session = nullptr;
     ListenContext * ctx = static_cast<ListenContext*>( context );
 
     session = ctx->service->onAccept( id, ctx->port, host, port );
-    if ( session == NULL )
+    if ( session == nullptr )
     {
         return -1;
     }
@@ -471,7 +483,7 @@ int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t 
     ConnectContext * ctx = static_cast<ConnectContext *>(context);
 
     int32_t ack = 0;
-    IIOSession * session = NULL;
+    IIOSession * session = nullptr;
     IIOService * service = ctx->service;
 
     if ( result != 0 )
@@ -481,7 +493,7 @@ int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t 
     else
     {
         session = service->onConnectSucceed( id, host, port );
-        if ( session == NULL )
+        if ( session == nullptr )
         {
             ack = -1;
         }

@@ -10,7 +10,7 @@
 
 #include "network.h"
 
-//#define __DEBUG__
+#define __DEBUG__
 #define METHOD        1
 
 struct session

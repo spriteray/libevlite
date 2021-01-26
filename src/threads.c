@@ -230,7 +230,7 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
     // 初始化命令事件
     event_set( self->cmdevent, msgqueue_popfd(self->queue), EV_READ|EV_PERSIST );
     event_set_callback( self->cmdevent, iothread_on_command, self );
-    evsets_add( self->sets, self->cmdevent, 0 );
+    evsets_add( self->sets, self->cmdevent, -1 );
 
     // 启动线程
     pthread_attr_t attr;

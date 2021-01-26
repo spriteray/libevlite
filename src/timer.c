@@ -42,7 +42,7 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
     int32_t index = 0;
     int32_t tv = EVENT_TIMEOUT(ev);
 
-    if ( tv <= 0 )
+    if ( tv < 0 )
     {
         return -1;
     }

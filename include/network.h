@@ -168,7 +168,9 @@ int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, vo
 int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
 // 设置发送队列阈值, 超过阈值关闭连接( 默认为0: 不限制 )
 int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
-// 设置udp的发送接收窗口
+// 设置kcp的窗口, MTU, MINRTO
+int32_t iolayer_set_mtu( iolayer_t self, sid_t id, int32_t mtu );
+int32_t iolayer_set_minrto( iolayer_t self, sid_t id, int32_t minrto );
 int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t rcvwnd );
 
 // 发送数据到会话
