@@ -51,7 +51,6 @@ public :
 
 private :
     friend class CurlAgent;
-    friend struct CurlHelper;
     typedef std::map<std::string, std::string> ParameterList;
 
     // 编码
