@@ -324,6 +324,7 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
+    assert( seconds >= 0 && "Invalid Timeout" );
     assert( layer != NULL && "Illegal IOLayer" );
     assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_timeout() must be in the specified thread"
@@ -564,6 +565,7 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
+    assert( seconds >= 0 && "Invalid Timeout" );
     assert( layer != NULL && "Illegal IOLayer" );
     assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_keepalive() must be in the specified thread"
