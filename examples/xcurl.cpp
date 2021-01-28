@@ -482,7 +482,7 @@ int CurlHelper::socketCallback( CURL * handler, curl_socket_t s, int what, void 
 
         event_set( event, s, ev );
         event_set_callback( event, CurlHelper::onEvent, agent );
-        evsets_add( agent->evsets(), event, 0 );
+        evsets_add( agent->evsets(), event, -1 );
     }
 
     return 0;

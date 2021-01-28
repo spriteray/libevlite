@@ -77,7 +77,7 @@ public :
 
         event_set( m_ReadEvent, m_Fd, EV_READ|EV_PERSIST );
         event_set_callback( m_ReadEvent, ChatRoomClient::onRead, this );
-        evsets_add( sets, m_ReadEvent, 0 );
+        evsets_add( sets, m_ReadEvent, -1 );
 
         addTimer();
     }
