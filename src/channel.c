@@ -156,6 +156,8 @@ ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
 
 void channel_udpprocess( struct session * session )
 {
+    int32_t mseconds = session->setting.timeout_msecs;
+
     // 重组
     if ( session->driver != NULL )
     {
@@ -169,8 +171,13 @@ void channel_udpprocess( struct session * session )
         {
             session_del_event( session, EV_READ );
         }
-
         session_shutdown( session );
+    }
+    else if ( session->setting.timeout_msecs != mseconds )
+    {
+        // 常驻事件库的情况下, 重新注册
+        session_del_event( session, EV_READ );
+        session_add_event( session, EV_READ );
     }
 }
 
@@ -374,6 +381,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
          * -2    - expand() failure
          */
         ssize_t nprocess = 0;
+        int32_t mseconds = session->setting.timeout_msecs;
         ssize_t nread = session->setting.receive( session );
 
         // 只有iolayer处于运行状态下的时候
@@ -407,6 +415,12 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
                 // 不常驻事件库的情况下, 注册读事件
                 if ( session->setting.persist_mode == 0 )
                 {
+                    session_add_event( session, EV_READ );
+                }
+                else if ( session->setting.timeout_msecs != mseconds )
+                {
+                    // 常驻事件库的情况下, 重新注册
+                    session_del_event( session, EV_READ );
                     session_add_event( session, EV_READ );
                 }
             }
