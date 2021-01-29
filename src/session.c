@@ -514,6 +514,20 @@ void session_del_event( struct session * self, int16_t ev )
     }
 }
 
+void session_readd_event( struct session * self, int16_t ev )
+{
+    if ( ev & EV_READ )
+    {
+        self->status &= ~SESSION_READING;
+    }
+    if ( ev & EV_WRITE )
+    {
+        self->status &= ~SESSION_WRITING;
+    }
+
+    session_add_event( self, ev );
+}
+
 int32_t session_start_keepalive( struct session * self )
 {
     int8_t status = self->status;

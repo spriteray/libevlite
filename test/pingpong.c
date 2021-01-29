@@ -49,7 +49,7 @@ ssize_t onProcess( void * context, const char * buf, size_t nbytes )
 
 #if defined __DEBUG__
     printf( "PROCESS[%lu] : %lu -> %ld\n", time(NULL), s->id, nbytes );
-    //iolayer_set_timeout( s->layer, s->id, 10 );
+    iolayer_set_timeout( s->layer, s->id, 10 );
 #endif
     iolayer_send( s->layer, s->id, buf, nbytes, 0 );
     nprocess = nbytes;
