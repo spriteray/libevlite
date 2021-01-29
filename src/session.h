@@ -131,6 +131,8 @@ ssize_t session_sendmessage( struct session * self, struct message * message );
 // 会话注册/反注册网络事件
 void session_add_event( struct session * self, int16_t ev );
 void session_del_event( struct session * self, int16_t ev );
+// 重新注册网络事件
+void session_readd_event( struct session * self, int16_t ev );
 
 // 开始发送心跳
 int32_t session_start_keepalive( struct session * self );

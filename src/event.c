@@ -83,27 +83,19 @@ int32_t event_queue_remove( struct eventset * self, struct event * ev, int32_t t
     switch( type )
     {
         case EVSTATUS_INSERTED :
-            {
-                TAILQ_REMOVE( &(self->eventlist), ev, eventlink );
-            }
+            TAILQ_REMOVE( &(self->eventlist), ev, eventlink );
             break;
 
         case EVSTATUS_ACTIVE :
-            {
-                TAILQ_REMOVE( &(self->activelist), ev, activelink );
-            }
+            TAILQ_REMOVE( &(self->activelist), ev, activelink );
             break;
 
         case EVSTATUS_TIMER :
-            {
-                evtimer_remove( self->core_timer, ev );
-            }
+            evtimer_remove( self->core_timer, ev );
             break;
 
         default :
-            {
-                return -2;
-            }
+            return -2;
             break;
     }
 

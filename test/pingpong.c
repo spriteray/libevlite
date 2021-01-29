@@ -35,7 +35,7 @@ int32_t onStart( void * context )
     iolayer_set_wndsize( s->layer, s->id, 64, 64 );
 #if defined __DEBUG__
     printf( "START[%lu] : %lu -> %s:%d\n", time(NULL), s->id, s->host, s->port );
-    iolayer_set_timeout( s->layer, s->id, 30 );
+    iolayer_set_timeout( s->layer, s->id, 60 );
 #endif
     return 0;
 }
@@ -49,7 +49,7 @@ ssize_t onProcess( void * context, const char * buf, size_t nbytes )
 
 #if defined __DEBUG__
     printf( "PROCESS[%lu] : %lu -> %ld\n", time(NULL), s->id, nbytes );
-    //iolayer_set_timeout( s->layer, s->id, 10 );
+    iolayer_set_timeout( s->layer, s->id, 30 );
 #endif
     iolayer_send( s->layer, s->id, buf, nbytes, 0 );
     nprocess = nbytes;
