@@ -493,7 +493,7 @@ int32_t IIOService::onConnectSession( void * context, void * iocontext, int32_t 
     else
     {
         session = service->onConnectSucceed( id, host, port );
-            if ( session == nullptr )
+        if ( session == nullptr )
         {
             ack = -1;
         }

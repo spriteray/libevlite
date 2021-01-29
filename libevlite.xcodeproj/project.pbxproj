@@ -146,6 +146,11 @@
 		94A68E3125334B90008EB084 /* lock.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2A25334B8F008EB084 /* lock.h */; };
 		94A68E3225334B90008EB084 /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
 		94A68E3325334B90008EB084 /* acceptq.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2C25334B90008EB084 /* acceptq.h */; };
+		DD20CE0B25C4231800ACBC2E /* helper.h in Headers */ = {isa = PBXBuildFile; fileRef = DD20CE0725C4231800ACBC2E /* helper.h */; };
+		DD20CE0C25C4231800ACBC2E /* xcurl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE0825C4231800ACBC2E /* xcurl.cpp */; };
+		DD20CE0D25C4231800ACBC2E /* helper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE0925C4231800ACBC2E /* helper.cpp */; };
+		DD20CE0E25C4231800ACBC2E /* xcurl.h in Headers */ = {isa = PBXBuildFile; fileRef = DD20CE0A25C4231800ACBC2E /* xcurl.h */; };
+		DD20CE1625C4232B00ACBC2E /* test_multicurl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE1525C4232B00ACBC2E /* test_multicurl.cpp */; };
 		DD817EDE2130033800DCC7BA /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = DD817EDD2130033800DCC7BA /* config.h */; };
 		DDB1F35A2536C87D00219807 /* pingpongclient.c in Sources */ = {isa = PBXBuildFile; fileRef = DDB1F3592536C85800219807 /* pingpongclient.c */; };
 /* End PBXBuildFile section */
@@ -254,6 +259,11 @@
 		94A68E2A25334B8F008EB084 /* lock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lock.h; sourceTree = "<group>"; };
 		94A68E2B25334B90008EB084 /* ikcp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikcp.c; sourceTree = "<group>"; };
 		94A68E2C25334B90008EB084 /* acceptq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = acceptq.h; sourceTree = "<group>"; };
+		DD20CE0725C4231800ACBC2E /* helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = helper.h; path = examples/helper.h; sourceTree = "<group>"; };
+		DD20CE0825C4231800ACBC2E /* xcurl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = xcurl.cpp; path = examples/xcurl.cpp; sourceTree = "<group>"; };
+		DD20CE0925C4231800ACBC2E /* helper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = helper.cpp; path = examples/helper.cpp; sourceTree = "<group>"; };
+		DD20CE0A25C4231800ACBC2E /* xcurl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = xcurl.h; path = examples/xcurl.h; sourceTree = "<group>"; };
+		DD20CE1525C4232B00ACBC2E /* test_multicurl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = test_multicurl.cpp; sourceTree = "<group>"; };
 		DD817EDD2130033800DCC7BA /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = config.h; sourceTree = "<group>"; };
 		DD9D1F80215CD9F500806D0A /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
 		DD9D1F81215CD9F500806D0A /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
@@ -380,6 +390,7 @@
 		71D31A081B95E8A700C33F84 /* test */ = {
 			isa = PBXGroup;
 			children = (
+				DD20CE1525C4232B00ACBC2E /* test_multicurl.cpp */,
 				DDB1F3592536C85800219807 /* pingpongclient.c */,
 				71F9CAC822D0B18900990CF5 /* slice.h */,
 				71D31A091B95E8A700C33F84 /* accept-lock-echoserver.c */,
@@ -403,6 +414,10 @@
 		945AD58D24617659005D545E /* example */ = {
 			isa = PBXGroup;
 			children = (
+				DD20CE0925C4231800ACBC2E /* helper.cpp */,
+				DD20CE0725C4231800ACBC2E /* helper.h */,
+				DD20CE0825C4231800ACBC2E /* xcurl.cpp */,
+				DD20CE0A25C4231800ACBC2E /* xcurl.h */,
 				945AD58F24617678005D545E /* io.cpp */,
 				945AD59024617678005D545E /* io.h */,
 				945AD58E24617678005D545E /* redis.cpp */,
@@ -435,9 +450,11 @@
 				94A68E2D25334B90008EB084 /* driver.h in Headers */,
 				71D319F71B95E82600C33F84 /* iolayer.h in Headers */,
 				94A68E3125334B90008EB084 /* lock.h in Headers */,
+				DD20CE0B25C4231800ACBC2E /* helper.h in Headers */,
 				71D31A041B95E83700C33F84 /* event.h in Headers */,
 				71F9CACB22D0B18900990CF5 /* slice.h in Headers */,
 				71D31A051B95E83700C33F84 /* network.h in Headers */,
+				DD20CE0E25C4231800ACBC2E /* xcurl.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -618,7 +635,10 @@
 				71D31A071B95E86B00C33F84 /* Makefile in Sources */,
 				71D319F31B95E82600C33F84 /* epoll.c in Sources */,
 				71D319F91B95E82600C33F84 /* message.c in Sources */,
+				DD20CE0C25C4231800ACBC2E /* xcurl.cpp in Sources */,
+				DD20CE1625C4232B00ACBC2E /* test_multicurl.cpp in Sources */,
 				71D31A021B95E82600C33F84 /* utils.c in Sources */,
+				DD20CE0D25C4231800ACBC2E /* helper.cpp in Sources */,
 				71D319FD1B95E82600C33F84 /* session.c in Sources */,
 				94A68E3225334B90008EB084 /* ikcp.c in Sources */,
 				71D31A001B95E82600C33F84 /* threads.c in Sources */,
