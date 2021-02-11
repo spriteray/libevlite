@@ -15,10 +15,8 @@
 #include "session.h"
 #include "message.h"
 #include "acceptq.h"
-#include "network-internal.h"
 #include "threads-internal.h"
-
-#include "iolayer.h"
+#include "network-internal.h"
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------

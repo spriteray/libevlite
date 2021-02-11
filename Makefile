@@ -74,7 +74,7 @@ OBJS 	= acceptq.o ikcp.o driver.o utils.o \
 			event.o \
 			threads.o \
 			message.o channel.o session.o \
-			iolayer.o
+			network.o
 
 # ------------------------------------------------------------------------------
 all : $(REALNAME)

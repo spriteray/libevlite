@@ -1,8 +1,8 @@
 
 #include <stdio.h>
 
-#include "iolayer.h"
 #include "acceptq.h"
+#include "network-internal.h"
 
 uint32_t _hash_function( const void * key, int32_t len )
 {
