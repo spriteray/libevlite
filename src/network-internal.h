@@ -12,21 +12,27 @@
 #include "session.h"
 
 // 是否安全的终止会话
-#define SAFE_SHUTDOWN                   1
+#define SAFE_SHUTDOWN           1
 
 // 发送队列的默认大小
-#define DEFAULT_SENDQUEUE_SIZE          128
+#define DEFAULT_SENDQUEUE_SIZE  128
 
 // 关闭前最大等待时间,默认10s
 #define MAX_SECONDS_WAIT_FOR_SHUTDOWN   (10*1000)
 
 // 尝试重连的间隔时间,默认为200ms
-#define TRY_RECONNECT_INTERVAL          200
+#define TRY_RECONNECT_INTERVAL  200
 
 // 发送接收缓冲区设置
 // 默认为0, 由内核动态控制
-#define SEND_BUFFER_SIZE                0
-#define RECV_BUFFER_SIZE                0
+#define SEND_BUFFER_SIZE        0
+#define RECV_BUFFER_SIZE        0
+
+enum
+{
+    eIOStatus_Running           = 1,        // 运行
+    eIOStatus_Stopped           = 2,        // 停止
+};
 
 // 任务类型
 enum
@@ -64,34 +70,28 @@ enum
     eIOError_SendQueueLimit     = 0x0001000E,   // 发送队列过大
 };
 
-enum
-{
-    eIOStatus_Running       = 1,    // 运行
-    eIOStatus_Stopped       = 2,    // 停止
-};
-
-struct acceptqueue;
 
 struct iolayer
 {
     // 网络层状态
-    uint8_t             status;
+    uint8_t                 status;
     // 基础配置
-    uint8_t             nthreads;
-    uint32_t            nclients;
-    uint32_t            roundrobin;         // 轮询负载均衡
+    uint8_t                 nthreads;
+    uint32_t                nclients;
+    uint32_t                roundrobin;         // 轮询负载均衡
 
     // 网络线程组
-    iothreads_t         threads;
+    iothreads_t             threads;
     // 会话管理器
-    void **             managers;
+    void **                 managers;
 
     // 数据改造接口
-    void *              context;
-    transformer_t       transform;
+    void *                  context;
+    transformer_t           transform;
 };
 
 // 接收器
+struct acceptqueue;
 struct acceptor
 {
     int32_t                 fd;
@@ -126,43 +126,43 @@ struct acceptor
 // 连接器
 struct connector
 {
-    int32_t             fd;
-    uint8_t             index;
+    int32_t                 fd;
+    uint8_t                 index;
 
     // 连接事件
-    event_t             event;
-    evsets_t            evsets;
+    event_t                 event;
+    evsets_t                evsets;
 
     // 连接服务器的地址和端口号
-    char *              host;
-    uint16_t            port;
+    char *                  host;
+    uint16_t                port;
 
     // 逻辑
-    connector_t         cb;
-    void *              context;
+    connector_t             cb;
+    void *                  context;
 
     // 通信层句柄
-    struct iolayer *    parent;
+    struct iolayer *        parent;
 };
 
 // 关联器
 struct associater
 {
-    int32_t             fd;
-    uint8_t             index;
-    void *              privdata;
+    int32_t                 fd;
+    uint8_t                 index;
+    void *                  privdata;
 
     // 连接事件
-    event_t             event;
-    evsets_t            evsets;
+    event_t                 event;
+    evsets_t                evsets;
 
     // 逻辑
-    void *              context;
-    reattacher_t        reattach;
-    associator_t        cb;
+    void *                  context;
+    reattacher_t            reattach;
+    associator_t            cb;
 
     // 通信句柄
-    struct iolayer *    parent;
+    struct iolayer *        parent;
 };
 
 //
@@ -172,37 +172,37 @@ struct associater
 // NOTICE: task_assign长度已经达到40bytes
 struct task_assign
 {
-    int32_t             fd;
-    uint8_t             type;
-    uint16_t            port;
+    int32_t                 fd;
+    uint8_t                 type;
+    uint16_t                port;
 
-    char *              host;
-    struct buffer *     buffer;
+    char *                  host;
+    struct buffer *         buffer;
 
-    acceptor_t          cb;
-    void *              context;
+    acceptor_t              cb;
+    void *                  context;
 };
 
 struct task_send
 {
-    sid_t               id;             // 8bytes
-    char *              buf;            // 8bytes
-    size_t              nbytes;         // 8bytes
-    int32_t             isfree;         // 4bytes
+    sid_t                   id;             // 8bytes
+    char *                  buf;            // 8bytes
+    size_t                  nbytes;         // 8bytes
+    int32_t                 isfree;         // 4bytes
 };
 
 struct task_invoke
 {
-    void *              task;
-    taskexecutor_t      perform;
+    void *                  task;
+    taskexecutor_t          perform;
 };
 
 struct task_perform
 {
-    sid_t               id;
-    int32_t             type;
-    void *              task;
-    taskrecycler_t      recycle;
+    sid_t                   id;
+    int32_t                 type;
+    void *                  task;
+    taskrecycler_t          recycle;
 };
 
 // 看样子内存对齐不需要使用了
