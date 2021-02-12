@@ -614,8 +614,8 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
     evlock_lock( &self->lock );
     for ( i = 0; i < count; ++i )
     {
-        int32_t rc = QUEUE_POP(taskqueue)(&self->queue, &tasks[i]);
-        if ( rc == 0 )
+        if ( QUEUE_POP(taskqueue)(
+                    &self->queue, &tasks[i]) == 0 )
         {
             break;
         }

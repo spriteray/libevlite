@@ -48,9 +48,9 @@
      - 设置会话的IO服务逻辑 iolayer_set_service()
      - 设置会话的读事件常驻事件集 iolayer_set_persist()
      - 设置会话的发送队列长度限制 iolayer_set_sndqlimit()
-     - 设置会话的最大传输单元(仅限UDP有效) iolayer_set_mtu()
-     - 设置会话的最小重传时间(仅限UDP有效) iolayer_set_minrto()
-     - 设置会话的发送接收窗口(仅限UDP有效) iolayer_set_wndsize()
+     - 设置会话的最大传输单元(仅限KCP有效) iolayer_set_mtu()
+     - 设置会话的最小重传时间(仅限KCP有效) iolayer_set_minrto()
+     - 设置会话的发送接收窗口(仅限KCP有效) iolayer_set_wndsize()
 
    - ##### 发送数据 iolayer_send()
 

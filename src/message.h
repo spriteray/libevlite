@@ -1,6 +1,6 @@
 
-#ifndef SRC_MESSAGE_H
-#define SRC_MESSAGE_H
+#ifndef MESSAGE_H
+#define MESSAGE_H
 
 #ifdef __cplusplus
 extern "C"

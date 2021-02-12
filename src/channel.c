@@ -11,7 +11,6 @@
 #include "config.h"
 #include "utils.h"
 #include "driver.h"
-#include "iolayer.h"
 #include "channel.h"
 #include "acceptq.h"
 #include "event-internal.h"

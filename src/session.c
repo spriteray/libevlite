@@ -6,11 +6,10 @@
 #include <unistd.h>
 #include <stdlib.h>
 
-#include "iolayer.h"
 #include "driver.h"
 #include "channel.h"
-#include "network-internal.h"
 #include "session.h"
+#include "network-internal.h"
 
 static struct session * _new_session();
 static int32_t _del_session( struct session * self );

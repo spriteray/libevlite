@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.8.10
+VERSION 	= 9.9.0
 PREFIX		= /usr/local
 
 # 主版本号
@@ -74,7 +74,7 @@ OBJS 	= acceptq.o ikcp.o driver.o utils.o \
 			event.o \
 			threads.o \
 			message.o channel.o session.o \
-			iolayer.o
+			network.o
 
 # ------------------------------------------------------------------------------
 all : $(REALNAME)

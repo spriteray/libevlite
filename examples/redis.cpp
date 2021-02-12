@@ -520,7 +520,7 @@ int32_t IRedisClient::subscribe( const std::string & channel )
         return -1;
     }
 
-    return perform( new RedisDBTask(-1, cmd, 0), NULL, performTask );
+    return invoke( new RedisDBTask(-1, cmd, 0), NULL, performTask );
 }
 
 int32_t IRedisClient::unsubscribe( const std::string & channel )
@@ -531,7 +531,7 @@ int32_t IRedisClient::unsubscribe( const std::string & channel )
         return -1;
     }
 
-    return perform( new UnsubscribeTask(channel, cmd), cloneTask, performTask );
+    return invoke( new UnsubscribeTask(channel, cmd), cloneTask, performTask );
 }
 
 int32_t IRedisClient::submit( const Slice & cmd, uint32_t ctxid )
@@ -541,7 +541,7 @@ int32_t IRedisClient::submit( const Slice & cmd, uint32_t ctxid )
         return -1;
     }
 
-    return perform( new RedisDBTask(1, cmd, ctxid), NULL, performTask );
+    return invoke( new RedisDBTask(1, cmd, ctxid), NULL, performTask );
 }
 
 int32_t IRedisClient::submit( const Slices & cmds, uint32_t ctxid )
@@ -578,7 +578,7 @@ int32_t IRedisClient::submit( const Slices & cmds, uint32_t ctxid )
         std::free( ( void * )( cmds[i].data() ) );
     }
 
-    return perform( new RedisDBTask(count, Slice(buffer, len), ctxid), NULL, performTask );
+    return invoke( new RedisDBTask(count, Slice(buffer, len), ctxid), NULL, performTask );
 }
 
 void * IRedisClient::initIOContext()

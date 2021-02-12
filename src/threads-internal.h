@@ -3,7 +3,7 @@
 #define THREADS_INTERNAL_H
 
 #include "threads.h"
-#include "iolayer.h"
+#include "network-internal.h"
 
 // 队列默认大小
 // 这个选项需要测试期间不断调整以适应场景的需要
