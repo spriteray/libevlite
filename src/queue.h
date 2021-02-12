@@ -1,6 +1,6 @@
 
-#ifndef SRC_QUEUE_H
-#define SRC_QUEUE_H
+#ifndef QUEUE_H
+#define QUEUE_H
 
 #include "config.h"
 

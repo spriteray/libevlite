@@ -1,6 +1,6 @@
 
-#ifndef SRC_LOCK_H
-#define SRC_LOCK_H
+#ifndef LOCK_H
+#define LOCK_H
 
 #include <stdint.h>
 

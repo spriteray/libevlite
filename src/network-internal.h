@@ -1,15 +1,11 @@
 
-#ifndef SRC_NETWORK_INTERNAL_H
-#define SRC_NETWORK_INTERNAL_H
+#ifndef NETWORK_INTERNAL_H
+#define NETWORK_INTERNAL_H
 
 #include <stdint.h>
-
-#include "event.h"
-#include "threads.h"
-#include "network.h"
 #include "queue.h"
-
-#include "session.h"
+#include "message.h"
+#include "threads.h"
 
 // 是否安全的终止会话
 #define SAFE_SHUTDOWN           1
@@ -70,7 +66,7 @@ enum
     eIOError_SendQueueLimit     = 0x0001000E,   // 发送队列过大
 };
 
-
+// 网络层
 struct iolayer
 {
     // 网络层状态
@@ -204,10 +200,6 @@ struct task_perform
     void *                  task;
     taskrecycler_t          recycle;
 };
-
-// 看样子内存对齐不需要使用了
-#pragma pack(1)
-#pragma pack()
 
 // 描述符分发策略
 // 分发到IO线程后会分配到唯一的会话ID

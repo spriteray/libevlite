@@ -1,6 +1,6 @@
 
-#ifndef SRC_CHANNEL_H
-#define SRC_CHANNEL_H
+#ifndef CHANNEL_H
+#define CHANNEL_H
 
 /*
  * channel 网络通道

@@ -1,6 +1,6 @@
 
-#ifndef SRC_UTILS_H
-#define SRC_UTILS_H
+#ifndef UTILS_H
+#define UTILS_H
 
 #ifdef __cplusplus
 extern "C"

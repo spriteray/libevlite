@@ -1,6 +1,6 @@
 
-#ifndef SRC_CONFIG_H
-#define SRC_CONFIG_H
+#ifndef CONFIG_H
+#define CONFIG_H
 
 //
 // OS Feature(s)
