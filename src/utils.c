@@ -234,7 +234,10 @@ int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_
 
         // 连接
         rc = connect( fd, p->ai_addr, p->ai_addrlen );
-        if ( rc == -1 && errno != EINPROGRESS )
+        // 出错的情况下, 忽略EINPROGRESS, EINTR
+        if ( rc == -1
+                && errno != EINTR
+                && errno != EINPROGRESS )
         {
             close( fd );
             continue;
@@ -350,8 +353,12 @@ int32_t udp_connect( struct sockaddr_storage * localaddr, struct sockaddr_storag
     }
 
     // 连接
-    int32_t rc = connect( newfd, (struct sockaddr *)remoteaddr, sizeof(struct sockaddr) );
-    if ( rc == -1 && errno != EINPROGRESS )
+    int32_t rc = connect( newfd,
+            (struct sockaddr *)remoteaddr, sizeof(struct sockaddr) );
+    // 出错的情况下, 忽略EINPROGRESS, EINTR
+    if ( rc == -1
+            && errno != EINTR
+            && errno != EINPROGRESS )
     {
         close( newfd );
         return -3;
