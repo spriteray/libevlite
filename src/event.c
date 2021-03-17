@@ -285,9 +285,8 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
 
     if ( tv >= 0 )
     {
-        // 如果已经在定时器中了,
-        // 一定要删除，以当前时间当前索引重新加入定时器中
-        // 这样比较准确
+        // 支持重复添加
+        // 如果已经在定时器中了, 删除上一个定时器
         if ( e->status & EVSTATUS_TIMER )
         {
             event_queue_remove( sets, e, EVSTATUS_TIMER );
