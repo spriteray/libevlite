@@ -162,13 +162,7 @@ void channel_udpprocess( struct session * session )
         driver_input( session->driver, &session->inbuffer );
     }
 
-    if ( _process( session ) >= 0 )
-    {
-        // 常驻事件库的情况下, 重新注册
-        // 一次性的性能损失，就忽略了，不再判断超时时间是否改动
-        session_readd_event( session, EV_READ );
-    }
-    else if ( session->setting.persist_mode != 0 )
+    if ( _process( session ) < 0 )
     {
         if ( session->setting.persist_mode != 0 )
         {
@@ -176,6 +170,12 @@ void channel_udpprocess( struct session * session )
         }
 
         session_shutdown( session );
+    }
+    else if ( session->setting.persist_mode != 0 )
+    {
+        // 常驻事件库的情况下, 重新注册
+        // 一次性的性能损失，就忽略了，不再判断超时时间是否改动
+        session_readd_event( session, EV_READ );
     }
 }
 
