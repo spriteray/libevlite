@@ -155,8 +155,6 @@ ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
 
 void channel_udpprocess( struct session * session )
 {
-    int32_t mseconds = session->setting.timeout_msecs;
-
     // 重组
     if ( session->driver != NULL )
     {
@@ -173,10 +171,10 @@ void channel_udpprocess( struct session * session )
 
         session_shutdown( session );
     }
-    else if ( session->setting.persist_mode != 0
-            && session->setting.timeout_msecs != mseconds )
+    else if ( session->setting.persist_mode != 0 )
     {
         // 常驻事件库的情况下, 重新注册
+        // 一次性的性能损失，就忽略了，不再判断超时时间是否改动
         session_readd_event( session, EV_READ );
     }
 }
