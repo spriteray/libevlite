@@ -348,7 +348,10 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
         return -3;
     }
 
+    // 设置超时时间后，重新添加超时事件
     session->setting.timeout_msecs = seconds*1000;
+    //
+    session_readd_event( session, EV_READ );
 
     return 0;
 }
@@ -589,7 +592,9 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
         return -3;
     }
 
+    // 设置保活时间后，重新添加事件
     session->setting.keepalive_msecs = seconds*1000;
+    session_start_keepalive( session );
 
     return 0;
 }
