@@ -171,11 +171,6 @@ void channel_udpprocess( struct session * session )
 
         session_shutdown( session );
     }
-    else if ( session->setting.persist_mode != 0 )
-    {
-        // 常驻事件库的情况下, 重新注册
-        session_readd_event( session, EV_READ );
-    }
 }
 
 // -----------------------------------------------------------------------------
@@ -378,7 +373,6 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
          * -2    - expand() failure
          */
         ssize_t nprocess = 0;
-        int32_t mseconds = session->setting.timeout_msecs;
         ssize_t nread = session->setting.receive( session );
 
         // 只有iolayer处于运行状态下的时候
@@ -413,12 +407,6 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
                 {
                     // 不常驻事件库的情况下, 注册读事件
                     session_add_event( session, EV_READ );
-                }
-                else if ( session->setting.timeout_msecs != mseconds )
-                {
-                    // 常驻事件库的情况下, 重新注册
-                    // 避免出现超时时间无法被修改的情况
-                    session_readd_event( session, EV_READ );
                 }
             }
             else
