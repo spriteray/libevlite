@@ -46,6 +46,10 @@ struct driver * driver_create( struct session * s, struct buffer * buffer )
         buffer_swap( &self->buffer, buffer );
 
         // 设置kcp的属性
+        // 1 - 启动nodelay模式
+        // 40 - 内部的interval(8ms的倍数)
+        // 2 - 2次ACK将会被重传
+        // 1 - 关闭流量控制
         ikcp_nodelay( self->kcp, 1, 40, 2, 1 );
         // 定制属性(逻辑层无法修改)
         self->kcp->stream = 1;          // 流模式
@@ -200,7 +204,7 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
 
         // 强制刷新发送队列
         ikcp_flush( d->kcp );
-        _kcp_schedule( d, TIMER_MAX_PRECISION );
+        _kcp_schedule( d, EVENTSET_PRECISION( session->evsets ) );
 
         return nbytes;
     }
@@ -237,7 +241,7 @@ void _kcp_refresh_state( struct driver * self )
     {
         // 调用过ikcp_send()下轮直接更新状态
         driver_transmit( session );
-        timeout = TIMER_MAX_PRECISION;
+        timeout = EVENTSET_PRECISION( session->evsets );
     }
 
     // 计算超时时间

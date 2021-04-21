@@ -125,4 +125,6 @@ struct eventset
     struct event_list activelist;
 };
 
+#define EVENTSET_PRECISION(sets)       (((struct eventset *)(sets))->timer_precision)
+
 #endif

@@ -934,7 +934,7 @@ void _on_backconnected( int32_t fd, int16_t ev, void * arg )
         // 反向连接成功+listenfd收到的包在同一帧中出现, 所以最好的做法就是下一帧再分配会话，这就解决所有问题了
         event_set( entry->event, fd, 0 );
         event_set_callback( entry->event, _assign_direct, entry );
-        evsets_add( entry->acceptor->evsets, entry->event, TIMER_MAX_PRECISION );
+        evsets_add( entry->acceptor->evsets, entry->event, EVENTSET_PRECISION(entry->acceptor->evsets) );
     }
     else
     {
