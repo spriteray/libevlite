@@ -180,7 +180,6 @@ void channel_udpprocess( struct session * session )
 ssize_t _process( struct session * session )
 {
     ssize_t nprocess = 0;
-    ioservice_t * service = &session->service;
 
     if ( buffer_length( &session->inbuffer ) > 0 )
     {
@@ -188,7 +187,7 @@ ssize_t _process( struct session * session )
         size_t nbytes = buffer_length( &session->inbuffer );
 
         // 回调逻辑层
-        nprocess = service->process(
+        nprocess = session->service.process(
                 session->context, buffer, nbytes );
         if ( nprocess > 0 )
         {
@@ -205,10 +204,7 @@ int32_t _timeout( struct session * session )
      * 超时, 会尝试安全的终止会话
      * 根据逻辑层的返回值确定是否终止会话
      */
-    int32_t rc = 0;
-    ioservice_t * service = &session->service;
-
-    rc = service->timeout( session->context );
+    int32_t rc = session->service.timeout( session->context );
 
     if ( rc != 0
             || ( session->status&SESSION_EXITING ) )
@@ -307,10 +303,10 @@ int32_t channel_error( struct session * session, int32_t result )
      *        2. 永久会话, 终止socket, 尝试重新连接
      */
     int32_t rc = 0;
-    ioservice_t * service = &session->service;
     int8_t isattach = session_is_reattch( session );
 
-    rc = service->error( session->context, result );
+    rc = session->service.error(
+            session->context, result );
 
     if ( isattach == 0
             || ( isattach == 1 && rc != 0 )
@@ -331,19 +327,18 @@ int32_t channel_error( struct session * session, int32_t result )
 
 int32_t channel_shutdown( struct session * session )
 {
-    sid_t id = session->id;
-    ioservice_t * service = &session->service;
     struct session_manager * manager = session->manager;
     int32_t way = (session->status&SESSION_SHUTDOWNING ? 0 : 1);
 
     // 会话终止
-    service->shutdown( session->context, way );
+    session->service.shutdown(
+            session->context, way );
     session_manager_remove( manager, session );
 #ifndef USE_REUSESESSION
-    session_end( session, id, 0 );
+    session_end( session, session->id, 0 );
 #else
     // 回收会话
-    session_end( session, id, 1 );
+    session_end( session, session->id, 1 );
     session_manager_recycle( manager, session );
 #endif
 
@@ -934,7 +929,7 @@ void _on_backconnected( int32_t fd, int16_t ev, void * arg )
         // 反向连接成功+listenfd收到的包在同一帧中出现, 所以最好的做法就是下一帧再分配会话，这就解决所有问题了
         event_set( entry->event, fd, 0 );
         event_set_callback( entry->event, _assign_direct, entry );
-        evsets_add( entry->acceptor->evsets, entry->event, TIMER_MAX_PRECISION );
+        evsets_add( entry->acceptor->evsets, entry->event, EVENTSET_PRECISION(entry->acceptor->evsets) );
     }
     else
     {
