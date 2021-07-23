@@ -322,7 +322,6 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     struct iolayer * layer = (struct iolayer *)self;
 
     // 参数检查
-    assert( seconds >= 0 && "Invalid Timeout" );
     assert( layer != NULL && "Illegal IOLayer" );
     assert( layer->threads != NULL && "Illegal IOThreadGroup" );
     assert( "iolayer_set_timeout() must be in the specified thread"
@@ -349,7 +348,15 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     }
 
     // 设置超时时间后，重新添加超时事件
-    session->setting.timeout_msecs = seconds*1000;
+    if ( seconds < 0 )
+    {
+        session->setting.timeout_msecs = -1;
+    }
+    else
+    {
+        session->setting.timeout_msecs = seconds*1000;
+    }
+
     //
     session_readd_event( session, EV_READ );
 
@@ -1397,12 +1404,11 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
             return -2;
         }
 
-        //
         session_set_iolayer( session, layer );
         session_set_endpoint( session, task->host, task->port );
         session_start( session, eSessionType_Accept, task->fd, sets );
 
-        // UDP需要回调连接过程中的数据包
+        // KCP需要回调连接过程中的数据包
         channel_udpprocess( session );
         // 清空任务buffer
         buffer_clear( task->buffer ); free( task->buffer );
