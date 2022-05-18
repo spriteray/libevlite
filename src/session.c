@@ -376,6 +376,27 @@ void session_set_reattach( struct session * self, reattacher_t reattach, void * 
     self->reattach = reattach;
 }
 
+void session_sendqueue_take( struct session * self, struct sendqueue * q )
+{
+    // 当前的消息需要重发
+    QUEUE_INIT(sendqueue)( q, DEFAULT_SENDQUEUE_SIZE );
+
+    self->msgoffset = 0;
+    QUEUE_SWAP(sendqueue)( q, &self->sendqueue );
+}
+
+void session_sendqueue_merge( struct session * self, struct sendqueue * q )
+{
+    for ( ; QUEUE_COUNT(sendqueue)(q) > 0; )
+    {
+        struct message * msg = NULL;
+        QUEUE_POP(sendqueue)( q, &msg );
+        session_sendqueue_append( self, msg );
+    }
+
+    QUEUE_CLEAR(sendqueue)( q );
+}
+
 ssize_t session_send( struct session * self, char * buf, size_t nbytes )
 {
     ssize_t rc = -1;
