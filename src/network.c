@@ -126,7 +126,7 @@ void iolayer_destroy( iolayer_t self )
 }
 
 // 服务器开启
-//      type        - 网络类型: NETWORK_TCP or NETWORK_KCP
+//      type        - 网络类型: NETWORK_TCP or NETWORK_UDP or NETWORK_KCP
 //      host        - 绑定的地址
 //      port        - 监听的端口号
 //      callback    - 新会话创建成功后的回调,会被多个网络线程调用
@@ -138,11 +138,11 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
     assert( callback != NULL && "Illegal specified Callback-Function" );
-    assert( (type == NETWORK_TCP || type == NETWORK_KCP) && "Illegal type" );
+    assert( (type == NETWORK_TCP || type == NETWORK_KCP || type == NETWORK_UDP ) && "Illegal type" );
 
-    if ( type == NETWORK_KCP )
+    if ( type == NETWORK_KCP || type == NETWORK_UDP )
     {
-        // UDP服务端
+        // KCP服务端 or UDP服务端
         return _server_listen( layer, type, 0, host, port, callback, context );
     }
     else if ( type == NETWORK_TCP )
@@ -1196,7 +1196,7 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
             return -3;
         }
     }
-    else if ( type == NETWORK_KCP )
+    else if ( type == NETWORK_KCP || type == NETWORK_UDP )
     {
 #ifndef SO_REUSEPORT
         assert( 0 && "Not Support REUSEPORT" );
@@ -1327,7 +1327,7 @@ int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct 
     event_set( acceptor->event, acceptor->fd, EV_READ|EV_PERSIST );
     if ( acceptor->type == NETWORK_TCP )
         event_set_callback( acceptor->event, channel_on_accept, acceptor );
-    else if ( acceptor->type == NETWORK_KCP )
+    else if ( acceptor->type == NETWORK_KCP || acceptor->type == NETWORK_UDP )
         event_set_callback( acceptor->event, channel_on_udpaccept, acceptor );
     evsets_add( sets, acceptor->event, -1 );
 
@@ -1391,6 +1391,23 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
         session_set_iolayer( session, layer );
         session_set_endpoint( session, task->host, task->port );
         session_start( session, eSessionType_Accept, task->fd, sets );
+    }
+    else if ( task->type == NETWORK_UDP )
+    {
+        session_set_iolayer( session, layer );
+        session_set_endpoint( session, task->host, task->port );
+        session_start( session, eSessionType_Accept, task->fd, sets );
+
+        // UDP需要回调连接过程中的数据包
+        buffer_swap(
+                &session->inbuffer, task->buffer );
+        channel_udpprocess( session );
+        // 清空交换出来的BUFFER
+        if ( task->buffer != NULL )
+        {
+            buffer_clear( task->buffer );
+            free( task->buffer );
+        }
     }
     else if ( task->type == NETWORK_KCP )
     {

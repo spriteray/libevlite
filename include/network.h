@@ -46,7 +46,8 @@ typedef void *      iolayer_t;
 
 // 网络类型
 #define NETWORK_TCP 1           // TCP
-#define NETWORK_KCP 2           // KCP
+#define NETWORK_UDP 2           // UDP, 特殊场景中使用
+#define NETWORK_KCP 3           // KCP
 
 // IO服务
 //        start()       - 网络就绪的回调
@@ -114,7 +115,7 @@ int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * c
 //      参数5: 会话的端口号
 typedef int32_t (*acceptor_t)( void *, void *, sid_t, const char * , uint16_t );
 // 开启服务端
-//        type          - 网络类型: NETWORK_TCP or NETWORK_KCP
+//        type          - 网络类型: NETWORK_TCP or NETWORK_UDP or NETWORK_KCP
 //        host          - 绑定的地址
 //        port          - 监听的端口号
 //        callback      - 新会话创建成功后的回调(参考acceptor_t的定义),会被多个网络线程调用

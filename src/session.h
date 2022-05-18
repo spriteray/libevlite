@@ -123,6 +123,11 @@ void session_set_reattach( struct session * self, reattacher_t reattach, void * 
 #define session_sendqueue_append( self, msg )   QUEUE_PUSH(sendqueue)( &((self)->sendqueue), &(msg) )
 #define session_sendqueue_shrink( self, size )  QUEUE_SHRINK(sendqueue)( &((self)->sendqueue), (size) )
 
+// 发送队列交换
+void session_sendqueue_take( struct session * self, struct sendqueue * q );
+// 发送队列合并
+void session_sendqueue_merge( struct session * self, struct sendqueue * q );
+
 // 发送数据
 ssize_t session_send( struct session * self, char * buf, size_t nbytes );
 // 发送消息

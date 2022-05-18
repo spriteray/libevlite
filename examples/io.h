@@ -14,6 +14,7 @@ typedef std::vector<sid_t> sids_t;
 enum class NetType
 {
     TCP     = NETWORK_TCP,
+    UDP     = NETWORK_UDP,
     KCP     = NETWORK_KCP,
 };
 
