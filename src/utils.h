@@ -102,6 +102,8 @@ enum
     #define TASK_PADDING_SIZE   60
 #elif defined( __x86_64__ )
     #define TASK_PADDING_SIZE   56
+#elif defined( __aarch64__ )
+    #define TASK_PADDING_SIZE   56
 #endif
 
 // 任务数据
