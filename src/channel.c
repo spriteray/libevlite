@@ -810,10 +810,10 @@ void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
         set_non_block( fd );
         session->service.start( session->context );
 
-        // 注册读写事件
-        session_add_event( session, EV_READ );
         // 把积累下来的数据全部发送出去
         session_sendqueue_merge( session, &queue );
+        // 注册读写事件
+        session_add_event( session, EV_READ );
         session_add_event( session, EV_WRITE );
         session_start_keepalive( session );
     }
