@@ -98,10 +98,12 @@ enum
 };
 
 // 任务填充长度
-#if defined( __i386__ )
+#if __SIZEOF_POINTER__ == 4
     #define TASK_PADDING_SIZE   60
-#elif defined( __x86_64__ )
+#elif __SIZEOF_POINTER__ == 8
     #define TASK_PADDING_SIZE   56
+#else
+#error "No way to define bits"
 #endif
 
 // 任务数据
