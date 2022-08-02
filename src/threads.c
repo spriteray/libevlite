@@ -317,7 +317,6 @@ int32_t iothread_stop( struct iothread * self )
     for ( ; acceptor != NULL; )
     {
         struct acceptor * next = STAILQ_NEXT( acceptor, linker );
-
         iolayer_free_acceptor( acceptor );
         acceptor = next;
     }
@@ -326,7 +325,7 @@ int32_t iothread_stop( struct iothread * self )
     for ( ; connector != NULL; )
     {
         struct connector * next = STAILQ_NEXT( connector, linker );
-
+        connector->state = 0;
         iolayer_free_connector( connector );
         connector = next;
     }
@@ -335,7 +334,7 @@ int32_t iothread_stop( struct iothread * self )
     for ( ; associater != NULL; )
     {
         struct associater * next = STAILQ_NEXT( associater, linker );
-
+        associater->state = 0;
         iolayer_free_associater( associater );
         associater = next;
     }
