@@ -14,6 +14,7 @@
 #include "channel.h"
 #include "acceptq.h"
 #include "event-internal.h"
+#include "threads-internal.h"
 #include "network-internal.h"
 
 // iov_max
@@ -710,6 +711,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( connector->parent );
     void * iocontext = iothreads_get_context( layer->threads, connector->index );
+    struct connectorlist * list = iothreads_get_connectlist( layer->threads, connector->index );
 
     if ( ev & EV_WRITE )
     {
@@ -765,6 +767,11 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             {
                 close( connector->fd );
                 connector->fd = -1;
+            }
+            if ( connector->state == 0 )
+            {
+                connector->state = 1;
+                STAILQ_INSERT_TAIL( list, connector, linker );
             }
 
             // 200毫秒后尝试重连, 避免进入重连死循环
@@ -832,6 +839,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( associater->parent );
     void * iocontext = iothreads_get_context( layer->threads, associater->index );
+    struct associaterlist * list = iothreads_get_associatelist( layer->threads, associater->index );
 
     if ( ev & EV_WRITE )
     {
@@ -893,6 +901,11 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
                 event_set( associater->event, -1, 0 );
                 event_set_callback( associater->event, _reassociate_direct, associater );
                 evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
+                if ( associater->state == 0 )
+                {
+                    associater->state = 1;
+                    STAILQ_INSERT_TAIL( list, associater, linker );
+                }
             }
         }
         else

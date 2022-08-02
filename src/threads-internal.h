@@ -17,6 +17,8 @@
 //
 
 STAILQ_HEAD( acceptorlist, acceptor );
+STAILQ_HEAD( connectorlist, connector );
+STAILQ_HEAD( associaterlist, associater );
 
 struct iothread
 {
@@ -33,6 +35,8 @@ struct iothread
 
     // 回收列表
     struct acceptorlist acceptorlist;
+    struct connectorlist connectorlist;
+    struct associaterlist associaterlist;
 };
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
@@ -63,5 +67,7 @@ struct iothreads
 
 int8_t iothreads_get_index( iothreads_t self );
 struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index );
+struct connectorlist * iothreads_get_connectlist( iothreads_t self, uint8_t index );
+struct associaterlist * iothreads_get_associatelist( iothreads_t self, uint8_t index );
 
 #endif

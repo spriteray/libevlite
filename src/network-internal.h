@@ -139,26 +139,34 @@ struct connector
 
     // 通信层句柄
     struct iolayer *        parent;
+
+    // 便于回收资源
+    uint8_t                 state;
+    STAILQ_ENTRY(connector) linker;
 };
 
 // 关联器
 struct associater
 {
-    int32_t                 fd;
-    uint8_t                 index;
-    void *                  privdata;
+    int32_t                     fd;
+    uint8_t                     index;
+    void *                      privdata;
 
     // 连接事件
-    event_t                 event;
-    evsets_t                evsets;
+    event_t                     event;
+    evsets_t                    evsets;
 
     // 逻辑
-    void *                  context;
-    reattacher_t            reattach;
-    associator_t            cb;
+    void *                      context;
+    reattacher_t                reattach;
+    associator_t                cb;
 
     // 通信句柄
-    struct iolayer *        parent;
+    struct iolayer *            parent;
+
+    // 便于回收资源
+    uint8_t                     state;
+    STAILQ_ENTRY(associater)    linker;
 };
 
 //

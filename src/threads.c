@@ -77,6 +77,28 @@ struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index 
     return &(iothreads->threads[index].acceptorlist);
 }
 
+struct connectorlist * iothreads_get_connectlist( iothreads_t self, uint8_t index )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threads != NULL );
+
+    return &(iothreads->threads[index].connectorlist);
+}
+
+struct associaterlist * iothreads_get_associatelist( iothreads_t self, uint8_t index )
+{
+    struct iothreads * iothreads = (struct iothreads *)(self);
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threads != NULL );
+
+    return &(iothreads->threads[index].associaterlist );
+}
+
 int8_t iothreads_get_index( iothreads_t self )
 {
     int8_t i = 0;
@@ -218,6 +240,8 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 
     // 初始化列表
     STAILQ_INIT( &self->acceptorlist );
+    STAILQ_INIT( &self->connectorlist );
+    STAILQ_INIT( &self->associaterlist );
 
     self->cmdevent = event_create();
     self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE );
@@ -297,6 +321,25 @@ int32_t iothread_stop( struct iothread * self )
         iolayer_free_acceptor( acceptor );
         acceptor = next;
     }
+
+    struct connector * connector = STAILQ_FIRST( &self->connectorlist );
+    for ( ; connector != NULL; )
+    {
+        struct connector * next = STAILQ_NEXT( connector, linker );
+
+        iolayer_free_connector( connector );
+        connector = next;
+    }
+
+    struct associater * associater = STAILQ_FIRST( &self->associaterlist );
+    for ( ; associater != NULL; )
+    {
+        struct associater * next = STAILQ_NEXT( associater, linker );
+
+        iolayer_free_associater( associater );
+        associater = next;
+    }
+
 
     return 0;
 }
