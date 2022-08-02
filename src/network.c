@@ -212,6 +212,7 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
     connector->context  = context;
     connector->cb       = callback;
     connector->host     = strdup( host );
+    connector->state    = 0;
 
     // 就地投递给本网络线程
     int8_t index = iothreads_get_index( layer->threads );
@@ -266,6 +267,7 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
     associater->context     = context;
     associater->parent      = layer;
     associater->privdata    = privdata;
+    associater->state       = 0;
 
     // 就地投递给本网络线程
     int8_t index = iothreads_get_index( layer->threads );
@@ -1051,6 +1053,14 @@ void iolayer_free_connector( struct connector * connector )
         connector->fd = -1;
     }
 
+    if ( connector->state == 1 )
+    {
+        struct iolayer * layer = connector->parent;
+        struct connectorlist * list = iothreads_get_connectlist( layer->threads, connector->index );
+        connector->state = 0;
+        STAILQ_REMOVE( list, connector, connector, linker );
+    }
+
     free( connector );
 }
 
@@ -1061,6 +1071,14 @@ void iolayer_free_associater( struct associater * associater )
         evsets_del( associater->evsets, associater->event );
         event_destroy( associater->event );
         associater->event = NULL;
+    }
+
+    if ( associater->state == 1 )
+    {
+        struct iolayer * layer = associater->parent;
+        struct associaterlist * list = iothreads_get_associatelist( layer->threads, associater->index );
+        associater->state = 0;
+        STAILQ_REMOVE( list, associater, associater, linker );
     }
 
     // NOTICE: 释放关联器的时候，不会关闭描述符
