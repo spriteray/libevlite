@@ -132,9 +132,9 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
     delete session;
 }
 
-int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task )
+int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task, int32_t interval )
 {
-    return static_cast<IIOSession *>(context)->onPerform( type, task );
+    return static_cast<IIOSession *>(context)->onPerform( type, task, interval );
 }
 
 // ----------------------------------------------------------------------------
@@ -380,14 +380,14 @@ int32_t IIOService::invoke( void * task, taskcloner_t clone, taskexecutor_t exec
     return iolayer_invoke( m_IOLayer, task, clone, execute );
 }
 
-int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle )
+int32_t IIOService::perform( sid_t sid, int32_t type, void * task, int32_t interval, taskrecycler_t recycle )
 {
     int32_t rc = iolayer_perform(
-            m_IOLayer, sid, type, task, recycle );
+            m_IOLayer, sid, type, task, interval, recycle );
 
     if ( rc != 0 )
     {
-        recycle( type, task );
+        recycle( type, task, interval );
     }
 
     return rc;

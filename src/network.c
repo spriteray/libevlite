@@ -785,7 +785,7 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
     return 0;
 }
 
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle )
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, int32_t interval, taskrecycler_t recycle )
 {
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
@@ -796,7 +796,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
         return -1;
     }
 
-    struct task_perform ptask = { id, type, task, recycle };
+    struct task_perform ptask = { id, type, task, interval, recycle };
 
     if ( pthread_self() == iothreads_get_id( layer->threads, index ) )
     {
@@ -1606,23 +1606,30 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
     int32_t rc = 0;
     struct session * session = session_manager_get( manager, task->id );
 
-    if ( likely( session != NULL ) )
+    if ( task->interval > 0 )
     {
-        if ( session->service.perform(
-                    session->context, task->type, task->task ) < 0 )
-        {
-            session_close( session );
-            session_shutdown( session );
-        }
+        // TODO: 定时任务
     }
     else
     {
-        rc = -1;
-        syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
-    }
+        if ( likely( session != NULL ) )
+        {
+            if ( session->service.perform(
+                session->context, task->type, task->task, task->interval ) < 0 )
+            {
+                session_close( session );
+                session_shutdown( session );
+            }
+        }
+        else
+        {
+            rc = -1;
+            syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
+        }
 
-    // 回收任务
-    task->recycle( task->type, task->task );
+        // 回收任务
+        task->recycle( task->type, task->task, task->interval );
+    }
 
     return rc;
 }

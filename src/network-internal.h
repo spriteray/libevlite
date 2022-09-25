@@ -206,6 +206,7 @@ struct task_perform
     sid_t                   id;
     int32_t                 type;
     void *                  task;
+    int32_t                 interval;
     taskrecycler_t          recycle;
 };
 
