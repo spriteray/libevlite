@@ -1606,28 +1606,37 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
     int32_t rc = 0;
     struct session * session = session_manager_get( manager, task->id );
 
-    if ( task->interval > 0 )
+    if ( likely( session != NULL ) )
     {
-        // TODO: 定时任务
-    }
-    else
-    {
-        if ( likely( session != NULL ) )
+        if ( task->interval == 0 )
         {
+            // 立刻执行
             if ( session->service.perform(
                 session->context, task->type, task->task, task->interval ) < 0 )
             {
                 session_close( session );
                 session_shutdown( session );
             }
+
+            // 回收任务
+            task->recycle( task->type, task->task, task->interval );
         }
         else
         {
-            rc = -1;
-            syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
+            // 定时任务
+            rc = session_schedule_task( session, task->type, task->task, task->interval, task->recycle );
+            syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, create task failed .", __FUNCTION__, task->id, task->type );
         }
+    }
+    else
+    {
+        // 非法会话
+        rc = -1;
+        syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
+    }
 
-        // 回收任务
+    if ( rc != 0 )
+    {
         task->recycle( task->type, task->task, task->interval );
     }
 

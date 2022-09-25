@@ -921,6 +921,26 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
     }
 }
 
+void channel_on_schedule( int32_t fd, int16_t ev, void * arg )
+{
+    struct schedule_task * task = (struct schedule_task *)arg;
+    struct session * session = task->session;
+
+    // 立刻执行
+    int32_t rc = session->service.perform(
+        session->context, task->type, task->task, task->interval );
+
+    // 取消
+    session_cancel_task( session, task );
+
+    // 执行失败
+    if ( rc < 0 )
+    {
+        session_close( session );
+        session_shutdown( session );
+    }
+}
+
 void _on_backconnected( int32_t fd, int16_t ev, void * arg )
 {
     int32_t result = 0;

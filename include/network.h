@@ -65,7 +65,7 @@ typedef void *      iolayer_t;
 //        perform()     - 处理其他模块提交到网络层的任务, <0: 出错,关闭连接
 //                        type - 任务类型
 //                        task - 任务数据
-//                        seconds - 定时任务
+//                        interval - 定时任务
 //        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
 //                        way - 0, 逻辑层主动终止会话的情况,
 //                                      1) 显式的iolayer_shutdown()或者iolayer_shutdowns()
@@ -79,7 +79,7 @@ typedef struct
     int32_t (*keepalive)( void * context );
     int32_t (*timeout)( void * context );
     int32_t (*error)( void * context, int32_t result );
-    int32_t (*perform)( void * context, int32_t type, void * task, int32_t seconds );
+    int32_t (*perform)( void * context, int32_t type, void * task, int32_t interval );
     void    (*shutdown)( void * context, int32_t way );
 }ioservice_t;
 
@@ -215,9 +215,9 @@ typedef void (*taskrecycler_t)( int32_t, void *, int32_t );
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-//      seconds         - 定时任务
+//      interval        - 定时任务
 //      recycle         - 任务回收函数(参考taskrecycler_t的定义)
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, int32_t seconds, taskrecycler_t recycle );
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, int32_t interval, taskrecycler_t recycle );
 
 // 停止网络服务
 // 行为定义:
