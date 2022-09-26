@@ -380,7 +380,7 @@ int32_t IIOService::invoke( void * task, taskcloner_t clone, taskexecutor_t exec
     return iolayer_invoke( m_IOLayer, task, clone, execute );
 }
 
-int32_t IIOService::perform( sid_t sid, int32_t type, void * task, int32_t interval, taskrecycler_t recycle )
+int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle, int32_t interval )
 {
     int32_t rc = iolayer_perform(
             m_IOLayer, sid, type, task, interval, recycle );
