@@ -632,10 +632,15 @@ int32_t session_cancel_task( struct session * self, struct schedule_task * task 
 
 int32_t session_schedule_task( struct session * self, int32_t type, void * t, int32_t interval, taskrecycler_t recycle )
 {
-    struct schedule_task * task = (struct schedule_task *)calloc( 1, sizeof(struct schedule_task) );
-    if ( task == NULL )
+    if ( self->status & SESSION_EXITING )
     {
         return -1;
+    }
+
+    struct schedule_task * task = calloc( 1, sizeof(struct schedule_task) );
+    if ( task == NULL )
+    {
+        return -2;
     }
 
     task->task = task;
@@ -646,7 +651,7 @@ int32_t session_schedule_task( struct session * self, int32_t type, void * t, in
     task->evschedule = event_create();
     if ( task->evschedule == NULL )
     {
-        return -2;
+        return -3;
     }
 
     // 压入链表

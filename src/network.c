@@ -1625,7 +1625,10 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
         {
             // 定时任务
             rc = session_schedule_task( session, task->type, task->task, task->interval, task->recycle );
-            syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, create task failed .", __FUNCTION__, task->id, task->type );
+            if ( rc != 0 )
+            {
+                syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, schedule task failed .", __FUNCTION__, task->id, task->type );
+            }
         }
     }
     else
