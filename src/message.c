@@ -97,7 +97,11 @@ ssize_t _read_withvector( struct buffer * self, int32_t fd  )
     if ( nread > (ssize_t)left )
     {
         self->length += left;
-        buffer_append( self, extra, (size_t)(nread-left) );
+        int32_t rc = buffer_append( self, extra, (size_t)(nread-left) );
+        if ( rc != 0 )
+        {
+            return -2;
+        }
     }
     else if ( nread > 0 )
     {
