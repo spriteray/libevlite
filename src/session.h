@@ -55,6 +55,19 @@ struct session_setting
     ssize_t (*send)( struct session * s, char * buf, size_t nbytes );
 };
 
+// 定时任务
+struct schedule_task
+{
+    int32_t                         type;
+    void *                          task;
+    int32_t                         interval;
+    taskrecycler_t                  recycle;
+    event_t                         evschedule;
+    struct session *                session;
+    SLIST_ENTRY( schedule_task )    tasklink;
+};
+SLIST_HEAD( tasklist, schedule_task );
+
 struct driver;
 QUEUE_HEAD( sendqueue, struct message * );
 QUEUE_PROTOTYPE( sendqueue, struct message * )
@@ -91,6 +104,9 @@ struct session
     // 接收缓冲区
     struct buffer           inbuffer;
 
+    // 定时任务列表
+    struct tasklist         tasklist;
+
     // 发送队列以及消息偏移量
     size_t                  msgoffset;
     struct sendqueue        sendqueue;
@@ -109,7 +125,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
 int8_t session_is_reattch( struct session * self );
 
 // 初始化UDP驱动
-int32_t session_init_driver( struct session * self, struct buffer * buffer );
+int32_t session_init_driver( struct session * self, struct buffer * buffer, const options_t * options );
 
 //
 void session_set_iolayer( struct session * self, void * iolayer );
@@ -144,6 +160,10 @@ int32_t session_start_keepalive( struct session * self );
 
 // 重连远程服务器
 int32_t session_start_reconnect( struct session * self );
+
+// 启动定时任务
+int32_t session_cancel_task( struct session * self, struct schedule_task * task );
+int32_t session_schedule_task( struct session * self, int32_t type, void * t, int32_t interval, taskrecycler_t recycle );
 
 // 设置被终止的标志
 #define session_close( self )               ( (self)->status |= SESSION_SHUTDOWNING )

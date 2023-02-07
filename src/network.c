@@ -15,6 +15,7 @@
 #include "session.h"
 #include "message.h"
 #include "acceptq.h"
+#include "event-internal.h"
 #include "threads-internal.h"
 #include "network-internal.h"
 
@@ -27,7 +28,7 @@ static inline struct session_manager * _get_manager( struct iolayer * self, uint
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
 static inline int32_t _broadcast2_loop( void * context, struct session * s );
 static inline void _free_task_assign( struct task_assign * task );
-static int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context );
+static int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context );
 
 static int32_t _listen_direct( struct acceptorlist * acceptorlist, evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
@@ -49,7 +50,7 @@ static void _concrete_processor( void * context, uint8_t index, int16_t type, vo
 // -----------------------------------------------------------------------------
 
 // 创建网络通信层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediately )
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision, uint8_t immediately )
 {
     struct iolayer * self = (struct iolayer *)malloc( sizeof(struct iolayer) );
     if ( self == NULL )
@@ -74,7 +75,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediate
     }
 
     // 创建网络线程组
-    self->threads = iothreads_start( self->nthreads, immediately );
+    self->threads = iothreads_start( self->nthreads, precision, immediately );
     if ( self->threads == NULL )
     {
         iolayer_destroy( self );
@@ -129,9 +130,10 @@ void iolayer_destroy( iolayer_t self )
 //      type        - 网络类型: NETWORK_TCP or NETWORK_UDP or NETWORK_KCP
 //      host        - 绑定的地址
 //      port        - 监听的端口号
+//      options     - 参数
 //      callback    - 新会话创建成功后的回调,会被多个网络线程调用
 //      context     - 上下文参数
-int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_t port, acceptor_t callback, void * context )
+int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context )
 {
     struct iolayer * layer = (struct iolayer *)self;
 
@@ -143,14 +145,14 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     if ( type == NETWORK_KCP || type == NETWORK_UDP )
     {
         // KCP服务端 or UDP服务端
-        return _server_listen( layer, type, 0, host, port, callback, context );
+        return _server_listen( layer, type, 0, host, port, options, callback, context );
     }
     else if ( type == NETWORK_TCP )
     {
         // TCP服务端
 #ifndef EVENT_HAVE_REUSEPORT
         // normal
-        return _server_listen( layer, type, 0, host, port, callback, context );
+        return _server_listen( layer, type, 0, host, port, options, callback, context );
 #else
         // reuseport
         uint8_t i = 0;
@@ -158,7 +160,7 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
                 "%s(host:'%s', port:%d) use SO_REUSEPORT .", __FUNCTION__, host == NULL ? "" : host, port);
         for ( i = 0; i < layer->nthreads; ++i )
         {
-            int32_t rc = _server_listen( layer, type, i, host, port, callback, context );
+            int32_t rc = _server_listen( layer, type, i, host, port, options, callback, context );
             if ( rc < 0 )
             {
                 return rc;
@@ -785,7 +787,7 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
     return 0;
 }
 
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle )
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, int32_t interval, taskrecycler_t recycle )
 {
     uint8_t index = SID_INDEX(id);
     struct iolayer * layer = (struct iolayer *)self;
@@ -796,7 +798,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
         return -1;
     }
 
-    struct task_perform ptask = { id, type, task, recycle };
+    struct task_perform ptask = { id, type, task, interval, recycle };
 
     if ( pthread_self() == iothreads_get_id( layer->threads, index ) )
     {
@@ -1164,7 +1166,7 @@ struct session_manager * _get_manager( struct iolayer * self, uint8_t index )
     return (struct session_manager *)( self->managers[index<<3] );
 }
 
-int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, acceptor_t callback, void * context )
+int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context )
 {
     struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof(struct acceptor) );
     if ( acceptor == NULL )
@@ -1193,6 +1195,10 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
     if ( host != NULL )
     {
         acceptor->host  = strdup( host );
+    }
+    if ( options != NULL )
+    {
+        acceptor->options = *options;
     }
     acceptor->index     = DISPATCH_POLICY( layer,
             __sync_fetch_and_add(&layer->roundrobin, 1) );
@@ -1225,6 +1231,14 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
 #endif
         // 初始化BUFF
         buffer_init( &acceptor->buffer );
+
+        // 设置KCP默认参数
+        if ( options == NULL && type == NETWORK_KCP ) {
+            options_t default_options = {
+                .mtu = 1400, .minrto = 30, .sndwnd = 64, .rcvwnd = 64,
+                .stream = 1, .resend = 2, .deadlink = 50, .interval = 40 };
+            acceptor->options = default_options;
+        }
 
         // 接收队列
         acceptor->acceptq = acceptqueue_create( 4096 );
@@ -1429,7 +1443,8 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     }
     else if ( task->type == NETWORK_KCP )
     {
-        rc = session_init_driver( session, task->buffer );
+        rc = session_init_driver(
+            session, task->buffer, &(((struct acceptor *)task)->options) );
         if ( rc != 0 )
         {
             syslog(LOG_WARNING,
@@ -1608,21 +1623,40 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
 
     if ( likely( session != NULL ) )
     {
-        if ( session->service.perform(
-                    session->context, task->type, task->task ) < 0 )
+        if ( task->interval <= 0 )
         {
-            session_close( session );
-            session_shutdown( session );
+            // 立刻执行
+            if ( session->service.perform(
+                session->context, task->type, task->task, task->interval ) < 0 )
+            {
+                session_close( session );
+                session_shutdown( session );
+            }
+
+            // 回收任务
+            task->recycle( task->type, task->task, task->interval );
+        }
+        else
+        {
+            // 定时任务
+            rc = session_schedule_task( session, task->type, task->task, task->interval, task->recycle );
+            if ( rc != 0 )
+            {
+                syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, schedule task failed .", __FUNCTION__, task->id, task->type );
+            }
         }
     }
     else
     {
+        // 非法会话
         rc = -1;
         syslog(LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
     }
 
-    // 回收任务
-    task->recycle( task->type, task->task );
+    if ( rc != 0 )
+    {
+        task->recycle( task->type, task->task, task->interval );
+    }
 
     return rc;
 }

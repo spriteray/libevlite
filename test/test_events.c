@@ -101,7 +101,7 @@ int32_t main()
 
     fprintf( stderr, "Write data to %s\n", fifo );
 
-    evsets = evsets_create();
+    evsets = evsets_create( 8 );
     if ( evsets == NULL )
     {
         printf("evsets_create() error .\n");

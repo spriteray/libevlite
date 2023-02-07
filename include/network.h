@@ -45,9 +45,22 @@ typedef uint64_t    sid_t;
 typedef void *      iolayer_t;
 
 // 网络类型
-#define NETWORK_TCP 1           // TCP
-#define NETWORK_UDP 2           // UDP, 特殊场景中使用
-#define NETWORK_KCP 3           // KCP
+#define NETWORK_TCP 1   // TCP
+#define NETWORK_UDP 2   // UDP, 特殊场景中使用
+#define NETWORK_KCP 3   // KCP
+
+// 服务器参数(当前是KCP的选项)
+typedef struct
+{
+    int32_t mtu;      // 最大传输单元, 默认值1400
+    int32_t minrto;   // 最小重传时间, 默认值30ms
+    int32_t sndwnd;   // 发送窗口, 默认值64
+    int32_t rcvwnd;   // 接收窗口, 默认值64
+    int32_t stream;   // kcp流模式, 默认值1(流模式)
+    int32_t resend;   // 快速重传, 默认值2
+    int32_t deadlink; // 最大重传次数, 默认值50
+    int32_t interval; // 内部处理时钟, 默认值40ms
+}options_t;
 
 // IO服务
 //        start()       - 网络就绪的回调
@@ -65,6 +78,7 @@ typedef void *      iolayer_t;
 //        perform()     - 处理其他模块提交到网络层的任务, <0: 出错,关闭连接
 //                        type - 任务类型
 //                        task - 任务数据
+//                        interval - 定时任务
 //        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
 //                        way - 0, 逻辑层主动终止会话的情况,
 //                                      1) 显式的iolayer_shutdown()或者iolayer_shutdowns()
@@ -78,15 +92,16 @@ typedef struct
     int32_t (*keepalive)( void * context );
     int32_t (*timeout)( void * context );
     int32_t (*error)( void * context, int32_t result );
-    int32_t (*perform)( void * context, int32_t type, void * task );
+    int32_t (*perform)( void * context, int32_t type, void * task, int32_t interval );
     void    (*shutdown)( void * context, int32_t way );
 }ioservice_t;
 
 // 创建网络层
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
+//        precision     - 事件集的时间精度(建议值为8ms)
 //        immediately   - 是否立刻提交网络层, 0:否; 1:是(用于对网络实时性比较高的场景)
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, uint8_t immediately );
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision, uint8_t immediately );
 
 // 网络层设置线程上下文参数(在listen(), connect(), associate()之前调用)
 //        self          -
@@ -118,10 +133,11 @@ typedef int32_t (*acceptor_t)( void *, void *, sid_t, const char * , uint16_t );
 //        type          - 网络类型: NETWORK_TCP or NETWORK_UDP or NETWORK_KCP
 //        host          - 绑定的地址
 //        port          - 监听的端口号
+//        options       - 服务器参数
 //        callback      - 新会话创建成功后的回调(参考acceptor_t的定义),会被多个网络线程调用
 //        context       - 上下文参数
 int32_t iolayer_listen( iolayer_t self, uint8_t type,
-        const char * host, uint16_t port, acceptor_t callback, void * context );
+        const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context );
 
 //  连接结果的回调
 //      参数1: 上下文参数
@@ -208,13 +224,15 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
 // 任务回收函数
 //      参数1: 类型
 //      参数2: 任务
-typedef void (*taskrecycler_t)( int32_t, void * );
+//      参数3: 时间
+typedef void (*taskrecycler_t)( int32_t, void *, int32_t );
 // 分派任务给指定的会话, 通过ioservice_t::perform()回调执行该任务
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
+//      interval        - 定时任务
 //      recycle         - 任务回收函数(参考taskrecycler_t的定义)
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, int32_t interval, taskrecycler_t recycle );
 
 // 停止网络服务
 // 行为定义:

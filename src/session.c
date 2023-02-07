@@ -37,6 +37,8 @@ struct session * _new_session()
         return NULL;
     }
 
+    // 初始化任务队列
+    SLIST_INIT( &self->tasklist );
     // 初始化接收缓冲区
     buffer_init( &self->inbuffer );
     // 初始化设置
@@ -142,6 +144,19 @@ int32_t _del_session( struct session * self )
 // 会话停止(删除网络事件以及关闭描述符)
 void _stop( struct session * self )
 {
+    struct schedule_task * loop = NULL;
+    SLIST_FOREACH( loop, &self->tasklist, tasklink )
+    {
+        if ( loop->evschedule != NULL )
+        {
+            evsets_del( self->evsets, loop->evschedule );
+            event_destroy( loop->evschedule ); loop->evschedule = NULL;
+        }
+        loop->recycle( loop->type, loop->task, loop->interval );
+        free( loop );
+    }
+    SLIST_INIT( &self->tasklist );
+
     // 删除网络事件
     if ( self->status&SESSION_READING )
     {
@@ -335,9 +350,9 @@ void session_set_iolayer( struct session * self, void * iolayer )
     self->iolayer = iolayer;
 }
 
-int32_t session_init_driver( struct session * self, struct buffer * buffer )
+int32_t session_init_driver( struct session * self, struct buffer * buffer, const options_t * options )
 {
-    self->driver = driver_create( self, buffer );
+    self->driver = driver_create( self, buffer, options );
     if ( self->driver != NULL )
     {
         return 0;
@@ -595,6 +610,56 @@ int32_t session_start_reconnect( struct session * self )
     event_set_callback( self->evwrite, channel_on_reconnect, self );
     evsets_add( sets, self->evwrite, TRY_RECONNECT_INTERVAL );
     self->status |= SESSION_WRITING;            // 让session忙起来
+
+    return 0;
+}
+
+int32_t session_cancel_task( struct session * self, struct schedule_task * task )
+{
+    SLIST_REMOVE(
+        &self->tasklist, task, schedule_task, tasklink );
+
+    if ( task->evschedule != NULL )
+    {
+        evsets_del( self->evsets, task->evschedule );
+        event_destroy( task->evschedule ); task->evschedule = NULL;
+    }
+
+    task->recycle( task->type, task->task, task->interval );
+    free( task );
+    return 0;
+}
+
+int32_t session_schedule_task( struct session * self, int32_t type, void * t, int32_t interval, taskrecycler_t recycle )
+{
+    if ( self->status & SESSION_EXITING )
+    {
+        return -1;
+    }
+
+    struct schedule_task * task = calloc( 1, sizeof(struct schedule_task) );
+    if ( task == NULL )
+    {
+        return -2;
+    }
+
+    task->task = task;
+    task->type = type;
+    task->recycle = recycle;
+    task->interval = interval;
+    task->session = self;
+    task->evschedule = event_create();
+    if ( task->evschedule == NULL )
+    {
+        return -3;
+    }
+
+    // 压入链表
+    SLIST_INSERT_HEAD(&self->tasklist, task, tasklink );
+    // 定时
+    event_set( task->evschedule, -1, 0 );
+    event_set_callback( task->evschedule, channel_on_schedule, task );
+    evsets_add( self->evsets, task->evschedule, task->interval );
 
     return 0;
 }

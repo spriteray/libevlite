@@ -28,6 +28,7 @@
 
      - nthreads: 指定网络线程的个数
      - nclients: 推荐连接数
+	 - precision: 事件集的时间精度(建议值8ms)
      - immediately: 数据是否会立刻推送到网络层，对实时性要求很高的场景, 建议设置为1
 
    - ##### 设置网络通信层的方法(仅在IO线程中才能使用)
@@ -36,6 +37,13 @@
      - 设置网络层数据改造方法: iolayer_set_transform()
 
    - ##### 监听端口/开启服务端 iolayer_listen()
+
+     - type: 网络类型, 支持TCP, UDP和KCP
+     - host: 绑定的地址
+	 - port: 监听的端口号
+	 - options: 服务器全局参数(当前主要是KCP的参数配置)
+	 - callback: 新绘画创建成功的回调
+	 - context: 上下文参数
 
    - ##### 连接远程服务/开启客户端 iolayer_connect()
 

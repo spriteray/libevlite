@@ -42,7 +42,7 @@ public :
     virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
-    virtual int32_t onPerform( int32_t type, void * task ) { return 0; }
+    virtual int32_t onPerform( int32_t type, void * task, int32_t interval ) { return 0; }
     virtual void    onShutdown( int32_t way ) {}
 
 public :
@@ -101,7 +101,7 @@ protected :
     static int32_t  onTimeoutSession( void * context );
     static int32_t  onKeepaliveSession( void * context );
     static int32_t  onErrorSession( void * context, int32_t result );
-    static int32_t  onPerformSession( void * context, int32_t type, void * task );
+    static int32_t  onPerformSession( void * context, int32_t type, void * task, int32_t interval );
     static void     onShutdownSession( void * context, int32_t way );
 
 private :
@@ -120,7 +120,7 @@ class IIOService
 {
 public :
     IIOService( uint8_t nthreads,
-            uint32_t nclients, bool immediately = false, bool transform = false );
+            uint32_t nclients, int32_t precision = 8, bool immediately = false, bool transform = false );
     virtual ~IIOService();
 
 public :
@@ -160,7 +160,9 @@ public :
     iolayer_t iolayer() const { return m_IOLayer; }
 
     // 监听
-    bool listen( NetType type, const char * host, uint16_t port );
+    bool listen( NetType type,
+        const char * host, uint16_t port,
+        const options_t * options = nullptr );
 
     // 是否正在异步连接
     bool isConnecting( const char * host, uint16_t port );
@@ -207,7 +209,7 @@ public :
 
     // 提交任务到网络层
     int32_t invoke( void * task, taskcloner_t clone, taskexecutor_t execute );
-    int32_t perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle );
+    int32_t perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle, int32_t interval = -1 );
 
 private :
     // 监听上下文
@@ -272,6 +274,7 @@ private :
     iolayer_t           m_IOLayer;
     bool                m_Transform;
     bool                m_Immediately;
+    int32_t             m_Precision;
     uint8_t             m_ThreadsCount;
     uint32_t            m_SessionsCount;
     void **             m_IOContextGroup;

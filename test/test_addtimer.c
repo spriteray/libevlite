@@ -82,7 +82,7 @@ int32_t test_operate_timer()
     evsets_t sets = NULL;
     event_t * events = NULL;
 
-    sets = evsets_create();
+    sets = evsets_create( 8 );
     events = malloc( sizeof(event_t) * NTEST );
 
     for ( i = 0; i < NTEST; ++i )
@@ -110,7 +110,7 @@ int32_t test_evtimer()
     evsets_t sets = NULL;
     event_t ev_timer = NULL;
 
-    sets = evsets_create();
+    sets = evsets_create( 8 );
 
     ev_timer = event_create();
     event_set( ev_timer, -1, 0 );

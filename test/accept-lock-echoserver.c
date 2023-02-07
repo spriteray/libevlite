@@ -424,7 +424,7 @@ struct iothread * iothread_create( uint8_t key, struct acceptor * a )
         thr->index = 0;
         thr->core_acceptor = a;
 
-        thr->core_sets = evsets_create();
+        thr->core_sets = evsets_create( 8 );
         if ( thr->core_sets == NULL )
         {
 #if __DEBUG

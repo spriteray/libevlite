@@ -244,7 +244,7 @@ bool CurlAgent::initialize()
         return false;
     }
 
-    m_EventBase = evsets_create();
+    m_EventBase = evsets_create( 8 );
     if ( m_EventBase == nullptr )
     {
         return false;

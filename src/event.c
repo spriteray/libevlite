@@ -208,7 +208,7 @@ int32_t event_active( struct event * self, int16_t res )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-evsets_t evsets_create()
+evsets_t evsets_create( int32_t precision )
 {
     struct eventset * self = NULL;
 
@@ -229,10 +229,10 @@ evsets_t evsets_create()
         self->evsets = self->evselect->init();
         if ( self->evsets )
         {
-            self->core_timer = evtimer_create( TIMER_MAX_PRECISION, TIMER_BUCKET_COUNT );
+            self->core_timer = evtimer_create( precision, TIMER_BUCKET_COUNT );
             if ( self->core_timer )
             {
-                self->timer_precision = TIMER_MAX_PRECISION;
+                self->timer_precision = precision;
                 self->expire_time = milliseconds() + self->timer_precision;
             }
             else

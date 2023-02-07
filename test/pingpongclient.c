@@ -89,7 +89,7 @@ PingpongClient * pingpongclient_init( uint8_t type )
         return NULL;
     }
 
-    client->evsets = evsets_create();
+    client->evsets = evsets_create( 8 );
     if ( client->evsets == NULL )
     {
         return NULL;

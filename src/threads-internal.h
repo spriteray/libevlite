@@ -58,6 +58,7 @@ struct iothreads
 
     uint8_t nthreads;
     uint8_t runflags;
+    int32_t precision;      // 时间精度
     uint8_t immediately;    // 是否立刻通知IO线程
 
     uint8_t nrunthreads;

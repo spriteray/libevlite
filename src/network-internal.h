@@ -93,6 +93,7 @@ struct acceptor
     int32_t                 fd;
     uint8_t                 type;
     uint8_t                 index;
+    options_t               options;
 
     // 接收事件
     event_t                 event;
@@ -206,6 +207,7 @@ struct task_perform
     sid_t                   id;
     int32_t                 type;
     void *                  task;
+    int32_t                 interval;
     taskrecycler_t          recycle;
 };
 

@@ -19,7 +19,7 @@ void _base_processor( void * context, uint8_t index, int16_t type, void * task )
     // TODO: 基础处理器
 }
 
-iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately )
+iothreads_t iothreads_start( uint8_t nthreads, int32_t precision, uint8_t immediately )
 {
     uint8_t i = 0;
     struct iothreads * iothreads = NULL;
@@ -41,6 +41,7 @@ iothreads_t iothreads_start( uint8_t nthreads, uint8_t immediately )
     iothreads->processor   = _base_processor;
     iothreads->immediately = immediately;
     iothreads->nthreads = nthreads;
+    iothreads->precision = precision;
     pthread_cond_init( &iothreads->cond, NULL );
     pthread_mutex_init( &iothreads->lock, NULL );
 
@@ -231,7 +232,7 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
     self->index = index;
     self->parent = parent;
 
-    self->sets = evsets_create();
+    self->sets = evsets_create( ((struct iothreads *)parent)->precision );
     if ( self->sets == NULL )
     {
         iothread_stop(self);

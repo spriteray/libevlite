@@ -132,19 +132,20 @@ void IIOSession::onShutdownSession( void * context, int32_t way )
     delete session;
 }
 
-int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task )
+int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task, int32_t interval )
 {
-    return static_cast<IIOSession *>(context)->onPerform( type, task );
+    return static_cast<IIOSession *>(context)->onPerform( type, task, interval );
 }
 
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-IIOService::IIOService( uint8_t nthreads, uint32_t nclients, bool immediately, bool transform )
+IIOService::IIOService( uint8_t nthreads, uint32_t nclients, int32_t precision, bool immediately, bool transform )
     : m_IOLayer( nullptr ),
       m_Transform( transform ),
       m_Immediately( immediately ),
+      m_Precision( precision ),
       m_ThreadsCount( nthreads ),
       m_SessionsCount( nclients ),
       m_IOContextGroup( nullptr )
@@ -168,7 +169,7 @@ bool IIOService::start()
 {
     m_IOLayer = iolayer_create(
             m_ThreadsCount,
-            m_SessionsCount, m_Immediately ? 1 : 0 );
+            m_SessionsCount, m_Precision, m_Immediately ? 1 : 0 );
     if ( m_IOLayer == nullptr )
     {
         return false;
@@ -252,7 +253,7 @@ bool IIOService::isConnecting( const char * host, uint16_t port )
     return found;
 }
 
-bool IIOService::listen( NetType type, const char * host, uint16_t port )
+bool IIOService::listen( NetType type, const char * host, uint16_t port, const options_t * options )
 {
     ListenContext * context = new ListenContext( port, this );
     if ( context == nullptr )
@@ -264,7 +265,7 @@ bool IIOService::listen( NetType type, const char * host, uint16_t port )
     m_ListenContexts.push_back( context );
     pthread_mutex_unlock( &m_Lock );
 
-    return ( iolayer_listen( m_IOLayer, (uint8_t)type, host, port, onAcceptSession, context ) == 0 );
+    return ( iolayer_listen( m_IOLayer, (uint8_t)type, host, port, options, onAcceptSession, context ) == 0 );
 }
 
 sid_t IIOService::connect( const char * host, uint16_t port, int32_t seconds )
@@ -380,14 +381,14 @@ int32_t IIOService::invoke( void * task, taskcloner_t clone, taskexecutor_t exec
     return iolayer_invoke( m_IOLayer, task, clone, execute );
 }
 
-int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle )
+int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle, int32_t interval )
 {
     int32_t rc = iolayer_perform(
-            m_IOLayer, sid, type, task, recycle );
+            m_IOLayer, sid, type, task, interval, recycle );
 
     if ( rc != 0 )
     {
-        recycle( type, task );
+        recycle( type, task, interval );
     }
 
     return rc;

@@ -19,7 +19,7 @@ static void _kcp_refresh_state( struct driver * self );
 static void _kcp_timer( int32_t fd, int16_t ev, void * arg );
 static int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * user );
 
-struct driver * driver_create( struct session * s, struct buffer * buffer )
+struct driver * driver_create( struct session * s, struct buffer * buffer, const options_t * options )
 {
     struct driver * self = (struct driver *)calloc( 1, sizeof( struct driver ) );
     if ( self != NULL )
@@ -45,15 +45,16 @@ struct driver * driver_create( struct session * s, struct buffer * buffer )
         self->epoch = milliseconds();
         buffer_swap( &self->buffer, buffer );
 
-        // 设置kcp的属性
+        // 设置kcp的极速模式
         // 1 - 启动nodelay模式
-        // 40 - 内部的interval(8ms的倍数)
-        // 2 - 2次ACK将会被重传
         // 1 - 关闭流量控制
-        ikcp_nodelay( self->kcp, 1, 40, 2, 1 );
-        // 定制属性(逻辑层无法修改)
-        self->kcp->stream = 1;          // 流模式
-        self->kcp->dead_link = 50;      // 最大重传次数
+        ikcp_nodelay( self->kcp,
+            1, options->interval, options->resend, 1 );              // KCP极速模式
+        ikcp_setmtu( self->kcp, options->mtu );                      // 最大传输单元
+        ikcp_wndsize( self->kcp, options->sndwnd, options->rcvwnd ); // 窗口大小
+        self->kcp->stream = options->stream;                         // 流模式
+        self->kcp->rx_minrto = options->minrto;                      // 最小重传超时时间
+        self->kcp->dead_link = options->deadlink;                    // 最大重传次数
         ikcp_setoutput( self->kcp, _kcp_output );
     }
 

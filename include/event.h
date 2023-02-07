@@ -46,7 +46,6 @@ extern "C"
 #define EV_TIMEOUT  0x04    // 超时事件
 #define EV_PERSIST  0x08    // 永久模式
 
-
 //
 // 事件的定义, 以及事件集的定义
 //
@@ -54,6 +53,9 @@ extern "C"
 typedef void * event_t;
 typedef void * evsets_t;
 typedef void (*eventcb_t)( int32_t, int16_t, void * );
+
+// 时间精度
+#define TIMER_PRECISION 8   // 时间精度
 
 //
 // 事件的方法
@@ -89,8 +91,8 @@ void event_destroy( event_t self );
 // 事件集的方法
 //
 
-// 创建事件集
-evsets_t evsets_create();
+// 创建事件集(TIMER_PRECISION)
+evsets_t evsets_create( int32_t precision );
 
 // 事件库的版本
 const char * evsets_get_version();

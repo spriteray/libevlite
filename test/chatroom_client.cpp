@@ -281,7 +281,7 @@ int main( int argc, char ** argv )
 
     assert( clients != NULL && "malloc() failed " );
 
-    evsets_t sets = evsets_create();
+    evsets_t sets = evsets_create(8);
     assert( sets != NULL && "evsets_create() failed" );
 
     // 连接远程服务器

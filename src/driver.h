@@ -5,6 +5,7 @@
 #include "ikcp.h"
 #include "event.h"
 #include "message.h"
+#include "network.h"
 
 struct session;
 
@@ -17,7 +18,7 @@ struct driver
 };
 
 // 创建驱动
-struct driver * driver_create( struct session * s, struct buffer * buffer );
+struct driver * driver_create( struct session * s, struct buffer * buffer, const options_t * option );
 
 // 输入数据(KCP重组)
 ssize_t driver_input( struct driver * self, struct buffer * buffer );
