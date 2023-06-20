@@ -19,7 +19,7 @@
 
 int32_t isrunning, naccept;
 
-void listenfd_options( int32_t fd )
+int32_t listenfd_options( int32_t fd )
 {
     int32_t flags = 0;
 
@@ -34,6 +34,8 @@ void listenfd_options( int32_t fd )
 
     flags = 1;
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags) );
+
+    return 0;
 }
 
 void echoserver_signal_handler( int signo )
@@ -102,6 +104,7 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
                 return;
             }
 
+            printf( "accept new fd:%d, %s::%d .\n", newfd, dsthost, dstport );
             event_set( event, newfd, EV_READ|EV_PERSIST );
             event_set_callback( event, process_message, event );
             evsets_add( coreset, event, -1 );
@@ -137,7 +140,7 @@ int main( int argc, char ** argv )
     port = (uint16_t)atoi( argv[2] );
 
     // core eventsets
-    coreset = evsets_create();
+    coreset = evsets_create(8);
     if ( coreset == NULL )
     {
         printf( "create core event sets failed .\n" );
@@ -148,7 +151,7 @@ int main( int argc, char ** argv )
     fd = tcp_listen( host, port, listenfd_options );
     if ( fd < 0 )
     {
-        printf( "listen failed %s::%d .\n", host, port );
+        printf( "listen failed %d, %s::%d .\n", fd, host, port );
         goto FINAL;
     }
 

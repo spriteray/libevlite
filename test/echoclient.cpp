@@ -10,7 +10,7 @@
 // 回显服务实例
 //
 
-class CEchoSession : public Utils::IIOSession
+class CEchoSession : public IIOSession
 {
 public :
     CEchoSession()
@@ -20,6 +20,10 @@ public :
     {}
 
 public :
+    virtual int32_t onStart() {
+        printf( "%lld, %s::%d .\n", id(), host().c_str(), port() );
+        return 0;
+    }
 
     virtual ssize_t onProcess( const char * buf, size_t nbytes )
     {
@@ -42,12 +46,12 @@ public :
     }
 };
 
-class CEchoService : public Utils::IIOService
+class CEchoService : public IIOService
 {
 public :
 
     CEchoService( uint8_t nthreads, uint32_t nclients )
-        : Utils::IIOService( nthreads, nclients )
+        : IIOService( nthreads, nclients )
     {
     }
 
@@ -57,7 +61,7 @@ public :
 
 public :
 
-    Utils::IIOSession * onConnect( sid_t id, const char * host, uint16_t port )
+    virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port )
     {
         m_ClientSid = id;
         return new CEchoSession();
@@ -115,6 +119,8 @@ int main( int argc, char ** argv )
 
         return -2;
     }
+
+    printf( "echoclient connect succeed .\n" );
 
     g_Running = true;
 

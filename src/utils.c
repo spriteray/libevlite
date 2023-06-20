@@ -8,6 +8,7 @@
 #include <errno.h>
 #include <syslog.h>
 
+#include <sys/un.h>
 #include <sys/time.h>
 #include <sys/syscall.h>
 
@@ -115,6 +116,81 @@ int32_t set_non_block( int32_t fd )
     return rc;
 }
 
+int32_t unix_connect( const char * path, int32_t (*options)(int32_t) )
+{
+    int32_t fd = socket( AF_UNIX, SOCK_STREAM, 0 );
+    if ( fd < 0 )
+    {
+        return -4;
+    }
+
+    // 对描述符的选项操作
+    if ( options( fd ) != 0 )
+    {
+        close( fd );
+        return -5;
+    }
+
+    struct sockaddr_un addr;
+    memset( &addr, 0, sizeof(addr) );
+    addr.sun_family = AF_LOCAL;
+    strncpy( addr.sun_path, path, sizeof(addr.sun_path)-1 );
+
+    // bind
+    if ( connect( fd, (struct sockaddr *)&addr, sizeof(addr) ) == -1 )
+    {
+        close( fd );
+        return -6;
+    }
+
+    return fd;
+}
+
+int32_t unix_listen( const char * path, int32_t (*options)( int32_t ) )
+{
+    // 删除文件
+    if ( unlink( path ) != 0 && errno != ENOENT )
+    {
+        return -3;
+    }
+
+    int32_t fd = socket( AF_UNIX, SOCK_STREAM, 0 );
+    if ( fd < 0 )
+    {
+        return -4;
+    }
+
+    // 对描述符的选项操作
+    if ( options( fd ) != 0 )
+    {
+        close( fd );
+        return -5;
+    }
+
+    struct sockaddr_un addr;
+    memset( &addr, 0, sizeof(addr) );
+    addr.sun_family = AF_LOCAL;
+    strncpy( addr.sun_path, path, sizeof(addr.sun_path)-1 );
+
+    // bind
+    if ( bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) == -1 )
+    {
+        close( fd );
+        return -6;
+    }
+
+    // listen
+    if ( listen( fd, SOMAXCONN ) == -1 ) {
+        close( fd );
+        return -7;
+    }
+
+    // 修改文件的权限
+    chmod( path, (mode_t)0700 );
+
+    return fd;
+}
+
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport )
 {
     int32_t cfd = -1;
@@ -151,7 +227,7 @@ int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t
     // 获取地址信息
     if ( getaddrinfo( host, strport, &hints, &res ) != 0 )
     {
-        return -1;
+        return port == 0 ? unix_listen( host, options ) : -1;
     }
 
     for ( p = res; p != NULL; p = p->ai_next )
@@ -190,7 +266,7 @@ int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t
     freeaddrinfo( res );
     if ( p == NULL )
     {
-        return -2;
+        return port == 0 ? unix_listen( host, options ) : -2;
     }
 
     return fd;
@@ -198,6 +274,11 @@ int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t
 
 int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_t) )
 {
+    if ( port == 0 )
+    {
+        return unix_connect( host, options );
+    }
+
     int32_t fd = -1;
     char strport[ 6 ];
     struct addrinfo hints, *res, *p;
@@ -376,6 +457,12 @@ void parse_endpoint( struct sockaddr_storage * addr, char * host, uint16_t * por
             *port = ntohs( ((struct sockaddr_in *)saddr)->sin_port );
             inet_ntop( saddr->sa_family,
                     &((struct sockaddr_in *)saddr)->sin_addr, host, INET_ADDRSTRLEN );
+            break;
+
+        case AF_UNIX :
+            *port = 0;
+            inet_ntop( saddr->sa_family,
+                    &((struct sockaddr_un *)saddr)->sun_path, host, INET_ADDRSTRLEN );
             break;
 
         case AF_INET6 :

@@ -5,7 +5,7 @@
 
 #include "io.h"
 
-#define DEBUG_OUTPUT    0
+#define DEBUG_OUTPUT    1
 
 
 //
@@ -25,6 +25,9 @@ public :
 
     virtual int32_t onStart()
     {
+    #if DEBUG_OUTPUT
+        printf("the Session (SID=%ld) Start (%s::%d)  \n", id(), host().c_str(), port() );
+    #endif
 //        setTimeout( 60 );
         return 0;
     }
@@ -72,8 +75,9 @@ public :
 
 public :
 
-    IIOSession * onAccept( sid_t id, const char * host, uint16_t port )
+    IIOSession * onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port )
     {
+        printf( "%lld, %s::%d .\n", id, host, port );
         return new CEchoSession;
     }
 };
@@ -89,9 +93,15 @@ void signal_handle( int32_t signo )
     g_Running = false;
 }
 
-int main()
+int main( int argc, char ** argv )
 {
     CEchoService * service = NULL;
+
+    if ( argc != 3 )
+    {
+        printf("Usage: echoserver [host] [port] \n");
+        return -1;
+    }
 
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signal_handle );
@@ -104,7 +114,7 @@ int main()
 
     service->start();
 
-    if ( !service->listen( "127.0.0.1", 9029 ) )
+    if ( !service->listen( NetType::TCP, argv[1], atoi(argv[2]), nullptr ) )
     {
         printf("service start failed \n");
         delete service;

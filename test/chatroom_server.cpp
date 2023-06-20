@@ -67,7 +67,7 @@ public :
     virtual ~CChatRoomService();
 
 public :
-    virtual IIOSession * onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port );
+    virtual IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port );
 
 public :
     bool init( const char * host, uint16_t port );
@@ -187,7 +187,7 @@ CChatRoomService::~CChatRoomService()
     pthread_mutex_destroy( &m_TaskLock );
 }
 
-IIOSession * CChatRoomService::onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port )
+IIOSession * CChatRoomService::onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port )
 {
     CChatRoomSession * session = new CChatRoomSession;
     if ( session )

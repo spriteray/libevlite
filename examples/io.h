@@ -139,7 +139,7 @@ public :
     virtual bool onConnectFailed( int32_t result, const char * host, uint16_t port ) { return false; }
     virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port ) { return NULL; }
     // 接受事件
-    virtual IIOSession * onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port ) { return NULL; }
+    virtual IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port ) { return NULL; }
 
 public :
     //
@@ -215,6 +215,7 @@ private :
     // 监听上下文
     struct ListenContext
     {
+        NetType         type;
         uint16_t        port;
         IIOService *    service;
 
@@ -223,8 +224,9 @@ private :
               service( NULL )
         {}
 
-        ListenContext( uint16_t p, IIOService * s )
-            : port( p ),
+        ListenContext( NetType t, uint16_t p, IIOService * s )
+            : type( t ),
+              port( p ),
               service( s )
         {}
     };

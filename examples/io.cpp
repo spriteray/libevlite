@@ -255,7 +255,7 @@ bool IIOService::isConnecting( const char * host, uint16_t port )
 
 bool IIOService::listen( NetType type, const char * host, uint16_t port, const options_t * options )
 {
-    ListenContext * context = new ListenContext( port, this );
+    ListenContext * context = new ListenContext( type, port, this );
     if ( context == nullptr )
     {
         return false;
@@ -469,7 +469,7 @@ int32_t IIOService::onAcceptSession( void * context, void * iocontext, sid_t id,
     IIOSession * session = nullptr;
     ListenContext * ctx = static_cast<ListenContext*>( context );
 
-    session = ctx->service->onAccept( id, ctx->port, host, port );
+    session = ctx->service->onAccept( id, ctx->type, ctx->port, host, port );
     if ( session == nullptr )
     {
         return -1;

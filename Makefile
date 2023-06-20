@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.9.6
+VERSION 	= 9.9.7
 PREFIX		= /usr/local
 
 # 主版本号
@@ -138,10 +138,10 @@ redis_client : io.o redis.o helper.o $(OBJS)
 	$(CXX) $^ -o $@ $(LFLAGS) -lhiredis
 
 pingpong_client : pingpongclient.o $(OBJS)
-	$(CXX) $^ -o $@ $(LFLAGS) 
+	$(CXX) $^ -o $@ $(LFLAGS)
 
 test_multicurl :  xcurl.o test_multicurl.o $(OBJS)
-	$(CXX) $^ -o $@ $(LFLAGS) -lcurl 
+	$(CXX) $^ -o $@ $(LFLAGS) -lcurl
 
 clean :
 	rm -rf *.o
