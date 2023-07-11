@@ -176,8 +176,8 @@ ssize_t driver_transmit( struct session * session )
         }
     }
 
-    // 更新kcp状态
-    ikcp_flush( session->driver->kcp );
+    // 写事件, 立刻update()不需要等下一轮
+    _kcp_refresh_state( session->driver );
 
     if ( writen > 0 && session_sendqueue_count(session) > 0 )
     {
@@ -203,10 +203,8 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
             return -1;
         }
 
-        // 强制刷新发送队列
-        ikcp_flush( d->kcp );
-        _kcp_schedule( d, EVENTSET_PRECISION( session->evsets ) );
-
+        // 写事件, 立刻update()不需要等下一轮
+        _kcp_refresh_state( d );
         return nbytes;
     }
 
@@ -230,31 +228,10 @@ void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd )
 
 void _kcp_refresh_state( struct driver * self )
 {
-    int32_t timeout = -1;
-    struct session * session = _get_session( self );
-
-    // 调度
-    ikcp_update( self->kcp, _kcp_milliseconds(self) );
-
-    // 检查发送窗口
-    if ( _kcp_can_send( self )
-            && session_sendqueue_count(session) > 0 )
-    {
-        // 调用过ikcp_send()下轮直接更新状态
-        driver_transmit( session );
-        timeout = EVENTSET_PRECISION( session->evsets );
-    }
-
-    // 计算超时时间
-    // 因为调用过ikcp_send(), 所以不用计算超时时间了
-    if ( timeout == -1 )
-    {
-        uint32_t current = _kcp_milliseconds(self);
-        timeout = ikcp_check( self->kcp, current ) - current;
-    }
-
-    // 加入定时器
-    _kcp_schedule( self, timeout );
+    // 刷新kcp的状态
+    uint32_t current = _kcp_milliseconds( self );
+    ikcp_update( self->kcp, current );
+    _kcp_schedule( self, ikcp_check( self->kcp, current ) - current );
 }
 
 uint32_t _kcp_milliseconds( struct driver * self )
@@ -269,7 +246,7 @@ void _kcp_timer( int32_t fd, int16_t ev, void * arg )
     // 状态
     session->status &= ~SESSION_SCHEDULING;
 
-    // 刷新kcp状态
+    // 刷新kcp的状态
     _kcp_refresh_state( session->driver );
 }
 

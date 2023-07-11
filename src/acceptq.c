@@ -100,6 +100,7 @@ void acceptqueue_destroy( struct acceptqueue * self )
             }
         }
 
+        free( self->table );
         self->table = NULL;
     }
 
