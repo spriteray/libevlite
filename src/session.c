@@ -509,8 +509,7 @@ void session_add_event( struct session * self, int16_t ev )
     }
 
     // 注册写事件
-    if ( self->driver == NULL
-            && (ev&EV_WRITE) && !(status&SESSION_WRITING) )
+    if ( (ev&EV_WRITE) && !(status&SESSION_WRITING) )
     {
         int32_t wait_for_shutdown = -1;
 

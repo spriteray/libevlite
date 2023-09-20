@@ -19,10 +19,9 @@
 // 尝试重连的间隔时间,默认为200ms
 #define TRY_RECONNECT_INTERVAL  200
 
-// 发送接收缓冲区设置
-// 默认为0, 由内核动态控制
-#define SEND_BUFFER_SIZE        0
-#define RECV_BUFFER_SIZE        0
+// UDP发送接收缓冲区设置
+#define SEND_BUFFER_SIZE        65536       // 65K
+#define RECV_BUFFER_SIZE        65536       // 65K
 
 enum
 {
@@ -87,7 +86,8 @@ struct iolayer
 };
 
 // 接收器
-struct acceptqueue;
+struct endpoint;
+struct ephashtable;
 struct acceptor
 {
     int32_t                 fd;
@@ -114,7 +114,7 @@ struct acceptor
     struct iolayer *        parent;
     //
     struct buffer           buffer;
-    struct acceptqueue *    acceptq;
+    struct ephashtable *    acceptq;
 
     // 便于回收资源
     STAILQ_ENTRY(acceptor)  linker;
@@ -170,6 +170,15 @@ struct associater
     STAILQ_ENTRY(associater)    linker;
 };
 
+// udp入口
+struct udpentry
+{
+    event_t                 event;
+    struct buffer           buffer;
+    struct acceptor *       acceptor;
+    struct endpoint *       endpoint;
+};
+
 //
 // NOTICE: 网络任务的最大长度不超过56
 //
@@ -183,9 +192,7 @@ struct task_assign
 
     char *                  host;
     struct buffer *         buffer;
-
-    acceptor_t              cb;
-    void *                  context;
+    struct acceptor *       acceptor;
 };
 
 struct task_send
@@ -234,7 +241,6 @@ void iolayer_free_associater( struct associater * associater );
 void iolayer_accept_fdlimits( struct acceptor * acceptor );
 
 // 给当前线程分发一个会话
-int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task );
-int32_t iolayer_assign_session_direct( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task );
 
 #endif

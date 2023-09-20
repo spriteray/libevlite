@@ -241,13 +241,11 @@ ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes )
 
 ssize_t buffer_receive( struct buffer * self, int32_t fd, struct sockaddr_storage * addr )
 {
-    ssize_t nread = -1;
+    ssize_t nread = MAX_BUFFER_LENGTH;
     socklen_t addrlen = sizeof(*addr);
 
-    if ( ioctl( fd, FIONREAD, &nread ) != 0 || nread <= 0 )
-    {
-        nread = MAX_BUFFER_LENGTH;
-    }
+    // Using FIONREAD, it is impossible to distinguish the case
+    // where no datagram is pending from the case where the next pending datagram contains zero bytes of data
 
     if ( _expand( self, nread ) != 0 )
     {

@@ -14,7 +14,7 @@
 #include "channel.h"
 #include "session.h"
 #include "message.h"
-#include "acceptq.h"
+#include "ephashtable.h"
 #include "event-internal.h"
 #include "threads-internal.h"
 #include "network-internal.h"
@@ -23,6 +23,7 @@
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+static inline void _udpentry_helper( int method, struct endpoint * endpoint );
 static inline int32_t _new_managers( struct iolayer * self );
 static inline struct session_manager * _get_manager( struct iolayer * self, uint8_t index );
 static inline int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree );
@@ -140,37 +141,29 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     // 参数检查
     assert( self != NULL && "Illegal IOLayer" );
     assert( callback != NULL && "Illegal specified Callback-Function" );
-    assert( (type == NETWORK_TCP || type == NETWORK_KCP || type == NETWORK_UDP ) && "Illegal type" );
+    assert( ( type == NETWORK_TCP || type == NETWORK_KCP || type == NETWORK_UDP ) && "Illegal type" );
 
-    if ( type == NETWORK_KCP || type == NETWORK_UDP )
+    // TCP服务端
+#ifdef EVENT_HAVE_REUSEPORT
+    // reuseport
+    uint8_t i = 0;
+    syslog( LOG_INFO,
+        "%s(host:'%s', port:%d) use SO_REUSEPORT .",
+        __FUNCTION__, host == NULL ? "" : host, port );
+    for ( i = 0; i < layer->nthreads; ++i )
     {
-        // KCP服务端 or UDP服务端
-        return _server_listen( layer, type, 0, host, port, options, callback, context );
-    }
-    else if ( type == NETWORK_TCP )
-    {
-        // TCP服务端
-#ifndef EVENT_HAVE_REUSEPORT
-        // normal
-        return _server_listen( layer, type, 0, host, port, options, callback, context );
-#else
-        // reuseport
-        uint8_t i = 0;
-        syslog(LOG_INFO,
-                "%s(host:'%s', port:%d) use SO_REUSEPORT .", __FUNCTION__, host == NULL ? "" : host, port);
-        for ( i = 0; i < layer->nthreads; ++i )
+        int32_t rc = _server_listen( layer, type, i, host, port, options, callback, context );
+        if ( rc < 0 )
         {
-            int32_t rc = _server_listen( layer, type, i, host, port, options, callback, context );
-            if ( rc < 0 )
-            {
-                return rc;
-            }
+            return rc;
         }
-        return 0;
-#endif
     }
-
-    return -1;
+    return 0;
+#else
+    // normal
+    return _server_listen( layer, type,
+        DISPATCH_POLICY( layer, __sync_fetch_and_add( &layer->roundrobin, 1 ) ), host, port, options, callback, context );
+#endif
 }
 
 // 客户端开启
@@ -903,15 +896,7 @@ int32_t iolayer_server_option( int32_t fd )
 #endif
 
     // 发送接收缓冲区
-    // NOTICE: 内核可以动态调整发送和接受缓冲区的, 所以不建议设置该选项
-#if SEND_BUFFER_SIZE > 0
-    size_t sendbuf_size = SEND_BUFFER_SIZE;
-    setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
-#endif
-#if RECV_BUFFER_SIZE > 0
-    size_t recvbuf_size = RECV_BUFFER_SIZE;
-    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
-#endif
+    // NOTICE: 内核可以动态调整TCP的发送和接受缓冲区的, 所以不建议设置该选项
 
     return 0;
 }
@@ -927,15 +912,7 @@ int32_t iolayer_client_option( int32_t fd )
     setsockopt( fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flag, sizeof(flag) );
 
     // 发送接收缓冲区
-    // NOTICE: 内核可以动态调整发送和接受缓冲区的, 所以不建议设置该选项
-#if SEND_BUFFER_SIZE > 0
-    size_t sendbuf_size = SEND_BUFFER_SIZE;
-    setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
-#endif
-#if RECV_BUFFER_SIZE > 0
-    size_t recvbuf_size = RECV_BUFFER_SIZE;
-    setsockopt( fd, SOL_SOCKET, SO_RCVBUF, (void *)&recvbuf_size, sizeof(recvbuf_size) );
-#endif
+    // NOTICE: 内核可以动态调整TCP的发送和接受缓冲区的, 所以不建议设置该选项
 
     return 0;
 }
@@ -958,17 +935,7 @@ int32_t iolayer_udp_option( int32_t fd )
     flag = 1;
     setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof(flag) );
 
-#if SAFE_SHUTDOWN == 0
-    {
-        struct linger ling;
-        ling.l_onoff = 1;
-        ling.l_linger = 0;
-        setsockopt( fd, SOL_SOCKET, SO_LINGER, (void *)&ling, sizeof(ling) );
-    }
-#endif
-
     // 发送接收缓冲区
-    // NOTICE: 内核可以动态调整发送和接受缓冲区的, 所以不建议设置该选项
 #if SEND_BUFFER_SIZE > 0
     size_t sendbuf_size = SEND_BUFFER_SIZE;
     setsockopt( fd, SOL_SOCKET, SO_SNDBUF, (void *)&sendbuf_size, sizeof(sendbuf_size) );
@@ -1026,7 +993,7 @@ void iolayer_free_acceptor( struct acceptor * acceptor )
 
     if ( acceptor->acceptq != NULL )
     {
-        acceptqueue_destroy( acceptor->acceptq );
+        ephashtable_destroy( acceptor->acceptq );
         acceptor->acceptq = NULL;
     }
     buffer_clear( &acceptor->buffer );
@@ -1101,33 +1068,49 @@ void iolayer_accept_fdlimits( struct acceptor * acceptor )
     acceptor->idlefd = open( "/dev/null", O_RDONLY|O_CLOEXEC );
 }
 
-int32_t iolayer_assign_session( struct iolayer * self, uint8_t index, struct task_assign * task )
+int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
 {
-    evsets_t sets = iothreads_get_sets( self->threads, index );
-    pthread_t threadid = iothreads_get_id( self->threads, index );
-
-    if ( pthread_self() == threadid )
-    {
-        return _assign_direct( self, index, sets, task );
-    }
-
-    // 跨线程提交发送任务
-    return iothreads_post( self->threads, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
-}
-
-int32_t iolayer_assign_session_direct( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
-{
-#ifndef EVENT_HAVE_REUSEPORT
-    return iolayer_assign_session( self, index, task );
-#else
+#ifdef EVENT_HAVE_REUSEPORT
     return _assign_direct( self, acceptidx,
             iothreads_get_sets( self->threads, acceptidx ), task );
+#else
+    pthread_t threadid = iothreads_get_id( self->threads, index );
+    if ( pthread_self() == threadid )
+    {
+        return _assign_direct( self, index,
+            iothreads_get_sets( self->threads, index ), task );
+    }
+    // 跨线程提交发送任务
+    return iothreads_post( self->threads, index, eIOTaskType_Assign, task, sizeof(struct task_assign) );
 #endif
 }
 
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+void _udpentry_helper( int method, struct endpoint * endpoint )
+{
+    struct udpentry * entry = (struct udpentry *)endpoint->value;
+
+    if ( method == 1 )
+    {
+        buffer_init( &entry->buffer );
+        entry->endpoint = endpoint;
+        entry->event = event_create();
+        assert( entry->event != NULL && "event_create() failed" );
+    }
+    else
+    {
+        buffer_clear( &entry->buffer );
+        if ( entry->event != NULL )
+        {
+            evsets_del( entry->acceptor->evsets, entry->event );
+            event_destroy( entry->event );
+            entry->event = NULL;
+        }
+    }
+}
 
 int32_t _new_managers( struct iolayer * self )
 {
@@ -1188,6 +1171,7 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
     }
 
     acceptor->type      = type;
+    acceptor->index     = index;
     acceptor->parent    = layer;
     acceptor->port      = port;
     acceptor->context   = context;
@@ -1200,14 +1184,9 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
     {
         acceptor->options = *options;
     }
-    acceptor->index     = DISPATCH_POLICY( layer,
-            __sync_fetch_and_add(&layer->roundrobin, 1) );
 
     if ( type == NETWORK_TCP )
     {
-#ifdef EVENT_HAVE_REUSEPORT
-        acceptor->index     = index;
-#endif
         acceptor->idlefd    = open( "/dev/null", O_RDONLY|O_CLOEXEC );
 
         acceptor->fd = tcp_listen( host, port, iolayer_server_option );
@@ -1241,7 +1220,8 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
         }
 
         // 接收队列
-        acceptor->acceptq = acceptqueue_create( 4096 );
+        acceptor->acceptq = ephashtable_create(
+            4096, sizeof(struct udpentry), _udpentry_helper );
         if ( acceptor->acceptq == NULL )
         {
             syslog(LOG_WARNING,
@@ -1408,7 +1388,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     }
 
     // 回调逻辑层, 确定是否接收这个会话
-    rc = task->cb( task->context,
+    rc = task->acceptor->cb( task->acceptor->context,
             iothreads_get_context( layer->threads, index ), session->id, task->host, task->port );
     if ( rc != 0 )
     {
@@ -1444,7 +1424,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     else if ( task->type == NETWORK_KCP )
     {
         rc = session_init_driver(
-            session, task->buffer, &(((struct acceptor *)task)->options) );
+            session, task->buffer, &(task->acceptor->options) );
         if ( rc != 0 )
         {
             syslog(LOG_WARNING,

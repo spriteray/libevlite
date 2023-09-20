@@ -105,7 +105,7 @@ PingpongClient * pingpongclient_init( uint8_t type )
     ikcp_nodelay( client->kcp, 1, 10, 2, 1 );
     ikcp_setoutput( client->kcp, kcp_output );
 
-    if ( type == 1 )
+    if ( type == NETWORK_TCP )
     {
         client->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     }
@@ -135,7 +135,23 @@ PingpongClient * pingpongclient_init( uint8_t type )
 
 void pingpongclient_final( PingpongClient * cli )
 {
-    // TODO:
+    char buf[1024];
+
+    write(cli->fd, buf, 0);
+
+    if ( cli->kcp != NULL )
+    {
+        ikcp_flush( cli->kcp );
+        ikcp_release( cli->kcp );
+    }
+
+    close( cli->fd );
+
+    evsets_del( cli->evsets, cli->event );
+    event_destroy( cli->event );
+    evsets_destroy( cli->evsets );
+
+    free( cli );
 }
 
 int32_t pingpongclient_connect( PingpongClient * client, const char * host, uint16_t port  )
@@ -171,11 +187,11 @@ void pingpongclient_on_read( int32_t fd, int16_t ev, void * arg )
         {
             struct buffer inbuf;
 
-            if ( cli->type == 1 )
+            if ( cli->type == NETWORK_TCP )
             {
                 buffer_append( &inbuf, buffer, len );
             }
-            else
+            else if ( cli->type == NETWORK_KCP )
             {
                 ikcp_input( cli->kcp, buffer, len );
                 while ( 1 )
@@ -257,27 +273,32 @@ int main(int argc, char* argv[])
             fflush( stdin );
             fgets( buffer, INBUFFER_LEN, stdin );
 
-            length = strlen( buffer );
-            if ( length != 0 )
+            if ( g_IsRunning != 0 )
             {
-                g_IsInput = 0;
-                *(int64_t *)(buffer+length-1) = htobe64( milliseconds() );
+                length = strlen( buffer );
+                if ( length != 0 )
+                {
+                    g_IsInput = 0;
+                    *(int64_t *)(buffer+length-1) = htobe64( milliseconds() );
 
-                if ( cli->type == 1 )
-                {
-                    write( cli->fd, buffer, length+7 );
-                }
-                else
-                {
-                    ikcp_send( cli->kcp, buffer, length+7 );
-                    ikcp_flush( cli->kcp );
+                    if ( cli->type == 1 )
+                    {
+                        write( cli->fd, buffer, length+7 );
+                    }
+                    else
+                    {
+                        ikcp_send( cli->kcp, buffer, length+7 );
+                        ikcp_flush( cli->kcp );
+                    }
                 }
             }
         }
 
         evsets_dispatch( cli->evsets );
-        if ( cli->type == 2 )
+        if ( cli->type == NETWORK_KCP )
+        {
             ikcp_update( cli->kcp, milliseconds()-epoch );
+        }
     }
 
     pingpongclient_final( cli );

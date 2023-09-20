@@ -69,7 +69,7 @@ INCLUDEPATH	= $(PREFIX)/include
 #
 
 # ------------------------------------------------------------------------------
-OBJS 	= acceptq.o ikcp.o driver.o utils.o \
+OBJS 	= ikcp.o driver.o utils.o ephashtable.o \
 		  	epoll.o kqueue.o timer.o \
 			event.o \
 			threads.o \

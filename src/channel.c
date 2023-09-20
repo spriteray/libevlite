@@ -12,7 +12,7 @@
 #include "utils.h"
 #include "driver.h"
 #include "channel.h"
-#include "acceptq.h"
+#include "ephashtable.h"
 #include "event-internal.h"
 #include "threads-internal.h"
 #include "network-internal.h"
@@ -240,20 +240,19 @@ void _assign_direct( int32_t fd, int16_t ev, void * arg )
     // 分配任务
     struct task_assign task;
     task.fd = fd;
-    task.port = entry->port;
-    task.host = strdup( entry->host );
-    task.cb = entry->acceptor->cb;
+    task.port = entry->endpoint->port;
+    task.host = strdup( entry->endpoint->host );
+    task.acceptor = entry->acceptor;
     task.type = entry->acceptor->type;
-    task.context = entry->acceptor->context;
     // 交换buffer
     task.buffer = (struct buffer *)malloc(sizeof(struct buffer));
     assert( task.buffer != NULL && "create struct buffer failed" );
     buffer_init( task.buffer );
     buffer_swap( task.buffer, &(entry->buffer) );
-    iolayer_assign_session( layer, DISPATCH_POLICY(layer, fd), &task );
+    iolayer_assign_session( layer, entry->acceptor->index, DISPATCH_POLICY(layer, fd), &task );
 
     // 移除接受队列
-    acceptqueue_remove( entry->acceptor->acceptq, entry->host, entry->port );
+    ephashtable_remove( entry->acceptor->acceptq, entry->endpoint->host, entry->endpoint->port );
 }
 
 void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
@@ -562,12 +561,11 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
 #endif
 
             task.fd = cfd;
-            task.cb = acceptor->cb;
+            task.acceptor = acceptor;
             task.type = acceptor->type;
-            task.context = acceptor->context;
 
             // 分发策略
-            iolayer_assign_session_direct( layer,
+            iolayer_assign_session( layer,
                     acceptor->index, DISPATCH_POLICY(layer, cfd), &(task) );
         }
         else if ( errno == EMFILE )
@@ -617,7 +615,7 @@ void channel_on_udpaccept( int32_t fd, int16_t ev, void * arg )
         }
 #endif
 
-        struct udpentry * entry = acceptqueue_find( acceptor->acceptq, host, port );
+        struct udpentry * entry = (struct udpentry *)ephashtable_find( acceptor->acceptq, host, port );
         if ( entry == NULL )
         {
             // 反向连接
@@ -631,11 +629,9 @@ void channel_on_udpaccept( int32_t fd, int16_t ev, void * arg )
             }
 
             // 新的连接
-            entry = acceptqueue_append( acceptor->acceptq, host, port );
-            assert( entry != NULL && "acceptqueue_append() failed" );
+            entry = (struct udpentry *)ephashtable_append( acceptor->acceptq, host, port );
+            assert( entry != NULL && "ephashtable_append() failed" );
             entry->acceptor = acceptor;
-            entry->event = event_create();
-            assert( entry->event != NULL && "event_create() failed" );
             // 查看反向连接是否成功
             event_set( entry->event, newfd, EV_WRITE );
             event_set_callback( entry->event, _on_backconnected, entry );
@@ -972,8 +968,9 @@ void _on_backconnected( int32_t fd, int16_t ev, void * arg )
     else
     {
         syslog(LOG_WARNING, "%s(fd:%d, %s::%d) failed, this Connection(fd:%d, %s::%d)'s status(result:%d) is INVALID .",
-                __FUNCTION__, entry->acceptor->fd, entry->acceptor->host, entry->acceptor->port, fd, entry->host, entry->port, result );
+                __FUNCTION__, entry->acceptor->fd, entry->acceptor->host,
+                entry->acceptor->port, fd, entry->endpoint->host, entry->endpoint->port, result );
         close( fd );
-        acceptqueue_remove( entry->acceptor->acceptq, entry->host, entry->port );
+        ephashtable_remove( entry->acceptor->acceptq, entry->endpoint->host, entry->endpoint->port );
     }
 }

@@ -111,7 +111,7 @@ void onShutdown( void * context, int32_t way )
     free( s );
 }
 
-int32_t onPerform( void * context, int32_t type, void * task )
+int32_t onPerform( void * context, int32_t type, void * task, int32_t interval )
 {
     return 0;
 }
@@ -167,13 +167,16 @@ int main( int32_t argc, char ** argv )
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signal_handle );
 
-    iolayer_t layer = iolayer_create( nthreads, 500, 0 );
+    iolayer_t layer = iolayer_create( nthreads, 500, 8, 0 );
     if ( layer == NULL )
     {
         return -2;
     }
 
-    if ( iolayer_listen( layer, type, host, port, onLayerAccept, layer ) < 0 )
+    options_t options = { .mtu=1400, .minrto=30, .sndwnd = 64,
+        .rcvwnd = 64, .stream=1, .resend=2, .deadlink=50, .interval = 40 };
+
+    if ( iolayer_listen( layer, type, host, port, &options, onLayerAccept, layer ) < 0 )
     {
         printf( "pingpong %s::%d failed .\n", host, port );
         iolayer_destroy( layer );

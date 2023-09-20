@@ -61,8 +61,6 @@
 		9479102F2534AE0C00F91879 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E01B95E63B00C33F84 /* utils.c */; };
 		947910302534AE0C00F91879 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DF1B95E63A00C33F84 /* timer.c */; };
 		947910312534AE0C00F91879 /* event.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D31B95E63A00C33F84 /* event.c */; };
-		947910392534AE6000F91879 /* acceptq.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2925334B8F008EB084 /* acceptq.c */; };
-		9479103A2534AE6000F91879 /* acceptq.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2C25334B90008EB084 /* acceptq.h */; };
 		9479103B2534AE6000F91879 /* driver.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2725334B8F008EB084 /* driver.c */; };
 		9479103C2534AE6000F91879 /* driver.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2625334B8F008EB084 /* driver.h */; };
 		9479103D2534AE6000F91879 /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
@@ -96,8 +94,6 @@
 		9479105D2534AEC900F91879 /* event.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E31B95E64800C33F84 /* event.h */; };
 		9479105E2534AEC900F91879 /* network.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E41B95E64800C33F84 /* network.h */; };
 		9479105F2534AEC900F91879 /* threads.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E51B95E64800C33F84 /* threads.h */; };
-		947910602534AED100F91879 /* acceptq.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2925334B8F008EB084 /* acceptq.c */; };
-		947910612534AED100F91879 /* acceptq.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2C25334B90008EB084 /* acceptq.h */; };
 		947910622534AED100F91879 /* driver.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2725334B8F008EB084 /* driver.c */; };
 		947910632534AED100F91879 /* driver.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2625334B8F008EB084 /* driver.h */; };
 		947910642534AED100F91879 /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
@@ -134,10 +130,10 @@
 		94A68E2D25334B90008EB084 /* driver.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2625334B8F008EB084 /* driver.h */; };
 		94A68E2E25334B90008EB084 /* driver.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2725334B8F008EB084 /* driver.c */; };
 		94A68E2F25334B90008EB084 /* ikcp.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2825334B8F008EB084 /* ikcp.h */; };
-		94A68E3025334B90008EB084 /* acceptq.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2925334B8F008EB084 /* acceptq.c */; };
 		94A68E3125334B90008EB084 /* lock.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2A25334B8F008EB084 /* lock.h */; };
 		94A68E3225334B90008EB084 /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
-		94A68E3325334B90008EB084 /* acceptq.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2C25334B90008EB084 /* acceptq.h */; };
+		94F3F3FE2A72C28F00406E50 /* ephashtable.h in Headers */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
+		94F3F3FF2A72C28F00406E50 /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
 		DD20CE0B25C4231800ACBC2E /* helper.h in Headers */ = {isa = PBXBuildFile; fileRef = DD20CE0725C4231800ACBC2E /* helper.h */; };
 		DD20CE0C25C4231800ACBC2E /* xcurl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE0825C4231800ACBC2E /* xcurl.cpp */; };
 		DD20CE0D25C4231800ACBC2E /* helper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE0925C4231800ACBC2E /* helper.cpp */; };
@@ -246,10 +242,10 @@
 		94A68E2625334B8F008EB084 /* driver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = driver.h; sourceTree = "<group>"; };
 		94A68E2725334B8F008EB084 /* driver.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = driver.c; sourceTree = "<group>"; };
 		94A68E2825334B8F008EB084 /* ikcp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikcp.h; sourceTree = "<group>"; };
-		94A68E2925334B8F008EB084 /* acceptq.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = acceptq.c; sourceTree = "<group>"; };
 		94A68E2A25334B8F008EB084 /* lock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lock.h; sourceTree = "<group>"; };
 		94A68E2B25334B90008EB084 /* ikcp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikcp.c; sourceTree = "<group>"; };
-		94A68E2C25334B90008EB084 /* acceptq.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = acceptq.h; sourceTree = "<group>"; };
+		94F3F3FC2A72C28F00406E50 /* ephashtable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ephashtable.h; sourceTree = "<group>"; };
+		94F3F3FD2A72C28F00406E50 /* ephashtable.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ephashtable.c; sourceTree = "<group>"; };
 		DD20CE0725C4231800ACBC2E /* helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = helper.h; path = examples/helper.h; sourceTree = "<group>"; };
 		DD20CE0825C4231800ACBC2E /* xcurl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = xcurl.cpp; path = examples/xcurl.cpp; sourceTree = "<group>"; };
 		DD20CE0925C4231800ACBC2E /* helper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = helper.cpp; path = examples/helper.cpp; sourceTree = "<group>"; };
@@ -325,9 +321,9 @@
 		71D319CE1B95E63A00C33F84 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				94F3F3FD2A72C28F00406E50 /* ephashtable.c */,
+				94F3F3FC2A72C28F00406E50 /* ephashtable.h */,
 				DD5EA1B025D57C5500B26FD7 /* network.c */,
-				94A68E2925334B8F008EB084 /* acceptq.c */,
-				94A68E2C25334B90008EB084 /* acceptq.h */,
 				94A68E2725334B8F008EB084 /* driver.c */,
 				94A68E2625334B8F008EB084 /* driver.h */,
 				94A68E2B25334B90008EB084 /* ikcp.c */,
@@ -428,7 +424,6 @@
 				71D319FE1B95E82600C33F84 /* session.h in Headers */,
 				71D31A061B95E83700C33F84 /* threads.h in Headers */,
 				71D319FC1B95E82600C33F84 /* queue.h in Headers */,
-				94A68E3325334B90008EB084 /* acceptq.h in Headers */,
 				945AD59924617678005D545E /* redis.h in Headers */,
 				71D319FA1B95E82600C33F84 /* message.h in Headers */,
 				945AD59824617678005D545E /* io.h in Headers */,
@@ -441,6 +436,7 @@
 				94A68E2D25334B90008EB084 /* driver.h in Headers */,
 				94A68E3125334B90008EB084 /* lock.h in Headers */,
 				DD20CE0B25C4231800ACBC2E /* helper.h in Headers */,
+				94F3F3FE2A72C28F00406E50 /* ephashtable.h in Headers */,
 				71D31A041B95E83700C33F84 /* event.h in Headers */,
 				71F9CACB22D0B18900990CF5 /* slice.h in Headers */,
 				71D31A051B95E83700C33F84 /* network.h in Headers */,
@@ -630,11 +626,11 @@
 				DD20CE1625C4232B00ACBC2E /* test_multicurl.cpp in Sources */,
 				71D31A021B95E82600C33F84 /* utils.c in Sources */,
 				DD20CE0D25C4231800ACBC2E /* helper.cpp in Sources */,
+				94F3F3FF2A72C28F00406E50 /* ephashtable.c in Sources */,
 				71D319FD1B95E82600C33F84 /* session.c in Sources */,
 				94A68E3225334B90008EB084 /* ikcp.c in Sources */,
 				71D31A001B95E82600C33F84 /* threads.c in Sources */,
 				71D319F11B95E82600C33F84 /* channel.c in Sources */,
-				94A68E3025334B90008EB084 /* acceptq.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -642,8 +638,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				947910392534AE6000F91879 /* acceptq.c in Sources */,
-				9479103A2534AE6000F91879 /* acceptq.h in Sources */,
 				9479103B2534AE6000F91879 /* driver.c in Sources */,
 				9479103C2534AE6000F91879 /* driver.h in Sources */,
 				9479103D2534AE6000F91879 /* ikcp.c in Sources */,
@@ -675,8 +669,6 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				9479104B2534AE7800F91879 /* acceptq.c in Sources */,
-				9479104C2534AE7800F91879 /* acceptq.h in Sources */,
 				9479104D2534AE7800F91879 /* driver.c in Sources */,
 				9479104E2534AE7800F91879 /* driver.h in Sources */,
 				9479104F2534AE7800F91879 /* ikcp.c in Sources */,
@@ -709,8 +701,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				947910772534AEE100F91879 /* pingpong.c in Sources */,
-				947910602534AED100F91879 /* acceptq.c in Sources */,
-				947910612534AED100F91879 /* acceptq.h in Sources */,
 				947910622534AED100F91879 /* driver.c in Sources */,
 				947910632534AED100F91879 /* driver.h in Sources */,
 				947910642534AED100F91879 /* ikcp.c in Sources */,

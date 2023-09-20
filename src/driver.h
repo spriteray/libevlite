@@ -27,6 +27,7 @@ ssize_t driver_input( struct driver * self, struct buffer * buffer );
 void driver_set_mtu( struct driver * self, int32_t mtu );
 void driver_set_minrto( struct driver * self, int32_t minrto );
 void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd );
+void driver_set_conv( struct driver * self, uint32_t conv );
 
 // 发送/接收数据
 ssize_t driver_receive( struct session * self );

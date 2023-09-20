@@ -1,10 +1,8 @@
 
-#include <stdio.h>
+#include "utils.h"
+#include "ephashtable.h"
 
-#include "acceptq.h"
-#include "network-internal.h"
-
-uint32_t _hash_function( const void * key, int32_t len )
+static inline uint32_t _hash_function( const void * key, int32_t len )
 {
     /* 'm' and 'r' are mixing constants generated offline.
      *      They're not really 'magic', they just happen to work well.  */
@@ -50,37 +48,25 @@ uint32_t _hash_function( const void * key, int32_t len )
     return h;
 }
 
-void _udpentry_destroy( struct udpentry * entry )
+struct ephashtable * ephashtable_create( size_t count, size_t size, helper_t helper )
 {
-    buffer_clear( &entry->buffer );
+    struct ephashtable * q = NULL;
 
-    if ( entry->event != NULL )
-    {
-        evsets_del( entry->acceptor->evsets, entry->event );
-        event_destroy( entry->event );
-        entry->event = NULL;
-    }
-
-    free( entry );
-}
-
-struct acceptqueue * acceptqueue_create( size_t count )
-{
-    struct acceptqueue * q = NULL;
-
-    q = (struct acceptqueue *)calloc( 1, sizeof(struct acceptqueue) );
-    assert( q != NULL && "create struct acceptqueue failed" );
+    q = (struct ephashtable *)calloc( 1, sizeof(struct ephashtable) );
+    assert( q != NULL && "create struct ephashtable failed" );
 
     q->size = nextpow2( count );
     q->sizemask = q->size - 1;
     q->count = 0;
-    q->table = (struct udpentry **)calloc( q->size, sizeof(struct udpentry *) );
+    q->objsize = size;
+    q->helper = helper;
+    q->table = (struct endpoint **)calloc( q->size, sizeof(struct endpoint *) );
     assert( q->table != NULL && "create struct udpentry * failed" );
 
     return q;
 }
 
-void acceptqueue_destroy( struct acceptqueue * self )
+void ephashtable_destroy( struct ephashtable * self )
 {
     size_t i = 0;
 
@@ -88,13 +74,13 @@ void acceptqueue_destroy( struct acceptqueue * self )
     {
         for ( i = 0; i < self->size; ++i )
         {
-            struct udpentry * next = NULL;
-            struct udpentry * head = self->table[i];
+            struct endpoint * next = NULL;
+            struct endpoint * head = self->table[i];
 
             while ( head != NULL )
             {
                 next = head->next;
-                _udpentry_destroy( head );
+                self->helper( 2, head );
                 head = next;
                 --self->count;
             }
@@ -112,26 +98,26 @@ void acceptqueue_destroy( struct acceptqueue * self )
     self = NULL;
 }
 
-struct udpentry * acceptqueue_find( struct acceptqueue * self, const char * host, uint16_t port )
+void * ephashtable_find( struct ephashtable * self, const char * host, uint16_t port )
 {
     if ( self->count == 0 )
     {
         return NULL;
     }
 
-    char key[ 64 ];
+    char key[ 128 ];
     size_t len = 0;
-    struct udpentry * head = NULL;
+    struct endpoint * head = NULL;
 
-    len = snprintf( key, 63,
+    len = snprintf( key, 127,
             "%s::%d", host, port );
     head = self->table[ _hash_function( key, len ) & self->sizemask ];
     while ( head != NULL )
     {
         if ( port == head->port
-                && strncmp( host, head->host, 64 ) == 0 )
+                && strcmp( host, head->host ) == 0 )
         {
-            return head;
+            return head->value;
         }
 
         head = head->next;
@@ -140,33 +126,38 @@ struct udpentry * acceptqueue_find( struct acceptqueue * self, const char * host
     return NULL;
 }
 
-void acceptqueue_remove( struct acceptqueue * self, const char * host, uint16_t port )
+void ephashtable_remove( struct ephashtable * self, const char * host, uint16_t port )
 {
     if ( self->count == 0 )
     {
         return;
     }
 
-    char key[ 64 ];
+    char key[ 128 ];
     size_t len = 0;
     uint32_t index = 0;
-    struct udpentry * head = NULL, * prev = NULL;
+    struct endpoint * head = NULL, * prev = NULL;
 
-    len = snprintf( key, 63,
+    len = snprintf( key, 127,
             "%s::%d", host, port );
     index = _hash_function( key, len ) & self->sizemask;
     head = self->table[ index ];
     while ( head != NULL )
     {
         if ( port == head->port
-                && strncmp( host, head->host, 64 ) == 0 )
+                && strcmp( host, head->host ) == 0 )
         {
             if ( prev != NULL )
+            {
                 prev->next = head->next;
+            }
             else
+            {
                 self->table[ index ] = head->next;
+            }
 
-            _udpentry_destroy( head );
+            self->helper( 2, head );
+            free( head );
             --self->count;
             return;
         }
@@ -176,24 +167,28 @@ void acceptqueue_remove( struct acceptqueue * self, const char * host, uint16_t 
     }
 }
 
-struct udpentry * acceptqueue_append( struct acceptqueue * self, const char * host, uint16_t port )
+void * ephashtable_append( struct ephashtable * self, const char * host, uint16_t port )
 {
-    char key[ 64 ];
+    char key[ 128 ];
     size_t len = 0, index;
-    struct udpentry * entry = NULL;
+    struct endpoint * entry = NULL;
 
-    len = snprintf( key, 63,
+    len = snprintf( key, 127,
             "%s::%d", host, port );
     index = _hash_function( key, len ) & self->sizemask;
 
-    entry = (struct udpentry *)calloc( 1, sizeof(*entry) );
+    entry = (struct endpoint *)calloc( 1, sizeof(struct endpoint) + self->objsize );
     assert( entry != NULL && "create struct udpentry failed" );
     strcpy( entry->host, host );
-    buffer_init( &entry->buffer );
+    if ( self->objsize > 0 )
+    {
+        entry->value = entry + 1;
+    }
     entry->port = port;
     entry->next = self->table[ index ];
     ++self->count;
     self->table[ index ] = entry;
+    self->helper( 1, entry );
 
-    return entry;
+    return entry->value;
 }
