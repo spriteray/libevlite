@@ -75,8 +75,6 @@
 		947910482534AE6000F91879 /* session.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DC1B95E63A00C33F84 /* session.h */; };
 		947910492534AE6000F91879 /* threads-internal.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DD1B95E63A00C33F84 /* threads-internal.h */; };
 		9479104A2534AE6000F91879 /* utils.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E11B95E63B00C33F84 /* utils.h */; };
-		9479104B2534AE7800F91879 /* acceptq.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2925334B8F008EB084 /* acceptq.c */; };
-		9479104C2534AE7800F91879 /* acceptq.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2C25334B90008EB084 /* acceptq.h */; };
 		9479104D2534AE7800F91879 /* driver.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2725334B8F008EB084 /* driver.c */; };
 		9479104E2534AE7800F91879 /* driver.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2625334B8F008EB084 /* driver.h */; };
 		9479104F2534AE7800F91879 /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
