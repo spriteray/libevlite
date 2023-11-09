@@ -6,6 +6,8 @@
 #include "utils.h"
 #include "message.h"
 #include "session.h"
+#include "ephashtable.h"
+#include "network-internal.h"
 #include "event-internal.h"
 
 #include "driver.h"
@@ -22,29 +24,25 @@ static int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * 
 struct driver * driver_create( struct session * s, struct buffer * buffer, const options_t * options )
 {
     struct driver * self = (struct driver *)calloc( 1, sizeof( struct driver ) );
-    if ( self != NULL )
-    {
-        uint32_t conv = ikcp_getconv( buffer_data(buffer) );
+    if ( self != NULL ) {
+        uint32_t conv = ikcp_getconv( buffer_data( buffer ) );
 
         // 创建定时器
         self->timer = event_create();
-        if ( self->timer == NULL )
-        {
+        if ( self->timer == NULL ) {
             driver_destroy( self );
             return NULL;
         }
 
         // 创建kcp对象
         self->kcp = ikcp_create( conv, s );
-        if ( self->kcp == NULL )
-        {
+        if ( self->kcp == NULL ) {
             driver_destroy( self );
             return NULL;
         }
 
+        // 设置时间戳
         self->epoch = milliseconds();
-        buffer_swap( &self->buffer, buffer );
-
         // 设置kcp的极速模式
         // 1 - 启动nodelay模式
         // 1 - 关闭流量控制
@@ -63,13 +61,11 @@ struct driver * driver_create( struct session * s, struct buffer * buffer, const
 
 void driver_destroy( struct driver * self )
 {
-    if ( self->timer != NULL )
-    {
-        struct session * session = _get_session(self);
+    struct session * session = _get_session( self );
 
+    if ( self->timer != NULL ) {
         if ( session != NULL
-                && (session->status&SESSION_SCHEDULING) )
-        {
+            && ( session->status & SESSION_SCHEDULING ) ) {
             evsets_del( session->evsets, self->timer );
             session->status &= ~SESSION_SCHEDULING;
         }
@@ -78,52 +74,63 @@ void driver_destroy( struct driver * self )
         self->timer = NULL;
     }
 
-    if ( self->kcp != NULL )
-    {
+    if ( self->entry != NULL ) {
+        ephashtable_remove(
+            self->entry->hashtable, session->host, session->port );
+        self->entry = NULL;
+    }
+
+    if ( self->kcp != NULL ) {
         ikcp_release( self->kcp );
         self->kcp = NULL;
     }
-
-    buffer_clear( &self->buffer );
 
     free( self );
     self = NULL;
 }
 
-ssize_t driver_input( struct driver * self, struct buffer * buffer )
+int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, int32_t family, const char * host, uint16_t port )
+{
+    // 添加到ep管理器中
+    self->entry = (struct udpentry *)ephashtable_append( table, host, port );
+    if ( self->entry == NULL ) {
+        return -1;
+    }
+
+    self->entry->hashtable = table;
+    self->entry->session = _get_session( self );
+    convert_endpoint( &( self->addr ), family, host, port );
+
+    return 0;
+}
+
+ssize_t driver_input( struct driver * self, struct buffer * in, struct buffer * out )
 {
     size_t len = 0;
 
     // 输入kcp
-    ikcp_input( self->kcp,
-            buffer_data(&self->buffer), buffer_length(&self->buffer) );
+    ikcp_input( self->kcp, buffer_data( in ), buffer_length( in ) );
 
     // 接收逻辑包到inbuffer中
-    while ( 1 )
-    {
+    while ( 1 ) {
         ssize_t peeksize = ikcp_peeksize( self->kcp );
-        if ( peeksize <= 0 )
-        {
+        if ( peeksize <= 0 ) {
             break;
         }
 
-        buffer_reserve( buffer, peeksize );
+        buffer_reserve( out, peeksize );
         peeksize = ikcp_recv( self->kcp,
-                buffer->buffer + buffer->length, (int32_t)peeksize );
-        if ( peeksize <= 0 )
-        {
+            out->buffer + out->length, (int32_t)peeksize );
+        if ( peeksize <= 0 ) {
             break;
         }
 
         len += peeksize;
-        buffer->length += peeksize;
+        out->length += peeksize;
         // 检验self->buffer中的conv是否变化
         // 变化了直接替换kcp句柄中的conv
-        driver_set_conv( self, ikcp_getconv( buffer_data( &self->buffer ) ) );
+        // driver_set_conv( self, ikcp_getconv( buffer_data( in ) ) );
     }
-
-    // 清空buffer
-    buffer_erase( &self->buffer, -1 );
 
     // 读事件, 立刻update()不需要等下一轮
     _kcp_refresh_state( self );
@@ -131,52 +138,32 @@ ssize_t driver_input( struct driver * self, struct buffer * buffer )
     return len;
 }
 
-ssize_t driver_receive( struct session * session )
-{
-    // 从socket中读取数据到udp缓存中
-    ssize_t nread = buffer_read(
-            &(session->driver->buffer), session->fd, 0 );
-
-    // 重组
-    // udp驱动处理输入的数据
-    driver_input( session->driver, &session->inbuffer );
-
-    //
-    return nread;
-}
-
 ssize_t driver_transmit( struct session * session )
 {
     int32_t rc = 0;
     ssize_t writen = 0;
 
-    for ( ; session_sendqueue_count(session) > 0; )
-    {
-        if ( !_kcp_can_send( session->driver ) )
-        {
+    for ( ; session_sendqueue_count( session ) > 0; ) {
+        if ( !_kcp_can_send( session->driver ) ) {
             rc = -3;
             break;
         }
 
         // 取出第一条消息
         struct message * message = NULL;
-        QUEUE_TOP(sendqueue)( &session->sendqueue, &message );
+        QUEUE_TOP( sendqueue ) ( &session->sendqueue, &message );
         // 发送数据给KCP
-        rc = ikcp_send(
-                session->driver->kcp,
-                message_get_buffer(message),
-                (int32_t)message_get_length(message) );
+        rc = ikcp_send( session->driver->kcp,
+            message_get_buffer( message ), (int32_t)message_get_length( message ) );
         ikcp_flush( session->driver->kcp );
-        if ( rc < 0 )
-        {
+        if ( rc < 0 ) {
             break;
         }
 
         writen += rc;
-        QUEUE_POP(sendqueue)( &session->sendqueue, &message );
+        QUEUE_POP( sendqueue ) ( &session->sendqueue, &message );
         message_add_success( message );
-        if ( message_is_complete(message) )
-        {
+        if ( message_is_complete( message ) ) {
             message_destroy( message );
         }
     }
@@ -186,11 +173,9 @@ ssize_t driver_transmit( struct session * session )
 
     if ( rc > 0
         && _kcp_can_send( session->driver )
-        && session_sendqueue_count(session) > 0 )
-    {
+        && session_sendqueue_count( session ) > 0 ) {
         ssize_t againlen = driver_transmit( session );
-        if ( againlen > 0 )
-        {
+        if ( againlen > 0 ) {
             writen += againlen;
         }
     }
@@ -203,8 +188,7 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
     int32_t rc = 0;
     struct driver * d = session->driver;
 
-    if ( _kcp_can_send( d ) )
-    {
+    if ( _kcp_can_send( d ) ) {
         // 发送
         rc = ikcp_send(
             d->kcp, buf, (int32_t)nbytes );
@@ -247,7 +231,7 @@ void _kcp_refresh_state( struct driver * self )
 
 uint32_t _kcp_milliseconds( struct driver * self )
 {
-    return (uint32_t)(milliseconds() - self->epoch);
+    return (uint32_t)( milliseconds() - self->epoch );
 }
 
 void _kcp_timer( int32_t fd, int16_t ev, void * arg )
@@ -255,19 +239,16 @@ void _kcp_timer( int32_t fd, int16_t ev, void * arg )
     struct session * session = (struct session *)arg;
 
     // 状态
-    session->status
-        &= ~SESSION_SCHEDULING;
+    session->status &= ~SESSION_SCHEDULING;
     // 刷新kcp的状态
     _kcp_refresh_state( session->driver );
 }
 
 struct session * _get_session( struct driver * self )
 {
-    if ( self->kcp != NULL )
-    {
+    if ( self->kcp != NULL ) {
         return (struct session *)self->kcp->user;
     }
-
     return NULL;
 }
 
@@ -275,14 +256,12 @@ void _kcp_schedule( struct driver * self, int32_t timeout )
 {
     struct session * session = _get_session( self );
 
-    if ( timeout < 0 )
-    {
-        timeout = EVENTSET_PRECISION(  session->evsets);
+    if ( timeout < 0 ) {
+        timeout = EVENTSET_PRECISION( session->evsets );
     }
 
     // 还在定时器中, 移除
-    if ( session->status & SESSION_SCHEDULING )
-    {
+    if ( session->status & SESSION_SCHEDULING ) {
         evsets_del( session->evsets, self->timer );
         session->status &= ~SESSION_SCHEDULING;
     }
@@ -297,14 +276,14 @@ void _kcp_schedule( struct driver * self, int32_t timeout )
 int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * user )
 {
     struct session * session = (struct session *)user;
+    struct driver * driver = session->driver;
 
     // kcp出错的情况下，就重传呗, 没啥大不了的
-    ssize_t writen = write( session->fd, buf, len );
-    if ( writen < 0 )
-    {
+    ssize_t writen = sendto( session->fd, buf, len,
+        MSG_DONTWAIT, (struct sockaddr *)&driver->addr, sizeof( driver->addr ) );
+    if ( writen < 0 ) {
         if ( errno == EINTR
-                || errno == EAGAIN || errno == EWOULDBLOCK )
-        {
+            || errno == EAGAIN || errno == EWOULDBLOCK ) {
             writen = 0;
         }
     }

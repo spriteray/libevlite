@@ -21,24 +21,19 @@ void _base_processor( void * context, uint8_t index, int16_t type, void * task )
 
 iothreads_t iothreads_start( uint8_t nthreads, int32_t precision, uint8_t immediately )
 {
-    uint8_t i = 0;
-    struct iothreads * iothreads = NULL;
-
-    iothreads = calloc( 1, sizeof(struct iothreads) );
-    if ( iothreads == NULL )
-    {
+    struct iothreads * iothreads = (struct iothreads *)calloc( 1, sizeof( struct iothreads ) );
+    if ( iothreads == NULL ) {
         return NULL;
     }
 
-    iothreads->threads = calloc( nthreads, sizeof(struct iothread) );
-    if ( iothreads->threads == NULL )
-    {
+    iothreads->threads = (struct iothread *)calloc( nthreads, sizeof( struct iothread ) );
+    if ( iothreads->threads == NULL ) {
         free( iothreads );
         return NULL;
     }
 
-    iothreads->context  = iothreads;
-    iothreads->processor   = _base_processor;
+    iothreads->context = iothreads;
+    iothreads->processor = _base_processor;
     iothreads->immediately = immediately;
     iothreads->nthreads = nthreads;
     iothreads->precision = precision;
@@ -48,9 +43,8 @@ iothreads_t iothreads_start( uint8_t nthreads, int32_t precision, uint8_t immedi
     // 开启网络线程
     iothreads->runflags = 1;
     iothreads->nrunthreads = nthreads;
-    for ( i = 0; i < nthreads; ++i )
-    {
-        iothread_start( iothreads->threads+i, i, iothreads );
+    for ( uint8_t i = 0; i < nthreads; ++i ) {
+        iothread_start( iothreads->threads + i, i, iothreads );
     }
 
     return iothreads;
@@ -58,7 +52,7 @@ iothreads_t iothreads_start( uint8_t nthreads, int32_t precision, uint8_t immedi
 
 void iothreads_set_processor( iothreads_t self, processor_t processor, void * context )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     iothreads->context = context;
@@ -69,47 +63,44 @@ void iothreads_set_processor( iothreads_t self, processor_t processor, void * co
 
 struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
     assert( iothreads->threads != NULL );
 
-    return &(iothreads->threads[index].acceptorlist);
+    return &( iothreads->threads[index].acceptorlist );
 }
 
 struct connectorlist * iothreads_get_connectlist( iothreads_t self, uint8_t index )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
     assert( iothreads->threads != NULL );
 
-    return &(iothreads->threads[index].connectorlist);
+    return &( iothreads->threads[index].connectorlist );
 }
 
 struct associaterlist * iothreads_get_associatelist( iothreads_t self, uint8_t index )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
     assert( iothreads->threads != NULL );
 
-    return &(iothreads->threads[index].associaterlist );
+    return &( iothreads->threads[index].associaterlist );
 }
 
 int8_t iothreads_get_index( iothreads_t self )
 {
-    int8_t i = 0;
     pthread_t tid = pthread_self();
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
-    for ( i = 0; i < iothreads->nthreads; ++i )
-    {
-        if ( iothreads->threads[i].id == tid )
-        {
+    for ( uint8_t i = 0; i < iothreads->nthreads; ++i ) {
+        if ( iothreads->threads[i].id == tid ) {
             return i;
         }
     }
@@ -119,7 +110,7 @@ int8_t iothreads_get_index( iothreads_t self )
 
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
@@ -130,7 +121,7 @@ pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 
 evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
@@ -141,7 +132,7 @@ evsets_t iothreads_get_sets( iothreads_t self, uint8_t index )
 
 void * iothreads_get_context( iothreads_t self, uint8_t index )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
@@ -152,7 +143,7 @@ void * iothreads_get_context( iothreads_t self, uint8_t index )
 
 void iothreads_set_context( iothreads_t self, uint8_t index, void * context )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( iothreads != NULL );
     assert( index < iothreads->nthreads );
@@ -168,54 +159,49 @@ void iothreads_set_context( iothreads_t self, uint8_t index, void * context )
 // size     - 任务数据的长度, 默认设置为0
 int32_t iothreads_post( iothreads_t self, uint8_t index, int16_t type, void * task, uint8_t size )
 {
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     assert( size <= TASK_PADDING_SIZE );
     assert( index < iothreads->nthreads );
 
-    if ( unlikely( iothreads->runflags != 1 ) )
-    {
+    if ( unlikely( iothreads->runflags != 1 ) ) {
         return -1;
     }
 
-    return iothread_post( iothreads->threads+index, (size == 0 ? eTaskType_User : eTaskType_Data), type, task, size );
+    return iothread_post( iothreads->threads + index,
+        ( size == 0 ? eTaskType_User : eTaskType_Data ), type, task, size );
 }
 
 void iothreads_stop( iothreads_t self )
 {
-    uint8_t i = 0;
-    struct iothreads * iothreads = (struct iothreads *)(self);
+    struct iothreads * iothreads = (struct iothreads *)( self );
 
     // 向所有线程发送停止命令
     iothreads->runflags = 0;
-    for ( i = 0; i < iothreads->nthreads; ++i )
-    {
-        iothread_post( iothreads->threads+i, eTaskType_Null, 0, NULL, 0 );
+    for ( uint8_t i = 0; i < iothreads->nthreads; ++i ) {
+        iothread_post( iothreads->threads + i, eTaskType_Null, 0, NULL, 0 );
     }
 
     // 等待线程退出
     pthread_mutex_lock( &iothreads->lock );
-    while ( iothreads->nrunthreads > 0 )
-    {
+    while ( iothreads->nrunthreads > 0 ) {
         pthread_cond_wait( &iothreads->cond, &iothreads->lock );
     }
     pthread_mutex_unlock( &iothreads->lock );
 
     // 销毁所有网络线程
-    for ( i = 0; i < iothreads->nthreads; ++i )
-    {
+    for ( uint8_t i = 0; i < iothreads->nthreads; ++i ) {
         iothread_stop( iothreads->threads + i );
     }
 
     pthread_cond_destroy( &iothreads->cond );
     pthread_mutex_destroy( &iothreads->lock );
-    if ( iothreads->threads )
-    {
+    if ( iothreads->threads ) {
         free( iothreads->threads );
         iothreads->threads = NULL;
     }
 
-    free ( iothreads );
+    free( iothreads );
 }
 
 // -----------------------------------------------------------------------------
@@ -225,17 +211,16 @@ void iothreads_stop( iothreads_t self )
 static void * iothread_main( void * arg );
 static void iothread_on_command( int32_t fd, int16_t ev, void * arg );
 static inline uint32_t _process(
-        struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue );
+    struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue );
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent )
 {
     self->index = index;
     self->parent = parent;
 
-    self->sets = evsets_create( ((struct iothreads *)parent)->precision );
-    if ( self->sets == NULL )
-    {
-        iothread_stop(self);
+    self->sets = evsets_create( ( (struct iothreads *)parent )->precision );
+    if ( self->sets == NULL ) {
+        iothread_stop( self );
         return -1;
     }
 
@@ -246,14 +231,13 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 
     self->cmdevent = event_create();
     self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE );
-    if ( self->queue == NULL || self->cmdevent == NULL )
-    {
-        iothread_stop(self);
+    if ( self->queue == NULL || self->cmdevent == NULL ) {
+        iothread_stop( self );
         return -2;
     }
 
     // 初始化命令事件
-    event_set( self->cmdevent, msgqueue_popfd(self->queue), EV_READ|EV_PERSIST );
+    event_set( self->cmdevent, msgqueue_popfd( self->queue ), EV_READ | EV_PERSIST );
     event_set_callback( self->cmdevent, iothread_on_command, self );
     evsets_add( self->sets, self->cmdevent, -1 );
 
@@ -263,12 +247,11 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
     //    assert( pthread_attr_setstacksize( &attr, THREAD_DEFAULT_STACK_SIZE ) );
     pthread_attr_setdetachstate( &attr, PTHREAD_CREATE_DETACHED );
 
-    int32_t rc = pthread_create(&(self->id), &attr, iothread_main, self);
+    int32_t rc = pthread_create( &( self->id ), &attr, iothread_main, self );
     pthread_attr_destroy( &attr );
 
-    if ( rc != 0 )
-    {
-        iothread_stop(self);
+    if ( rc != 0 ) {
+        iothread_stop( self );
         return -3;
     }
 
@@ -277,16 +260,13 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 
 int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void * task, uint8_t size )
 {
-    struct task inter_task = { .type=type, .utype=utype };
+    struct task inter_task = { .type = type, .utype = utype };
     struct iothreads * threads = (struct iothreads *)self->parent;
 
-    if ( size == 0 )
-    {
+    if ( size == 0 ) {
         inter_task.taskdata = task;
-    }
-    else
-    {
-        memcpy( &(inter_task.data), task, size );
+    } else {
+        memcpy( &( inter_task.data ), task, size );
     }
 
     // 默认: 提交任务不提醒消费者
@@ -295,36 +275,31 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
 
 int32_t iothread_stop( struct iothread * self )
 {
-    if ( self->queue )
-    {
+    if ( self->queue ) {
         msgqueue_destroy( self->queue );
         self->queue = NULL;
     }
 
-    if ( self->cmdevent )
-    {
+    if ( self->cmdevent ) {
         evsets_del( self->sets, self->cmdevent );
         event_destroy( self->cmdevent );
         self->cmdevent = NULL;
     }
 
-    if ( self->sets )
-    {
+    if ( self->sets ) {
         evsets_destroy( self->sets );
         self->sets = NULL;
     }
 
     struct acceptor * acceptor = STAILQ_FIRST( &self->acceptorlist );
-    for ( ; acceptor != NULL; )
-    {
+    for ( ; acceptor != NULL; ) {
         struct acceptor * next = STAILQ_NEXT( acceptor, linker );
         iolayer_free_acceptor( acceptor );
         acceptor = next;
     }
 
     struct connector * connector = STAILQ_FIRST( &self->connectorlist );
-    for ( ; connector != NULL; )
-    {
+    for ( ; connector != NULL; ) {
         struct connector * next = STAILQ_NEXT( connector, linker );
         connector->state = 0;
         iolayer_free_connector( connector );
@@ -332,8 +307,7 @@ int32_t iothread_stop( struct iothread * self )
     }
 
     struct associater * associater = STAILQ_FIRST( &self->associaterlist );
-    for ( ; associater != NULL; )
-    {
+    for ( ; associater != NULL; ) {
         struct associater * next = STAILQ_NEXT( associater, linker );
         associater->state = 0;
         iolayer_free_associater( associater );
@@ -351,24 +325,20 @@ uint32_t _process( struct iothreads * parent, struct iothread * thread, struct t
     msgqueue_swap( thread->queue, doqueue );
 
     // 获取最大任务数
-    nprocess = QUEUE_COUNT(taskqueue)(doqueue);
+    nprocess = QUEUE_COUNT( taskqueue )( doqueue );
 
     // 处理任务
-    for( ; QUEUE_COUNT(taskqueue)(doqueue) > 0; )
-    {
+    for ( ; QUEUE_COUNT( taskqueue )( doqueue ) > 0; ) {
         struct task task;
-        QUEUE_POP(taskqueue)( doqueue, &task );
+        QUEUE_POP( taskqueue ) ( doqueue, &task );
 
         // 网络任务处理
-        if ( task.type == eTaskType_User )
-        {
+        if ( task.type == eTaskType_User ) {
             parent->processor( parent->context,
-                    thread->index, task.utype, task.taskdata );
-        }
-        else if ( task.type == eTaskType_Data )
-        {
+                thread->index, task.utype, task.taskdata );
+        } else if ( task.type == eTaskType_Data ) {
             parent->processor( parent->context,
-                    thread->index, task.utype, (void *)(task.data) );
+                thread->index, task.utype, (void *)( task.data ) );
         }
     }
 
@@ -380,18 +350,17 @@ void * iothread_main( void * arg )
     uint32_t maxtasks = 0;
 
     struct iothread * thread = (struct iothread *)arg;
-    struct iothreads * parent = (struct iothreads *)(thread->parent);
+    struct iothreads * parent = (struct iothreads *)( thread->parent );
 
     sigset_t mask;
-    sigfillset(&mask);
-    pthread_sigmask(SIG_SETMASK, &mask, NULL);
+    sigfillset( &mask );
+    pthread_sigmask( SIG_SETMASK, &mask, NULL );
 
     // 初始化队列
     struct taskqueue doqueue;
-    QUEUE_INIT(taskqueue)( &doqueue, MSGQUEUE_DEFAULT_SIZE );
+    QUEUE_INIT( taskqueue ) ( &doqueue, MSGQUEUE_DEFAULT_SIZE );
 
-    for ( ; parent->runflags; )
-    {
+    for ( ; parent->runflags; ) {
         uint32_t nprocess = 0;
 
         // 轮询网络事件
@@ -407,11 +376,10 @@ void * iothread_main( void * arg )
     // 清理队列中剩余数据
     _process( parent, thread, &doqueue );
     // 清空队列
-    QUEUE_CLEAR(taskqueue)( &doqueue );
+    QUEUE_CLEAR( taskqueue ) ( &doqueue );
 
     // 日志
-    syslog( LOG_INFO, "%s(INDEX=%d) : the Maximum Number of Requests is %d in EachFrame .",
-            __FUNCTION__, thread->index, maxtasks );
+    syslog( LOG_INFO, "%s(INDEX=%d) : the Maximum Number of Requests is %d in EachFrame .", __FUNCTION__, thread->index, maxtasks );
 
     // 向主线程发送终止信号
     pthread_mutex_lock( &parent->lock );
@@ -426,16 +394,14 @@ void iothread_on_command( int32_t fd, int16_t ev, void * arg )
 {
     struct iothread * iothread = (struct iothread *)arg;
 
-    if ( ev & EV_READ )
-    {
+    if ( ev & EV_READ ) {
         uint64_t one = 1;
 
         if ( sizeof( one )
-                != read( fd, &one, sizeof(one) ) )
-        {
+            != read( fd, &one, sizeof( one ) ) ) {
             // 出错了
             syslog( LOG_WARNING,
-                    "%s(INDEX=%d) : read from Pipe(fd:%u) error .", __FUNCTION__, iothread->index, fd );
+                "%s(INDEX=%d) : read from Pipe(fd:%u) error .", __FUNCTION__, iothread->index, fd );
         }
     }
 }

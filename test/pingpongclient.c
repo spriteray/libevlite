@@ -135,10 +135,6 @@ PingpongClient * pingpongclient_init( uint8_t type )
 
 void pingpongclient_final( PingpongClient * cli )
 {
-    char buf[1024];
-
-    write(cli->fd, buf, 0);
-
     if ( cli->kcp != NULL )
     {
         ikcp_flush( cli->kcp );

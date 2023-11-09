@@ -31,8 +31,7 @@
 #define EVENT_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <stdint.h>
@@ -41,10 +40,10 @@ extern "C"
 // 事件库所支持的事件类型
 //
 
-#define EV_READ     0x01    // 读事件
-#define EV_WRITE    0x02    // 写事件
-#define EV_TIMEOUT  0x04    // 超时事件
-#define EV_PERSIST  0x08    // 永久模式
+#define EV_READ 0x01    // 读事件
+#define EV_WRITE 0x02   // 写事件
+#define EV_TIMEOUT 0x04 // 超时事件
+#define EV_PERSIST 0x08 // 永久模式
 
 //
 // 事件的定义, 以及事件集的定义
@@ -52,10 +51,10 @@ extern "C"
 
 typedef void * event_t;
 typedef void * evsets_t;
-typedef void (*eventcb_t)( int32_t, int16_t, void * );
+typedef void ( *eventcb_t )( int32_t, int16_t, void * );
 
 // 时间精度
-#define TIMER_PRECISION 8   // 时间精度
+#define TIMER_PRECISION 8 // 时间精度
 
 //
 // 事件的方法

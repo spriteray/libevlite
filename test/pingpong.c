@@ -49,7 +49,7 @@ ssize_t onProcess( void * context, const char * buf, size_t nbytes )
 
 #if defined __DEBUG__
     printf( "PROCESS[%lu] : %lu -> %ld\n", time(NULL), s->id, nbytes );
-    iolayer_set_timeout( s->layer, s->id, 30 );
+    // iolayer_set_timeout( s->layer, s->id, 30 );
 #endif
     iolayer_send( s->layer, s->id, buf, nbytes, 0 );
     nprocess = nbytes;
@@ -174,7 +174,7 @@ int main( int32_t argc, char ** argv )
     }
 
     options_t options = { .mtu=1400, .minrto=30, .sndwnd = 64,
-        .rcvwnd = 64, .stream=1, .resend=2, .deadlink=50, .interval = 40 };
+        .rcvwnd = 64, .stream=1, .resend=2, .deadlink=50, .interval = 40, .ntransfer = 8 };
 
     if ( iolayer_listen( layer, type, host, port, &options, onLayerAccept, layer ) < 0 )
     {

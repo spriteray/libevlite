@@ -24,13 +24,13 @@ int32_t channel_error( struct session * session, int32_t result );
 int32_t channel_shutdown( struct session * session );
 
 // 处理UDP临时数据
-void channel_udpprocess( struct session * session );
+void channel_udpprocess( struct session * session, struct buffer * buffer );
 
 // 事件的回调函数集合
 void channel_on_read( int32_t fd, int16_t ev, void * arg );
+void channel_on_udpread( int32_t fd, int16_t ev, void * arg );
 void channel_on_write( int32_t fd, int16_t ev, void * arg );
 void channel_on_accept( int32_t fd, int16_t ev, void * arg );
-void channel_on_udpaccept( int32_t fd, int16_t ev, void * arg );
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg );
 void channel_on_connected( int32_t fd, int16_t ev, void * arg );

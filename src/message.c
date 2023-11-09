@@ -15,7 +15,7 @@ static inline void _align( struct buffer * self );
 static inline size_t _offset( struct buffer * self );
 static inline size_t _left( struct buffer * self );
 static inline int32_t _expand( struct buffer * self, size_t length );
-static inline ssize_t _read_withvector( struct buffer * self, int32_t fd  );
+static inline ssize_t _read_withvector( struct buffer * self, int32_t fd );
 static inline ssize_t _read_withsize( struct buffer * self, int32_t fd, ssize_t nbytes );
 
 void _align( struct buffer * self )
@@ -31,7 +31,7 @@ size_t _offset( struct buffer * self )
 
 size_t _left( struct buffer * self )
 {
-    return self->capacity - _offset(self) - self->length;
+    return self->capacity - _offset( self ) - self->length;
 }
 
 int32_t _expand( struct buffer * self, size_t length )
@@ -39,72 +39,60 @@ int32_t _expand( struct buffer * self, size_t length )
     size_t offset = _offset( self );
     size_t needlength = offset + self->length + length;
 
-    if ( needlength <= self->capacity )
-    {
+    if ( needlength <= self->capacity ) {
         return 0;
     }
 
-    if ( self->capacity - self->length >= length )
-    {
+    if ( self->capacity - self->length >= length ) {
         _align( self );
-    }
-    else
-    {
+    } else {
         void * newbuffer = NULL;
         size_t newcapacity = self->capacity;
 
-        if ( newcapacity < MIN_BUFFER_LENGTH )
-        {
+        if ( newcapacity < MIN_BUFFER_LENGTH ) {
             newcapacity = MIN_BUFFER_LENGTH;
         }
-        for ( ; newcapacity < needlength; )
-        {
+        for ( ; newcapacity < needlength; ) {
             newcapacity <<= 1;
         }
 
-        if ( self->orignbuffer != self->buffer )
-        {
+        if ( self->orignbuffer != self->buffer ) {
             _align( self );
         }
 
         newbuffer = (char *)realloc( self->orignbuffer, newcapacity );
-        if ( newbuffer == NULL )
-        {
+        if ( newbuffer == NULL ) {
             return -1;
         }
 
         self->capacity = newcapacity;
-        self->orignbuffer = self->buffer = newbuffer;
+        self->orignbuffer = self->buffer = (char *)newbuffer;
     }
 
     return 0;
 }
 
-ssize_t _read_withvector( struct buffer * self, int32_t fd  )
+ssize_t _read_withvector( struct buffer * self, int32_t fd )
 {
-    struct iovec vec[ 2 ];
-    char extra[ MAX_BUFFER_LENGTH ];
+    struct iovec vec[2];
+    char extra[MAX_BUFFER_LENGTH];
 
     ssize_t nread = 0;
-    size_t left = _left(self);
+    size_t left = _left( self );
 
     vec[0].iov_base = self->buffer + self->length;
     vec[0].iov_len = left;
     vec[1].iov_base = extra;
     vec[1].iov_len = sizeof( extra );
 
-    nread = readv( fd, vec, left < sizeof(extra) ? 2 : 1 );
-    if ( nread > (ssize_t)left )
-    {
+    nread = readv( fd, vec, left < sizeof( extra ) ? 2 : 1 );
+    if ( nread > (ssize_t)left ) {
         self->length += left;
-        int32_t rc = buffer_append( self, extra, (size_t)(nread-left) );
-        if ( rc != 0 )
-        {
+        int32_t rc = buffer_append( self, extra, (size_t)( nread - left ) );
+        if ( rc != 0 ) {
             return -2;
         }
-    }
-    else if ( nread > 0 )
-    {
+    } else if ( nread > 0 ) {
         self->length += nread;
     }
 
@@ -115,27 +103,21 @@ ssize_t _read_withsize( struct buffer * self, int32_t fd, ssize_t nbytes )
 {
     ssize_t nread = -1;
 
-    if ( nbytes == -1 )
-    {
+    if ( nbytes == -1 ) {
         int32_t rc = ioctl( fd, FIONREAD, &nread );
-        if ( rc == 0 && nread > 0 )
-        {
+        if ( rc == 0 && nread > 0 ) {
             nbytes = nread;
-        }
-        else
-        {
+        } else {
             nbytes = MAX_BUFFER_LENGTH;
         }
     }
 
-    if ( _expand( self, nbytes ) != 0 )
-    {
+    if ( _expand( self, nbytes ) != 0 ) {
         return -2;
     }
 
-    nread = read( fd, self->buffer+self->length, nbytes );
-    if ( nread > 0 )
-    {
+    nread = read( fd, self->buffer + self->length, nbytes );
+    if ( nread > 0 ) {
         self->length += nread;
     }
 
@@ -153,8 +135,7 @@ int32_t buffer_init( struct buffer * self )
 
 int32_t buffer_set( struct buffer * self, char * buf, size_t length )
 {
-    if ( self->orignbuffer )
-    {
+    if ( self->orignbuffer ) {
         free( self->orignbuffer );
     }
 
@@ -166,13 +147,10 @@ int32_t buffer_set( struct buffer * self, char * buf, size_t length )
 
 int32_t buffer_erase( struct buffer * self, size_t length )
 {
-    if ( self->length <= length )
-    {
+    if ( self->length <= length ) {
         self->length = 0;
         self->buffer = self->orignbuffer;
-    }
-    else
-    {
+    } else {
         self->buffer += length;
         self->length -= length;
     }
@@ -182,18 +160,16 @@ int32_t buffer_erase( struct buffer * self, size_t length )
 
 int32_t buffer_append( struct buffer * self, const char * buf, size_t length )
 {
-    size_t offset = _offset(self);
+    size_t offset = _offset( self );
     size_t needlength = offset + self->length + length;
 
-    if ( needlength > self->capacity )
-    {
-        if ( _expand(self, length) == -1 )
-        {
+    if ( needlength > self->capacity ) {
+        if ( _expand( self, length ) == -1 ) {
             return -1;
         }
     }
 
-    memcpy( self->buffer+self->length, buf, length );
+    memcpy( self->buffer + self->length, buf, length );
     self->length += length;
 
     return 0;
@@ -201,7 +177,7 @@ int32_t buffer_append( struct buffer * self, const char * buf, size_t length )
 
 int32_t buffer_append2( struct buffer * self, struct buffer * buffer )
 {
-    return buffer_append( self, buffer_data(buffer), buffer_length(buffer) );
+    return buffer_append( self, buffer_data( buffer ), buffer_length( buffer ) );
 }
 
 size_t buffer_take( struct buffer * self, char * buf, size_t length )
@@ -230,8 +206,7 @@ void buffer_swap( struct buffer * buf1, struct buffer * buf2 )
 ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes )
 {
     // 尽量读取SOCKET中的数据
-    if ( likely( nbytes == 0 ) )
-    {
+    if ( likely( nbytes == 0 ) ) {
         return _read_withvector( self, fd );
     }
 
@@ -242,22 +217,20 @@ ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes )
 ssize_t buffer_receive( struct buffer * self, int32_t fd, struct sockaddr_storage * addr )
 {
     ssize_t nread = MAX_BUFFER_LENGTH;
-    socklen_t addrlen = sizeof(*addr);
+    socklen_t addrlen = sizeof( *addr );
 
     // Using FIONREAD, it is impossible to distinguish the case
     // where no datagram is pending from the case where the next pending datagram contains zero bytes of data
 
-    if ( _expand( self, nread ) != 0 )
-    {
+    if ( _expand( self, nread ) != 0 ) {
         return -2;
     }
 
     bzero( addr, addrlen );
     nread = recvfrom( fd,
-            self->buffer+self->length, nread,
-            0, (struct sockaddr *)addr, &addrlen );
-    if ( nread > 0 )
-    {
+        self->buffer + self->length,
+        nread, MSG_DONTWAIT, (struct sockaddr *)addr, &addrlen );
+    if ( nread > 0 ) {
         self->length += nread;
     }
 
@@ -270,9 +243,8 @@ ssize_t buffer_receive( struct buffer * self, int32_t fd, struct sockaddr_storag
 
 struct message * message_create()
 {
-    struct message * self = (struct message *)malloc( sizeof(struct message) );
-    if ( self != NULL )
-    {
+    struct message * self = (struct message *)malloc( sizeof( struct message ) );
+    if ( self != NULL ) {
         self->nfailure = 0;
         self->nsuccess = 0;
         self->tolist = NULL;
@@ -284,17 +256,16 @@ struct message * message_create()
 
 void message_destroy( struct message * self )
 {
-    if ( self->tolist )
-    {
+    if ( self->tolist ) {
         sidlist_destroy( self->tolist );
         self->tolist = NULL;
     }
 
-//     if ( self->failurelist )
-//     {
-//         sidlist_destroy( self->failurelist );
-//         self->failurelist = NULL;
-//     }
+    // if ( self->failurelist )
+    // {
+    //     sidlist_destroy( self->failurelist );
+    //     self->failurelist = NULL;
+    // }
 
     buffer_clear( &self->buffer );
     free( self );
@@ -302,11 +273,9 @@ void message_destroy( struct message * self )
 
 int32_t message_add_receiver( struct message * self, sid_t id )
 {
-    if ( self->tolist == NULL )
-    {
-        self->tolist = sidlist_create(8);
-        if ( unlikely(self->tolist == NULL) )
-        {
+    if ( self->tolist == NULL ) {
+        self->tolist = sidlist_create( 8 );
+        if ( unlikely( self->tolist == NULL ) ) {
             return -1;
         }
     }
@@ -316,11 +285,9 @@ int32_t message_add_receiver( struct message * self, sid_t id )
 
 int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t count )
 {
-    if ( self->tolist == NULL )
-    {
-        self->tolist = sidlist_create(count);
-        if ( unlikely(self->tolist == NULL) )
-        {
+    if ( self->tolist == NULL ) {
+        self->tolist = sidlist_create( count );
+        if ( unlikely( self->tolist == NULL ) ) {
             return -1;
         }
     }
@@ -330,8 +297,7 @@ int32_t message_add_receivers( struct message * self, sid_t * ids, uint32_t coun
 
 int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 {
-    if ( self->tolist )
-    {
+    if ( self->tolist ) {
         sidlist_destroy( self->tolist );
     }
 
@@ -342,19 +308,16 @@ int32_t message_set_receivers( struct message * self, struct sidlist * ids )
 
 int32_t message_reserve_receivers( struct message * self, uint32_t count )
 {
-    if ( self->tolist != NULL )
-    {
+    if ( self->tolist != NULL ) {
         count += sidlist_count( self->tolist );
     }
 
     struct sidlist * tolist = sidlist_create( count );
-    if ( tolist == NULL )
-    {
+    if ( tolist == NULL ) {
         return -1;
     }
 
-    if ( self->tolist != NULL )
-    {
+    if ( self->tolist != NULL ) {
         sidlist_append( tolist, self->tolist );
         sidlist_destroy( self->tolist );
     }
@@ -387,6 +350,6 @@ int32_t message_reserve_receivers( struct message * self, uint32_t count )
 
 int32_t message_is_complete( struct message * self )
 {
-    int32_t totalcount = self->tolist ? sidlist_count(self->tolist) : 0;
+    int32_t totalcount = self->tolist ? sidlist_count( self->tolist ) : 0;
     return ( totalcount == self->nsuccess + self->nfailure );
 }

@@ -3,8 +3,7 @@
 #define UTILS_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 /*
@@ -27,11 +26,11 @@ extern "C"
 #include "network.h"
 
 // 分支预测
-#define likely(x)       __builtin_expect( (x), 1 )
-#define unlikely(x)     __builtin_expect( (x), 0 )
+#define likely( x ) __builtin_expect( ( x ), 1 )
+#define unlikely( x ) __builtin_expect( ( x ), 0 )
 
-#define MAX( a, b )     ( (a) > (b) ? (a) : (b) )
-#define MIN( a, b )     ( (a) < (b) ? (a) : (b) )
+#define MAX( a, b ) ( ( a ) > ( b ) ? ( a ) : ( b ) )
+#define MIN( a, b ) ( ( a ) < ( b ) ? ( a ) : ( b ) )
 
 //
 // 系统相关的操作
@@ -49,17 +48,19 @@ pid_t threadid();
 // socket基本操作
 int32_t is_ipv6only( int32_t fd );
 int32_t is_connected( int32_t fd );
+int32_t get_domain( int32_t fd );
 int32_t set_cloexec( int32_t fd );
 int32_t set_non_block( int32_t fd );
-int32_t unix_connect( const char * path, int32_t (*options)(int32_t) );
-int32_t unix_listen( const char * path, int32_t (*options)(int32_t) );
+int32_t unix_connect( const char * path, int32_t ( *options )( int32_t ) );
+int32_t unix_listen( const char * path, int32_t ( *options )( int32_t ) );
 int32_t tcp_accept( int32_t fd, char * remotehost, uint16_t * remoteport );
-int32_t tcp_listen( const char * host, uint16_t port, int32_t (*options)(int32_t) );
-int32_t tcp_connect( const char * host, uint16_t port, int32_t (*options)(int32_t) );
-int32_t udp_bind( const char * host, uint16_t port, int32_t (*options)(int32_t), struct sockaddr_storage * addr );
+int32_t tcp_listen( const char * host, uint16_t port, int32_t ( *options )( int32_t ) );
+int32_t tcp_connect( const char * host, uint16_t port, int32_t ( *options )( int32_t ) );
+int32_t udp_bind( const char * host, uint16_t port, int32_t ( *options )( int32_t ), struct sockaddr_storage * addr );
 int32_t udp_connect( struct sockaddr_storage * localaddr,
-        struct sockaddr_storage * remoteaddr, int32_t (*options)(int32_t) );
-void parse_endpoint( struct sockaddr_storage * addr, char * host, uint16_t * port );
+    struct sockaddr_storage * remoteaddr, int32_t ( *options )( int32_t ) );
+int32_t parse_endpoint( struct sockaddr_storage * addr, char * host, uint16_t * port );
+void convert_endpoint( struct sockaddr_storage * addr, int32_t type, const char * host, uint16_t port );
 
 //
 // 基础算法类
@@ -71,20 +72,19 @@ uint32_t nextpow2( uint32_t size );
 //
 // sidlist
 //
-struct sidlist
-{
-    uint32_t    count;
-    uint32_t    size;
+struct sidlist {
+    uint32_t count;
+    uint32_t size;
 
-    sid_t *     entries;
+    sid_t * entries;
 };
 
 struct sidlist * sidlist_create( uint32_t size );
-#define sidlist_count( self )    ( (self)->count )
+#define sidlist_count( self ) ( ( self )->count )
 sid_t sidlist_get( struct sidlist * self, int32_t index );
 int32_t sidlist_add( struct sidlist * self, sid_t id );
 int32_t sidlist_adds( struct sidlist * self, sid_t * ids, uint32_t count );
-#define sidlist_append( self, list ) sidlist_adds( (self), (list)->entries, (list)->count )
+#define sidlist_append( self, list ) sidlist_adds( ( self ), ( list )->entries, ( list )->count )
 sid_t sidlist_del( struct sidlist * self, int32_t index );
 void sidlist_destroy( struct sidlist * self );
 
@@ -93,43 +93,39 @@ void sidlist_destroy( struct sidlist * self );
 //
 
 // 任务类型
-enum
-{
-    eTaskType_Null        = 0,  // 空任务
-    eTaskType_User        = 1,  // 用户任务
-    eTaskType_Data        = 2,  // 数据任务
+enum {
+    eTaskType_Null = 0, // 空任务
+    eTaskType_User = 1, // 用户任务
+    eTaskType_Data = 2, // 数据任务
 };
 
 // 任务填充长度
 #if __SIZEOF_POINTER__ == 4
-    #define TASK_PADDING_SIZE   60
+    #define TASK_PADDING_SIZE 60
 #elif __SIZEOF_POINTER__ == 8
-    #define TASK_PADDING_SIZE   56
+    #define TASK_PADDING_SIZE 56
 #else
-#error "No way to define bits"
+    #error "No way to define bits"
 #endif
 
 // 任务数据
-struct task
-{
-    int16_t type;               // 2bytes
-    int16_t utype;              // 2bytes
-    union
-    {
-        void *  taskdata;
-        char    data[TASK_PADDING_SIZE];
+struct task {
+    int16_t type;  // 2bytes
+    int16_t utype; // 2bytes
+    union {
+        void * taskdata;
+        char data[TASK_PADDING_SIZE];
     };
 };
 
-QUEUE_PADDING_HEAD(taskqueue, struct task);
-QUEUE_PROTOTYPE(taskqueue, struct task)
+QUEUE_PADDING_HEAD( taskqueue, struct task );
+QUEUE_PROTOTYPE( taskqueue, struct task )
 
 //
 // 消息队列
 // 线程安全的消息队列, 有通知的功能
 //
-struct msgqueue
-{
+struct msgqueue {
     struct taskqueue queue;
     int32_t popfd;
     int32_t pushfd;

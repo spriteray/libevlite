@@ -17,8 +17,7 @@
 #include "utils.h"
 #include "event-internal.h"
 
-struct kqueuer
-{
+struct kqueuer {
     int32_t nchanges;
     int32_t changessize;
     struct kevent * changes;
@@ -46,37 +45,33 @@ const struct eventop kqueueops = {
     kqueue_final
 };
 
-#define EVSTATUS_X_KQINKERNEL   0x0100
+#define EVSTATUS_X_KQINKERNEL 0x0100
 
 void * kqueue_init()
 {
     struct kqueuer * poller = NULL;
 
-    poller = (struct kqueuer *)calloc( 1, sizeof(struct kqueuer) );
-    if ( poller == NULL )
-    {
+    poller = (struct kqueuer *)calloc( 1, sizeof( struct kqueuer ) );
+    if ( poller == NULL ) {
         return NULL;
     }
 
     poller->kqueuefd = kqueue();
-    if ( poller->kqueuefd == -1 )
-    {
+    if ( poller->kqueuefd == -1 ) {
         kqueue_final( poller );
         return NULL;
     }
 
-    poller->events = (struct kevent *)calloc( INIT_EVENTS, sizeof(struct kevent) );
-    poller->changes = (struct kevent *)calloc( INIT_EVENTS, sizeof(struct kevent) );
-    if ( poller->events == NULL || poller->changes == NULL )
-    {
+    poller->events = (struct kevent *)calloc( INIT_EVENTS, sizeof( struct kevent ) );
+    poller->changes = (struct kevent *)calloc( INIT_EVENTS, sizeof( struct kevent ) );
+    if ( poller->events == NULL || poller->changes == NULL ) {
         kqueue_final( poller );
         return NULL;
     }
 
     poller->nchanges = 0;
-    poller->changessize = INIT_EVENTS;
-
     poller->nevents = INIT_EVENTS;
+    poller->changessize = INIT_EVENTS;
 
     return poller;
 }
@@ -88,9 +83,9 @@ int32_t kqueue_expand( struct kqueuer * self )
 
     nevents <<= 1;
 
-    newevents = realloc( self->events, nevents*sizeof(struct kevent) );
-    if ( unlikely(newevents == NULL) )
-    {
+    newevents = (struct kevent *)realloc(
+        self->events, nevents * sizeof( struct kevent ) );
+    if ( unlikely( newevents == NULL ) ) {
         return -1;
     }
 
@@ -104,15 +99,14 @@ int32_t kqueue_insert( struct kqueuer * self, struct kevent * ev )
 {
     int32_t changessize = self->changessize;
 
-    if ( self->nchanges == changessize )
-    {
+    if ( self->nchanges == changessize ) {
         struct kevent * newchanges = NULL;
 
         changessize <<= 1;
 
-        newchanges = realloc( self->changes, changessize*sizeof(struct kevent) );
-        if ( unlikely(newchanges == NULL) )
-        {
+        newchanges = (struct kevent *)realloc(
+            self->changes, changessize * sizeof( struct kevent ) );
+        if ( unlikely( newchanges == NULL ) ) {
             return -1;
         }
 
@@ -120,7 +114,7 @@ int32_t kqueue_insert( struct kqueuer * self, struct kevent * ev )
         self->changessize = changessize;
     }
 
-    memcpy( &(self->changes[self->nchanges++]), ev, sizeof(struct kevent) );
+    memcpy( &( self->changes[self->nchanges++] ), ev, sizeof( struct kevent ) );
 
     return 0;
 }
@@ -130,43 +124,37 @@ int32_t kqueue_add( void * arg, struct event * ev )
     struct kevent kev;
     struct kqueuer * poller = (struct kqueuer *)arg;
 
-    bzero( &kev, sizeof(kev) );
+    bzero( &kev, sizeof( kev ) );
 
-    if ( ev->events & EV_READ )
-    {
+    if ( ev->events & EV_READ ) {
         kev.flags = EV_ADD;
         kev.udata = (void *)ev;
         kev.filter = EVFILT_READ;
-        kev.ident = event_get_fd((event_t)ev);
+        kev.ident = event_get_fd( (event_t)ev );
 #ifdef NOTE_EOF
         kev.fflags = NOTE_EOF;
 #endif
-        if ( !(ev->events & EV_PERSIST) )
-        {
+        if ( !( ev->events & EV_PERSIST ) ) {
             kev.flags |= EV_ONESHOT;
         }
 
-        if ( kqueue_insert( poller, &kev ) != 0 )
-        {
+        if ( kqueue_insert( poller, &kev ) != 0 ) {
             return -1;
         }
 
         ev->status |= EVSTATUS_X_KQINKERNEL;
     }
 
-    if ( ev->events & EV_WRITE )
-    {
+    if ( ev->events & EV_WRITE ) {
         kev.flags = EV_ADD;
         kev.udata = (void *)ev;
         kev.filter = EVFILT_WRITE;
-        kev.ident = event_get_fd((event_t)ev);
-        if ( !(ev->events & EV_PERSIST) )
-        {
+        kev.ident = event_get_fd( (event_t)ev );
+        if ( !( ev->events & EV_PERSIST ) ) {
             kev.flags |= EV_ONESHOT;
         }
 
-        if ( kqueue_insert( poller, &kev ) != 0 )
-        {
+        if ( kqueue_insert( poller, &kev ) != 0 ) {
             return -2;
         }
 
@@ -181,38 +169,33 @@ int32_t kqueue_del( void * arg, struct event * ev )
     struct kevent kev;
     struct kqueuer * poller = (struct kqueuer *)arg;
 
-    if ( !(ev->status & EVSTATUS_X_KQINKERNEL) )
-    {
+    if ( !( ev->status & EVSTATUS_X_KQINKERNEL ) ) {
         //
         // 该事件已经不在KQUEUE中了, 直接返回成功
         //
         return 0;
     }
 
-    bzero( &kev, sizeof(kev) );
+    bzero( &kev, sizeof( kev ) );
 
-    if ( ev->events & EV_READ )
-    {
+    if ( ev->events & EV_READ ) {
         kev.flags = EV_DELETE;
         kev.filter = EVFILT_READ;
-        kev.ident = event_get_fd((event_t)ev);
+        kev.ident = event_get_fd( (event_t)ev );
 
-        if ( kqueue_insert( poller, &kev ) != 0 )
-        {
+        if ( kqueue_insert( poller, &kev ) != 0 ) {
             return -2;
         }
 
         ev->status &= ~EVSTATUS_X_KQINKERNEL;
     }
 
-    if ( ev->events & EV_WRITE )
-    {
+    if ( ev->events & EV_WRITE ) {
         kev.flags = EV_DELETE;
         kev.filter = EVFILT_WRITE;
-        kev.ident = event_get_fd((event_t)ev);
+        kev.ident = event_get_fd( (event_t)ev );
 
-        if ( kqueue_insert( poller, &kev ) != 0 )
-        {
+        if ( kqueue_insert( poller, &kev ) != 0 ) {
             return -3;
         }
 
@@ -224,45 +207,39 @@ int32_t kqueue_del( void * arg, struct event * ev )
 
 int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv )
 {
-    struct timespec tsp, * ptsp = NULL ;
+    struct timespec tsp, *ptsp = NULL;
 
     int32_t res = -1, i = 0;
     struct kqueuer * poller = (struct kqueuer *)arg;
 
-    if ( tv >= 0 )
-    {
+    if ( tv >= 0 ) {
         // tv - 单位为毫秒
         // 必须换算成秒，以及纳秒
-        tsp.tv_sec = tv/1000;
-        tsp.tv_nsec = (tv%1000) * 1000000;
+        tsp.tv_sec = tv / 1000;
+        tsp.tv_nsec = ( tv % 1000 ) * 1000000;
         ptsp = &tsp;
     }
 
-    res = kevent( poller->kqueuefd, poller->changes,
-            poller->nchanges, poller->events, poller->nevents, ptsp );
+    res = kevent( poller->kqueuefd,
+        poller->changes, poller->nchanges, poller->events, poller->nevents, ptsp );
     poller->nchanges = 0;
 
-    if ( res == -1 )
-    {
-        if ( errno != EINTR )
-        {
+    if ( res == -1 ) {
+        if ( errno != EINTR ) {
             return -1;
         }
 
         return 0;
     }
 
-    for ( i = 0; i < res; ++i )
-    {
+    for ( i = 0; i < res; ++i ) {
         int32_t which = 0;
         struct event * ev = NULL;
 
-        if ( poller->events[i].flags & EV_ERROR )
-        {
+        if ( poller->events[i].flags & EV_ERROR ) {
             if ( poller->events[i].data == EBADF
-                    || poller->events[i].data == EINVAL
-                    || poller->events[i].data == ENOENT )
-            {
+                || poller->events[i].data == EINVAL
+                || poller->events[i].data == ENOENT ) {
                 continue;
             }
 
@@ -270,31 +247,25 @@ int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv )
             return -2;
         }
 
-        if ( poller->events[i].filter == EVFILT_READ )
-        {
+        if ( poller->events[i].filter == EVFILT_READ ) {
             which |= EV_READ;
-        }
-        else if ( poller->events[i].filter == EVFILT_WRITE )
-        {
+        } else if ( poller->events[i].filter == EVFILT_WRITE ) {
             which |= EV_WRITE;
         }
 
-        if ( !which )
-        {
+        if ( !which ) {
             continue;
         }
 
         ev = (struct event *)( poller->events[i].udata );
-        if ( !(ev->events & EV_PERSIST) )
-        {
+        if ( !( ev->events & EV_PERSIST ) ) {
             ev->status &= ~EVSTATUS_X_KQINKERNEL;
         }
 
         event_active( ev, which );
     }
 
-    if ( res == poller->nevents )
-    {
+    if ( res == poller->nevents ) {
         kqueue_expand( poller );
     }
 
@@ -305,16 +276,13 @@ void kqueue_final( void * arg )
 {
     struct kqueuer * poller = (struct kqueuer *)arg;
 
-    if ( poller->kqueuefd >= 0 )
-    {
+    if ( poller->kqueuefd >= 0 ) {
         close( poller->kqueuefd );
     }
-    if ( poller->changes )
-    {
+    if ( poller->changes ) {
         free( poller->changes );
     }
-    if ( poller->events )
-    {
+    if ( poller->events ) {
         free( poller->events );
     }
 

@@ -31,8 +31,7 @@
 #define THREADS_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <stdint.h>
@@ -42,7 +41,7 @@ extern "C"
 
 // 网络线程组
 typedef void * iothreads_t;
-typedef void (*processor_t)( void *, uint8_t, int16_t, void * );
+typedef void ( *processor_t )( void *, uint8_t, int16_t, void * );
 
 // 创建网络线程组
 // nthreads         - 网络线程组中的线程数

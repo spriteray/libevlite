@@ -31,8 +31,7 @@
 #define NETWORK_H
 
 #ifdef __cplusplus
-extern "C"
-{
+extern "C" {
 #endif
 
 #include <stdint.h>
@@ -41,26 +40,27 @@ extern "C"
 //
 // 网络层
 //
-typedef uint64_t    sid_t;
-typedef void *      iolayer_t;
+typedef uint64_t sid_t;
+typedef void * iolayer_t;
 
 // 网络类型
-#define NETWORK_TCP 1   // TCP
-#define NETWORK_UDP 2   // UDP, 特殊场景中使用
-#define NETWORK_KCP 3   // KCP
+#define NETWORK_TCP 1 // TCP
+#define NETWORK_UDP 2 // UDP, 特殊场景中使用
+#define NETWORK_KCP 3 // KCP
 
 // 服务器参数(当前是KCP的选项)
 typedef struct
 {
-    int32_t mtu;      // 最大传输单元, 默认值1400
-    int32_t minrto;   // 最小重传时间, 默认值30ms
-    int32_t sndwnd;   // 发送窗口, 默认值64
-    int32_t rcvwnd;   // 接收窗口, 默认值64
-    int32_t stream;   // kcp流模式, 默认值1(流模式)
-    int32_t resend;   // 快速重传, 默认值2
-    int32_t deadlink; // 最大重传次数, 默认值50
-    int32_t interval; // 内部处理时钟, 默认值40ms
-}options_t;
+    int32_t mtu;       // 最大传输单元, 默认值1400
+    int32_t minrto;    // 最小重传时间, 默认值30ms
+    int32_t sndwnd;    // 发送窗口, 默认值64
+    int32_t rcvwnd;    // 接收窗口, 默认值64
+    int32_t stream;    // kcp流模式, 默认值1(流模式)
+    int32_t resend;    // 快速重传, 默认值2
+    int32_t deadlink;  // 最大重传次数, 默认值50
+    int32_t interval;  // 内部处理时钟, 默认值40ms
+    int32_t ntransfer; // 中转描述符个数, 默认值16
+} options_t;
 
 // IO服务
 //        start()       - 网络就绪的回调
@@ -86,15 +86,15 @@ typedef struct
 //                              1, 逻辑层被动终止会话的情况, timeout(), error(), process()出错
 typedef struct
 {
-    int32_t (*start)( void * context );
-    ssize_t (*process)( void * context, const char * buf, size_t nbytes );
-    char *  (*transform)( void * context, const char * buf, size_t * nbytes );
-    int32_t (*keepalive)( void * context );
-    int32_t (*timeout)( void * context );
-    int32_t (*error)( void * context, int32_t result );
-    int32_t (*perform)( void * context, int32_t type, void * task, int32_t interval );
-    void    (*shutdown)( void * context, int32_t way );
-}ioservice_t;
+    int32_t ( *start )( void * context );
+    ssize_t ( *process )( void * context, const char * buf, size_t nbytes );
+    char * ( *transform )( void * context, const char * buf, size_t * nbytes );
+    int32_t ( *keepalive )( void * context );
+    int32_t ( *timeout )( void * context );
+    int32_t ( *error )( void * context, int32_t result );
+    int32_t ( *perform )( void * context, int32_t type, void * task, int32_t interval );
+    void ( *shutdown )( void * context, int32_t way );
+} ioservice_t;
 
 // 创建网络层
 //        nthreads      - 网络线程数
@@ -114,7 +114,7 @@ int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count )
 //      参数1: 上下文参数
 //      参数2: 欲发送或者广播的消息内容
 //      参数3: 指向消息长度的指针, 返回改造后的数据包长度
-typedef char * (*transformer_t)( void *, const char * , size_t * );
+typedef char * ( *transformer_t )( void *, const char *, size_t * );
 // 网络层设置数据包改造方法,
 // 该网络层的统一的数据包改造方法(在listen(), connect(), associate()之前调用)
 //        self          -
@@ -128,7 +128,7 @@ int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * c
 //      参数3: 新会话ID
 //      参数4: 会话的IP地址
 //      参数5: 会话的端口号
-typedef int32_t (*acceptor_t)( void *, void *, sid_t, const char * , uint16_t );
+typedef int32_t ( *acceptor_t )( void *, void *, sid_t, const char *, uint16_t );
 // 开启服务端
 //        type          - 网络类型: NETWORK_TCP or NETWORK_UDP or NETWORK_KCP
 //        host          - 绑定的地址
@@ -137,7 +137,7 @@ typedef int32_t (*acceptor_t)( void *, void *, sid_t, const char * , uint16_t );
 //        callback      - 新会话创建成功后的回调(参考acceptor_t的定义),会被多个网络线程调用
 //        context       - 上下文参数
 int32_t iolayer_listen( iolayer_t self, uint8_t type,
-        const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context );
+    const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context );
 
 //  连接结果的回调
 //      参数1: 上下文参数
@@ -146,19 +146,19 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type,
 //      参数4: 连接的远程服务器的地址
 //      参数5: 连接的远程服务器的端口
 //      参数6: 连接成功后返回的会话ID
-typedef int32_t (*connector_t)( void *, void *, int32_t, const char *, uint16_t, sid_t );
+typedef int32_t ( *connector_t )( void *, void *, int32_t, const char *, uint16_t, sid_t );
 // 开启客户端
 //        host          - 远程服务器的地址
 //        port          - 远程服务器的端口
 //        callback      - 连接结果的回调(参考connector_t的定义)
 //        context       - 上下文参数
 int32_t iolayer_connect( iolayer_t self,
-        const char * host, uint16_t port, connector_t callback, void * context );
+    const char * host, uint16_t port, connector_t callback, void * context );
 
 //  重新关联函数，返回新的描述符
 //      参数1: 上次关联的描述符
 //      参数2: 描述符相关的私有数据
-typedef int32_t (*reattacher_t)( int32_t, void * );
+typedef int32_t ( *reattacher_t )( int32_t, void * );
 //  关联成功后的回调
 //      参数1: 上下文参数
 //      参数2: 网络线程上下文参数
@@ -166,7 +166,7 @@ typedef int32_t (*reattacher_t)( int32_t, void * );
 //      参数3: 描述符
 //      参数4: 描述符相关私有数据
 //      参数5: 会话ID
-typedef int32_t (*associator_t)( void *, void *, int32_t, int32_t, void *, sid_t );
+typedef int32_t ( *associator_t )( void *, void *, int32_t, int32_t, void *, sid_t );
 // 描述符关联会话ID
 //      fd              - 描述符
 //      privdata        - 描述符相关的私有数据
@@ -174,7 +174,7 @@ typedef int32_t (*associator_t)( void *, void *, int32_t, int32_t, void *, sid_t
 //      callback        - 关联成功后的回调(参考associator_t的定义)
 //      context         - 上下文参数
 int32_t iolayer_associate( iolayer_t self,
-        int32_t fd, void * privdata, reattacher_t reattach, associator_t callback, void * context );
+    int32_t fd, void * privdata, reattacher_t reattach, associator_t callback, void * context );
 
 // 会话参数的设置, 只能在ioservice_t中使用
 // 建议在ioservice_t::onStart()中调用
@@ -210,11 +210,11 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
 // 任务复制函数
 //      参数: 任务
-typedef void * (*taskcloner_t)( void * );
+typedef void * ( *taskcloner_t )( void * );
 // 任务处理函数
 //      参数1: 网络线程上下文参数
 //      参数2: 任务
-typedef void (*taskexecutor_t)( void *, void * );
+typedef void ( *taskexecutor_t )( void *, void * );
 // 提交任务到网络层
 //      task            - 任务
 //      clone           - 任务复制函数(参考taskcloner_t的定义), 如果为NULL, 随机选择一个网络线程投递
@@ -225,7 +225,7 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
 //      参数1: 类型
 //      参数2: 任务
 //      参数3: 时间
-typedef void (*taskrecycler_t)( int32_t, void *, int32_t );
+typedef void ( *taskrecycler_t )( int32_t, void *, int32_t );
 // 分派任务给指定的会话, 通过ioservice_t::perform()回调执行该任务
 //      id              - 会话ID
 //      type            - 任务类型
