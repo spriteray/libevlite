@@ -48,7 +48,6 @@ pid_t threadid();
 // socket基本操作
 int32_t is_ipv6only( int32_t fd );
 int32_t is_connected( int32_t fd );
-int32_t get_domain( int32_t fd );
 int32_t set_cloexec( int32_t fd );
 int32_t set_non_block( int32_t fd );
 int32_t unix_connect( const char * path, int32_t ( *options )( int32_t ) );

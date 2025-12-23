@@ -69,19 +69,6 @@ int32_t is_ipv6only( int32_t fd )
     return 0;
 }
 
-int32_t get_domain( int32_t fd )
-{
-    int32_t value = -1;
-    socklen_t length = sizeof( int32_t );
-
-    if ( getsockopt( fd, SOL_SOCKET,
-        SO_DOMAIN, (void *)&value, &length ) == 0 ) {
-        return value;
-    }
-
-    return value;
-}
-
 int32_t is_connected( int32_t fd )
 {
     int32_t value = -1;
