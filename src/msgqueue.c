@@ -24,7 +24,6 @@ struct msgqueue * msgqueue_create( uint32_t size )
 #if !defined EVENT_HAVE_EVENTFD
             int32_t fds[2] = { -1, -1 };
             rc = pipe( fds );
-            // rc = socketpair( AF_UNIX, SOCK_STREAM, 0, fds );
             if ( rc != -1 ) {
                 self->popfd = fds[0];
                 self->pushfd = fds[1];
@@ -63,7 +62,7 @@ int32_t msgqueue_push( struct msgqueue * self, struct task * task )
 
     evlock_unlock( &self->lock );
 
-    if ( rc == 0 && isbc == 1 ) {
+    if ( unlikely( rc == 0 && isbc == 1 ) ) {
         uint64_t one = 1;
 
         if ( sizeof( one )
@@ -93,8 +92,7 @@ int32_t msgqueue_pops( struct msgqueue * self, struct task * tasks, uint32_t cou
 
     evlock_lock( &self->lock );
     for ( i = 0; i < count; ++i ) {
-        if ( QUEUE_POP( taskqueue )( &self->queue, &tasks[i] )
-            == 0 ) {
+        if ( QUEUE_POP( taskqueue )( &self->queue, &tasks[i] ) == 0 ) {
             break;
         }
     }

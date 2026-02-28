@@ -11,11 +11,10 @@
 
 typedef std::vector<sid_t> sids_t;
 
-enum class NetType
-{
-    TCP     = NETWORK_TCP,
-    UDP     = NETWORK_UDP,
-    KCP     = NETWORK_KCP,
+enum class NetType {
+    TCP = NETWORK_TCP,
+    UDP = NETWORK_UDP,
+    KCP = NETWORK_KCP,
 };
 
 //
@@ -26,11 +25,11 @@ class IIOService;
 
 class IIOSession
 {
-public :
-    IIOSession();
-    virtual ~IIOSession();
+public:
+    IIOSession() = default;
+    virtual ~IIOSession() = default;
 
-public :
+public:
     //
     // 网络事件
     // 多个网络线程中被触发
@@ -38,14 +37,14 @@ public :
 
     virtual int32_t onStart() { return 0; }
     virtual ssize_t onProcess( const char * buffer, size_t nbytes ) { return 0; }
-    virtual char *  onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>(buffer); }
+    virtual char * onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>( buffer ); }
     virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
     virtual int32_t onPerform( int32_t type, void * task, int32_t interval ) { return 0; }
-    virtual void    onShutdown( int32_t way ) {}
+    virtual void onShutdown( int32_t way ) {}
 
-public :
+public:
     //
     // 在网络线程中对会话的操作
     //
@@ -86,30 +85,30 @@ public :
     // 关闭会话
     int32_t shutdown();
 
-protected :
+protected:
     friend class IIOService;
 
     // 初始化会话
     void init( sid_t id,
-            void * context, iolayer_t layer,
-            const std::string & host, uint16_t port );
+        void * context, iolayer_t layer,
+        const std::string & host, uint16_t port );
 
     // 内部回调函数
-    static int32_t  onStartSession( void * context );
-    static ssize_t  onProcessSession( void * context, const char * buffer, size_t nbytes );
-    static char *   onTransformSession( void * context, const char * buffer, size_t * nbytes );
-    static int32_t  onTimeoutSession( void * context );
-    static int32_t  onKeepaliveSession( void * context );
-    static int32_t  onErrorSession( void * context, int32_t result );
-    static int32_t  onPerformSession( void * context, int32_t type, void * task, int32_t interval );
-    static void     onShutdownSession( void * context, int32_t way );
+    static int32_t onStartSession( void * context );
+    static ssize_t onProcessSession( void * context, const char * buffer, size_t nbytes );
+    static char * onTransformSession( void * context, const char * buffer, size_t * nbytes );
+    static int32_t onTimeoutSession( void * context );
+    static int32_t onKeepaliveSession( void * context );
+    static int32_t onErrorSession( void * context, int32_t result );
+    static int32_t onPerformSession( void * context, int32_t type, void * task, int32_t interval );
+    static void onShutdownSession( void * context, int32_t way );
 
-private :
-    sid_t           m_Sid;
-    uint16_t        m_Port;
-    std::string     m_Host;
-    iolayer_t       m_Layer;
-    void *          m_IOContext;
+private:
+    sid_t m_Sid = 0;
+    uint16_t m_Port = 0;
+    std::string m_Host;
+    iolayer_t m_Layer = nullptr;
+    void * m_IOContext = nullptr;
 };
 
 //
@@ -118,30 +117,27 @@ private :
 
 class IIOService
 {
-public :
+public:
     IIOService( uint8_t nthreads,
-            uint32_t nclients, int32_t precision = 8, bool transform = false );
+        uint32_t nclients, int32_t precision = 8, bool transform = false );
     virtual ~IIOService();
 
-public :
+public:
     // 初始化/销毁IO上下文
-    virtual void * initIOContext() { return NULL; }
-    virtual void finalIOContext( void * context ) { return; }
-
+    virtual void finalIOContext( void * context ) {}
+    virtual void * initIOContext() { return nullptr; }
     // 数据改造
-    virtual char * onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>(buffer); }
-
+    virtual char * onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>( buffer ); }
     // 回调事件
     // 需要调用者自己实现
     // 有可能在IIOService的多个网络线程中被触发
-
     // 连接事件
     virtual bool onConnectFailed( int32_t result, const char * host, uint16_t port ) { return false; }
-    virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port ) { return NULL; }
+    virtual IIOSession * onConnectSucceed( sid_t id, const char * host, uint16_t port ) { return nullptr; }
     // 接受事件
-    virtual IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port ) { return NULL; }
+    virtual IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port ) { return nullptr; }
 
-public :
+public:
     //
     // 线程安全的API
     //
@@ -191,7 +187,7 @@ public :
     //      -1      - 关联失败
     //      0       - 正在连接
     int32_t associate( int32_t fd, void * privdata,
-            reattacher_t reattach, associator_t cb, void * context );
+        reattacher_t reattach, associator_t cb, void * context );
 
     // 发送数据
     int32_t send( sid_t id, const std::string & buffer );
@@ -211,80 +207,58 @@ public :
     int32_t invoke( void * task, taskcloner_t clone, taskexecutor_t execute );
     int32_t perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle, int32_t interval = -1 );
 
-private :
+private:
     // 监听上下文
-    struct ListenContext
-    {
-        NetType         type;
-        uint16_t        port;
-        IIOService *    service;
-
-        ListenContext()
-            : port( 0 ),
-              service( NULL )
-        {}
-
-        ListenContext( NetType t, uint16_t p, IIOService * s )
-            : type( t ),
-              port( p ),
-              service( s )
-        {}
+    struct ListenContext {
+        NetType type = NetType::TCP;
+        uint16_t port = 0;
+        IIOService * service = nullptr;
+        ListenContext() = default;
+        ListenContext( NetType t, uint16_t p, IIOService * s ) : type( t ), port( p ), service( s ) {}
     };
 
     // 连接上下文
-    struct ConnectContext
-    {
-        sid_t           sid;
-        uint16_t        port;
-        std::string     host;
-        IIOService *    service;
-
-        ConnectContext()
-            : sid( 0 ),
-              port( 0 ),
-              service( NULL )
-        {}
-
-        ConnectContext( const char * h, uint16_t p, IIOService * s )
-            : sid( 0 ),
-              port( p ),
-              host( h ),
-              service( s )
-        {}
+    struct ConnectContext {
+        sid_t sid = 0;
+        uint16_t port = 0;
+        std::string host;
+        IIOService * service = nullptr;
+        ConnectContext() = default;
+        ConnectContext( const char * h, uint16_t p, IIOService * s ) : sid( 0 ), port( p ), host( h ), service( s ) {}
     };
 
     typedef std::vector<ListenContext *> ListenContexts;
     typedef std::vector<ConnectContext *> ConnectContexts;
 
-private :
+private:
     // 初始化会话
     // 在定制化非常强的场景下使用
     void initSession( sid_t id,
-            IIOSession * session, void * iocontext,
-            const std::string & host, uint16_t port );
+        IIOSession * session, void * iocontext,
+        const std::string & host, uint16_t port );
 
     // 通知连接结果
     void notifyConnectResult(
-            ConnectContext * context,
-            int32_t result, sid_t id, int32_t ack );
+        ConnectContext * context,
+        int32_t result, sid_t id, int32_t ack );
 
     static char * onTransformService( void * context, const char * buffer, size_t * nbytes );
     static int32_t onAcceptSession( void * context, void * iocontext, sid_t id, const char * host, uint16_t port );
     static int32_t onConnectSession( void * context, void * iocontext, int32_t result, const char * host, uint16_t port, sid_t id );
 
-private :
-    iolayer_t           m_IOLayer;
-    bool                m_Transform;
-    int32_t             m_Precision;
-    uint8_t             m_ThreadsCount;
-    uint32_t            m_SessionsCount;
-    void **             m_IOContextGroup;
+private:
+    iolayer_t m_IOLayer;
+    bool m_Transform;
+    int32_t m_Precision;
+    uint8_t m_ThreadsCount;
+    uint32_t m_SessionsCount;
+    void ** m_IOContextGroup;
 
-private :
-    pthread_cond_t      m_Cond;
-    pthread_mutex_t     m_Lock;
-    ListenContexts      m_ListenContexts;       // 正在监听的会话
-    ConnectContexts     m_ConnectContexts;      // 正在连接的会话
+private:
+    pthread_cond_t m_Cond;
+    pthread_mutex_t m_Lock;
+    ListenContexts m_ListenContexts;   // 正在监听的会话
+    ConnectContexts m_ConnectContexts; // 正在连接的会话
 };
 
 #endif

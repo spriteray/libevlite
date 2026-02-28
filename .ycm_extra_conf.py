@@ -39,6 +39,7 @@ DIR_OF_WATCHDOG_DEPS = p.join( DIR_OF_THIRD_PARTY, 'watchdog_deps' )
 SOURCE_EXTENSIONS = [ '.cpp', '.cxx', '.cc', '.c', '.m', '.mm' ]
 
 database = None
+gccversion = subprocess.check_output( ['gcc','-dumpversion'] ).rstrip().decode('utf8')
 
 # These are the compilation flags that will be used in case there's no
 # compilation database set (by default, one is not set).
@@ -60,17 +61,17 @@ flags = [
 # use when compiling headers. So it will guess. Badly. So C++ headers will be
 # compiled as C headers. You don't want that so ALWAYS specify the '-x' flag.
 # For a C project, you would set this to 'c' instead of 'c++'.
-'-x',
-'c++',
+'-x', 'c',
+'-x', 'c++',
 '-std=c++17',
 '-I', 'src',
 '-I', 'include',
-'-I', 'src/test',
-'-I', 'src/examples',
+'-I', 'test',
+'-I', 'examples',
 '-isystem', '/usr/local/include',
-'-isystem', '/usr/include/c++/9',
+'-isystem', '/usr/include/c++/%s' % gccversion ,
 '-isystem', '/usr/include',
-'-isystem', '/usr/include/x86_64-linux-gnu/c++/9',
+'-isystem', '/usr/include/x86_64-linux-gnu/c++/%s' % gccversion,
 '-isystem', '/usr/include/x86_64-linux-gnu',
 '-isystem', 'cpp/absl',
 '-isystem', 'cpp/pybind11',

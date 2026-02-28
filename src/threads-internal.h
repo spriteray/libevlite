@@ -17,6 +17,7 @@
 // 网络线程
 //
 
+struct session_manager;
 STAILQ_HEAD( acceptorlist, acceptor );
 STAILQ_HEAD( connectorlist, connector );
 STAILQ_HEAD( associaterlist, associater );
@@ -29,6 +30,7 @@ struct iothread {
     evsets_t sets;
     void * parent;
     void * context; // 上下文
+    struct session_manager * manager;
 
     event_t cmdevent;
     struct msgqueue * queue;
@@ -39,7 +41,7 @@ struct iothread {
     struct associaterlist associaterlist;
 }__attribute__((aligned(64)));
 
-int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
+int32_t iothread_start( struct iothread * self, uint8_t index, uint32_t nclients, iothreads_t parent );
 int32_t iothread_post( struct iothread * self,
     int16_t type, int16_t utype, void * task, uint8_t size );
 int32_t iothread_stop( struct iothread * self );
@@ -65,6 +67,7 @@ struct iothreads {
 };
 
 int8_t iothreads_get_index( iothreads_t self );
+struct iothread * iothreads_get( iothreads_t self, uint8_t index );
 struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index );
 struct connectorlist * iothreads_get_connectlist( iothreads_t self, uint8_t index );
 struct associaterlist * iothreads_get_associatelist( iothreads_t self, uint8_t index );

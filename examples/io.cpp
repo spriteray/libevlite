@@ -6,16 +6,6 @@
 
 #include "io.h"
 
-IIOSession::IIOSession()
-    : m_Sid( 0 ),
-      m_Port( 0 ),
-      m_Layer( nullptr ),
-      m_IOContext( nullptr )
-{}
-
-IIOSession::~IIOSession()
-{}
-
 void IIOSession::setTimeout( int32_t seconds )
 {
     assert( m_Sid != 0 && m_Layer != nullptr );

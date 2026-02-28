@@ -11,9 +11,9 @@
 #include "session.h"
 #include "network-internal.h"
 
-static struct session * _new_session();
-static int32_t _del_session( struct session * self );
-static int32_t _reset_session( struct session * self );
+static inline struct session * _new_session();
+static inline int32_t _del_session( struct session * self );
+static inline int32_t _reset_session( struct session * self );
 static inline void _stop( struct session * self );
 static inline void _init_settings( struct session_setting * self );
 

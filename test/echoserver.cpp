@@ -3,6 +3,7 @@
 #include <unistd.h>
 #include <signal.h>
 #include <stdint.h>
+#include <stdlib.h>
 
 #include "io.h"
 
@@ -12,11 +13,11 @@
 // 回显服务实例
 //
 
-class CEchoSession : public IIOSession
+class EchoSession : public IIOSession
 {
 public:
-    CEchoSession() = default;
-    virtual ~CEchoSession() override = default;
+    EchoSession() = default;
+    virtual ~EchoSession() override = default;
 
 public:
     virtual int32_t onStart() override {
@@ -49,22 +50,19 @@ public:
     virtual void onShutdown( int32_t way ) override {}
 };
 
-class CEchoService : public IIOService
+class EchoService : public IIOService
 {
 public:
-    CEchoService( uint8_t nthreads, uint32_t nclients )
-        : IIOService( nthreads, nclients )
-    {}
+    EchoService( uint8_t nthreads, uint32_t nclients )
+        : IIOService( nthreads, nclients ) {}
+    virtual ~EchoService() override {}
 
-    virtual ~CEchoService() override
-    {}
-
-public:
-    IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port ) override {
+public :
+    virtual IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port ) override {
 #if DEBUG_OUTPUT
         printf( "%lld, %s::%d .\n", id, host, port );
 #endif
-        return new CEchoSession;
+        return new EchoSession;
     }
 };
 
@@ -81,17 +79,17 @@ void signal_handle( int32_t signo )
 
 int main( int argc, char ** argv )
 {
-    CEchoService * service = NULL;
+    EchoService * service = NULL;
 
-    if ( argc != 3 ) {
-        printf( "Usage: echoserver [host] [port] \n" );
+    if ( argc != 4 ) {
+        printf( "Usage: echoserver [host] [port] [number] \n" );
         return -1;
     }
 
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signal_handle );
 
-    service = new CEchoService( 4, 200000 );
+    service = new EchoService( 4, atoi(argv[3]) );
     if ( service == NULL ) {
         return -1;
     }
@@ -101,7 +99,6 @@ int main( int argc, char ** argv )
     if ( !service->listen( NetType::TCP, argv[1], atoi( argv[2] ), nullptr ) ) {
         printf( "service start failed \n" );
         delete service;
-
         return -2;
     }
 

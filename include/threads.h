@@ -45,8 +45,9 @@ typedef void ( *processor_t )( void *, uint8_t, int16_t, void * );
 
 // 创建网络线程组
 // nthreads         - 网络线程组中的线程数
+// nclients         - 服务的连接数
 // precision        - 事件集的精度
-iothreads_t iothreads_start( uint8_t nthreads, int32_t precision );
+iothreads_t iothreads_start( uint8_t nthreads, uint32_t nclients, int32_t precision );
 
 // 设置处理器
 void iothreads_set_processor( iothreads_t self, processor_t processor, void * context );

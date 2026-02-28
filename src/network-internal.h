@@ -74,8 +74,6 @@ struct iolayer {
 
     // 网络线程组
     iothreads_t threads;
-    // 会话管理器
-    void ** managers;
 
     // 数据改造接口
     void * context;

@@ -147,13 +147,13 @@ void channel_udpprocess( struct session * session, struct buffer * buffer )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-inline ssize_t _receive( struct session * session )
+ssize_t _receive( struct session * session )
 {
     // 从socket中读取数据
     return buffer_readv( &session->inbuffer, session->fd );
 }
 
-inline ssize_t _process( struct session * session )
+ssize_t _process( struct session * session )
 {
     ssize_t nprocess = 0;
 
@@ -172,7 +172,7 @@ inline ssize_t _process( struct session * session )
     return nprocess;
 }
 
-inline int32_t _timeout( struct session * session )
+int32_t _timeout( struct session * session )
 {
     /*
      * 超时, 会尝试安全的终止会话

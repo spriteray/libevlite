@@ -12,12 +12,13 @@
 
 #include "config.h"
 #include "threads.h"
+#include "session.h"
 #include "threads-internal.h"
 
 // 基础处理器
 void _base_processor( void * context, uint8_t index, int16_t type, void * task ) {}
 
-iothreads_t iothreads_start( uint8_t nthreads, int32_t precision )
+iothreads_t iothreads_start( uint8_t nthreads, uint32_t nclients, int32_t precision )
 {
     struct iothreads * iothreads = (struct iothreads *)calloc( 1, sizeof( struct iothreads ) );
     if ( iothreads == NULL ) {
@@ -41,7 +42,7 @@ iothreads_t iothreads_start( uint8_t nthreads, int32_t precision )
     iothreads->runflags = 1;
     iothreads->nrunthreads = nthreads;
     for ( uint8_t i = 0; i < nthreads; ++i ) {
-        iothread_start( iothreads->threads + i, i, iothreads );
+        iothread_start( iothreads->threads + i, i, nclients, iothreads );
     }
 
     return iothreads;
@@ -56,6 +57,17 @@ void iothreads_set_processor( iothreads_t self, processor_t processor, void * co
     iothreads->processor = processor;
 
     return;
+}
+
+struct iothread * iothreads_get( iothreads_t self, uint8_t index )
+{
+    struct iothreads * iothreads = (struct iothreads *)( self );
+
+    assert( iothreads != NULL );
+    assert( index < iothreads->nthreads );
+    assert( iothreads->threads != NULL );
+
+    return &( iothreads->threads[index] );
 }
 
 struct acceptorlist * iothreads_get_acceptlist( iothreads_t self, uint8_t index )
@@ -210,10 +222,15 @@ static void iothread_on_command( int32_t fd, int16_t ev, void * arg );
 static inline uint32_t _process(
     struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue );
 
-int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent )
+int32_t iothread_start( struct iothread * self, uint8_t index, uint32_t nclients, iothreads_t parent )
 {
     self->index = index;
     self->parent = parent;
+
+    self->manager = session_manager_create( index, nclients );
+    if ( self->manager == NULL ) {
+        iothread_stop( self );
+    }
 
     self->sets = evsets_create( ( (struct iothreads *)parent )->precision );
     if ( self->sets == NULL ) {
@@ -308,6 +325,11 @@ int32_t iothread_stop( struct iothread * self )
         associater->state = 0;
         iolayer_free_associater( associater );
         associater = next;
+    }
+
+    if ( self->manager != NULL ) {
+        session_manager_destroy( self->manager );
+        self->manager = NULL;
     }
 
     return 0;

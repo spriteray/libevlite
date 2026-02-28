@@ -621,14 +621,14 @@ int32_t name##_QUEUE_TOP( struct name * self, type * data ) {                   
 int32_t name##_QUEUE_INIT( struct name * self, uint32_t size ) {                    \
     size = size ? size : 8;                                                         \
     assert( (size&(size-1)) == 0 );                                                 \
-    (self)->entries = calloc( size, sizeof(type) );                                 \
+    (self)->entries = (type *)calloc( size, sizeof(type) );                         \
     (self)->size = size; (self)->head = (self)->tail = 0;                           \
     return (self)->entries == NULL ? -1 : 0 ;                                       \
 }                                                                                   \
 int32_t name##_QUEUE_GROW( struct name * self ) {                                   \
     uint32_t newsize = (self)->size << 1;                                           \
     uint32_t count = (self)->tail - (self)->head;                                   \
-    type * newentries = calloc( newsize, sizeof(type) );                            \
+    type * newentries = (type *)calloc( newsize, sizeof(type) );                    \
     if ( newentries == NULL ) { return -1; }                                        \
     uint32_t len = (self)->size-((self)->head&((self)->size-1));                    \
     if ( len > count ) len = count;                                                 \
@@ -684,8 +684,8 @@ uint32_t name##_QUEUE_SHRINK( struct name * self, uint32_t size ) {             
         || (self)->size <= size || name##_QUEUE_COUNT((self)) != 0 ) {              \
         return (self)->size;                                                        \
     }                                                                               \
-    void * p = (self)->entries;                                                     \
-    p = realloc( p, size * sizeof(type) );                                          \
+    type * p = (self)->entries;                                                     \
+    p = (type *)realloc( p, size * sizeof(type) );                                  \
     if ( p == NULL ) { return (self)->size; }                                       \
     else if ( p != (self)->entries ) { (self)->entries = p; }                       \
     (self)->size = size; (self)->head = (self)->tail = 0;                           \
