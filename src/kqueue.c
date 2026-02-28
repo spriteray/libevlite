@@ -14,7 +14,6 @@
 #include <sys/event.h>
 #include <sys/time.h>
 
-#include "utils.h"
 #include "event-internal.h"
 
 struct kqueuer {

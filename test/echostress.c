@@ -176,7 +176,7 @@ void start_clients( struct event_base * base )
             return ;
         }
 
-        //set_fd_nonblock( client->fd );
+        set_fd_nonblock( client->fd );
 
         event_set( &client->evread, client->fd, EV_READ | EV_PERSIST, client_on_read, client );
         event_base_set( base, &client->evread );

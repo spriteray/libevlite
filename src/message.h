@@ -7,8 +7,9 @@ extern "C" {
 #endif
 
 #include <stdint.h>
+#include <sys/socket.h>
 
-#include "utils.h"
+#include "sidlist.h"
 
 #define MIN_BUFFER_LENGTH 128
 #define MAX_BUFFER_LENGTH 65536
@@ -49,6 +50,7 @@ void buffer_swap( struct buffer * buf1, struct buffer * buf2 );
 // nbytes = 0  : 尽量读取数据到BUFF中(最多一次性读取2*MAX_BUFFER_LENGTH-1)
 // nbytes > 0  : 读取指定长度的数据到BUFF中
 // -1, 系统调用read()返回出错; -2, 返回expand()失败
+ssize_t buffer_readv( struct buffer * self, int32_t fd );
 ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes );
 ssize_t buffer_receive( struct buffer * self, int32_t fd, struct sockaddr_storage * addr );
 

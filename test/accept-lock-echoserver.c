@@ -47,39 +47,12 @@
 
 int8_t isstarted;
 
-int32_t set_fd_nonblock( int32_t fd )
+int32_t tcp_options( int32_t fd )
 {
-    int32_t flags ;
-    int32_t retval = -1;
-
-    flags = fcntl( fd, F_GETFL );
-    if ( flags >= 0 )
-    {
-        flags |= O_NONBLOCK;
-
-        if ( fcntl( fd, F_SETFL, flags ) >= 0 )
-        {
-            retval = 0;
-        }
-    }
-
-    return retval;
-}
-
-int32_t tcp_listen( const char * host, uint16_t port )
-{
-    int32_t fd = -1;
-
     int32_t flags = 1;
     struct linger ling = {1, 0};
 
-    struct sockaddr_in addr;
-
-    fd = socket( AF_INET, SOCK_STREAM, 0 );
-    if ( fd < 0 )
-    {
-        return -1;
-    }
+    set_non_block( fd );
 
     /* TCP Socket Option Settings */
     setsockopt( fd, SOL_SOCKET, SO_REUSEADDR, (void *)&flags, sizeof(flags) );
@@ -95,65 +68,7 @@ int32_t tcp_listen( const char * host, uint16_t port )
     flags = 1;
     setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, &flags, sizeof(flags) );
 #endif
-
-    set_fd_nonblock( fd );
-
-    memset( &addr, 0, sizeof(addr) );
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(port);
-    if ( host != NULL )
-    {
-        addr.sin_addr.s_addr = inet_addr( host );
-    }
-    else
-    {
-        addr.sin_addr.s_addr = INADDR_ANY;
-    }
-
-    if ( bind( fd, (struct sockaddr *)&addr, sizeof(addr) ) == -1 )
-    {
-        close( fd );
-        return -2;
-    }
-
-    if ( listen( fd, 8192 ) == -1 )
-    {
-        close( fd );
-        return -3;
-    }
-
-    return fd;
 }
-
-int32_t tcp_accept( int32_t fd, char * srchost, char * dsthost, uint16_t *dstport )
-{
-    int32_t rc = -1;
-    struct sockaddr_in in_addr;
-    socklen_t len = sizeof( struct sockaddr );
-
-    srchost[0] = 0;
-    dsthost[0] = 0;
-    *dstport = 0;
-
-    memset( &in_addr, 0, sizeof(in_addr) );
-
-    rc = accept( fd, (struct sockaddr *)&in_addr, &len );
-    if ( rc != -1 )
-    {
-        strncpy( dsthost, inet_ntoa(in_addr.sin_addr), INET_ADDRSTRLEN );
-        *dstport = ntohs( in_addr.sin_port );
-
-        memset( &in_addr, 0, sizeof(in_addr) );
-        if( getsockname( rc, (struct sockaddr*)&in_addr, &len ) == 0 )
-        {
-            strncpy( srchost, inet_ntoa(in_addr.sin_addr), INET_ADDRSTRLEN );
-        }
-    }
-
-    return rc;
-}
-
-
 
 // --------------------------------------------------------------------------------------------
 // --------------------------------------------------------------------------------------------
@@ -258,17 +173,16 @@ void accept_new_session( int32_t fd, int16_t ev, void * arg )
         //
         // 接收新连接完毕后
         //
-        char srchost[20];
         char dsthost[20];
         uint16_t dstport = 0;
 
-        int32_t newfd = tcp_accept( fd, srchost, dsthost, &dstport );
+        int32_t newfd = tcp_accept( fd, dsthost, &dstport );
         if ( newfd > 0 )
         {
             uint64_t sid = 0;
             struct session * newsession = NULL;
 
-            set_fd_nonblock( newfd );
+            set_non_block( newfd );
 
             newsession = (struct session *)malloc( sizeof(struct session) );
             if ( newsession == NULL )
@@ -371,14 +285,14 @@ struct acceptor * acceptor_create( const char * host, uint16_t port )
         a->ev_accept = NULL;
         pthread_mutex_init( &(a->lock), NULL );
 
-        a->socketfd = tcp_listen( host, port );
+        a->socketfd = tcp_listen( host, port, tcp_options );
         if ( a->socketfd < 0 )
         {
             acceptor_destroy( a );
             return NULL;
         }
 
-        set_fd_nonblock( a->socketfd );
+        set_non_block( a->socketfd );
 
         a->ev_accept = event_create();
         if ( a->ev_accept == NULL )

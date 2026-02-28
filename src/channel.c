@@ -33,8 +33,8 @@ static inline ssize_t _receive( struct session * session );
 static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
 // 逻辑操作
-static ssize_t _process( struct session * session );
-static int32_t _timeout( struct session * session );
+static inline ssize_t _process( struct session * session );
+static inline int32_t _timeout( struct session * session );
 
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
@@ -147,13 +147,13 @@ void channel_udpprocess( struct session * session, struct buffer * buffer )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-ssize_t _receive( struct session * session )
+inline ssize_t _receive( struct session * session )
 {
     // 从socket中读取数据
-    return buffer_read( &session->inbuffer, session->fd, 0 );
+    return buffer_readv( &session->inbuffer, session->fd );
 }
 
-ssize_t _process( struct session * session )
+inline ssize_t _process( struct session * session )
 {
     ssize_t nprocess = 0;
 
@@ -172,7 +172,7 @@ ssize_t _process( struct session * session )
     return nprocess;
 }
 
-int32_t _timeout( struct session * session )
+inline int32_t _timeout( struct session * session )
 {
     /*
      * 超时, 会尝试安全的终止会话

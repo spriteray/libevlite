@@ -120,7 +120,7 @@ class IIOService
 {
 public :
     IIOService( uint8_t nthreads,
-            uint32_t nclients, int32_t precision = 8, bool immediately = false, bool transform = false );
+            uint32_t nclients, int32_t precision = 8, bool transform = false );
     virtual ~IIOService();
 
 public :
@@ -275,7 +275,6 @@ private :
 private :
     iolayer_t           m_IOLayer;
     bool                m_Transform;
-    bool                m_Immediately;
     int32_t             m_Precision;
     uint8_t             m_ThreadsCount;
     uint32_t            m_SessionsCount;

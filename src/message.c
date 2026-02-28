@@ -7,13 +7,12 @@
 #include <sys/uio.h>
 #include <unistd.h>
 
-#include "utils.h"
-#include "network-internal.h"
 #include "message.h"
+#include "network-internal.h"
 
 static inline void _align( struct buffer * self );
-static inline size_t _offset( struct buffer * self );
-static inline size_t _left( struct buffer * self );
+static inline ssize_t _offset( struct buffer * self );
+static inline ssize_t _left( struct buffer * self );
 static inline int32_t _expand( struct buffer * self, size_t length );
 static inline ssize_t _read_withvector( struct buffer * self, int32_t fd );
 static inline ssize_t _read_withsize( struct buffer * self, int32_t fd, ssize_t nbytes );
@@ -24,20 +23,20 @@ void _align( struct buffer * self )
     self->buffer = self->orignbuffer;
 }
 
-size_t _offset( struct buffer * self )
+ssize_t _offset( struct buffer * self )
 {
-    return (size_t)( self->buffer - self->orignbuffer );
+    return self->buffer - self->orignbuffer;
 }
 
-size_t _left( struct buffer * self )
+ssize_t _left( struct buffer * self )
 {
     return self->capacity - _offset( self ) - self->length;
 }
 
 int32_t _expand( struct buffer * self, size_t length )
 {
-    size_t offset = _offset( self );
-    size_t needlength = offset + self->length + length;
+    ssize_t offset = _offset( self );
+    ssize_t needlength = offset + self->length + length;
 
     if ( needlength <= self->capacity ) {
         return 0;
@@ -78,7 +77,7 @@ ssize_t _read_withvector( struct buffer * self, int32_t fd )
     char extra[MAX_BUFFER_LENGTH];
 
     ssize_t nread = 0;
-    size_t left = _left( self );
+    ssize_t left = _left( self );
 
     vec[0].iov_base = self->buffer + self->length;
     vec[0].iov_len = left;
@@ -88,7 +87,7 @@ ssize_t _read_withvector( struct buffer * self, int32_t fd )
     nread = readv( fd, vec, left < sizeof( extra ) ? 2 : 1 );
     if ( nread > (ssize_t)left ) {
         self->length += left;
-        int32_t rc = buffer_append( self, extra, (size_t)( nread - left ) );
+        int32_t rc = buffer_append( self, extra, nread - left );
         if ( rc != 0 ) {
             return -2;
         }
@@ -160,8 +159,8 @@ int32_t buffer_erase( struct buffer * self, size_t length )
 
 int32_t buffer_append( struct buffer * self, const char * buf, size_t length )
 {
-    size_t offset = _offset( self );
-    size_t needlength = offset + self->length + length;
+    ssize_t offset = _offset( self );
+    ssize_t needlength = offset + self->length + length;
 
     if ( needlength > self->capacity ) {
         if ( _expand( self, length ) == -1 ) {
@@ -201,6 +200,11 @@ void buffer_swap( struct buffer * buf1, struct buffer * buf2 )
 
     *buf1 = *buf2;
     *buf2 = tmpbuf;
+}
+
+ssize_t buffer_readv( struct buffer * self, int32_t fd )
+{
+    return _read_withvector( self, fd );
 }
 
 ssize_t buffer_read( struct buffer * self, int32_t fd, ssize_t nbytes )

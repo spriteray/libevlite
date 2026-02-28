@@ -26,12 +26,11 @@ void fifo_read( int32_t fd, int16_t ev, void * arg )
 {
     char buf[255];
     int32_t len = 0;
-    int32_t rc = 0;
 
     event_t evfifo = (event_t)arg;
     evsets_t evsets = event_get_sets( evfifo );
 
-    rc = evsets_add( evsets, evfifo, -1 );
+    int32_t rc = evsets_add( evsets, evfifo, -1 );
 
     printf("fifo_read called with fd: %d, event: %d, arg: %p\n", fd, ev, arg);
 
@@ -58,7 +57,6 @@ int32_t main()
 
     event_t evfifo = NULL;
     evsets_t evsets = NULL;
-
     struct stat st;
     const char * fifo = "event.fifo";
 

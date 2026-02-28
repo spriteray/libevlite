@@ -10,23 +10,21 @@
 #include <syslog.h>
 #include <unistd.h>
 
-#include "utils.h"
+#include "config.h"
 #include "threads.h"
 #include "threads-internal.h"
 
-void _base_processor( void * context, uint8_t index, int16_t type, void * task )
-{
-    // TODO: 基础处理器
-}
+// 基础处理器
+void _base_processor( void * context, uint8_t index, int16_t type, void * task ) {}
 
-iothreads_t iothreads_start( uint8_t nthreads, int32_t precision, uint8_t immediately )
+iothreads_t iothreads_start( uint8_t nthreads, int32_t precision )
 {
     struct iothreads * iothreads = (struct iothreads *)calloc( 1, sizeof( struct iothreads ) );
     if ( iothreads == NULL ) {
         return NULL;
     }
 
-    iothreads->threads = (struct iothread *)calloc( nthreads, sizeof( struct iothread ) );
+    iothreads->threads = (struct iothread *)aligned_alloc( 64, nthreads * sizeof( struct iothread ) );
     if ( iothreads->threads == NULL ) {
         free( iothreads );
         return NULL;
@@ -34,7 +32,6 @@ iothreads_t iothreads_start( uint8_t nthreads, int32_t precision, uint8_t immedi
 
     iothreads->context = iothreads;
     iothreads->processor = _base_processor;
-    iothreads->immediately = immediately;
     iothreads->nthreads = nthreads;
     iothreads->precision = precision;
     pthread_cond_init( &iothreads->cond, NULL );
@@ -261,7 +258,6 @@ int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t paren
 int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void * task, uint8_t size )
 {
     struct task inter_task = { .type = type, .utype = utype };
-    struct iothreads * threads = (struct iothreads *)self->parent;
 
     if ( size == 0 ) {
         inter_task.taskdata = task;
@@ -270,7 +266,7 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
     }
 
     // 默认: 提交任务不提醒消费者
-    return msgqueue_push( self->queue, &inter_task, threads->immediately );
+    return msgqueue_push( self->queue, &inter_task );
 }
 
 int32_t iothread_stop( struct iothread * self )

@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.9.9
+VERSION 	= 9.11.3
 PREFIX		= /usr/local
 
 # 主版本号
@@ -27,26 +27,26 @@ endif
 #
 
 # 默认选项
-LFLAGS		= -ggdb -lpthread
-CFLAGS		= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
-CXXFLAGS	= -Wall -Wformat=0 -Iinclude/ -Isrc/ -Itest/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
+LFLAGS		= -flto=auto -ggdb -lpthread
+CFLAGS		= -flto=auto -Wall -Wformat=0 -Iinclude/ -Isrc/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
+CXXFLAGS	= -flto=auto -Wall -Wformat=0 -Iinclude/ -Isrc/ -ggdb -fPIC -O2 -DNDEBUG -D__EVENT_VERSION__=\"$(REALNAME)\" -DUSE_ATOMIC #-DUSE_REUSESESSION
 
 # 动态库编译选项
 ifeq ($(OS),Darwin)
 	LIBNAME	= $(APP).dylib
 	SONAME	= $(APP).$(MAJORVER).dylib
 	REALNAME= $(APP).$(VERSION).dylib
-	SOFLAGS	= -dynamiclib -Wl,-install_name,$(SONAME) -compatibility_version $(MAJORVER) -current_version $(VERSION)
+	SOFLAGS	= -flto=auto -dynamiclib -Wl,-install_name,$(SONAME) -compatibility_version $(MAJORVER) -current_version $(VERSION)
 else
 	LIBNAME	= $(APP).so
 	SONAME	= $(LIBNAME).$(MAJORVER)
 	REALNAME= $(LIBNAME).$(VERSION)
-	SOFLAGS	= -shared -Wl,-soname,$(SONAME)
+	SOFLAGS	= -flto=auto -shared -Wl,-soname,$(SONAME)
 endif
 
 # Linux定制参数
 ifeq ($(OS),Linux)
-	LFLAGS 	= -ggdb -pthread -lrt
+	LFLAGS 	= -flto=auto -ggdb -pthread -lrt
 	CFLAGS 	+= -finline-limit=1000
 	CXXFLAGS+= -finline-limit=1000
 endif
@@ -69,7 +69,8 @@ INCLUDEPATH	= $(PREFIX)/include
 #
 
 # ------------------------------------------------------------------------------
-OBJS 	= ikcp.o driver.o utils.o ephashtable.o \
+OBJS 	= utils.o ephashtable.o msgqueue.o sidlist.o \
+			ikcp.o driver.o \
 		  	epoll.o kqueue.o timer.o \
 			event.o \
 			threads.o \
@@ -80,18 +81,18 @@ OBJS 	= ikcp.o driver.o utils.o ephashtable.o \
 all : $(REALNAME)
 
 install : all
-	rm -rf $(INCLUDEPATH)/evlite
-	cp -a include $(INCLUDEPATH)/evlite
-	rm -rf $(LIBPATH)/$(REALNAME); cp $(REALNAME) $(LIBPATH)
-	rm -rf $(LIBPATH)/$(SONAME); ln -s $(REALNAME) $(LIBPATH)/$(SONAME)
-	rm -rf $(LIBPATH)/$(LIBNAME); ln -s $(REALNAME) $(LIBPATH)/$(LIBNAME)
+	install -d $(INCLUDEPATH)/evlite
+	install -m 644 include/* $(INCLUDEPATH)/evlite/
+	install -m 644 -D $(REALNAME) $(LIBPATH)/$(REALNAME)
+	rm -f $(LIBPATH)/$(SONAME); ln -s $(REALNAME) $(LIBPATH)/$(SONAME)
+	rm -f $(LIBPATH)/$(LIBNAME); ln -s $(REALNAME) $(LIBPATH)/$(LIBNAME)
 
 $(REALNAME) : $(OBJS)
 	$(CC) $(SOFLAGS) $(LFLAGS) $^ -o $@
-	rm -rf $(SONAME); ln -s $@ $(SONAME)
-	rm -rf $(LIBNAME); ln -s $@ $(LIBNAME)
+	rm -f $(SONAME); ln -s $@ $(SONAME)
+	rm -f $(LIBNAME); ln -s $@ $(LIBNAME)
 
-test : test_multicurl pingpong_client test_events test_addtimer test_queue test_sidlist echoserver-lock echoserver iothreads_dispatcher
+test : test_multicurl pingpong_client test_events test_addtimer test_queue test_sidlist echoserver
 
 test_events : test_events.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
@@ -102,7 +103,7 @@ test_addtimer : test_addtimer.o $(OBJS)
 test_queue : test_queue.o
 	$(CC) $^ -o $@ $(LFLAGS)
 
-test_sidlist : test_sidlist.o utils.o
+test_sidlist : test_sidlist.o sidlist.o
 	$(CC) $^ -o $@ $(LFLAGS)
 
 echoserver-lock : accept-lock-echoserver.o $(OBJS)

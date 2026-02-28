@@ -3,6 +3,7 @@
 #define NETWORK_INTERNAL_H
 
 #include <stdint.h>
+#include <stdatomic.h>
 #include "queue.h"
 #include "message.h"
 #include "threads.h"
@@ -69,7 +70,7 @@ struct iolayer {
     // 基础配置
     uint8_t nthreads;
     uint32_t nclients;
-    uint32_t roundrobin; // 轮询负载均衡
+    _Atomic uint32_t roundrobin; // 轮询负载均衡
 
     // 网络线程组
     iothreads_t threads;

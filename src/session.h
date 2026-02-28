@@ -12,21 +12,41 @@
 
 #include "event.h"
 #include "network.h"
-
-#include "utils.h"
+#include "queue.h"
 #include "message.h"
 
 // 64位SID的构成
-// |XXXXXX  |XX     |XXXXXXXX   |
-// |RES     |INDEX  |SEQ        |
-// |24      |8      |32         |
+// |RESERVED  |INDEX   |VERSION    |SEQ      |
+// |16        |8       |16         |24       |
+// (逻辑层用)  (路由节点) (防串号)     (底层槽位)
 
-#define SID_MASK 0x000000ffffffffffULL
-#define SEQ_MASK 0x00000000ffffffffULL
-#define INDEX_MASK 0x000000ff00000000ULL
+#define SID_RES_BITS        16
+#define SID_INDEX_BITS      8
+#define SID_VERSION_BITS    16
+#define SID_SEQ_BITS        24
+#define INVALID_SLOT_INDEX  0xFFFFFFFF
+#define MAX_SLOT_CAPACITY   ( 1 << SID_SEQ_BITS )
 
-#define SID_SEQ( sid ) ( (sid)&SEQ_MASK )
-#define SID_INDEX( sid ) ( ( ( (sid)&INDEX_MASK ) >> 32 ) - 1 )
+#define SID_RES_MASK        ((1ULL << SID_RES_BITS) - 1)
+#define SID_INDEX_MASK      ((1ULL << SID_INDEX_BITS) - 1)
+#define SID_VERSION_MASK    ((1ULL << SID_VERSION_BITS) - 1)
+#define SID_SEQ_MASK        ((1ULL << SID_SEQ_BITS) - 1)
+
+// 提取宏：利用 Mask 天然屏蔽高位干扰
+#define SID_SEQ(sid)        ((uint32_t)((sid) & SID_SEQ_MASK))
+#define SID_VERSION(sid)    ((uint16_t)(((sid) >> SID_SEQ_BITS) & SID_VERSION_MASK))
+#define SID_INDEX(sid)      ((uint8_t)(((sid) >> (SID_SEQ_BITS + SID_VERSION_BITS)) & SID_INDEX_MASK) - 1)
+#define SID_RES(sid)        ((uint16_t)(((sid) >> (SID_SEQ_BITS + SID_VERSION_BITS + SID_INDEX_BITS)) & SID_RES_MASK))
+
+// 底层通信库生成 SID 的宏（保留位默认填 0）
+#define MAKE_SID( index, ver, seq ) \
+    ( ( ( (uint64_t)(index+1)&SID_INDEX_MASK ) << ( SID_SEQ_BITS + SID_VERSION_BITS ) ) | \
+      ( ( (uint64_t)(ver)&SID_VERSION_MASK ) << SID_SEQ_BITS ) | \
+      ( ( (uint64_t)(seq)&SID_SEQ_MASK ) ) )
+
+// 逻辑层专用的组合宏（将业务标识缝合进底层 SID）
+#define BIND_LOGIC_RES( sid, res ) \
+    ( (sid) | ( ( (uint64_t)(res)&SID_RES_MASK ) << ( SID_SEQ_BITS + SID_VERSION_BITS + SID_INDEX_BITS ) ) )
 
 #define SESSION_READING 0x01     // 等待读事件
 #define SESSION_WRITING 0x02     // 等待写事件, [连接, 重连, 发送]
@@ -175,14 +195,17 @@ int32_t session_end( struct session * self, sid_t id, int8_t recycle );
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-struct hashtable;
+struct slot;
 STAILQ_HEAD( sessionlist, session );
 
 struct session_manager {
     uint8_t index;
-    uint32_t autoseq; // 自增的序号
+    uint32_t count;
+    uint32_t capacity;              // 当前容量
 
-    struct hashtable * table;
+    struct slot * table;
+    uint32_t free_head;
+
     uint32_t recyclesize;           // 回收个数
     struct sessionlist recyclelist; // 回收队列
 };
@@ -193,7 +216,7 @@ struct session_manager {
 struct session_manager * session_manager_create( uint8_t index, uint32_t size );
 
 // 获取会话个数
-uint32_t session_manager_count( struct session_manager * self );
+#define session_manager_count( self ) ( (self)->count )
 
 // 分配一个会话
 struct session * session_manager_alloc( struct session_manager * self );

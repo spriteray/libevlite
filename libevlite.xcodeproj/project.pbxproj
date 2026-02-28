@@ -125,6 +125,20 @@
 		947910962534AF7C00F91879 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E01B95E63B00C33F84 /* utils.c */; };
 		947910972534AF7C00F91879 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DF1B95E63A00C33F84 /* timer.c */; };
 		947910982534AF7C00F91879 /* event.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D31B95E63A00C33F84 /* event.c */; };
+		948848042F51C61300B8D5E6 /* msgqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848012F51C61300B8D5E6 /* msgqueue.c */; };
+		948848052F51C61300B8D5E6 /* sidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848032F51C61300B8D5E6 /* sidlist.c */; };
+		948848062F51C61300B8D5E6 /* msgqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848012F51C61300B8D5E6 /* msgqueue.c */; };
+		948848072F51C61300B8D5E6 /* sidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848032F51C61300B8D5E6 /* sidlist.c */; };
+		948848082F51C61300B8D5E6 /* msgqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848012F51C61300B8D5E6 /* msgqueue.c */; };
+		948848092F51C61300B8D5E6 /* sidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848032F51C61300B8D5E6 /* sidlist.c */; };
+		9488480A2F51C61300B8D5E6 /* msgqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848012F51C61300B8D5E6 /* msgqueue.c */; };
+		9488480B2F51C61300B8D5E6 /* sidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848032F51C61300B8D5E6 /* sidlist.c */; };
+		9488480C2F51C61300B8D5E6 /* msgqueue.h in Headers */ = {isa = PBXBuildFile; fileRef = 948848002F51C61300B8D5E6 /* msgqueue.h */; };
+		9488480D2F51C61300B8D5E6 /* sidlist.h in Headers */ = {isa = PBXBuildFile; fileRef = 948848022F51C61300B8D5E6 /* sidlist.h */; };
+		9488480E2F51C61300B8D5E6 /* msgqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848012F51C61300B8D5E6 /* msgqueue.c */; };
+		9488480F2F51C61300B8D5E6 /* sidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848032F51C61300B8D5E6 /* sidlist.c */; };
+		948848102F51C61300B8D5E6 /* msgqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848012F51C61300B8D5E6 /* msgqueue.c */; };
+		948848112F51C61300B8D5E6 /* sidlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 948848032F51C61300B8D5E6 /* sidlist.c */; };
 		94A68E2D25334B90008EB084 /* driver.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2625334B8F008EB084 /* driver.h */; };
 		94A68E2E25334B90008EB084 /* driver.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2725334B8F008EB084 /* driver.c */; };
 		94A68E2F25334B90008EB084 /* ikcp.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2825334B8F008EB084 /* ikcp.h */; };
@@ -237,6 +251,10 @@
 		945AD59124617678005D545E /* redis.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = redis.h; path = examples/redis.h; sourceTree = "<group>"; };
 		947910382534AE0C00F91879 /* pingpong */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pingpong; sourceTree = BUILT_PRODUCTS_DIR; };
 		9479109E2534AF7C00F91879 /* pingpong_client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pingpong_client; sourceTree = BUILT_PRODUCTS_DIR; };
+		948848002F51C61300B8D5E6 /* msgqueue.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = msgqueue.h; sourceTree = "<group>"; };
+		948848012F51C61300B8D5E6 /* msgqueue.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = msgqueue.c; sourceTree = "<group>"; };
+		948848022F51C61300B8D5E6 /* sidlist.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = sidlist.h; sourceTree = "<group>"; };
+		948848032F51C61300B8D5E6 /* sidlist.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = sidlist.c; sourceTree = "<group>"; };
 		94A68E2625334B8F008EB084 /* driver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = driver.h; sourceTree = "<group>"; };
 		94A68E2725334B8F008EB084 /* driver.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = driver.c; sourceTree = "<group>"; };
 		94A68E2825334B8F008EB084 /* ikcp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikcp.h; sourceTree = "<group>"; };
@@ -319,6 +337,10 @@
 		71D319CE1B95E63A00C33F84 /* src */ = {
 			isa = PBXGroup;
 			children = (
+				948848002F51C61300B8D5E6 /* msgqueue.h */,
+				948848012F51C61300B8D5E6 /* msgqueue.c */,
+				948848022F51C61300B8D5E6 /* sidlist.h */,
+				948848032F51C61300B8D5E6 /* sidlist.c */,
 				94F3F3FD2A72C28F00406E50 /* ephashtable.c */,
 				94F3F3FC2A72C28F00406E50 /* ephashtable.h */,
 				DD5EA1B025D57C5500B26FD7 /* network.c */,
@@ -427,6 +449,8 @@
 				945AD59824617678005D545E /* io.h in Headers */,
 				71D319F41B95E82600C33F84 /* event-internal.h in Headers */,
 				71D319F21B95E82600C33F84 /* channel.h in Headers */,
+				9488480C2F51C61300B8D5E6 /* msgqueue.h in Headers */,
+				9488480D2F51C61300B8D5E6 /* sidlist.h in Headers */,
 				71D319FF1B95E82600C33F84 /* threads-internal.h in Headers */,
 				71D319FB1B95E82600C33F84 /* network-internal.h in Headers */,
 				94A68E2F25334B90008EB084 /* ikcp.h in Headers */,
@@ -604,6 +628,8 @@
 				71C7BD361F432A52000B3C30 /* timer.c in Sources */,
 				71C7BD331F432A3E000B3C30 /* event.c in Sources */,
 				71C7BD321F4329DA000B3C30 /* raw_echoserver.c in Sources */,
+				948848062F51C61300B8D5E6 /* msgqueue.c in Sources */,
+				948848072F51C61300B8D5E6 /* sidlist.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -628,6 +654,8 @@
 				71D319FD1B95E82600C33F84 /* session.c in Sources */,
 				94A68E3225334B90008EB084 /* ikcp.c in Sources */,
 				71D31A001B95E82600C33F84 /* threads.c in Sources */,
+				9488480E2F51C61300B8D5E6 /* msgqueue.c in Sources */,
+				9488480F2F51C61300B8D5E6 /* sidlist.c in Sources */,
 				71D319F11B95E82600C33F84 /* channel.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -638,6 +666,8 @@
 			files = (
 				9479103B2534AE6000F91879 /* driver.c in Sources */,
 				9479103C2534AE6000F91879 /* driver.h in Sources */,
+				9488480A2F51C61300B8D5E6 /* msgqueue.c in Sources */,
+				9488480B2F51C61300B8D5E6 /* sidlist.c in Sources */,
 				9479103D2534AE6000F91879 /* ikcp.c in Sources */,
 				9479103E2534AE6000F91879 /* ikcp.h in Sources */,
 				9479103F2534AE6000F91879 /* lock.h in Sources */,
@@ -669,6 +699,8 @@
 			files = (
 				9479104D2534AE7800F91879 /* driver.c in Sources */,
 				9479104E2534AE7800F91879 /* driver.h in Sources */,
+				948848042F51C61300B8D5E6 /* msgqueue.c in Sources */,
+				948848052F51C61300B8D5E6 /* sidlist.c in Sources */,
 				9479104F2534AE7800F91879 /* ikcp.c in Sources */,
 				947910502534AE7800F91879 /* ikcp.h in Sources */,
 				947910512534AE7800F91879 /* lock.h in Sources */,
@@ -709,6 +741,8 @@
 				947910692534AED100F91879 /* channel.h in Sources */,
 				9479106B2534AED100F91879 /* event-internal.h in Sources */,
 				9479106E2534AED100F91879 /* message.c in Sources */,
+				948848102F51C61300B8D5E6 /* msgqueue.c in Sources */,
+				948848112F51C61300B8D5E6 /* sidlist.c in Sources */,
 				9479106F2534AED100F91879 /* message.h in Sources */,
 				947910702534AED100F91879 /* network-internal.h in Sources */,
 				947910712534AED100F91879 /* queue.h in Sources */,
@@ -744,6 +778,8 @@
 				947910922534AF7C00F91879 /* event.h in Sources */,
 				947910952534AF7C00F91879 /* kqueue.c in Sources */,
 				947910962534AF7C00F91879 /* utils.c in Sources */,
+				948848082F51C61300B8D5E6 /* msgqueue.c in Sources */,
+				948848092F51C61300B8D5E6 /* sidlist.c in Sources */,
 				947910972534AF7C00F91879 /* timer.c in Sources */,
 				947910982534AF7C00F91879 /* event.c in Sources */,
 			);
@@ -888,7 +924,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.9.9;
+				DYLIB_CURRENT_VERSION = 9.11.3;
 				EXECUTABLE_PREFIX = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -902,7 +938,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.9.9;
+				DYLIB_CURRENT_VERSION = 9.11.3;
 				EXECUTABLE_PREFIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

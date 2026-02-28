@@ -2,11 +2,11 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <signal.h>
+#include <stdint.h>
 
 #include "io.h"
 
-#define DEBUG_OUTPUT    1
-
+#define DEBUG_OUTPUT 0
 
 //
 // 回显服务实例
@@ -14,70 +14,56 @@
 
 class CEchoSession : public IIOSession
 {
-public :
-    CEchoSession()
-    {}
+public:
+    CEchoSession() = default;
+    virtual ~CEchoSession() override = default;
 
-    virtual ~CEchoSession()
-    {}
-
-public :
-
-    virtual int32_t onStart()
-    {
-    #if DEBUG_OUTPUT
-        printf("the Session (SID=%ld) Start (%s::%d)  \n", id(), host().c_str(), port() );
-    #endif
-//        setTimeout( 60 );
+public:
+    virtual int32_t onStart() override {
+#if DEBUG_OUTPUT
+        printf( "the Session (SID=%ld) Start (%s::%d)  \n", id(), host().c_str(), port() );
+#endif
+        //setTimeout( 60 );
         return 0;
     }
 
-    virtual int32_t onProcess( const char * buf, uint32_t nbytes )
-    {
+    virtual ssize_t onProcess( const char * buf, size_t nbytes ) override {
         send( buf, nbytes );
         return nbytes;
     }
 
-    virtual int32_t onTimeout()
-    {
-    #if DEBUG_OUTPUT
-        printf("the Session (SID=%ld) : timeout \n", id() );
-    #endif
+    virtual int32_t onTimeout() override {
+#if DEBUG_OUTPUT
+        printf( "the Session (SID=%ld) : timeout \n", id() );
+#endif
         return -1;
     }
 
-    virtual int32_t onError( int32_t result )
-    {
-    #if DEBUG_OUTPUT
-        printf("the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
-    #endif
+    virtual int32_t onError( int32_t result ) override {
+#if DEBUG_OUTPUT
+        printf( "the Session (SID=%ld) : error, code=0x%08x \n", id(), result );
+#endif
         return -1;
     }
 
-    virtual int32_t onShutdown()
-    {
-        return 0;
-    }
+    virtual void onShutdown( int32_t way ) override {}
 };
 
 class CEchoService : public IIOService
 {
-public :
-
+public:
     CEchoService( uint8_t nthreads, uint32_t nclients )
         : IIOService( nthreads, nclients )
-    {
-    }
+    {}
 
-    virtual ~CEchoService()
-    {
-    }
+    virtual ~CEchoService() override
+    {}
 
-public :
-
-    IIOSession * onAccept( sid_t id, uint16_t listenport, const char * host, uint16_t port )
-    {
+public:
+    IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port ) override {
+#if DEBUG_OUTPUT
         printf( "%lld, %s::%d .\n", id, host, port );
+#endif
         return new CEchoSession;
     }
 };
@@ -97,9 +83,8 @@ int main( int argc, char ** argv )
 {
     CEchoService * service = NULL;
 
-    if ( argc != 3 )
-    {
-        printf("Usage: echoserver [host] [port] \n");
+    if ( argc != 3 ) {
+        printf( "Usage: echoserver [host] [port] \n" );
         return -1;
     }
 
@@ -107,16 +92,14 @@ int main( int argc, char ** argv )
     signal( SIGINT, signal_handle );
 
     service = new CEchoService( 4, 200000 );
-    if ( service == NULL )
-    {
+    if ( service == NULL ) {
         return -1;
     }
 
     service->start();
 
-    if ( !service->listen( NetType::TCP, argv[1], atoi(argv[2]), nullptr ) )
-    {
-        printf("service start failed \n");
+    if ( !service->listen( NetType::TCP, argv[1], atoi( argv[2] ), nullptr ) ) {
+        printf( "service start failed \n" );
         delete service;
 
         return -2;
@@ -124,12 +107,11 @@ int main( int argc, char ** argv )
 
     g_Running = true;
 
-    while ( g_Running )
-    {
-        sleep(1);
+    while ( g_Running ) {
+        sleep( 1 );
     }
 
-    printf("EchoServer stoping ...\n");
+    printf( "EchoServer stoping ...\n" );
     service->stop();
     delete service;
 

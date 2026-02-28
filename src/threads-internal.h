@@ -3,6 +3,7 @@
 #define THREADS_INTERNAL_H
 
 #include "threads.h"
+#include "msgqueue.h"
 #include "network-internal.h"
 
 // 队列默认大小
@@ -20,6 +21,7 @@ STAILQ_HEAD( acceptorlist, acceptor );
 STAILQ_HEAD( connectorlist, connector );
 STAILQ_HEAD( associaterlist, associater );
 
+// 64位对齐，消除伪共享
 struct iothread {
     uint8_t index;
     pthread_t id;
@@ -30,13 +32,12 @@ struct iothread {
 
     event_t cmdevent;
     struct msgqueue * queue;
-    char padding[8];
 
     // 回收列表
     struct acceptorlist acceptorlist;
     struct connectorlist connectorlist;
     struct associaterlist associaterlist;
-};
+}__attribute__((aligned(64)));
 
 int32_t iothread_start( struct iothread * self, uint8_t index, iothreads_t parent );
 int32_t iothread_post( struct iothread * self,
@@ -57,7 +58,6 @@ struct iothreads {
     uint8_t nthreads;
     uint8_t runflags;
     int32_t precision;   // 时间精度
-    uint8_t immediately; // 是否立刻通知IO线程
 
     uint8_t nrunthreads;
     pthread_cond_t cond;

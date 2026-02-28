@@ -18,6 +18,8 @@ struct task
 };
 
 QUEUE_PADDING_HEAD(taskqueue, struct task);
+QUEUE_PROTOTYPE( taskqueue, struct task )
+
 QUEUE_GENERATE(taskqueue, struct task)
 
 int main()

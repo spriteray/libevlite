@@ -8,6 +8,7 @@
 #include <fcntl.h>
 #include <sys/socket.h>
 
+#include "utils.h"
 #include "config.h"
 #include "driver.h"
 #include "network.h"
@@ -56,7 +57,7 @@ static void _concrete_processor( void * context, uint8_t index, int16_t type, vo
 // -----------------------------------------------------------------------------
 
 // 创建网络通信层
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision, uint8_t immediately )
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision )
 {
     struct iolayer * self = (struct iolayer *)malloc( sizeof( struct iolayer ) );
     if ( self == NULL ) {
@@ -67,10 +68,10 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision
     self->transform = NULL;
     self->nthreads = nthreads;
     self->nclients = nclients;
-    self->roundrobin = 0;
     self->status = eIOStatus_Running;
     self->threads = NULL;
     self->managers = NULL;
+    atomic_init( &self->roundrobin, 0 );
 
     // 初始化会话管理器
     if ( _new_managers( self ) != 0 ) {
@@ -79,7 +80,7 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision
     }
 
     // 创建网络线程组
-    self->threads = iothreads_start( self->nthreads, precision, immediately );
+    self->threads = iothreads_start( self->nthreads, precision );
     if ( self->threads == NULL ) {
         iolayer_destroy( self );
         return NULL;
@@ -154,8 +155,9 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     return 0;
 #else
     // normal
-    return _server_listen( layer, type,
-        DISPATCH_POLICY( layer, __sync_fetch_and_add( &layer->roundrobin, 1 ) ), host, port, options, callback, context );
+    uint32_t current = atomic_fetch_add_explicit(
+        &layer->roundrobin, 1, memory_order_relaxed );
+    return _server_listen( layer, type, DISPATCH_POLICY( layer, current ), host, port, options, callback, context );
 #endif
 
     return -1;
@@ -207,8 +209,9 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
         connector->index = index;
         _connect_direct( iothreads_get_sets( layer->threads, index ), connector );
     } else {
-        connector->index = DISPATCH_POLICY(
-            layer, __sync_fetch_and_add( &layer->roundrobin, 1 ) );
+        uint32_t current = atomic_fetch_add_explicit(
+            &layer->roundrobin, 1, memory_order_relaxed );
+        connector->index = DISPATCH_POLICY( layer, current );
         iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
     }
 
@@ -258,8 +261,9 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
         _associate_direct( iothreads_get_sets( layer->threads, index ), associater );
     } else {
         // 随机找一个io线程
-        associater->index = DISPATCH_POLICY(
-            layer, __sync_fetch_and_add( &layer->roundrobin, 1 ) );
+        uint32_t current = atomic_fetch_add_explicit(
+            &layer->roundrobin, 1, memory_order_relaxed );
+        associater->index = DISPATCH_POLICY( layer, current );
         // 提交到网络层
         iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
     }

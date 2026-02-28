@@ -141,10 +141,9 @@ int32_t IIOSession::onPerformSession( void * context, int32_t type, void * task,
 // ----------------------------------------------------------------------------
 // ----------------------------------------------------------------------------
 
-IIOService::IIOService( uint8_t nthreads, uint32_t nclients, int32_t precision, bool immediately, bool transform )
+IIOService::IIOService( uint8_t nthreads, uint32_t nclients, int32_t precision, bool transform )
     : m_IOLayer( nullptr ),
       m_Transform( transform ),
-      m_Immediately( immediately ),
       m_Precision( precision ),
       m_ThreadsCount( nthreads ),
       m_SessionsCount( nclients ),
@@ -169,7 +168,7 @@ bool IIOService::start()
 {
     m_IOLayer = iolayer_create(
             m_ThreadsCount,
-            m_SessionsCount, m_Precision, m_Immediately ? 1 : 0 );
+            m_SessionsCount, m_Precision );
     if ( m_IOLayer == nullptr )
     {
         return false;

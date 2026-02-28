@@ -663,161 +663,100 @@ int32_t session_end( struct session * self, sid_t id, int8_t recycle )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-struct hashnode {
-    struct hashnode * next;
-    struct session * session;
+struct slot {
+    union {
+        uint32_t next_free;
+        struct session * session;
+    };
+    uint16_t version;
+    uint8_t is_active;
 };
 
-struct hashtable {
-    uint32_t size;
-    uint32_t count;
-    struct hashnode * entries;
-};
-
-static inline int32_t _init_table( struct hashtable * table, uint32_t size );
-static inline struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag );
-static inline int32_t _append_session( struct hashtable * table, struct session * s );
-static inline struct session * _find_session( struct hashtable * table, sid_t id );
-static inline int32_t _remove_session( struct hashtable * table, struct session * s );
-
-int32_t _init_table( struct hashtable * table, uint32_t size )
+inline int32_t _session_manager_expand( struct session_manager * self )
 {
-    assert( ( size & ( size - 1 ) ) == 0 );
-
-    table->count = 0;
-    table->size = size;
-
-    table->entries = (struct hashnode *)calloc( size, sizeof( struct hashnode ) );
-    if ( table->entries == NULL ) {
+    if ( self->capacity >= MAX_SLOT_CAPACITY ) {
+        syslog( LOG_ERR, "%s: Reached absolute maximum limit of 20-bit SID index (%u).", __FUNCTION__, MAX_SLOT_CAPACITY );
         return -1;
     }
 
-    return 0;
-}
-
-struct hashnode * _find_table( struct hashtable * table, sid_t id, int32_t flag )
-{
-    int32_t bucket = SID_SEQ( id ) & ( table->size - 1 );
-
-    struct hashnode *node = NULL, *entries = NULL;
-    struct hashnode * head = table->entries + bucket;
-
-    for ( entries = head; entries != NULL; entries = entries->next ) {
-        if ( entries->session != NULL ) {
-            if ( entries->session->id == id ) {
-                node = entries;
-                break;
-            }
-        } else if ( node == NULL ) {
-            node = entries;
-        }
+    // 倍增扩容策略
+    uint32_t old_capacity = self->capacity;
+    uint32_t new_capacity = old_capacity * 2;
+    if ( new_capacity > MAX_SLOT_CAPACITY ) {
+        new_capacity = MAX_SLOT_CAPACITY;
     }
 
-    if ( node == NULL && flag != 0 ) {
-        node = (struct hashnode *)malloc( sizeof( struct hashnode ) );
-
-        if ( node != NULL ) {
-            node->next = head->next;
-            node->session = NULL;
-            head->next = node;
-        }
-    }
-
-    return node;
-}
-
-int32_t _append_session( struct hashtable * table, struct session * s )
-{
-    struct hashnode * node = _find_table( table, s->id, 1 );
-
-    if ( unlikely( node == NULL ) ) {
-        return -1;
-    }
-
-    if ( unlikely( node->session != NULL && node->session->id == s->id ) ) {
-        syslog( LOG_WARNING, "%s(Index=%d): the SID (Seq=%u, Sid=%ld) conflict !",
-            __FUNCTION__, (int32_t)SID_INDEX( s->id ), (uint32_t)SID_SEQ( s->id ), s->id );
+    // 核心：内存重新分配。原有数据会被完美保留。
+    struct slot * new_pool = (struct slot *)realloc( self->table, new_capacity * sizeof( struct slot ) );
+    if ( new_pool == NULL ) {
+        syslog( LOG_ERR, "%s: realloc failed, Out Of Memory.", __FUNCTION__ );
         return -2;
     }
+    self->table = new_pool;
 
-    ++table->count;
-    node->session = s;
-
-    return 0;
-}
-
-struct session * _find_session( struct hashtable * table, sid_t id )
-{
-    struct hashnode * node = _find_table( table, id, 0 );
-
-    if ( node == NULL ) {
-        return NULL;
-    } else if ( node->session == NULL ) {
-        return NULL;
+    // 初始化新扩容出来的尾部槽位
+    for ( uint32_t i = old_capacity; i < new_capacity; ++i ) {
+        self->table[i].version = 1;
+        self->table[i].is_active = 0;
+        self->table[i].next_free = i + 1;
     }
+    self->table[new_capacity - 1].next_free = INVALID_SLOT_INDEX;
 
-    assert( node->session->id == id );
-    return node->session;
-}
+    // 将扩容出来的第一个空位接管为新的 free_head
+    self->capacity = new_capacity;
+    self->free_head = old_capacity;
 
-int32_t _remove_session( struct hashtable * table, struct session * s )
-{
-    struct hashnode * node = _find_table( table, s->id, 0 );
-
-    if ( node == NULL ) {
-        return -1;
-    } else if ( node->session == NULL ) {
-        return -2;
-    }
-
-    assert( node->session == s );
-
-    --table->count;
-    node->session = NULL;
+    syslog( LOG_INFO, "%s(Index=%u): Session pool dynamically expanded from %u to %u.", __FUNCTION__, self->index, old_capacity, self->capacity );
 
     return 0;
 }
 
 struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 {
-    struct session_manager * self = (struct session_manager *)calloc(
-        1, sizeof( struct session_manager ) + sizeof( struct hashtable ) );
+    struct session_manager * self = NULL;
+
+    if ( size == 0 ) size = 1024;
+    if ( size > MAX_SLOT_CAPACITY ) size = MAX_SLOT_CAPACITY;
+
+    self = (struct session_manager *)calloc( 1, sizeof(struct session_manager) );
     if ( self == NULL ) {
         return NULL;
     }
 
-    size = nextpow2( size );
+    self->table = (struct slot *)calloc( size, sizeof(struct slot) );
+    if ( self->table == NULL ) {
+        free( self );
+        return NULL;
+    }
 
-    self->autoseq = 0;
+    self->count = 0;
+    self->free_head = 0;
     self->index = index;
-    self->table = (struct hashtable *)( self + 1 );
-    // 初始化回收队列
+    self->capacity = size;
+
+    // 初始化空闲链表
+    for ( uint32_t i = 0; i < size; ++i ) {
+        self->table[i].version = 1;
+        self->table[i].is_active = 0;
+        self->table[i].next_free = i + 1;
+    }
+    self->table[size - 1].next_free = INVALID_SLOT_INDEX;
+
     self->recyclesize = 0;
     STAILQ_INIT( &self->recyclelist );
-
-    if ( _init_table( self->table, size ) != 0 ) {
-        free( self );
-        self = NULL;
-    }
 
     return self;
 }
 
-uint32_t session_manager_count( struct session_manager * self )
-{
-    return self->table->count;
-}
-
 struct session * session_manager_alloc( struct session_manager * self )
 {
-    sid_t id = 0;
-    struct session * session = NULL;
+    if ( self->free_head == INVALID_SLOT_INDEX ) {
+        if ( _session_manager_expand( self ) != 0 ) {
+            return NULL;
+        }
+    }
 
-    // 生成sid
-    id = self->index + 1;
-    id <<= 32;
-    id |= self->autoseq++;
-    id &= SID_MASK;
+    struct session * session = NULL;
 
 #ifndef USE_REUSESESSION
     session = _new_session();
@@ -832,57 +771,89 @@ struct session * session_manager_alloc( struct session_manager * self )
     }
 #endif
 
-    if ( session != NULL ) {
-        session->id = id;
-        session->manager = self;
+    if ( session == NULL ) return NULL;
 
-        // 添加会话
-        // TODO: 是否可以拆分, generate() and session_start()
-        if ( _append_session( self->table, session ) != 0 ) {
-            _del_session( session );
-            session = NULL;
-        }
-    }
+    // 获取空槽位
+    uint32_t seq = self->free_head;
+    struct slot * slot = &self->table[seq];
+
+    // 推进空闲链表
+    self->free_head = slot->next_free;
+
+    // 激活
+    ++self->count;
+    slot->is_active = 1;
+    slot->session = session;
+
+    // 生成sid
+    sid_t sid = MAKE_SID( self->index, slot->version, seq );
+
+    // 绑定
+    session->id = sid;
+    session->manager = self;
 
     return session;
 }
 
 struct session * session_manager_get( struct session_manager * self, sid_t id )
 {
-    return _find_session( self->table, id );
+    uint32_t seq = SID_SEQ( id );
+    uint16_t ver = SID_VERSION( id );
+
+    if ( seq >= self->capacity ) {
+        return NULL;
+    }
+
+    struct slot * slot = &self->table[seq];
+
+    if ( slot->is_active
+        && slot->version == ver
+        && slot->session != NULL ) {
+        return slot->session;
+    }
+
+    return NULL;
 }
 
 int32_t session_manager_foreach( struct session_manager * self, int32_t ( *func )( void *, struct session * ), void * context )
 {
     int32_t rc = 0;
-
-    for ( uint32_t i = 0; i < self->table->size; ++i ) {
-        struct hashnode * node = self->table->entries + i;
-
-        for ( ; node; ) {
-            struct session * s = node->session;
-            if ( s != NULL ) {
-                if ( func( context, s ) != 0 ) {
-                    return rc;
-                }
-
-                ++rc;
+    for ( uint32_t i = 0; i < self->capacity; ++i ) {
+        struct slot * slot = &self->table[i];
+        if ( slot->is_active && slot->session != NULL ) {
+            if ( func( context, slot->session ) != 0 ) {
+                return rc;
             }
-
-            node = node->next;
+            ++rc;
         }
     }
-
     return rc;
 }
 
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
 {
-    if ( _remove_session( self->table, session ) != 0 ) {
+    if ( session == NULL ) return -1;
+
+    uint32_t seq = SID_SEQ( session->id );
+    if ( seq >= self->capacity ) return -1;
+
+    struct slot * slot = &self->table[ seq ];
+    if ( !slot->is_active || slot->session != session ) {
         return -1;
     }
 
-    // 会话数据清空
+    // 关闭
+    slot->is_active = 0;
+    // 版本号增加
+    ++slot->version;
+    if ( (slot->version & SID_VERSION_MASK) == 0 ) {
+        slot->version = 1;
+    }
+    // 归还
+    slot->next_free = self->free_head;
+    --self->count;
+    self->free_head = seq;
+    // 清空会话
     session->id = 0;
     session->manager = NULL;
 
@@ -891,62 +862,49 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 
 void session_manager_recycle( struct session_manager * self, struct session * session )
 {
-    // TODO: 需要判断是否需要回收
-
-    // 回收
-    ++self->recyclesize;
-    STAILQ_INSERT_TAIL( &self->recyclelist, session, recyclelink );
+    if ( session->manager == self && session->id != 0 ) {
+        session_manager_remove( self, session );
+    } else {
+        ++self->recyclesize;
+        STAILQ_INSERT_TAIL( &self->recyclelist, session, recyclelink );
+    }
 }
 
 void session_manager_destroy( struct session_manager * self )
 {
-    uint32_t i = 0;
-    struct session * session = NULL;
-
-    if ( self->table->count > 0 ) {
+    if ( self->count > 0 ) {
         syslog( LOG_WARNING,
-            "%s(Index=%u): the number of residual active session is %d .",
-            __FUNCTION__, self->index, self->table->count );
+            "%s(Index=%u): the number of residual active session is %u .",
+            __FUNCTION__, self->index, self->count );
     }
 
-    for ( i = 0; i < self->table->size; ++i ) {
-        struct hashnode * head = self->table->entries + i;
-        struct hashnode * node = self->table->entries + i;
-
-        for ( ; node; ) {
-            struct hashnode * n = node;
-            struct session * s = n->session;
-
-            // 下个节点
-            node = n->next;
-
-            // 销毁会话
-            if ( s != NULL ) {
-                // 避免触发逻辑层的回调
-                session_call_shutdown( s, 0 );
-                session_end( s, s->id, 0 );
-                n->session = NULL;
-            }
-
-            // head是table创建的, 所以不需要销毁
-            if ( head != n ) free( n );
+    // 安全关闭所有会话
+    for ( uint32_t i = 0; i < self->capacity; ++i ) {
+        struct slot * slot = &self->table[i];
+        if ( slot->is_active && slot->session != NULL ) {
+            struct session * s = slot->session;
+            session_call_shutdown( s, 0 );
+            session_end( s, s->id, 0 );
+            slot->is_active = 0;
+            slot->session = NULL;
         }
     }
 
-    // 销毁回收队列
-    for ( session = STAILQ_FIRST( &self->recyclelist ); session != NULL; ) {
-        struct session * next = STAILQ_NEXT( session, recyclelink );
-
+    // 排空并释放 session 对象的回收队列
+    struct session *session;
+    while ( (session = STAILQ_FIRST( &self->recyclelist )) != NULL ) {
+        STAILQ_REMOVE_HEAD( &self->recyclelist, recyclelink );
         _del_session( session );
-        session = next;
     }
 
-    if ( self->table->entries != NULL ) {
-        free( self->table->entries );
-        self->table->entries = NULL;
+    // 3. 释放 SlotMap 核心物理数组
+    if ( self->table != NULL ) {
+        free( self->table );
+        self->table = NULL;
     }
 
-    self->autoseq = 0;
+    self->capacity = 0;
+    self->count = 0;
     self->recyclesize = 0;
 
     free( self );

@@ -83,4 +83,21 @@
     #endif
 #endif
 
+#define likely( x ) __builtin_expect( ( x ), 1 )
+#define unlikely( x ) __builtin_expect( ( x ), 0 )
+
+#define MAX( a, b ) ( ( a ) > ( b ) ? ( a ) : ( b ) )
+#define MIN( a, b ) ( ( a ) < ( b ) ? ( a ) : ( b ) )
+
+// PAUSE 指令 (降低自旋功耗与总线风暴)
+// 开销：~10-20 时钟周期 (纳秒级)
+#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) || defined(_M_IX86)
+    #include <immintrin.h>
+    #define cpu_pause() _mm_pause()
+#elif defined(__aarch64__) || defined(__arm__)
+    #define cpu_pause() __asm__ volatile("yield" ::: "memory")
+#else
+    #define cpu_pause() do {} while(0)
+#endif
+
 #endif

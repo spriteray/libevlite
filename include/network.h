@@ -100,8 +100,7 @@ typedef struct
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
 //        precision     - 事件集的时间精度(建议值为8ms)
-//        immediately   - 是否立刻提交网络层, 0:否; 1:是(用于对网络实时性比较高的场景)
-iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision, uint8_t immediately );
+iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision );
 
 // 网络层设置线程上下文参数(在listen(), connect(), associate()之前调用)
 //        self          -

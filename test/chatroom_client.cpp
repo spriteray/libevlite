@@ -4,6 +4,8 @@
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>
+#include <string.h>
+#include <assert.h>
 
 #include "utils.h"
 #include "event.h"
