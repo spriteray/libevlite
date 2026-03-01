@@ -447,9 +447,8 @@ int32_t iolayer_broadcast( iolayer_t self, sid_t * ids, uint32_t count, const ch
         struct iothread * thread = iothreads_get( layer->threads, i );
 
         struct message * msg = message_create();
-        if ( unlikely( msg == NULL ) ) {
-            continue;
-        }
+        assert( msg != NULL && "message_create() failed" );
+
         message_add_buffer( msg, buf, nbytes );
         message_add_receivers( msg, ids, count );
 
@@ -477,9 +476,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
         struct iothread * thread = iothreads_get( layer->threads, i );
 
         struct message * msg = message_create();
-        if ( unlikely( msg == NULL ) ) {
-            continue;
-        }
+        assert( msg != NULL && "message_create() failed" );
         message_add_buffer( msg, buf, nbytes );
 
         if ( threadid == thread->id ) {
@@ -502,8 +499,8 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
     assert( self != NULL && "Illegal IOLayer" );
     assert( execute != NULL && "Illegal specified Execute-Function" );
 
-    pthread_t threadid = pthread_self();
     struct task_invoke tasklist[256]; // 栈中分配更快
+    pthread_t threadid = pthread_self();
     struct iolayer * layer = (struct iolayer *)self;
 
     if ( clone == NULL ) {
@@ -592,18 +589,13 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count )
 
     for ( uint8_t i = 0; i < layer->nthreads; ++i ) {
         struct sidlist * list = sidlist_create( count );
-        if ( list == NULL ) {
-            continue;
-        }
+        assert( list != NULL && "sidlist_create() failed" );
         sidlist_adds( list, ids, count );
-
-        // 参照iolayer_shutdown()
 
         // 跨线程提交批量终止任务
         int32_t result = iothreads_post( layer->threads, i, eIOTaskType_Shutdowns, list, 0 );
         if ( unlikely( result != 0 ) ) {
-            sidlist_destroy( list );
-            continue;
+            sidlist_destroy( list ); continue;
         }
     }
 
@@ -973,13 +965,9 @@ int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t 
     // 跨线程提交发送任务
 
     if ( isfree == 0 ) {
-        task.buf = (char *)malloc( nbytes );
-        if ( unlikely( task.buf == NULL ) ) {
-            syslog( LOG_WARNING, "%s(SID=%ld) failed, can't allocate the memory for 'task.buf' .", __FUNCTION__, id );
-            return -2;
-        }
-
         task.isfree = 1;
+        task.buf = (char *)malloc( nbytes );
+        assert( task.buf != NULL && "allocate task.buf failed" );
         memcpy( task.buf, buf, nbytes );
     }
 
@@ -1204,20 +1192,15 @@ ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, s
             if ( writen < 0 ) {
                 syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session drop this message(LENGTH=%lu) .\n", __FUNCTION__, task->id, nbytes );
             }
-
             // 销毁改造后的数据
-            if ( buffer != task->buf ) {
-                free( buffer );
-            }
+            if ( buffer != task->buf ) free( buffer );
         }
     } else {
         syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, task->id );
     }
 
-    if ( task->isfree != 0 ) {
-        // 指定底层释放
-        free( task->buf );
-    }
+    // 指定底层释放
+    if ( task->isfree != 0 ) free( task->buf );
 
     return writen;
 }
@@ -1225,13 +1208,13 @@ ssize_t _send_direct( struct iolayer * self, struct session_manager * manager, s
 int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_manager * manager, struct message * msg )
 {
     int32_t count = 0;
+    uint32_t totalcount = sidlist_count( msg->tolist );
 
     // 数据改造
     if ( self->transform != NULL ) {
         // 数据需要改造
         size_t nbytes = message_get_length( msg );
         char * buffer = self->transform( self->context, message_get_buffer( msg ), &nbytes );
-
         if ( buffer == NULL ) {
             // 数据改造失败
             message_destroy( msg );
@@ -1243,30 +1226,21 @@ int32_t _broadcast_direct( struct iolayer * self, uint8_t index, struct session_
         }
     }
 
-    for ( uint32_t i = 0; i < sidlist_count( msg->tolist ); ++i ) {
+    for ( uint32_t i = 0; i < totalcount; ++i ) {
         sid_t id = sidlist_get( msg->tolist, i );
-
-        if ( SID_INDEX( id ) != index ) {
-            message_add_failure( msg, id );
-            continue;
+        if ( SID_INDEX( id ) == index ) {
+            struct session * s = session_manager_get( manager, id );
+            if ( likely( s != NULL ) ) {
+                if ( session_sendmessage( s, msg ) >= 0 ) {
+                    ++count; continue;
+                }
+            }
         }
-
-        struct session * session = session_manager_get( manager, id );
-        if ( unlikely( session == NULL ) ) {
-            message_add_failure( msg, id );
-            continue;
-        }
-
-        if ( session_sendmessage( session, msg ) >= 0 ) {
-            // 尝试单独发送
-            ++count;
-        }
+        message_add_failure( msg, id );
     }
 
     // 消息发送完毕, 直接销毁
-    if ( message_is_complete( msg ) ) {
-        message_destroy( msg );
-    }
+    if ( message_is_complete( msg ) ) message_destroy( msg );
 
     return count;
 }
@@ -1365,25 +1339,20 @@ int32_t _shutdown_direct( struct session_manager * manager, sid_t id )
 int32_t _shutdowns_direct( uint8_t index, struct session_manager * manager, struct sidlist * ids )
 {
     int32_t count = 0;
+    uint32_t totalcount = sidlist_count( ids );
 
-    for ( uint32_t i = 0; i < sidlist_count( ids ); ++i ) {
+    for ( uint32_t i = 0; i < totalcount; ++i ) {
         sid_t id = sidlist_get( ids, i );
-
-        if ( SID_INDEX( id ) != index ) {
-            continue;
+        if ( SID_INDEX( id ) == index ) {
+            struct session * s = session_manager_get( manager, id );
+            if ( likely( s != NULL ) ) {
+                // 直接终止
+                ++count;
+                session_close( s );
+                session_shutdown( s );
+            }
         }
-
-        struct session * session = session_manager_get( manager, id );
-        if ( session == NULL ) {
-            continue;
-        }
-
-        // 直接终止
-        ++count;
-        session_close( session );
-        session_shutdown( session );
     }
-
     sidlist_destroy( ids );
 
     return count;

@@ -167,7 +167,7 @@ int main( int32_t argc, char ** argv )
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signal_handle );
 
-    iolayer_t layer = iolayer_create( nthreads, 500, 8, 0 );
+    iolayer_t layer = iolayer_create( nthreads, 500, 8 );
     if ( layer == NULL )
     {
         return -2;

@@ -31,6 +31,7 @@ const struct eventop * evsel = NULL;
 
 // event.c中的工具定义
 
+static inline int64_t _get_current( struct eventset * self, int8_t clear );
 static inline int32_t evsets_process_active( struct eventset * self );
 static inline int32_t event_queue_insert( struct eventset * self, struct event * ev, int32_t type );
 static inline int32_t event_queue_remove( struct eventset * self, struct event * ev, int32_t type );
@@ -38,6 +39,19 @@ static inline int32_t event_queue_remove( struct eventset * self, struct event *
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
+
+int64_t _get_current( struct eventset * self, int8_t clear )
+{
+    if ( clear == 1 ) {
+        self->cache_current = 0;
+    }
+
+    if ( self->cache_current == 0 ) {
+        self->cache_current = milliseconds();
+    }
+
+    return self->cache_current;
+}
 
 int32_t event_queue_insert( struct eventset * self, struct event * ev, int32_t type )
 {
@@ -152,6 +166,15 @@ evsets_t event_get_sets( event_t self )
     return ( (struct event *)self )->evsets;
 }
 
+int64_t event_get_current( event_t self )
+{
+    struct eventset * sets = ((struct event *)self)->evsets;
+    if ( likely( sets != NULL ) ) {
+        return _get_current( sets, 0 );
+    }
+    return milliseconds();
+}
+
 void event_reset( event_t self )
 {
     struct event * ev = (struct event *)self;
@@ -215,6 +238,7 @@ evsets_t evsets_create( int32_t precision )
         TAILQ_INIT( &self->eventlist );
         TAILQ_INIT( &self->activelist );
 
+        self->cache_current = 0;
         self->evsets = self->evselect->init();
         if ( self->evsets ) {
             self->core_timer = evtimer_create( precision, TIMER_BUCKET_COUNT );
@@ -237,6 +261,11 @@ evsets_t evsets_create( int32_t precision )
 const char * evsets_get_version()
 {
     return __EVENT_VERSION__;
+}
+
+int64_t evsets_get_current( evsets_t self )
+{
+    return _get_current( (struct eventset *)self, 0 );
 }
 
 int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
@@ -320,7 +349,7 @@ int32_t evsets_dispatch( evsets_t self )
     // 没有激活事件的情况下等待超时时间
     if ( TAILQ_EMPTY( &sets->activelist ) ) {
         // 根据定时器的超时时间, 确认IO的等待时间
-        seconds4wait = (int32_t)( sets->expire_time - milliseconds() );
+        seconds4wait = (int32_t)( sets->expire_time - _get_current( sets, 1 ) );
         if ( seconds4wait < 0 ) {
             seconds4wait = 0;
         } else if ( seconds4wait > sets->timer_precision ) {
@@ -336,7 +365,7 @@ int32_t evsets_dispatch( evsets_t self )
     }
 
     // 事件集的超时时间是要及时更新的
-    int64_t now = milliseconds();
+    int64_t now = _get_current( sets, 1 );
     if ( sets->expire_time <= now ) {
         // 定时器时间到了, 分发事件
         evtimer_dispatch( sets->core_timer );

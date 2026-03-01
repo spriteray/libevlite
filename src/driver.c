@@ -42,7 +42,7 @@ struct driver * driver_create( struct session * s, struct buffer * buffer, const
         }
 
         // 设置时间戳
-        self->epoch = milliseconds();
+        self->epoch = event_get_current( self->timer );
         // 设置kcp的极速模式
         // 1 - 启动nodelay模式
         // 1 - 关闭流量控制
@@ -231,7 +231,7 @@ void _kcp_refresh_state( struct driver * self )
 
 uint32_t _kcp_milliseconds( struct driver * self )
 {
-    return (uint32_t)( milliseconds() - self->epoch );
+    return (uint32_t)( event_get_current( self->timer ) - self->epoch );
 }
 
 void _kcp_timer( int32_t fd, int16_t ev, void * arg )

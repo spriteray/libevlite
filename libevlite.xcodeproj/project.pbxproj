@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		71C7BD321F4329DA000B3C30 /* raw_echoserver.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D31A131B95E8A700C33F84 /* raw_echoserver.c */; };
 		71C7BD331F432A3E000B3C30 /* event.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D31B95E63A00C33F84 /* event.c */; };
 		71C7BD341F432A44000B3C30 /* kqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D61B95E63A00C33F84 /* kqueue.c */; };
 		71C7BD351F432A4D000B3C30 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E01B95E63B00C33F84 /* utils.c */; };
@@ -52,11 +51,60 @@
 		71D31A431B95E9D400C33F84 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DF1B95E63A00C33F84 /* timer.c */; };
 		71D31A441B95E9D400C33F84 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E01B95E63B00C33F84 /* utils.c */; };
 		71F9CACB22D0B18900990CF5 /* slice.h in Headers */ = {isa = PBXBuildFile; fileRef = 71F9CAC822D0B18900990CF5 /* slice.h */; };
+		940B652C2F53EE1D00C61BBB /* io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 945AD58F24617678005D545E /* io.cpp */; };
+		940B652D2F53EF8800C61BBB /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5EA1B025D57C5500B26FD7 /* network.c */; };
+		940B652E2F53EFB600C61BBB /* event.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E31B95E64800C33F84 /* event.h */; };
+		940B652F2F53EFB600C61BBB /* network.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E41B95E64800C33F84 /* network.h */; };
+		940B65302F53EFB600C61BBB /* threads.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E51B95E64800C33F84 /* threads.h */; };
+		940B65312F53EFB600C61BBB /* io.h in Sources */ = {isa = PBXBuildFile; fileRef = 945AD59024617678005D545E /* io.h */; };
+		940B65322F53EFB600C61BBB /* msgqueue.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848002F51C61300B8D5E6 /* msgqueue.h */; };
+		940B65332F53EFB600C61BBB /* sidlist.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848022F51C61300B8D5E6 /* sidlist.h */; };
+		940B65342F53EFB600C61BBB /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
+		940B65352F53EFB600C61BBB /* ephashtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
+		940B65362F53EFB600C61BBB /* driver.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2725334B8F008EB084 /* driver.c */; };
+		940B65372F53EFB600C61BBB /* driver.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2625334B8F008EB084 /* driver.h */; };
+		940B65382F53EFB600C61BBB /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
+		940B65392F53EFB600C61BBB /* ikcp.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2825334B8F008EB084 /* ikcp.h */; };
+		940B653A2F53EFB600C61BBB /* lock.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2A25334B8F008EB084 /* lock.h */; };
+		940B653B2F53EFB600C61BBB /* config.h in Sources */ = {isa = PBXBuildFile; fileRef = DD817EDD2130033800DCC7BA /* config.h */; };
+		940B653C2F53EFB600C61BBB /* channel.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319CF1B95E63A00C33F84 /* channel.c */; };
+		940B653D2F53EFB600C61BBB /* channel.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D01B95E63A00C33F84 /* channel.h */; };
+		940B653E2F53EFB600C61BBB /* epoll.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D11B95E63A00C33F84 /* epoll.c */; };
+		940B653F2F53EFB600C61BBB /* event-internal.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D21B95E63A00C33F84 /* event-internal.h */; };
+		940B65402F53EFB600C61BBB /* message.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D71B95E63A00C33F84 /* message.c */; };
+		940B65412F53EFB600C61BBB /* message.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D81B95E63A00C33F84 /* message.h */; };
+		940B65422F53EFB600C61BBB /* network-internal.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D91B95E63A00C33F84 /* network-internal.h */; };
+		940B65432F53EFB600C61BBB /* queue.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DA1B95E63A00C33F84 /* queue.h */; };
+		940B65442F53EFB600C61BBB /* session.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DB1B95E63A00C33F84 /* session.c */; };
+		940B65452F53EFB600C61BBB /* session.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DC1B95E63A00C33F84 /* session.h */; };
+		940B65462F53EFB600C61BBB /* threads-internal.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DD1B95E63A00C33F84 /* threads-internal.h */; };
+		940B65472F53EFB600C61BBB /* threads.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DE1B95E63A00C33F84 /* threads.c */; };
+		940B65482F53EFB600C61BBB /* utils.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E11B95E63B00C33F84 /* utils.h */; };
+		940B65492F53EFB600C61BBB /* echoserver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 71D31A0E1B95E8A700C33F84 /* echoserver.cpp */; };
+		940B654A2F53EFE700C61BBB /* event.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E31B95E64800C33F84 /* event.h */; };
+		940B654B2F53EFE700C61BBB /* network.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E41B95E64800C33F84 /* network.h */; };
+		940B654C2F53EFE700C61BBB /* threads.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E51B95E64800C33F84 /* threads.h */; };
+		940B654D2F53EFE700C61BBB /* io.h in Sources */ = {isa = PBXBuildFile; fileRef = 945AD59024617678005D545E /* io.h */; };
+		940B654E2F53EFE700C61BBB /* msgqueue.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848002F51C61300B8D5E6 /* msgqueue.h */; };
+		940B654F2F53EFE700C61BBB /* sidlist.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848022F51C61300B8D5E6 /* sidlist.h */; };
+		940B65502F53EFE700C61BBB /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
+		940B65512F53EFE700C61BBB /* ephashtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
+		940B65522F53EFE700C61BBB /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5EA1B025D57C5500B26FD7 /* network.c */; };
+		940B65532F53EFE700C61BBB /* epoll.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D11B95E63A00C33F84 /* epoll.c */; };
+		940B65542F53EFFD00C61BBB /* event.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E31B95E64800C33F84 /* event.h */; };
+		940B65552F53EFFD00C61BBB /* network.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E41B95E64800C33F84 /* network.h */; };
+		940B65562F53EFFD00C61BBB /* threads.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E51B95E64800C33F84 /* threads.h */; };
+		940B65572F53EFFD00C61BBB /* io.h in Sources */ = {isa = PBXBuildFile; fileRef = 945AD59024617678005D545E /* io.h */; };
+		940B65582F53EFFD00C61BBB /* msgqueue.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848002F51C61300B8D5E6 /* msgqueue.h */; };
+		940B65592F53EFFD00C61BBB /* sidlist.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848022F51C61300B8D5E6 /* sidlist.h */; };
+		940B655A2F53EFFD00C61BBB /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
+		940B655B2F53EFFD00C61BBB /* ephashtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
+		940B655C2F53EFFD00C61BBB /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5EA1B025D57C5500B26FD7 /* network.c */; };
+		940B655D2F53EFFD00C61BBB /* epoll.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D11B95E63A00C33F84 /* epoll.c */; };
 		945AD59524617678005D545E /* io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 945AD58F24617678005D545E /* io.cpp */; };
 		945AD59624617678005D545E /* io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 945AD58F24617678005D545E /* io.cpp */; };
 		945AD59724617678005D545E /* io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 945AD58F24617678005D545E /* io.cpp */; };
 		945AD59824617678005D545E /* io.h in Headers */ = {isa = PBXBuildFile; fileRef = 945AD59024617678005D545E /* io.h */; };
-		945AD59924617678005D545E /* redis.h in Headers */ = {isa = PBXBuildFile; fileRef = 945AD59124617678005D545E /* redis.h */; };
 		9479102E2534AE0C00F91879 /* kqueue.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D61B95E63A00C33F84 /* kqueue.c */; };
 		9479102F2534AE0C00F91879 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E01B95E63B00C33F84 /* utils.c */; };
 		947910302534AE0C00F91879 /* timer.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319DF1B95E63A00C33F84 /* timer.c */; };
@@ -146,10 +194,6 @@
 		94A68E3225334B90008EB084 /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
 		94F3F3FE2A72C28F00406E50 /* ephashtable.h in Headers */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
 		94F3F3FF2A72C28F00406E50 /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
-		DD20CE0B25C4231800ACBC2E /* helper.h in Headers */ = {isa = PBXBuildFile; fileRef = DD20CE0725C4231800ACBC2E /* helper.h */; };
-		DD20CE0C25C4231800ACBC2E /* xcurl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE0825C4231800ACBC2E /* xcurl.cpp */; };
-		DD20CE0D25C4231800ACBC2E /* helper.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE0925C4231800ACBC2E /* helper.cpp */; };
-		DD20CE0E25C4231800ACBC2E /* xcurl.h in Headers */ = {isa = PBXBuildFile; fileRef = DD20CE0A25C4231800ACBC2E /* xcurl.h */; };
 		DD20CE1625C4232B00ACBC2E /* test_multicurl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE1525C4232B00ACBC2E /* test_multicurl.cpp */; };
 		DD5EA1B125D57C5500B26FD7 /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5EA1B025D57C5500B26FD7 /* network.c */; };
 		DD817EDE2130033800DCC7BA /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = DD817EDD2130033800DCC7BA /* config.h */; };
@@ -444,7 +488,6 @@
 				71D319FE1B95E82600C33F84 /* session.h in Headers */,
 				71D31A061B95E83700C33F84 /* threads.h in Headers */,
 				71D319FC1B95E82600C33F84 /* queue.h in Headers */,
-				945AD59924617678005D545E /* redis.h in Headers */,
 				71D319FA1B95E82600C33F84 /* message.h in Headers */,
 				945AD59824617678005D545E /* io.h in Headers */,
 				71D319F41B95E82600C33F84 /* event-internal.h in Headers */,
@@ -457,12 +500,10 @@
 				DD817EDE2130033800DCC7BA /* config.h in Headers */,
 				94A68E2D25334B90008EB084 /* driver.h in Headers */,
 				94A68E3125334B90008EB084 /* lock.h in Headers */,
-				DD20CE0B25C4231800ACBC2E /* helper.h in Headers */,
 				94F3F3FE2A72C28F00406E50 /* ephashtable.h in Headers */,
 				71D31A041B95E83700C33F84 /* event.h in Headers */,
 				71F9CACB22D0B18900990CF5 /* slice.h in Headers */,
 				71D31A051B95E83700C33F84 /* network.h in Headers */,
-				DD20CE0E25C4231800ACBC2E /* xcurl.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -623,13 +664,42 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				940B652E2F53EFB600C61BBB /* event.h in Sources */,
+				940B652F2F53EFB600C61BBB /* network.h in Sources */,
+				940B65302F53EFB600C61BBB /* threads.h in Sources */,
+				940B65312F53EFB600C61BBB /* io.h in Sources */,
+				940B65322F53EFB600C61BBB /* msgqueue.h in Sources */,
+				940B65332F53EFB600C61BBB /* sidlist.h in Sources */,
+				940B65342F53EFB600C61BBB /* ephashtable.c in Sources */,
+				940B65352F53EFB600C61BBB /* ephashtable.h in Sources */,
+				940B65362F53EFB600C61BBB /* driver.c in Sources */,
+				940B65372F53EFB600C61BBB /* driver.h in Sources */,
+				940B65382F53EFB600C61BBB /* ikcp.c in Sources */,
+				940B65392F53EFB600C61BBB /* ikcp.h in Sources */,
+				940B653A2F53EFB600C61BBB /* lock.h in Sources */,
+				940B653B2F53EFB600C61BBB /* config.h in Sources */,
+				940B653C2F53EFB600C61BBB /* channel.c in Sources */,
+				940B653D2F53EFB600C61BBB /* channel.h in Sources */,
+				940B653E2F53EFB600C61BBB /* epoll.c in Sources */,
+				940B653F2F53EFB600C61BBB /* event-internal.h in Sources */,
+				940B65402F53EFB600C61BBB /* message.c in Sources */,
+				940B65412F53EFB600C61BBB /* message.h in Sources */,
+				940B65422F53EFB600C61BBB /* network-internal.h in Sources */,
+				940B65432F53EFB600C61BBB /* queue.h in Sources */,
+				940B65442F53EFB600C61BBB /* session.c in Sources */,
+				940B65452F53EFB600C61BBB /* session.h in Sources */,
+				940B65462F53EFB600C61BBB /* threads-internal.h in Sources */,
+				940B65472F53EFB600C61BBB /* threads.c in Sources */,
+				940B65482F53EFB600C61BBB /* utils.h in Sources */,
+				940B65492F53EFB600C61BBB /* echoserver.cpp in Sources */,
+				940B652D2F53EF8800C61BBB /* network.c in Sources */,
 				71C7BD341F432A44000B3C30 /* kqueue.c in Sources */,
 				71C7BD351F432A4D000B3C30 /* utils.c in Sources */,
 				71C7BD361F432A52000B3C30 /* timer.c in Sources */,
 				71C7BD331F432A3E000B3C30 /* event.c in Sources */,
-				71C7BD321F4329DA000B3C30 /* raw_echoserver.c in Sources */,
 				948848062F51C61300B8D5E6 /* msgqueue.c in Sources */,
 				948848072F51C61300B8D5E6 /* sidlist.c in Sources */,
+				940B652C2F53EE1D00C61BBB /* io.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -646,10 +716,8 @@
 				71D31A071B95E86B00C33F84 /* Makefile in Sources */,
 				71D319F31B95E82600C33F84 /* epoll.c in Sources */,
 				71D319F91B95E82600C33F84 /* message.c in Sources */,
-				DD20CE0C25C4231800ACBC2E /* xcurl.cpp in Sources */,
 				DD20CE1625C4232B00ACBC2E /* test_multicurl.cpp in Sources */,
 				71D31A021B95E82600C33F84 /* utils.c in Sources */,
-				DD20CE0D25C4231800ACBC2E /* helper.cpp in Sources */,
 				94F3F3FF2A72C28F00406E50 /* ephashtable.c in Sources */,
 				71D319FD1B95E82600C33F84 /* session.c in Sources */,
 				94A68E3225334B90008EB084 /* ikcp.c in Sources */,
@@ -664,6 +732,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				940B65542F53EFFD00C61BBB /* event.h in Sources */,
+				940B65552F53EFFD00C61BBB /* network.h in Sources */,
+				940B65562F53EFFD00C61BBB /* threads.h in Sources */,
+				940B65572F53EFFD00C61BBB /* io.h in Sources */,
+				940B65582F53EFFD00C61BBB /* msgqueue.h in Sources */,
+				940B65592F53EFFD00C61BBB /* sidlist.h in Sources */,
+				940B655A2F53EFFD00C61BBB /* ephashtable.c in Sources */,
+				940B655B2F53EFFD00C61BBB /* ephashtable.h in Sources */,
+				940B655C2F53EFFD00C61BBB /* network.c in Sources */,
+				940B655D2F53EFFD00C61BBB /* epoll.c in Sources */,
 				9479103B2534AE6000F91879 /* driver.c in Sources */,
 				9479103C2534AE6000F91879 /* driver.h in Sources */,
 				9488480A2F51C61300B8D5E6 /* msgqueue.c in Sources */,
@@ -697,6 +775,16 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				940B654A2F53EFE700C61BBB /* event.h in Sources */,
+				940B654B2F53EFE700C61BBB /* network.h in Sources */,
+				940B654C2F53EFE700C61BBB /* threads.h in Sources */,
+				940B654D2F53EFE700C61BBB /* io.h in Sources */,
+				940B654E2F53EFE700C61BBB /* msgqueue.h in Sources */,
+				940B654F2F53EFE700C61BBB /* sidlist.h in Sources */,
+				940B65502F53EFE700C61BBB /* ephashtable.c in Sources */,
+				940B65512F53EFE700C61BBB /* ephashtable.h in Sources */,
+				940B65522F53EFE700C61BBB /* network.c in Sources */,
+				940B65532F53EFE700C61BBB /* epoll.c in Sources */,
 				9479104D2534AE7800F91879 /* driver.c in Sources */,
 				9479104E2534AE7800F91879 /* driver.h in Sources */,
 				948848042F51C61300B8D5E6 /* msgqueue.c in Sources */,
@@ -924,7 +1012,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.12.1;
+				DYLIB_CURRENT_VERSION = 9.12.4;
 				EXECUTABLE_PREFIX = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -938,7 +1026,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.12.1;
+				DYLIB_CURRENT_VERSION = 9.12.4;
 				EXECUTABLE_PREFIX = "";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

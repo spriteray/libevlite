@@ -32,9 +32,7 @@ QUEUE_GENERATE( sendqueue, struct message * )
 struct session * _new_session()
 {
     struct session * self = (struct session *)calloc( 1, sizeof( struct session ) );
-    if ( self == NULL ) {
-        return NULL;
-    }
+    assert( self != NULL && "allocate struct session failed" );
 
     // 初始化任务队列
     SLIST_INIT( &self->tasklist );
@@ -47,17 +45,11 @@ struct session * _new_session()
     self->evread = event_create();
     self->evwrite = event_create();
     self->evkeepalive = event_create();
-    if ( self->evkeepalive == NULL
-        || self->evread == NULL || self->evwrite == NULL ) {
-        _del_session( self );
-        return NULL;
-    }
+    assert( self->evread != NULL
+        && self->evwrite != NULL && self->evkeepalive != NULL );
 
     // 初始化发送队列
-    if ( QUEUE_INIT( sendqueue )( &self->sendqueue, DEFAULT_SENDQUEUE_SIZE ) != 0 ) {
-        _del_session( self );
-        return NULL;
-    }
+    QUEUE_INIT( sendqueue )( &self->sendqueue, DEFAULT_SENDQUEUE_SIZE );
 
     return self;
 }
@@ -72,18 +64,18 @@ int32_t _reset_session( struct session * self )
     // 初始化设置
     _init_settings( &self->setting );
 
-    if ( self->host != NULL ) {
+    if ( likely( self->host != NULL ) ) {
         free( self->host );
         self->host = NULL;
     }
     // 销毁网络事件
-    if ( self->evread ) {
+    if ( likely( self->evread != NULL ) ) {
         event_reset( self->evread );
     }
-    if ( self->evwrite ) {
+    if ( likely( self->evwrite != NULL ) ) {
         event_reset( self->evwrite );
     }
-    if ( self->evkeepalive ) {
+    if ( likely( self->evkeepalive != NULL ) ) {
         event_reset( self->evkeepalive );
     }
 
@@ -104,21 +96,21 @@ int32_t _del_session( struct session * self )
     self->msgoffset = 0;
 
     // 销毁host
-    if ( self->host != NULL ) {
+    if ( likely( self->host != NULL ) ) {
         free( self->host );
         self->host = NULL;
     }
 
     // 销毁网络事件
-    if ( self->evread ) {
+    if ( likely( self->evread != NULL ) ) {
         event_destroy( self->evread );
         self->evread = NULL;
     }
-    if ( self->evwrite ) {
+    if ( likely( self->evwrite != NULL ) ) {
         event_destroy( self->evwrite );
         self->evwrite = NULL;
     }
-    if ( self->evkeepalive ) {
+    if ( likely( self->evkeepalive != NULL ) ) {
         event_destroy( self->evkeepalive );
         self->evkeepalive = NULL;
     }
@@ -136,7 +128,7 @@ void _stop( struct session * self )
     struct schedule_task * loop = NULL;
     SLIST_FOREACH( loop, &self->tasklist, tasklink )
     {
-        if ( loop->evschedule != NULL ) {
+        if ( likely( loop->evschedule != NULL ) ) {
             evsets_del( self->evsets, loop->evschedule );
             event_destroy( loop->evschedule );
             loop->evschedule = NULL;
@@ -164,7 +156,7 @@ void _stop( struct session * self )
     buffer_erase( &self->inbuffer, -1 );
 
     // 销毁UDP驱动
-    if ( self->driver != NULL ) {
+    if ( likely( self->driver != NULL ) ) {
         driver_destroy( self->driver );
     }
 
@@ -376,7 +368,7 @@ ssize_t session_send( struct session * self, char * buf, size_t nbytes )
     size_t _nbytes = nbytes;
 
     // 数据改造(加密 or 压缩)
-    if ( unlikely( self->service.transform != NULL ) ) {
+    if ( self->service.transform != NULL ) {
         _buf = self->service.transform(
             self->context, (const char *)buf, &_nbytes );
     }
@@ -405,7 +397,7 @@ ssize_t session_sendmessage( struct session * self, struct message * message )
     char * buffer = buf;
 
     // 数据改造(加密 or 压缩)
-    if ( unlikely( self->service.transform != NULL ) ) {
+    if ( self->service.transform != NULL ) {
         buffer = self->service.transform(
             self->context, (const char *)buf, &nbytes );
     }
@@ -696,7 +688,7 @@ inline int32_t _session_manager_expand( struct session_manager * self )
 
     // 初始化新扩容出来的尾部槽位
     for ( uint32_t i = old_capacity; i < new_capacity; ++i ) {
-        self->table[i].version = 1;
+        self->table[i].version = 0;
         self->table[i].is_active = 0;
         self->table[i].next_free = i + 1;
     }
@@ -719,15 +711,10 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
     if ( size > MAX_SLOT_CAPACITY ) size = MAX_SLOT_CAPACITY;
 
     self = (struct session_manager *)calloc( 1, sizeof(struct session_manager) );
-    if ( self == NULL ) {
-        return NULL;
-    }
+    assert( self != NULL && "allocate session_manager failed" );
 
     self->table = (struct slot *)calloc( size, sizeof(struct slot) );
-    if ( self->table == NULL ) {
-        free( self );
-        return NULL;
-    }
+    assert( self->table != NULL && "allocate struct slot failed" );
 
     self->count = 0;
     self->free_head = 0;
@@ -736,7 +723,7 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 
     // 初始化空闲链表
     for ( uint32_t i = 0; i < size; ++i ) {
-        self->table[i].version = 1;
+        self->table[i].version = 0;
         self->table[i].is_active = 0;
         self->table[i].next_free = i + 1;
     }
@@ -750,7 +737,7 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
 
 struct session * session_manager_alloc( struct session_manager * self )
 {
-    if ( self->free_head == INVALID_SLOT_INDEX ) {
+    if ( unlikely( self->free_head == INVALID_SLOT_INDEX ) ) {
         if ( _session_manager_expand( self ) != 0 ) {
             return NULL;
         }
@@ -771,7 +758,7 @@ struct session * session_manager_alloc( struct session_manager * self )
     }
 #endif
 
-    if ( session == NULL ) return NULL;
+    if ( unlikely( session == NULL ) ) return NULL;
 
     // 获取空槽位
     uint32_t seq = self->free_head;
@@ -800,7 +787,7 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
     uint32_t seq = SID_SEQ( id );
     uint16_t ver = SID_VERSION( id );
 
-    if ( seq >= self->capacity ) {
+    if ( unlikely( seq >= self->capacity ) ) {
         return NULL;
     }
 
@@ -817,28 +804,30 @@ struct session * session_manager_get( struct session_manager * self, sid_t id )
 
 int32_t session_manager_foreach( struct session_manager * self, int32_t ( *func )( void *, struct session * ), void * context )
 {
-    int32_t rc = 0;
+    int32_t count = 0;
+
     for ( uint32_t i = 0; i < self->capacity; ++i ) {
         struct slot * slot = &self->table[i];
         if ( slot->is_active && slot->session != NULL ) {
             if ( func( context, slot->session ) != 0 ) {
-                return rc;
+                return count;
             }
-            ++rc;
+            ++count;
         }
     }
-    return rc;
+
+    return count;
 }
 
 int32_t session_manager_remove( struct session_manager * self, struct session * session )
 {
-    if ( session == NULL ) return -1;
+    if ( unlikely( session == NULL ) ) return -1;
 
     uint32_t seq = SID_SEQ( session->id );
-    if ( seq >= self->capacity ) return -1;
+    if ( unlikely( seq >= self->capacity ) ) return -1;
 
     struct slot * slot = &self->table[ seq ];
-    if ( !slot->is_active || slot->session != session ) {
+    if ( unlikely( !slot->is_active || slot->session != session ) ) {
         return -1;
     }
 
@@ -846,9 +835,6 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
     slot->is_active = 0;
     // 版本号增加
     ++slot->version;
-    if ( (slot->version & SID_VERSION_MASK) == 0 ) {
-        slot->version = 1;
-    }
     // 归还
     slot->next_free = self->free_head;
     --self->count;

@@ -578,8 +578,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     sid_t id = 0;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( connector->parent );
-    void * iocontext = iothreads_get_context( layer->threads, connector->index );
-    struct connectorlist * list = iothreads_get_connectlist( layer->threads, connector->index );
+    struct iothread * thread = iothreads_get( layer->threads, connector->index );
 
     if ( ev & EV_WRITE ) {
 #if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
@@ -604,7 +603,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
 
     // 把连接结果回调给逻辑层
     ack = connector->cb(
-        connector->context, iocontext, result, connector->host, connector->port, id );
+        connector->context, thread->context, result, connector->host, connector->port, id );
     if ( ack != 0 ) {
         // 逻辑层确认需要关闭该会话
         if ( session ) {
@@ -623,7 +622,7 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             }
             if ( connector->state == 0 ) {
                 connector->state = 1;
-                STAILQ_INSERT_TAIL( list, connector, linker );
+                STAILQ_INSERT_TAIL( &(thread->connectorlist), connector, linker );
             }
 
             // 200毫秒后尝试重连, 避免进入重连死循环
@@ -684,8 +683,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
     sid_t id = 0;
     struct session * session = NULL;
     struct iolayer * layer = (struct iolayer *)( associater->parent );
-    void * iocontext = iothreads_get_context( layer->threads, associater->index );
-    struct associaterlist * list = iothreads_get_associatelist( layer->threads, associater->index );
+    struct iothread * thread = iothreads_get( layer->threads, associater->index );
 
     if ( ev & EV_WRITE ) {
 #if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
@@ -710,7 +708,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
 
     // 把连接结果回调给逻辑层
     ack = associater->cb(
-        associater->context, iocontext, result, associater->fd, associater->privdata, id );
+        associater->context, thread->context, result, associater->fd, associater->privdata, id );
     if ( ack != 0 ) {
         // 逻辑层确认需要关闭该会话
         if ( session ) {
@@ -732,7 +730,7 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
                 evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
                 if ( associater->state == 0 ) {
                     associater->state = 1;
-                    STAILQ_INSERT_TAIL( list, associater, linker );
+                    STAILQ_INSERT_TAIL( &(thread->associaterlist), associater, linker );
                 }
             }
         } else {

@@ -112,6 +112,7 @@ struct eventset {
     int32_t timer_precision;
 
     int64_t expire_time;
+    int64_t cache_current;
     struct evtimer * core_timer;
 
     void * evsets;
