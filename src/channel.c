@@ -30,7 +30,6 @@ const int32_t iov_max = 128;
 
 // 发送接收数据
 static inline ssize_t _receive( struct session * session );
-static inline ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count );
 
 // 逻辑操作
 static inline ssize_t _process( struct session * session );
@@ -43,79 +42,51 @@ static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
-ssize_t _write_vec( int32_t fd, struct iovec * array, int32_t count )
-{
-    ssize_t writen = -1;
-
-#if defined( TCP_CORK )
-    int32_t corked = 1;
-    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof( corked ) );
-#endif
-
-    writen = writev( fd, array, count );
-
-#if defined( TCP_CORK )
-    corked = 0;
-    setsockopt( fd, IPPROTO_TCP, TCP_CORK, (const char *)&corked, sizeof( corked ) );
-#endif
-
-    return writen;
-}
-
 ssize_t channel_transmit( struct session * session )
 {
-    ssize_t writen = 0;
-    size_t offset = session->msgoffset;
+    ssize_t total = 0;
 
-    int32_t iov_size = 0;
-    struct iovec iov_array[iov_max];
+    while ( session_sendqueue_count( session ) > 0 ) {
+        size_t offset = session->msgoffset;
+        int32_t iov_size = 0;
+        struct iovec iov_array[iov_max];
 
-    for ( uint32_t i = 0; i < session_sendqueue_count( session ) && iov_size < iov_max; ++i ) {
-        struct message * message = NULL;
-
-        QUEUE_GET( sendqueue ) ( &session->sendqueue, i, &message );
-        if ( offset >= message_get_length( message ) ) {
-            offset -= message_get_length( message );
-        } else {
-            iov_array[iov_size].iov_len = message_get_length( message ) - offset;
-            iov_array[iov_size].iov_base = message_get_buffer( message ) + offset;
-            ++iov_size; offset = 0;
+        for ( uint32_t i = 0; i < session_sendqueue_count( session ) && iov_size < iov_max; ++i ) {
+            struct message * message = NULL;
+            QUEUE_GET( sendqueue ) ( &session->sendqueue, i, &message );
+            if ( offset >= message_get_length( message ) ) {
+                offset -= message_get_length( message );
+            } else {
+                iov_array[iov_size].iov_len = message_get_length( message ) - offset;
+                iov_array[iov_size].iov_base = message_get_buffer( message ) + offset;
+                ++iov_size; offset = 0;
+            }
         }
-    }
 
-    writen = _write_vec( session->fd, iov_array, iov_size );
+        ssize_t writen = writev( session->fd, iov_array, iov_size );
+        if ( writen <= 0 ) {
+            if ( writen < 0 && ( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
+                break; // 内核缓冲区满，交给 epoll EPOLLOUT 继续
+            }
+            return writen; // 真正的错误
+        }
 
-    if ( writen > 0 ) {
+        total += writen;
         offset = session->msgoffset + writen;
 
         for ( ; session_sendqueue_count( session ) > 0; ) {
             struct message * message = NULL;
-
             QUEUE_TOP( sendqueue ) ( &session->sendqueue, &message );
-            if ( offset < message_get_length( message ) ) {
-                break;
-            }
-
+            if ( offset < message_get_length( message ) ) break;
             QUEUE_POP( sendqueue ) ( &session->sendqueue, &message );
             offset -= message_get_length( message );
-
             message_add_success( message );
-            if ( message_is_complete( message ) ) {
-                message_destroy( message );
-            }
+            if ( message_is_complete( message ) ) message_destroy( message );
         }
-
         session->msgoffset = offset;
     }
 
-    if ( writen > 0 && session_sendqueue_count( session ) > 0 ) {
-        ssize_t againlen = channel_transmit( session );
-        if ( againlen > 0 ) {
-            writen += againlen;
-        }
-    }
-
-    return writen;
+    return total;
 }
 
 ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
@@ -393,7 +364,7 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
         if ( session_sendqueue_count( session ) > 0 ) {
             // 发送数据
             ssize_t writen = session->setting.transmit( session );
-            if ( writen < 0 && errno != EAGAIN ) {
+            if ( writen < 0 ) {
                 channel_error( session, eIOError_WriteFailure );
             } else {
                 // 正常发送 或者 socket缓冲区已满

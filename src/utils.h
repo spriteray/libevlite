@@ -32,6 +32,9 @@ uint32_t nextpow2( uint32_t size );
 // 系统相关的操作
 //
 
+// 睡眠
+void msleep( int32_t mseconds );
+
 // 时间函数, 返回毫秒数/微妙数
 int64_t milliseconds();
 int64_t microseconds();

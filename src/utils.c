@@ -58,6 +58,16 @@ uint32_t nextpow2( uint32_t size )
 // -----------------------------------------------------------------------------
 // -----------------------------------------------------------------------------
 
+void msleep( int32_t mseconds )
+{
+    struct timeval tv;
+
+    tv.tv_sec = mseconds / 1000;
+    tv.tv_usec = ( mseconds % 1000 ) * 1000;
+
+    select( 0, NULL, NULL, NULL, &tv );
+}
+
 int64_t milliseconds()
 {
     int64_t now = -1;

@@ -1,6 +1,7 @@
 
 #include <deque>
 #include <vector>
+#include <set>
 #include <algorithm>
 
 #include <stdio.h>
@@ -10,18 +11,19 @@
 #include <string.h>
 #include <assert.h>
 #include <pthread.h>
+#include <sys/time.h>
 
 #include "io.h"
+#include "utils.h"
 #include "chatroom.h"
 
 class TASK
 {
-public :
+public:
     static void * clone( void * t ) {
         TASK * task = (TASK *)t;
         TASK * newtask = new TASK();
         newtask->data = task->data;
-
         return newtask;
     }
 
@@ -31,45 +33,45 @@ public :
         delete task;
     }
 
-public :
+public:
     int32_t data;
 };
 
-class CChatRoomService;
-class CChatRoomSession : public IIOSession
+class ChatRoomService;
+class ChatRoomSession : public IIOSession
 {
 public:
-    CChatRoomSession() = default;
-    virtual ~CChatRoomSession() = default;
+    ChatRoomSession() = default;
+    virtual ~ChatRoomSession() = default;
 
-public :
+public:
     virtual int32_t onStart() override;
     virtual ssize_t onProcess( const char * buf, size_t nbytes ) override;
     virtual void onShutdown( int32_t way ) override;
     virtual int32_t onPerform( int32_t type, void * task, int32_t interval ) override;
 
-public :
-    void setService( CChatRoomService * s );
+public:
+    void setService( ChatRoomService * s ) { m_Service = s; }
 
-private :
-    CChatRoomService * m_Service = nullptr;
+private:
+    ChatRoomService * m_Service = nullptr;
 };
 
-class CChatRoomService : public IIOService
+class ChatRoomService : public IIOService
 {
-public :
-    CChatRoomService( uint8_t nthreads, uint32_t nclients );
-    virtual ~CChatRoomService();
+public:
+    ChatRoomService( uint8_t nthreads, uint32_t nclients );
+    virtual ~ChatRoomService();
 
-public :
+public:
     virtual IIOSession * onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port ) override;
 
-public :
+public:
     bool init( const char * host, uint16_t port );
-    void run();
+    void run( int32_t mseconds );
     bool post( sid_t id, CSHead * header );
 
-private :
+private:
     struct Task {
         uint16_t msgid = 0;
         uint16_t length = 0;
@@ -78,30 +80,29 @@ private :
         Task() = default;
     };
 
-    uint32_t            m_UniqueID;
-    bool                m_Perform;
-    pthread_mutex_t     m_TaskLock;
-    std::deque<Task>    m_TaskQueue;
-    std::vector<sid_t>  m_SessionMap;
+    uint32_t m_UniqueID;
+    bool m_Perform;
+    pthread_cond_t m_TaskCond;
+    pthread_mutex_t m_TaskLock;
+    std::deque<Task> m_TaskQueue;
+    std::set<sid_t> m_SessionMap;
 };
 
 // -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
 // -------------------------------------------------------------------------------
 
-int32_t CChatRoomSession::onStart()
+int32_t ChatRoomSession::onStart()
 {
     CSHead head;
     head.msgid = 0;
-    head.length = sizeof(head);
+    head.length = sizeof( head );
     m_Service->post( id(), &head );
-
     enablePersist();
-
     return 0;
 }
 
-ssize_t CChatRoomSession::onProcess( const char * buf, size_t nbytes )
+ssize_t ChatRoomSession::onProcess( const char * buf, size_t nbytes )
 {
     ssize_t nprocess = 0;
 
@@ -109,13 +110,12 @@ ssize_t CChatRoomSession::onProcess( const char * buf, size_t nbytes )
         size_t nleft = nbytes - nprocess;
         const char * buffer = buf + nprocess;
 
-        if ( nleft < sizeof(struct CSHead) ) {
+        if ( nleft < sizeof( struct CSHead ) ) {
             break;
         }
 
         CSHead * head = (CSHead *)buffer;
-
-        assert( head->length == CHATROOM_MESSAGE_SIZE+sizeof(CSHead));
+        assert( head->length == CHATROOM_MESSAGE_SIZE + sizeof( CSHead ) );
         assert( head->msgid == 1 || head->msgid == 2 );
 
         if ( nleft < head->length ) {
@@ -129,51 +129,45 @@ ssize_t CChatRoomSession::onProcess( const char * buf, size_t nbytes )
     return nprocess;
 }
 
-void CChatRoomSession::onShutdown( int32_t way )
+void ChatRoomSession::onShutdown( int32_t way )
 {
     CSHead head;
     head.msgid = 3;
-    head.length = sizeof(head);
+    head.length = sizeof( head );
     m_Service->post( id(), &head );
 }
 
-int32_t CChatRoomSession::onPerform( int32_t type, void * task, int32_t interval )
+int32_t ChatRoomSession::onPerform( int32_t type, void * task, int32_t interval )
 {
-    printf( "Session:%lu, ID:%lu\n", id(), (uint64_t)(task) );
+    printf( "Session:%lu, ID:%lu\n", id(), (uint64_t)( task ) );
     return 0;
 }
 
-void CChatRoomSession::setService( CChatRoomService * s )
-{
-    m_Service = s;
-}
-
-
-CChatRoomService::CChatRoomService( uint8_t nthreads, uint32_t nclients )
+ChatRoomService::ChatRoomService( uint8_t nthreads, uint32_t nclients )
     : IIOService( nthreads, nclients ),
       m_UniqueID( 0 ),
       m_Perform( false )
 {
-    m_SessionMap.reserve( nclients );
-    pthread_mutex_init( &m_TaskLock, NULL );
+    pthread_cond_init( &m_TaskCond, nullptr );
+    pthread_mutex_init( &m_TaskLock, nullptr );
 }
 
-CChatRoomService::~CChatRoomService()
+ChatRoomService::~ChatRoomService()
 {
+    pthread_cond_destroy( &m_TaskCond );
     pthread_mutex_destroy( &m_TaskLock );
 }
 
-IIOSession * CChatRoomService::onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port )
+IIOSession * ChatRoomService::onAccept( sid_t id, NetType type, uint16_t listenport, const char * host, uint16_t port )
 {
-    CChatRoomSession * session = new CChatRoomSession;
+    ChatRoomSession * session = new ChatRoomSession;
     if ( session ) {
         session->setService( this );
     }
-
     return session;
 }
 
-bool CChatRoomService::init( const char * host, uint16_t port )
+bool ChatRoomService::init( const char * host, uint16_t port )
 {
     bool rc = false;
 
@@ -181,89 +175,81 @@ bool CChatRoomService::init( const char * host, uint16_t port )
 
     rc = listen( NetType::TCP, host, port );
     if ( !rc ) {
-        printf( "CChatRoomService::listen(%s::%d) failed .\n", host, port );
+        printf( "ChatRoomService::listen(%s::%d) failed .\n", host, port );
         return false;
     }
 
     return true;
 }
 
-void CChatRoomService::run()
+void ChatRoomService::run( int32_t seconds )
 {
     std::deque<Task> swapqueue;
     pthread_mutex_lock( &m_TaskLock );
     std::swap( swapqueue, m_TaskQueue );
     pthread_mutex_unlock( &m_TaskLock );
 
-    for ( std::deque<Task>::iterator it = swapqueue.begin(); it != swapqueue.end(); ++it ) {
-        Task * task = &(*it);
-
-        switch ( task->msgid ) {
+    for ( auto & task : swapqueue ) {
+        switch ( task.msgid ) {
             case 0 : {
-                m_SessionMap.push_back( task->sid );
+                m_SessionMap.insert( task.sid );
             } break;
 
             case 1 : {
-                uint16_t length = task->length + sizeof( CSHead );
-#if 0
-                    std::string buffer( length, 0 );
-                    CSHead * head = (CSHead *)buffer.data();
-                    head->msgid = task->msgid;
-                    head->length = length;
-                    memcpy( head+1, task->message, task->length );
-                    buffer.resize( length );
-
-                    send( task->sid, buffer );
-#endif
-                char * buffer = (char *)malloc( length );
-                CSHead * head = (CSHead *)buffer;
-                head->msgid = task->msgid;
+                uint16_t length = task.length + sizeof( CSHead );
+                std::string buffer( length, 0 );
+                CSHead * head = (CSHead *)buffer.data();
+                head->msgid = task.msgid;
                 head->length = length;
-                memcpy( head + 1, task->message, task->length );
-                send( task->sid, buffer, length, true );
-
-                free( task->message );
+                memcpy( head+1, task.message, task.length );
+                buffer.resize( length );
+                send( task.sid, buffer );
             } break;
 
             case 2 : {
-                uint16_t length = task->length + sizeof( CSHead );
+                uint16_t length = task.length + sizeof( CSHead );
                 std::string buffer( length, 0 );
-
                 CSHead * head = (CSHead *)buffer.data();
-                head->msgid = task->msgid;
+                head->msgid = task.msgid;
                 head->length = length;
-                memcpy( head + 1, task->message, task->length );
+                memcpy( head + 1, task.message, task.length );
                 buffer.resize( length );
-
-                broadcast( /*m_SessionMap, */ buffer );
-                free( task->message );
+                broadcast( buffer );
+                free( task.message );
             } break;
 
             case 3 : {
-                std::vector<sid_t>::iterator it;
-
-                it = std::find( m_SessionMap.begin(), m_SessionMap.end(), task->sid );
-                if ( it != m_SessionMap.end() ) {
-                    m_SessionMap.erase( it );
-                }
+                m_SessionMap.erase( task.sid );
             } break;
         }
     }
+
+    struct timeval tv;
+    gettimeofday( &tv, nullptr );
+
+    struct timespec ts;
+    int64_t next_usec = tv.tv_usec + (int64_t)seconds * 1000;
+    ts.tv_sec = tv.tv_sec + (next_usec / 1000000);
+    ts.tv_nsec = (next_usec % 1000000) * 1000;
+
+    pthread_mutex_lock( &m_TaskLock );
+    pthread_cond_timedwait( &m_TaskCond, &m_TaskLock, &ts );
+    pthread_mutex_unlock( &m_TaskLock );
 }
 
-bool CChatRoomService::post( sid_t id, CSHead * header )
+bool ChatRoomService::post( sid_t id, CSHead * header )
 {
     Task task;
     task.sid = id;
     task.msgid = header->msgid;
 
-    if ( header->length - sizeof(CSHead) > 0 ) {
-        task.length = header->length - sizeof(CSHead);
+    if ( header->length - sizeof( CSHead ) > 0 ) {
+        task.length = header->length - sizeof( CSHead );
 
         assert( task.length == CHATROOM_MESSAGE_SIZE );
 
-        task.message = (char *)malloc( task.length+1 );
-        memcpy( task.message, header+1, task.length );
+        task.message = (char *)malloc( task.length + 1 );
+        memcpy( task.message, header + 1, task.length );
         task.message[task.length] = 0;
     }
 
@@ -287,30 +273,28 @@ void signal_handle( int32_t signo )
 
 int main( int argc, char ** argv )
 {
-    if ( argc != 5 )
-    {
-        printf("chatroom_server [host] [port] [threads] [clients] \n");
+    if ( argc != 5 ) {
+        printf( "chatroom_server [host] [port] [threads] [clients] \n" );
         return -1;
     }
 
     const char * host = argv[1];
-    uint16_t port = atoi(argv[2]);
-    uint8_t nthreads = atoi(argv[3]);
-    uint32_t nclients = atoi(argv[4]);
+    uint16_t port = atoi( argv[2] );
+    uint8_t nthreads = atoi( argv[3] );
+    uint32_t nclients = atoi( argv[4] );
 
     signal( SIGPIPE, SIG_IGN );
     signal( SIGINT, signal_handle );
 
-    CChatRoomService service( nthreads, nclients );
+    ChatRoomService service( nthreads, nclients );
 
-    if ( !service.init(host, port ) ) {
+    if ( !service.init( host, port ) ) {
         return -2;
     }
 
     g_Running = true;
     while ( g_Running ) {
-        service.run();
-        usleep(1000);
+        service.run( 20 );
     }
 
     service.halt();

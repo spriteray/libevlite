@@ -42,7 +42,7 @@ public :
 
     enum
     {
-        e_SendIntervalMicroSeconds    = 400,        // 每个100ms发送一个请求
+        e_SendIntervalMicroSeconds    = 100,        // 每个100ms发送一个请求
     };
 
 public :
