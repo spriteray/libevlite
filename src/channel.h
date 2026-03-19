@@ -8,7 +8,10 @@
  */
 
 #include <stdint.h>
-#include "session.h"
+#include <sys/types.h>
+
+struct session;
+struct connector;
 
 //
 ssize_t channel_transmit( struct session * session );
@@ -34,7 +37,6 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg );
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg );
 void channel_on_connected( int32_t fd, int16_t ev, void * arg );
-void channel_on_reconnected( int32_t fd, int16_t ev, void * arg );
 void channel_on_associated( int32_t fd, int16_t ev, void * arg );
 void channel_on_schedule( int32_t fd, int16_t ev, void * arg );
 

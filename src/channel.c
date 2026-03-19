@@ -9,6 +9,7 @@
 #include <sys/uio.h>
 
 #include "config.h"
+#include "session.h"
 #include "utils.h"
 #include "driver.h"
 #include "channel.h"
@@ -35,6 +36,7 @@ static inline ssize_t _receive( struct session * session );
 static inline ssize_t _process( struct session * session );
 static inline int32_t _timeout( struct session * session );
 
+static void _reconnected( int32_t fd, int16_t ev, void * arg );
 static void _reconnect_direct( int32_t fd, int16_t ev, void * arg );
 static void _reassociate_direct( int32_t fd, int16_t ev, void * arg );
 
@@ -170,6 +172,39 @@ int32_t _timeout( struct session * session )
     }
 
     return 0;
+}
+
+void _reconnected( int32_t fd, int16_t ev, void * arg )
+{
+    struct session * session = (struct session *)arg;
+
+    session->status &= ~SESSION_WRITING;
+
+    if ( ev & EV_WRITE ) {
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
+        if ( is_connected( fd ) != 0 ) {
+            channel_error( session, eIOError_ConnectStatus );
+            return;
+        }
+#endif
+        // 总算是连接上了
+
+        // 把缓存的消息提取出来
+        struct sendqueue queue;
+        session_sendqueue_take( session, &queue );
+
+        set_non_block( fd );
+        session->service.start( session->context );
+
+        // 把积累下来的数据全部发送出去
+        session_sendqueue_merge( session, &queue );
+        // 注册读写事件
+        session_add_event( session, EV_READ );
+        session_add_event( session, EV_WRITE );
+        session_start_keepalive( session );
+    } else {
+        _timeout( session );
+    }
 }
 
 void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
@@ -535,7 +570,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
 
     // 注册写事件, 以重新激活会话
     event_set( session->evwrite, session->fd, EV_WRITE );
-    event_set_callback( session->evwrite, channel_on_reconnected, session );
+    event_set_callback( session->evwrite, _reconnected, session );
     evsets_add( session->evsets, session->evwrite, -1 );
 
     session->status |= SESSION_WRITING;
@@ -610,39 +645,6 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
             connector->fd = -1;
             iolayer_free_connector( connector );
         }
-    }
-}
-
-void channel_on_reconnected( int32_t fd, int16_t ev, void * arg )
-{
-    struct session * session = (struct session *)arg;
-
-    session->status &= ~SESSION_WRITING;
-
-    if ( ev & EV_WRITE ) {
-#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
-        if ( is_connected( fd ) != 0 ) {
-            channel_error( session, eIOError_ConnectStatus );
-            return;
-        }
-#endif
-        // 总算是连接上了
-
-        // 把缓存的消息提取出来
-        struct sendqueue queue;
-        session_sendqueue_take( session, &queue );
-
-        set_non_block( fd );
-        session->service.start( session->context );
-
-        // 把积累下来的数据全部发送出去
-        session_sendqueue_merge( session, &queue );
-        // 注册读写事件
-        session_add_event( session, EV_READ );
-        session_add_event( session, EV_WRITE );
-        session_start_keepalive( session );
-    } else {
-        _timeout( session );
     }
 }
 

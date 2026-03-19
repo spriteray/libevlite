@@ -251,8 +251,9 @@ struct message * message_create()
     if ( self != NULL ) {
         self->nfailure = 0;
         self->nsuccess = 0;
+        self->length = 0;
+        self->buffer = NULL;
         self->tolist = NULL;
-        buffer_init( &self->buffer );
     }
 
     return self;
@@ -271,7 +272,11 @@ void message_destroy( struct message * self )
     //     self->failurelist = NULL;
     // }
 
-    buffer_clear( &self->buffer );
+    if ( self->buffer ) {
+        free( self->buffer );
+        self->buffer = NULL;
+    }
+
     free( self );
 }
 
@@ -327,6 +332,32 @@ int32_t message_reserve_receivers( struct message * self, uint32_t count )
     }
 
     self->tolist = tolist;
+    return 0;
+}
+
+int32_t message_set_buffer( struct message * self, char * buffer, size_t len )
+{
+    if ( self->buffer ) {
+        free( self->buffer );
+    }
+
+    self->length = len;
+    self->buffer = buffer;
+
+    return 0;
+}
+
+int32_t message_add_buffer( struct message * self, const char * buffer, size_t len )
+{
+    if ( self->buffer ) {
+        free( self->buffer );
+    }
+
+    self->length = len;
+    self->buffer = (char *)malloc( len );
+    assert( self->buffer != NULL && "message_add_buffer() failed" );
+    memcpy( self->buffer, buffer, len );
+
     return 0;
 }
 

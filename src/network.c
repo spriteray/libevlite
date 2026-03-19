@@ -173,9 +173,8 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
 
     connector->fd = tcp_connect( host, port, iolayer_client_option );
     if ( connector->fd <= 0 ) {
+        // 不管结果如何，都需要直接投递到网络层
         syslog( LOG_WARNING, "%s(host:'%s', port:%d) failed, tcp_connect() failure .", __FUNCTION__, host, port );
-        free( connector );
-        return -3;
     }
 
     connector->parent = layer;
