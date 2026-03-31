@@ -24,8 +24,7 @@
 ### 3.1 创建网络通信层 `iolayer_create()`
 - nthreads: 指定网络线程的个数
 - nclients: 推荐连接数
-- precision: 事件集的时间精度(建议值8ms)
-- immediately: 数据是否会立刻推送到网络层，对实时性要求很高的场景, 建议设置为1
+- precision: 事件集的时间精度(建议值20ms)
 
 ### 3.2 设置网络通信层的方法(仅在IO线程中才能使用)
 - 设置线程上下文: `iolayer_set_iocontext()`

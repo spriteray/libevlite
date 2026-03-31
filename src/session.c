@@ -126,8 +126,8 @@ int32_t _del_session( struct session * self )
 void _stop( struct session * self )
 {
     struct schedule_task * loop = NULL;
-    SLIST_FOREACH( loop, &self->tasklist, tasklink )
-    {
+    struct schedule_task * temp = NULL;
+    SLIST_FOREACH_SAFE( loop, &self->tasklist, tasklink, temp ) {
         if ( likely( loop->evschedule != NULL ) ) {
             evsets_del( self->evsets, loop->evschedule );
             event_destroy( loop->evschedule );
