@@ -14,7 +14,6 @@
 #include "driver.h"
 #include "channel.h"
 #include "ephashtable.h"
-#include "event-internal.h"
 #include "threads-internal.h"
 #include "network-internal.h"
 

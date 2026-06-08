@@ -3,7 +3,7 @@
 #include <assert.h>
 #include <string.h>
 
-#include "utils.h"
+#include "config.h"
 #include "sidlist.h"
 
 struct sidlist * sidlist_create( uint32_t size )

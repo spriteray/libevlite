@@ -16,7 +16,6 @@
 #include "session.h"
 #include "message.h"
 #include "ephashtable.h"
-#include "event-internal.h"
 #include "threads-internal.h"
 #include "network-internal.h"
 
@@ -286,14 +285,7 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     struct session * session = _get_session_local( self, id );
 
     if ( likely( session != NULL ) ) {
-        // 设置超时时间后，重新添加超时事件
-        if ( seconds < 0 ) {
-            session->setting.timeout_msecs = -1;
-        } else {
-            session->setting.timeout_msecs = seconds * 1000;
-        }
-        //
-        session_readd_event( session, EV_READ );
+        session_set_timeout( session, seconds );
     } else {
         rc = -1;
         syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
@@ -396,8 +388,13 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
 
     if ( likely( session != NULL ) ) {
         // 设置保活时间后，重新添加事件
-        session->setting.keepalive_msecs = seconds * 1000;
-        session_start_keepalive( session );
+        if ( seconds < 0 ) {
+            session->setting.keepalive_msecs = -1;
+            session_stop_keepalive( session );
+        } else {
+            session->setting.keepalive_msecs = seconds * 1000;
+            session_start_keepalive( session );
+        }
     } else {
         rc = -1;
         syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session is invalid .", __FUNCTION__, id );
@@ -498,14 +495,12 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
     assert( self != NULL && "Illegal IOLayer" );
     assert( execute != NULL && "Illegal specified Execute-Function" );
 
-    struct task_invoke tasklist[256]; // 栈中分配更快
     pthread_t threadid = pthread_self();
     struct iolayer * layer = (struct iolayer *)self;
 
     if ( clone == NULL ) {
         uint8_t index = milliseconds() % layer->nthreads;
         struct task_invoke inner_task = { task, execute };
-
         if ( threadid == iothreads_get_id( layer->threads, index ) ) {
             // 本线程内直接执行
             _invoke_direct( layer, index, &inner_task );
@@ -515,17 +510,17 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
         }
     } else {
         for ( uint8_t i = 0; i < layer->nthreads; ++i ) {
-            tasklist[i].perform = execute;
-            tasklist[i].task = i == 0 ? task : clone( task );
-        }
-
-        for ( uint8_t i = 0; i < layer->nthreads; ++i ) {
-            if ( threadid == iothreads_get_id( layer->threads, i ) ) {
-                // 本线程内直接广播
-                _invoke_direct( layer, i, &( tasklist[i] ) );
-            } else {
-                // 跨线程提交广播任务
-                iothreads_post( layer->threads, i, eIOTaskType_Invoke, &( tasklist[i] ), sizeof( struct task_invoke ) );
+            struct task_invoke inner_task;
+            inner_task.perform = execute;
+            inner_task.task = i == 0 ? task : clone( task );
+            if ( inner_task.task != NULL ) {
+                if ( threadid == iothreads_get_id( layer->threads, i ) ) {
+                    // 本线程内直接广播
+                    _invoke_direct( layer, i, &( inner_task ) );
+                } else {
+                    // 跨线程提交广播任务
+                    iothreads_post( layer->threads, i, eIOTaskType_Invoke, &inner_task, sizeof( struct task_invoke ) );
+                }
             }
         }
     }
@@ -894,8 +889,8 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
         // 设置KCP默认参数
         if ( options == NULL && type == NETWORK_KCP ) {
             options_t default_options = {
-                .mtu = 1400, .minrto = 30, .sndwnd = 64, .rcvwnd = 64,
-                .stream = 1, .resend = 2, .deadlink = 50, .interval = 40, .ntransfer = 16
+                .mtu = 1000, .minrto = 30, .sndwnd = 128, .rcvwnd = 128,
+                .stream = 1, .resend = 2, .deadlink = 30, .interval = 20, .ntransfer = 16
             };
             acceptor->options = default_options;
         }

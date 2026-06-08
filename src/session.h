@@ -147,6 +147,8 @@ void session_set_endpoint( struct session * self, char * host, uint16_t port );
 void session_copy_endpoint( struct session * self, const char * host, uint16_t port );
 // 设置第三方的重连函数
 void session_set_reattach( struct session * self, reattacher_t reattach, void * data );
+// 设置超时时间
+void session_set_timeout( struct session * self, int32_t seconds );
 
 // 发送队列的长度
 #define session_sendqueue_count( self ) QUEUE_COUNT( sendqueue )( &( ( self )->sendqueue ) )
@@ -170,6 +172,7 @@ void session_del_event( struct session * self, int16_t ev );
 void session_readd_event( struct session * self, int16_t ev );
 
 // 开始发送心跳
+int32_t session_stop_keepalive( struct session * self );
 int32_t session_start_keepalive( struct session * self );
 
 // 重连远程服务器

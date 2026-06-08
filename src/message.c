@@ -6,9 +6,10 @@
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
+#include <assert.h>
 
+#include "config.h"
 #include "message.h"
-#include "network-internal.h"
 
 static inline void _align( struct buffer * self );
 static inline ssize_t _offset( struct buffer * self );

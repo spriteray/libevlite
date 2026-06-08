@@ -341,6 +341,22 @@ void session_set_reattach( struct session * self, reattacher_t reattach, void * 
     self->reattach = reattach;
 }
 
+void session_set_timeout( struct session * self, int32_t seconds )
+{
+    // 设置超时时间后，重新添加超时事件
+    if ( seconds < 0 ) {
+        self->setting.timeout_msecs = -1;
+    } else {
+        self->setting.timeout_msecs = seconds * 1000;
+    }
+
+    // 监听读事件的情况下, 需要重新添加事件
+    if ( ( self->status & SESSION_READING ) ) {
+        //
+        session_readd_event( self, EV_READ );
+    }
+}
+
 void session_sendqueue_take( struct session * self, struct sendqueue * q )
 {
     // 当前的消息需要重发
@@ -498,6 +514,15 @@ void session_readd_event( struct session * self, int16_t ev )
     }
 
     session_add_event( self, ev );
+}
+
+int32_t session_stop_keepalive( struct session * self )
+{
+    if ( self->status & SESSION_KEEPALIVING ) {
+        evsets_del( self->evsets, self->evkeepalive );
+        self->status &= ~SESSION_KEEPALIVING;
+    }
+    return 0;
 }
 
 int32_t session_start_keepalive( struct session * self )

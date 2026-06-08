@@ -1,0 +1,5 @@
+-Iinclude
+-Isrc
+-Iexamples
+-Itest
+-xc

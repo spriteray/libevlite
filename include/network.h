@@ -51,14 +51,14 @@ typedef void * iolayer_t;
 // 服务器参数(当前是KCP的选项)
 typedef struct
 {
-    int32_t mtu;       // 最大传输单元, 默认值1400
+    int32_t mtu;       // 最大传输单元, 默认值1000
     int32_t minrto;    // 最小重传时间, 默认值30ms
-    int32_t sndwnd;    // 发送窗口, 默认值64
-    int32_t rcvwnd;    // 接收窗口, 默认值64
+    int32_t sndwnd;    // 发送窗口, 默认值128
+    int32_t rcvwnd;    // 接收窗口, 默认值128
     int32_t stream;    // kcp流模式, 默认值1(流模式)
     int32_t resend;    // 快速重传, 默认值2
-    int32_t deadlink;  // 最大重传次数, 默认值50
-    int32_t interval;  // 内部处理时钟, 默认值40ms
+    int32_t deadlink;  // 最大重传次数, 默认值30
+    int32_t interval;  // 内部处理时钟, 默认值20ms
     int32_t ntransfer; // 中转描述符个数, 默认值16
 } options_t;
 
@@ -216,7 +216,9 @@ typedef void * ( *taskcloner_t )( void * );
 typedef void ( *taskexecutor_t )( void *, void * );
 // 提交任务到网络层
 //      task            - 任务
-//      clone           - 任务复制函数(参考taskcloner_t的定义), 如果为NULL, 随机选择一个网络线程投递
+//      clone           - 任务复制函数(参考taskcloner_t的定义),
+//                          如果为NULL, 随机选择一个网络线程投递
+//                          如果指定一个返回NULL的clone函数，将会投递给0号线程
 //      execute         - 任务处理函数(参考taskexecutor_t的定义)
 int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 
