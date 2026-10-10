@@ -48,7 +48,7 @@ public:
     virtual int32_t onStart() override;
     virtual ssize_t onProcess( const char * buf, size_t nbytes ) override;
     virtual void onShutdown( int32_t way ) override;
-    virtual int32_t onPerform( int32_t type, void * task, int32_t interval ) override;
+    virtual int32_t onPerform( int32_t type, void * task ) override;
 
 public:
     void setService( ChatRoomService * s ) { m_Service = s; }
@@ -137,7 +137,7 @@ void ChatRoomSession::onShutdown( int32_t way )
     m_Service->post( id(), &head );
 }
 
-int32_t ChatRoomSession::onPerform( int32_t type, void * task, int32_t interval )
+int32_t ChatRoomSession::onPerform( int32_t type, void * task )
 {
     printf( "Session:%lu, ID:%lu\n", id(), (uint64_t)( task ) );
     return 0;

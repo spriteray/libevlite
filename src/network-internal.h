@@ -43,6 +43,7 @@ enum {
     eIOTaskType_Broadcast2 = 9,
     eIOTaskType_Invoke = 10,
     eIOTaskType_Perform = 11,
+    eIOTaskType_Schedule = 12,
 };
 
 // 网络服务错误码定义
@@ -61,6 +62,7 @@ enum {
     eIOError_ReadIOError = 0x0001000C,     // read()失败, IO错误
     eIOError_ReadInvalid = 0x0001000D,     // read()失败, EINVAL
     eIOError_SendQueueLimit = 0x0001000E,  // 发送队列过大
+    eIOError_KcpDeadLink = 0x0001000F,     // KCP reached its retransmission limit
 };
 
 // 网络层
@@ -121,7 +123,7 @@ struct acceptor {
     struct transfer * transferlist;
 
     // 便于回收资源
-    STAILQ_ENTRY( acceptor ) linker;
+    LIST_ENTRY( acceptor ) linker;
 };
 
 // 连接器
@@ -146,7 +148,7 @@ struct connector {
 
     // 便于回收资源
     uint8_t state;
-    STAILQ_ENTRY( connector ) linker;
+    LIST_ENTRY( connector ) linker;
 };
 
 // 关联器
@@ -169,7 +171,7 @@ struct associater {
 
     // 便于回收资源
     uint8_t state;
-    STAILQ_ENTRY( associater ) linker;
+    LIST_ENTRY( associater ) linker;
 };
 
 // udp入口
@@ -209,8 +211,13 @@ struct task_perform {
     sid_t id;
     int32_t type;
     void * task;
-    int32_t interval;
     taskrecycler_t recycle;
+};
+
+struct task_schedule {
+    void * task;
+    int32_t interval;
+    taskexecutor_t perform;
 };
 
 // 描述符分发策略

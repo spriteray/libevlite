@@ -1,6 +1,7 @@
 
 #include <stdio.h>
 #include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 
 #include "utils.h"
@@ -114,11 +115,18 @@ ssize_t driver_input( struct driver * self, struct buffer * in, struct buffer * 
     // 接收逻辑包到inbuffer中
     while ( 1 ) {
         ssize_t peeksize = ikcp_peeksize( self->kcp );
-        if ( peeksize <= 0 ) {
+        if ( peeksize < 0 ) {
             break;
         }
+        // 空消息也需要消费, 否则会挡住后续消息
+        if ( peeksize == 0 ) {
+            if ( ikcp_recv( self->kcp, NULL, 0 ) < 0 ) break;
+            continue;
+        }
 
-        buffer_reserve( out, peeksize );
+        if ( buffer_reserve( out, peeksize ) != 0 ) {
+            return -2;
+        }
         peeksize = ikcp_recv( self->kcp,
             out->buffer + out->length, (int32_t)peeksize );
         if ( peeksize <= 0 ) {
@@ -140,27 +148,41 @@ ssize_t driver_input( struct driver * self, struct buffer * in, struct buffer * 
 
 ssize_t driver_transmit( struct session * session )
 {
-    int32_t rc = 0;
     ssize_t writen = 0;
+    struct driver * driver = session->driver;
 
     for ( ; session_sendqueue_count( session ) > 0; ) {
-        if ( !_kcp_can_send( session->driver ) ) {
-            rc = -3;
+        if ( !_kcp_can_send( driver ) ) {
             break;
         }
 
         // 取出第一条消息
+        int32_t rc = 0;
         struct message * message = NULL;
         QUEUE_TOP( sendqueue ) ( &session->sendqueue, &message );
+        size_t length = message_get_length( message ) - session->msgoffset;
+        if ( length > INT_MAX ) {
+            return -1;
+        }
         // 发送数据给KCP
-        rc = ikcp_send( session->driver->kcp,
-            message_get_buffer( message ), (int32_t)message_get_length( message ) );
-        ikcp_flush( session->driver->kcp );
+        if ( length > 0 ) {
+            rc = ikcp_send( driver->kcp,
+                message_get_buffer( message ) + session->msgoffset, (int32_t)length );
+            ikcp_flush( driver->kcp );
+        }
         if ( rc < 0 ) {
+            return -1;
+        }
+        if ( rc == 0 && length > 0 ) {
             break;
         }
 
         writen += rc;
+        session->msgoffset += rc;
+        if ( session->msgoffset < message_get_length( message ) ) {
+            continue;
+        }
+        session->msgoffset = 0;
         QUEUE_POP( sendqueue ) ( &session->sendqueue, &message );
         message_add_success( message );
         if ( message_is_complete( message ) ) {
@@ -169,16 +191,7 @@ ssize_t driver_transmit( struct session * session )
     }
 
     // 写事件, 立刻update()不需要等下一轮
-    _kcp_refresh_state( session->driver );
-
-    if ( rc > 0
-        && _kcp_can_send( session->driver )
-        && session_sendqueue_count( session ) > 0 ) {
-        ssize_t againlen = driver_transmit( session );
-        if ( againlen > 0 ) {
-            writen += againlen;
-        }
-    }
+    _kcp_refresh_state( driver );
 
     return writen;
 }
@@ -188,11 +201,10 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
     int32_t rc = 0;
     struct driver * d = session->driver;
 
-    if ( _kcp_can_send( d ) ) {
+    if ( nbytes <= INT_MAX && _kcp_can_send( d ) ) {
         // 发送
         rc = ikcp_send(
             d->kcp, buf, (int32_t)nbytes );
-        ikcp_flush( d->kcp );
     }
 
     // 写事件, 立刻update()不需要等下一轮
@@ -200,9 +212,32 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
     return rc < 0 ? 0 : rc;
 }
 
-void driver_set_mtu( struct driver * self, int32_t mtu )
+int32_t driver_pending( struct driver * self )
 {
-    ikcp_setmtu( self->kcp, mtu );
+    return ikcp_waitsnd( self->kcp );
+}
+
+int32_t driver_set_mtu( struct driver * self, int32_t mtu )
+{
+    // KCP's minimum and the maximum portable UDP payload size.
+    if ( mtu < 50 || mtu > 65507 ) return -1;
+
+    // Setting the active value also cancels an older deferred request.
+    if ( mtu == self->kcp->mtu ) {
+        self->mtu = 0;
+        return 0;
+    }
+    if ( ikcp_waitsnd( self->kcp ) > 0 ) {
+        self->mtu = mtu;
+        return 0;
+    }
+
+    int32_t rc = ikcp_setmtu( self->kcp, mtu );
+    if ( rc == 0 ) {
+        self->mtu = 0;
+    }
+
+    return rc;
 }
 
 void driver_set_minrto( struct driver * self, int32_t minrto )
@@ -222,6 +257,15 @@ void driver_set_conv( struct driver * self, uint32_t conv )
 
 void _kcp_refresh_state( struct driver * self )
 {
+    // Old segments retain their original size until acknowledged. Only resize
+    // after both KCP send queues drain; allocation failure retries next time.
+    if ( self->mtu != 0
+        && ikcp_waitsnd( self->kcp ) == 0 ) {
+        if ( ikcp_setmtu( self->kcp, self->mtu ) == 0 ) {
+            self->mtu = 0;
+        }
+    }
+
     // 刷新kcp的状态
     uint32_t current = _kcp_milliseconds( self );
     ikcp_update( self->kcp, current );
@@ -240,8 +284,20 @@ void _kcp_timer( int32_t fd, int16_t ev, void * arg )
 
     // 状态
     session->status &= ~SESSION_SCHEDULING;
+
     // 刷新kcp的状态
     _kcp_refresh_state( session->driver );
+
+    // Only the timer reports dead links: send/input callers may still use the session.
+    if ( session->driver->kcp->state == (IUINT32)-1 ) {
+        session_error( session, eIOError_KcpDeadLink );
+        return;
+    }
+
+    // 消费会话层的发送队列
+    if ( session->status & SESSION_WRITING ) {
+        session_flush_sendqueue( session );
+    }
 }
 
 struct session * _get_session( struct driver * self )

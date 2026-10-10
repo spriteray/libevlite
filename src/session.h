@@ -69,21 +69,11 @@ struct session_setting {
     int32_t keepalive_msecs;
     int32_t max_inbuffer_len;
     int32_t sendqueue_limit;
+    eventcb_t read_callback;
+    eventcb_t write_callback;
     ssize_t ( *transmit )( struct session * s );
     ssize_t ( *send )( struct session * s, char * buf, size_t nbytes );
 };
-
-// 定时任务
-struct schedule_task {
-    int32_t type;
-    void * task;
-    int32_t interval;
-    taskrecycler_t recycle;
-    event_t evschedule;
-    struct session * session;
-    SLIST_ENTRY( schedule_task ) tasklink;
-};
-SLIST_HEAD( tasklist, schedule_task );
 
 struct driver;
 QUEUE_HEAD( sendqueue, struct message * );
@@ -120,9 +110,6 @@ struct session {
     // 接收缓冲区
     struct buffer inbuffer;
 
-    // 定时任务列表
-    struct tasklist tasklist;
-
     // 发送队列以及消息偏移量
     size_t msgoffset;
     struct sendqueue sendqueue;
@@ -149,6 +136,8 @@ void session_copy_endpoint( struct session * self, const char * host, uint16_t p
 void session_set_reattach( struct session * self, reattacher_t reattach, void * data );
 // 设置超时时间
 void session_set_timeout( struct session * self, int32_t seconds );
+// 设置读事件常驻模式
+void session_set_persist( struct session * self, int32_t onoff );
 
 // 发送队列的长度
 #define session_sendqueue_count( self ) QUEUE_COUNT( sendqueue )( &( ( self )->sendqueue ) )
@@ -165,11 +154,14 @@ ssize_t session_send( struct session * self, char * buf, size_t nbytes );
 // 发送消息
 ssize_t session_sendmessage( struct session * self, struct message * message );
 
+// These operations may close and release the session.
+void session_flush_sendqueue( struct session * self );
+// session
+void session_error( struct session * self, int32_t result );
+
 // 会话注册/反注册网络事件
 void session_add_event( struct session * self, int16_t ev );
 void session_del_event( struct session * self, int16_t ev );
-// 重新注册网络事件
-void session_readd_event( struct session * self, int16_t ev );
 
 // 开始发送心跳
 int32_t session_stop_keepalive( struct session * self );
@@ -177,10 +169,6 @@ int32_t session_start_keepalive( struct session * self );
 
 // 重连远程服务器
 int32_t session_start_reconnect( struct session * self );
-
-// 启动定时任务
-int32_t session_cancel_task( struct session * self, struct schedule_task * task );
-int32_t session_schedule_task( struct session * self, int32_t type, void * t, int32_t interval, taskrecycler_t recycle );
 
 // 设置被终止的标志
 #define session_close( self ) ( ( self )->status |= SESSION_SHUTDOWNING )

@@ -34,6 +34,15 @@
     #endif
 #endif
 
+// EVENT_USE_MACH_TIME (macOS before clock_gettime support)
+#if defined EVENT_OS_MACOS
+    #include <time.h>
+    #include <AvailabilityMacros.h>
+    #if !defined(CLOCK_MONOTONIC) || __MAC_OS_X_VERSION_MIN_REQUIRED < 101200
+        #define EVENT_USE_MACH_TIME
+    #endif
+#endif
+
 // EVENT_HAVE_REUSEPORT
 #ifdef SO_REUSEPORT
     #ifdef EVENT_OS_LINUX

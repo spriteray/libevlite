@@ -10,6 +10,7 @@
 #include <stdint.h>
 #include <sys/types.h>
 
+struct buffer;
 struct session;
 struct connector;
 
@@ -18,26 +19,24 @@ ssize_t channel_transmit( struct session * session );
 ssize_t channel_receive( struct session * session );
 ssize_t channel_send( struct session * session, char * buf, size_t nbytes );
 
-// 会话出错
-// 丢弃发送队列中的数据
-int32_t channel_error( struct session * session, int32_t result );
-
 // 会话关闭
 // 丢弃发送队列中的数据
 int32_t channel_shutdown( struct session * session );
 
-// 处理UDP临时数据
-void channel_udpprocess( struct session * session, struct buffer * buffer );
-
 // 事件的回调函数集合
 void channel_on_read( int32_t fd, int16_t ev, void * arg );
-void channel_on_udpread( int32_t fd, int16_t ev, void * arg );
+void channel_on_datagram( int32_t fd, int16_t ev, void * arg );
 void channel_on_write( int32_t fd, int16_t ev, void * arg );
+void channel_on_udptimeout( int32_t fd, int16_t ev, void * arg );
+void channel_on_udpshutdown( int32_t fd, int16_t ev, void * arg );
 void channel_on_accept( int32_t fd, int16_t ev, void * arg );
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg );
 void channel_on_connected( int32_t fd, int16_t ev, void * arg );
 void channel_on_associated( int32_t fd, int16_t ev, void * arg );
 void channel_on_schedule( int32_t fd, int16_t ev, void * arg );
+
+// 处理UDP临时数据
+void channel_udpprocess( struct session * session, struct buffer * buffer, uint8_t status );
 
 #endif

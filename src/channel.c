@@ -17,16 +17,17 @@
 #include "threads-internal.h"
 #include "network-internal.h"
 
-// iov_max
+enum {
 #if defined IOV_MAX
-const int32_t iov_max = IOV_MAX;
+    iov_max = IOV_MAX,
 #elif defined UIO_MAXIOV
-const int32_t iov_max = UIO_MAXIOV;
+    iov_max = UIO_MAXIOV,
 #elif defined MAX_IOVEC
-const int32_t iov_max = MAX_IOVEC;
+    iov_max = MAX_IOVEC,
 #else
-const int32_t iov_max = 128;
+    iov_max = 128,
 #endif
+};
 
 // 发送接收数据
 static inline ssize_t _receive( struct session * session );
@@ -48,9 +49,10 @@ ssize_t channel_transmit( struct session * session )
     ssize_t total = 0;
 
     while ( session_sendqueue_count( session ) > 0 ) {
-        size_t offset = session->msgoffset;
+        ssize_t writen = 0;
         int32_t iov_size = 0;
         struct iovec iov_array[iov_max];
+        size_t offset = session->msgoffset;
 
         for ( uint32_t i = 0; i < session_sendqueue_count( session ) && iov_size < iov_max; ++i ) {
             struct message * message = NULL;
@@ -64,14 +66,20 @@ ssize_t channel_transmit( struct session * session )
             }
         }
 
-        ssize_t writen = writev( session->fd, iov_array, iov_size );
-        if ( writen <= 0 ) {
-            if ( writen < 0 && ( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
-                break; // 内核缓冲区满，交给 epoll EPOLLOUT 继续
+        if ( iov_size > 0 ) {
+            writen = writev( session->fd, iov_array, iov_size );
+            if ( writen <= 0 ) {
+                if ( writen < 0 && errno == EINTR ) {
+                    continue;
+                }
+                if ( writen < 0 && ( errno == EAGAIN || errno == EWOULDBLOCK ) ) {
+                    break; // 内核缓冲区满，交给 epoll EPOLLOUT 继续
+                }
+                return writen; // 真正的错误
             }
-            return writen; // 真正的错误
         }
 
+        // An all-empty batch still needs to complete and leave the queue.
         total += writen;
         offset = session->msgoffset + writen;
 
@@ -104,14 +112,25 @@ ssize_t channel_send( struct session * session, char * buf, size_t nbytes )
     return writen;
 }
 
-void channel_udpprocess( struct session * session, struct buffer * buffer )
+void channel_udpprocess( struct session * session, struct buffer * buffer, uint8_t status )
 {
-    driver_input(
+    ssize_t rc = driver_input(
         session->driver, buffer, &( session->inbuffer ) );
+    if ( rc == -2 ) {
+        session_error( session, eIOError_OutMemory );
+        return;
+    }
 
-    if ( _process( session ) < 0 ) {
-        // 处理出错，尝试终止会话
-        session_shutdown( session );
+    // kcp状态维护
+    if ( status == eIOStatus_Running
+        && !( session->status & SESSION_EXITING ) ) {
+        if ( _process( session ) < 0 ) {
+            // 处理出错，尝试终止会话
+            session_shutdown( session );
+        }
+    } else {
+        // Stopped/closing KCP sessions still consume protocol packets and ACKs, not requests.
+        buffer_erase( &session->inbuffer, -1 );
     }
 }
 
@@ -146,6 +165,13 @@ ssize_t _process( struct session * session )
 
 int32_t _timeout( struct session * session )
 {
+    // oneshot 已由事件库移除, 持久事件需要主动删除
+    if ( session->setting.persist_mode == 0 ) {
+        session->status &= ~SESSION_READING;
+    } else {
+        session_del_event( session, EV_READ );
+    }
+
     /*
      * 超时, 会尝试安全的终止会话
      * 根据逻辑层的返回值确定是否终止会话
@@ -182,7 +208,7 @@ void _reconnected( int32_t fd, int16_t ev, void * arg )
     if ( ev & EV_WRITE ) {
 #if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
         if ( is_connected( fd ) != 0 ) {
-            channel_error( session, eIOError_ConnectStatus );
+            session_error( session, eIOError_ConnectStatus );
             return;
         }
 #endif
@@ -242,50 +268,22 @@ void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
     evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
 }
 
-int32_t channel_error( struct session * session, int32_t result )
-{
-    /* 出错
-     * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据
-     *
-     * 根据会话的类型
-     *        1. 临时会话, 直接终止会话
-     *        2. 永久会话, 终止socket, 尝试重新连接
-     */
-    int32_t rc = 0;
-    int8_t isattach = session_is_reattch( session );
-
-    rc = session->service.error( session->context, result );
-
-    if ( isattach == 0
-        || ( isattach == 1 && rc != 0 )
-        || ( session->status & SESSION_EXITING ) ) {
-        // 临时会话
-        // 等待终止的会话
-        // 逻辑层需要终止的永久会话
-        // 直接终止会话, 导致发送队列中的数据丢失
-        return channel_shutdown( session );
-    }
-
-    // 尝试重连的永久会话
-    session_start_reconnect( session );
-
-    return 0;
-}
-
 int32_t channel_shutdown( struct session * session )
 {
+    sid_t id = session->id;
+    struct session_manager * manager = session->manager;
     int32_t way = ( session->status & SESSION_SHUTDOWNING ? 0 : 1 );
 
     // 会话终止
     session->service.shutdown(
         session->context, way );
-    session_manager_remove( session->manager, session );
+    session_manager_remove( manager, session );
 #ifndef USE_REUSESESSION
-    session_end( session, session->id, 0 );
+    session_end( session, id, 0 );
 #else
     // 回收会话
-    session_end( session, session->id, 1 );
-    session_manager_recycle( session->manager, session );
+    session_end( session, id, 1 );
+    session_manager_recycle( manager, session );
 #endif
 
     return 0;
@@ -313,6 +311,7 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
          */
         ssize_t nprocess = 0;
         ssize_t nread = _receive( session );
+        int32_t current_errno = errno;
 
         // 只有iolayer处于运行状态下的时候
         // 才会回调逻辑层处理数据
@@ -327,17 +326,16 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
             if ( session->setting.persist_mode != 0 ) {
                 session_del_event( session, EV_READ );
             }
-
             session_shutdown( session );
         } else {
             if ( nread > 0
-                || ( nread == -1 && errno == EINTR )
-                || ( nread == -1 && errno == EAGAIN )
-                || ( nread == -1 && errno == EWOULDBLOCK ) ) {
+                || ( nread == -1 && current_errno == EINTR )
+                || ( nread == -1 && current_errno == EAGAIN )
+                || ( nread == -1 && current_errno == EWOULDBLOCK ) ) {
                 // 会话正常
 
-                if ( session->setting.persist_mode == 0 ) {
-                    // 不常驻事件库的情况下, 注册读事件
+                // 回调可能修改持久模式, 按实际监听状态补注册
+                if ( !( session->status & SESSION_READING ) ) {
                     session_add_event( session, EV_READ );
                 }
             } else {
@@ -350,39 +348,34 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
                 if ( nread == -2 ) {
                     // expand() failure
-                    channel_error( session, eIOError_OutMemory );
+                    session_error( session, eIOError_OutMemory );
                 } else if ( nread == -1 ) {
                     // read() failure
-                    switch ( errno ) {
+                    switch ( current_errno ) {
                         case EBADF :
                         case EISDIR :
-                            channel_error( session, eIOError_SocketInvalid );
+                            session_error( session, eIOError_SocketInvalid );
                             break;
                         case EFAULT :
-                            channel_error( session, eIOError_InBufferInvalid );
+                            session_error( session, eIOError_InBufferInvalid );
                             break;
                         case EINVAL :
-                            channel_error( session, eIOError_ReadInvalid );
+                            session_error( session, eIOError_ReadInvalid );
                             break;
                         case EIO :
-                            channel_error( session, eIOError_ReadIOError );
+                            session_error( session, eIOError_ReadIOError );
                             break;
                         default :
-                            channel_error( session, eIOError_ReadFailure );
+                            session_error( session, eIOError_ReadFailure );
                             break;
                     }
                 } else if ( nread == 0 ) {
                     // peer shutdown
-                    channel_error( session, eIOError_PeerShutdown );
+                    session_error( session, eIOError_PeerShutdown );
                 }
             }
         }
     } else {
-        // 删除常驻事件库的读事件
-        if ( session->setting.persist_mode != 0 ) {
-            session_del_event( session, EV_READ );
-        }
-
         // 回调超时
         _timeout( session );
     }
@@ -392,60 +385,29 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 {
     struct session * session = (struct session *)arg;
 
-    session->status &= ~SESSION_WRITING;
-
     if ( ev & EV_WRITE ) {
-        if ( session_sendqueue_count( session ) > 0 ) {
-            // 发送数据
-            ssize_t writen = session->setting.transmit( session );
-            if ( writen < 0 ) {
-                channel_error( session, eIOError_WriteFailure );
-            } else {
-                // 正常发送 或者 socket缓冲区已满
-                uint32_t queuesize = session_sendqueue_count( session );
-
-                if ( queuesize > 0 ) {
-                    if ( session->setting.sendqueue_limit <= 0
-                        || queuesize < (uint32_t)session->setting.sendqueue_limit ) {
-                        // NOTICE: 为什么不判断会话是否正在终止呢?
-                        // 为了尽量把数据发送完全, 所以只要不出错的情况下, 会一直发送
-                        // 直到发送队列为空
-                        session_add_event( session, EV_WRITE );
-                    } else {
-                        // 客户端无法正常接收数据，导致发送队列过度增长
-                        // 避免服务器内存耗尽，必须将该会话关闭
-                        channel_error( session, eIOError_SendQueueLimit );
-                    }
-                } else {
-                    // 数据全部发送完成
-
-                    // 尝试收缩发送队列
-                    // session_sendqueue_shrink(
-                    //        session, DEFAULT_SENDQUEUE_SIZE );
-
-                    // 关闭会话
-                    if ( session->status & SESSION_EXITING ) {
-                        // 等待关闭的会话, 直接终止会话
-                        // 后续的行为由SO_LINGER决定
-                        channel_shutdown( session );
-                    }
-                }
-            }
-        } else {
-            // 队列为空的情况
-
-            // TODO: 其他需要处理的逻辑
-
-            // 尝试收缩发送队列
-            // session_sendqueue_shrink( session, DEFAULT_SENDQUEUE_SIZE );
-        }
-    } else {
+        session->status &= ~SESSION_WRITING;
+        session_flush_sendqueue( session );
+    } else if ( ev & EV_TIMEOUT ) {
         // 等待关闭的会话写事件超时的情况下
         // 不管发送队列如何, 直接终止会话
-
+        session->status &= ~SESSION_WRITING;
         assert( session->status & SESSION_EXITING );
         channel_shutdown( session );
     }
+}
+
+void channel_on_udptimeout( int32_t fd, int16_t ev, void * arg )
+{
+    _timeout( (struct session *)arg );
+}
+
+void channel_on_udpshutdown( int32_t fd, int16_t ev, void * arg )
+{
+    struct session * session = arg;
+    session->status &= ~SESSION_WRITING;
+    assert( session->status & SESSION_EXITING );
+    channel_shutdown( session );
 }
 
 void channel_on_accept( int32_t fd, int16_t ev, void * arg )
@@ -453,15 +415,20 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
     struct acceptor * acceptor = (struct acceptor *)arg;
     struct iolayer * layer = (struct iolayer *)( acceptor->parent );
 
-    if ( likely( ( ev & EV_READ )
-             && layer->status == eIOStatus_Running ) ) {
+    if ( likely( ev & EV_READ ) ) {
         int32_t cfd = -1;
         uint16_t port = 0;
         char * host = (char *)malloc( INET6_ADDRSTRLEN );
         assert( host != NULL && "allocate host failed" );
 
         cfd = tcp_accept( fd, host, &port );
-        if ( cfd > 0 ) {
+        if ( cfd >= 0 ) {
+            if ( layer->status != eIOStatus_Running ) {
+                // Drain pending connections without admitting new sessions after stop.
+                close( cfd );
+                free( host );
+                return;
+            }
 #if !defined EVENT_OS_BSD
             // FreeBSD会继承listenfd的NON Block属性
             set_non_block( cfd );
@@ -475,23 +442,25 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             task.port = port;
             iolayer_assign_session( layer,
                 acceptor->index, DISPATCH_POLICY( layer, fd ), &task );
-        } else if ( errno == EMFILE ) {
-            // Read the section named
-            // "The special problem of accept()ing when you can't" in libev's doc.
-            // By Marc Lehmann, author of libev
-            iolayer_accept_fdlimits( acceptor ); free( host );
+        } else {
+            if ( errno == EMFILE ) {
+                // Read the section named
+                // "The special problem of accept()ing when you can't" in libev's doc.
+                // By Marc Lehmann, author of libev
+                iolayer_accept_fdlimits( acceptor );
+            }
+            free( host );
         }
     }
 }
 
-void channel_on_udpread( int32_t fd, int16_t ev, void * arg )
+void channel_on_datagram( int32_t fd, int16_t ev, void * arg )
 {
     struct transfer * transfer = (struct transfer *)arg;
     struct acceptor * acceptor = transfer->acceptor;
     struct iolayer * layer = (struct iolayer *)( acceptor->parent );
 
-    if ( likely( ( ev & EV_READ )
-        && layer->status == eIOStatus_Running ) ) {
+    if ( likely( ev & EV_READ ) ) {
         // 收包
         struct sockaddr_storage remoteaddr;
         ssize_t n = buffer_receive( &transfer->buffer, transfer->fd, &remoteaddr );
@@ -499,6 +468,11 @@ void channel_on_udpread( int32_t fd, int16_t ev, void * arg )
             syslog( LOG_WARNING, "%s(fd:%d, %s::%d) failed, buffer_receive() %ld .",
                 __FUNCTION__, fd, transfer->acceptor->host, transfer->acceptor->port, n );
         } else {
+            // A KCP datagram must contain at least its 24-byte header.
+            if ( n < 24 ) {
+                buffer_erase( &transfer->buffer, -1 );
+                return;
+            }
             uint16_t port = 0;
             char host[INET6_ADDRSTRLEN];
             // 解析对端地址
@@ -506,11 +480,10 @@ void channel_on_udpread( int32_t fd, int16_t ev, void * arg )
             // 查找会话
             struct udpentry * entry = (struct udpentry *)ephashtable_find( acceptor->eptable, host, port );
             if ( entry != NULL ) {
-                // 重新添加READ事件
-                session_readd_event( entry->session, EV_READ );
                 // 接收到的数据包发送到会话中
-                channel_udpprocess( entry->session, &( transfer->buffer ) );
-            } else {
+                channel_udpprocess(
+                    entry->session, &( transfer->buffer ), layer->status );
+            } else if ( layer->status == eIOStatus_Running ) {
                 // 分配任务(KCP一定在本线程处理)
                 struct task_assign task;
                 task.fd = fd;
@@ -563,7 +536,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     }
 
     if ( session->fd < 0 ) {
-        channel_error( session, eIOError_ConnectFailure );
+        session_error( session, eIOError_ConnectFailure );
         return;
     }
 
@@ -621,15 +594,10 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
         if ( result != 0 ) {
             // 逻辑层需要继续连接
             // 首先必须先关闭以前的描述符
-            if ( connector->fd > 0 ) {
+            if ( connector->fd >= 0 ) {
                 close( connector->fd );
                 connector->fd = -1;
             }
-            if ( connector->state == 0 ) {
-                connector->state = 1;
-                STAILQ_INSERT_TAIL( &(thread->connectorlist), connector, linker );
-            }
-
             // 200毫秒后尝试重连, 避免进入重连死循环
             event_set( connector->event, -1, 0 );
             event_set_callback( connector->event, _reconnect_direct, connector );
@@ -700,10 +668,6 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
                 event_set( associater->event, -1, 0 );
                 event_set_callback( associater->event, _reassociate_direct, associater );
                 evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
-                if ( associater->state == 0 ) {
-                    associater->state = 1;
-                    STAILQ_INSERT_TAIL( &(thread->associaterlist), associater, linker );
-                }
             }
         } else {
             // 关联成功, 该会话可以进行IO操作
@@ -719,19 +683,16 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
 
 void channel_on_schedule( int32_t fd, int16_t ev, void * arg )
 {
-    struct schedule_task * task = (struct schedule_task *)arg;
-    struct session * session = task->session;
+    struct scheduler * task = (struct scheduler *)arg;
+    struct iothread * thread = task->thread;
 
     // 立刻执行
-    int32_t rc = session->service.perform(
-        session->context, task->type, task->task, task->interval );
-
-    // 取消
-    session_cancel_task( session, task );
-
-    // 执行失败
-    if ( rc < 0 ) {
-        session_close( session );
-        session_shutdown( session );
+    int32_t rc = task->perform(
+        thread->context, task->task, task->interval );
+    if ( rc != 0 ) {
+        iothread_cancel( thread, task, 0 );
+    } else {
+        // 继续定时
+        evsets_add( thread->sets, task->event, task->interval );
     }
 }

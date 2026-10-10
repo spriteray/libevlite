@@ -1,6 +1,7 @@
 
 #include <string>
 
+#include <time.h>
 #include <signal.h>
 #include <stdio.h>
 #include <errno.h>

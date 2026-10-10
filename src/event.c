@@ -47,7 +47,7 @@ int64_t _get_current( struct eventset * self, int8_t clear )
     }
 
     if ( self->cache_current == 0 ) {
-        self->cache_current = milliseconds();
+        self->cache_current = monotime();
     }
 
     return self->cache_current;
@@ -172,7 +172,7 @@ int64_t event_get_current( event_t self )
     if ( likely( sets != NULL ) ) {
         return _get_current( sets, 0 );
     }
-    return milliseconds();
+    return monotime();
 }
 
 void event_reset( event_t self )
@@ -225,6 +225,10 @@ evsets_t evsets_create( int32_t precision )
 {
     struct eventset * self = NULL;
 
+    if ( precision <= 0 ) {
+        return NULL;
+    }
+
     //
     // 兼容性检查
     //
@@ -244,7 +248,7 @@ evsets_t evsets_create( int32_t precision )
             self->core_timer = evtimer_create( precision, TIMER_BUCKET_COUNT );
             if ( self->core_timer ) {
                 self->timer_precision = precision;
-                self->expire_time = milliseconds() + self->timer_precision;
+                self->expire_time = monotime() + self->timer_precision;
             } else {
                 evsets_destroy( self );
                 self = NULL;
@@ -283,7 +287,7 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
     e->evsets = (struct eventset *)self;
 
     // 监听fd的网络事件的前提是fd合法
-    if ( ( e->fd > 0 )
+    if ( ( e->fd >= 0 )
         && ( e->events & ( EV_READ | EV_WRITE ) )
         && !( e->status & ( EVSTATUS_ACTIVE | EVSTATUS_INSERTED ) ) ) {
         if ( sets->evselect->add( sets->evsets, e ) == 0 ) {
@@ -366,10 +370,10 @@ int32_t evsets_dispatch( evsets_t self )
 
     // 事件集的超时时间是要及时更新的
     int64_t now = _get_current( sets, 1 );
-    if ( sets->expire_time <= now ) {
-        // 定时器时间到了, 分发事件
+    while ( sets->expire_time <= now ) {
+        // 沿固定时间轴补齐错过的格子, 补扫完成后再执行回调
         evtimer_dispatch( sets->core_timer );
-        sets->expire_time = now + sets->timer_precision;
+        sets->expire_time += sets->timer_precision;
     }
 
     // 处理所有事件, 并回调定义好的函数

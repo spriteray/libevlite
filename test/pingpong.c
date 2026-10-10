@@ -111,7 +111,7 @@ void onShutdown( void * context, int32_t way )
     free( s );
 }
 
-int32_t onPerform( void * context, int32_t type, void * task, int32_t interval )
+int32_t onPerform( void * context, int32_t type, void * task )
 {
     return 0;
 }

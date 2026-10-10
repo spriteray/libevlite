@@ -1,262 +1,209 @@
-# libevlite 网络通信库(Linux, Darwin, \*BSD)
+# libevlite
 
-轻量级的 C 语言网络通信库, 采用多 IO 线程 + 事件驱动模型, 支持 `TCP` / `UDP` / `KCP` 三种传输方式。
+轻量级 C 网络通信库，采用多 IO 线程、事件驱动和时间轮定时器。提供 TCP 服务端、TCP 客户端、外部描述符关联，以及基于 UDP 的 KCP 服务端。
 
----
+事件后端使用 Linux 的 `epoll` 或 Darwin / BSD 的 `kqueue`。
 
-## 1. 基础事件模块( `include/event.h` )
+## 模块与目录
 
-**支持的IO复用机制: epoll和kqueue**
+| 路径 | 内容 |
+| --- | --- |
+| [include/network.h](include/network.h) | 网络层、会话回调、发送及任务接口 |
+| [include/event.h](include/event.h) | 底层事件与时间轮接口 |
+| [include/threads.h](include/threads.h) | 网络线程组及任务投递接口 |
 
-### 1.1 事件类型说明
+`NETWORK_UDP` 常量仍保留，但当前 `iolayer_listen()` 的正常支持路径是 `NETWORK_TCP` 和 `NETWORK_KCP`，不应把它当作通用 UDP 服务接口。`iolayer_connect()` 当前是 TCP 客户端接口。
 
-- 读事件(`EV_READ`)
-- 写事件(`EV_WRITE`)
-- 超时事件(`EV_TIMEOUT`)
-- 在三种事件类型的基础上, 支持事件驻留在事件集中的永久模式(`EV_PERSIST`)
+## 构建与运行
 
-> `EV_PERSIST` 可避免每次事件触发后重新注册, 在读事件上开启后极端场景下可提升 IO 性能约 40%,
-> 对应会话级别的开关是 `iolayer_set_persist()`。
+使用 POSIX 开发环境、GNU Make 和 C 编译器。Makefile 在 FreeBSD 下选择 Clang，其余平台默认 GCC。KCP 源码随库提供，不需要额外安装 KCP。
+安装到指定前缀：
 
-### 1.2 基于事件(`event_t`)的方法说明
-
-| 方法 | 说明 |
-|------|------|
-| `event_create()` | 创建事件对象 |
-| `event_set()` | 设置事件属性(描述符 + 事件类型) |
-| `event_set_callback()` | 设置事件回调函数及上下文 |
-| `event_destroy()` | 销毁事件对象 |
-
-### 1.3 基于事件集(`evsets_t`)的方法说明
-
-| 方法 | 说明 |
-|------|------|
-| `evsets_create()` | 创建事件集, 参数为时间精度 |
-| `evsets_add()` | 向事件集中添加事件 |
-| `evsets_del()` | 从事件集中删除事件 |
-| `evsets_dispatch()` | 分发并处理事件(阻塞直到有事件就绪或超时) |
-| `evsets_destroy()` | 销毁事件集 |
-| `evsets_get_version()` | 获取库版本号 |
-
----
-
-## 2. 网络线程模块( `include/threads.h` )
-
-每个网络线程持有独立的事件集(`evsets_t`)和任务队列, 线程之间不共享会话。
-
-### 2.1 线程模型
-
-```
-主线程
-└── iothreads_start()
-      ├── IO线程 1 → evsets_dispatch() 循环
-      ├── IO线程 2 → evsets_dispatch() 循环
-      ├── ...
-      └── IO线程 N → evsets_dispatch() 循环
+```sh
+make install PREFIX=/your/install/prefix
 ```
 
-会话按 `sid` 哈希绑定到固定的 IO 线程, 生命周期内不迁移。
-因此 `ioservice_t` 的各回调对同一会话而言总在同一线程中被触发, **会话内部状态无需加锁**。
+安装后的头文件位于 `include/evlite/`，库位于 `lib/`。动态库搜索路径由应用部署环境配置；Darwin 的链接和运行路径应按本地工具链调整。
 
-### 2.2 跨线程任务投递
+默认启用 `USE_ATOMIC`。`USE_REUSESESSION` 默认关闭，目前不是常规使用路径，不建议仅为了性能直接启用。
 
-- 每个 IO 线程持有一个任务队列, 由自旋锁保护, 采用队列交换(swap)方式批量取出
-- 仅当队列由空转为非空时才写 `eventfd` 唤醒目标线程, 避免高频唤醒带来的上下文切换
-- 对应的对外接口是 `iolayer_invoke()` 和 `iolayer_perform()`
-
----
-
-## 3. 通信模块( `include/networks.h` )
-
-### 3.1 创建网络通信层 `iolayer_create()`
-
-- `nthreads`: 指定网络线程的个数
-- `nclients`: 推荐连接数
-- `precision`: 事件集的时间精度(建议值 20ms)
-
-### 3.2 设置网络通信层的方法(仅在IO线程中才能使用)
-
-- 设置线程上下文: `iolayer_set_iocontext()`
-- 设置网络层数据改造方法: `iolayer_set_transform()`
-
-> `transform` 作用于该网络层的所有会话, 常用于统一的加密或压缩。
-> 若只需针对个别会话做变换, 应在 `ioservice_t::transform` 上单独实现。
->
-> 改造后返回的新缓冲区由网络层负责 `free()`, 因此 `transform` 的实现必须使用 `malloc` 分配;
-> 若返回的指针与入参相同, 则视为未改造, 网络层不做释放。
-
-### 3.3 监听端口/开启服务端 `iolayer_listen()`
-
-- `type`: 网络类型, 支持 `TCP`, `UDP` 和 `KCP`
-- `host`: 绑定的地址
-- `port`: 监听的端口号
-- `options`: 服务器全局参数(当前主要是 `KCP` 的参数配置)
-- `callback`: 新会话创建成功的回调
-- `context`: 上下文参数
-
-### 3.4 连接远程服务/开启客户端 `iolayer_connect()`
-
-发起异步连接, 连接结果(无论成功或失败)均通过回调通知。
-
-回调返回值决定后续行为:
-
-| 返回值 | 含义 |
-|--------|------|
-| `0` | 接受本次结果; 失败时由网络层按退避策略自动重连 |
-| `-1` | 拒绝这条连接, 网络层关闭并清理 |
-| `-2` | 放弃重连, 不再尝试 |
-
-> 底层 `tcp_connect()` 失败时同样投递事件到网络层, 重连的定时与退避完全在网络层内部消化,
-> 业务层只需在回调中表态是否继续。
-
-### 3.5 关联描述符的读写事件 `iolayer_associate()`
-
-把外部创建的描述符纳入网络层管理, 适用于已有 fd 需要复用事件循环的场景。
-
-### 3.6 设置会话的方法(仅在IO线程中才能使用)
-
-| 方法 | 说明 |
-|------|------|
-| `iolayer_set_timeout()` | 设置会话的超时时间 |
-| `iolayer_set_keepalive()` | 设置会话的保活时间 |
-| `iolayer_set_service()` | 设置会话的IO服务逻辑 |
-| `iolayer_set_persist()` | 设置会话的读事件常驻事件集 |
-| `iolayer_set_sndqlimit()` | 设置会话的发送队列长度限制 |
-| `iolayer_set_mtu()` | 设置最大传输单元(仅限 `KCP` 有效) |
-| `iolayer_set_minrto()` | 设置最小重传时间(仅限 `KCP` 有效) |
-| `iolayer_set_wndsize()` | 设置发送接收窗口(仅限 `KCP` 有效) |
-
-### 3.7 IO服务逻辑( `ioservice_t` )
-
-会话的全部业务回调集中在这个结构体中, 通过 `iolayer_set_service()` 注册。
-
-| 回调 | 触发时机 | 说明 |
-|------|----------|------|
-| `start()` | 会话建立完成 | 断线重连后同样触发, 适合放握手/注册逻辑 |
-| `process()` | 收到数据 | 返回已消费的字节数, 未消费部分留在接收缓冲区 |
-| `transform()` | 发送前 | 会话级别的数据改造, 可为空 |
-| `timeout()` | 超时 | 返回非 0 关闭会话 |
-| `keepalive()` | 保活周期到达 | 通常在此发送心跳包 |
-| `error()` | 发生错误 | 返回非 0 关闭会话 |
-| `perform()` | 任务投递到本会话 | 配合 `iolayer_perform()` 使用 |
-| `shutdown()` | 会话关闭 | 释放业务资源的唯一时机 |
-
-> `process()` 返回值是**已消费长度**而非处理结果。
-> 半包场景下应返回已完整解析的部分, 剩余数据会与下次收到的数据拼接后再次回调。
-
-### 3.8 发送数据 `iolayer_send()`
+## 创建与线程模型
 
 ```c
-int32_t iolayer_send( iolayer_t self, sid_t id,
-                      const char * buf, size_t nbytes, int32_t isfree );
+iolayer_t iolayer_create(uint8_t nthreads, uint32_t nclients, int32_t precision);
 ```
 
-`isfree` 决定缓冲区的归属:
+- `nthreads`：网络线程数，必须大于 0。当前线程索引查询使用有符号 8 位返回值，常规使用应控制在 128 个线程以内。
+- `nclients`：会话池初始容量估算，不是严格的在线会话上限。当前会话管理器会按需扩容。
+- `precision`：时间轮刻度，单位毫秒。普通 TCP 常用 `20ms`；使用 KCP 时常用 `8ms`。
 
-| 取值 | 语义 |
-|------|------|
-| `0` | 网络层拷贝一份, 调用方保留缓冲区所有权 |
-| `1` | 所有权转移, 网络层发送完成后 `free()` |
+每个 IO 线程持有独立事件集、任务队列和会话管理器。`sid_t` 中包含所属线程信息，是不透明的会话标识，不是 fd，也不是业务用户 ID。会话在生命周期内固定归属于一个 IO 线程，不迁移。
 
-### 3.9 广播数据 `iolayer_broadcast()`, `iolayer_broadcast2()`
+正常运行时，同一会话的业务回调在所属 IO 线程串行执行，不同会话或线程的回调可能并发。共享业务对象仍需要应用自行同步。不要在 IO 回调中执行长时间阻塞操作，否则该线程的收发、任务和定时器都会延迟。例外是 `iolayer_destroy()` 的退出清理：线程退出后，残留会话的 `shutdown()` 和残留周期任务的回收回调由销毁调用线程执行，不应在其中依赖当前线程仍是原 IO 线程。
 
-- `iolayer_broadcast()`: 向指定的会话列表广播
-- `iolayer_broadcast2()`: 向网络层内的全部会话广播
+`iolayer_set_iocontext()`、`iolayer_set_transform()` 应在 `listen/connect/associate` 之前完成。会话级 `iolayer_set_*()` 不是跨线程操作接口，只能在该会话所属 IO 线程的接入回调或业务回调中调用。建议在接入回调注册服务，在 `start()` 中设置或更新会话参数。
 
-> 广播任务会被投递到每个 IO 线程, 由各线程并行遍历自己持有的会话。
-> 广播规模较大时, 单条消息产生的系统调用次数为**会话总数**, 这是该模型的固有开销;
-> 若需进一步优化, 应从减少会话数量或降低广播频率入手。
+`iolayer_send()`、广播、关闭会话、任务提交接口负责将操作投递到目标线程；同线程发送或任务处理可能直接执行。销毁网络层前必须停止其他线程继续提交操作。
 
-### 3.10 关闭会话 `iolayer_shutdown()`, `iolayer_shutdowns()`
+## 接入与服务注册
 
-- `iolayer_shutdown()`: 关闭单个会话
-- `iolayer_shutdowns()`: 批量关闭会话列表
+| 接口 | 用途 |
+| --- | --- |
+| `iolayer_listen()` | TCP 或 KCP 服务端监听 |
+| `iolayer_connect()` | 异步建立 TCP 永久会话 |
+| `iolayer_associate()` | 将外部创建的描述符关联到网络层 |
+| `iolayer_set_service()` | 为会话复制 `ioservice_t` 并设置业务上下文 |
 
-调用后不会立即销毁会话, 待发送队列冲刷完毕后才触发 `ioservice_t::shutdown()`。
+`acceptor_t` 返回 `0` 接受新会话，非 `0` 拒绝。`connector_t` 返回 `0` 时，连接成功则接受，失败则约 `200ms` 后继续尝试；任何非 `0` 返回值都结束该连接请求，没有单独的 `-1/-2` 行为区别。`associator_t` 类似，但失败后能否重试取决于是否提供 `reattach`。
 
-### 3.11 提交任务到网络层 `iolayer_invoke()`, `iolayer_perform()`
+只有成功获得有效 SID 并接受会话时，才应注册服务。接入回调必须先调用 `iolayer_set_service()`，然后返回 `0`，网络层才调用 `start()`。除 `transform` 外，所有服务函数指针都必须有效，即使业务不使用对应功能，也应提供空实现。
 
-- `iolayer_invoke()`: 提交任务到**所有** IO 线程, 需提供 `clone` 方法为每个线程复制一份
-- `iolayer_perform()`: 提交任务到**指定会话**所在的 IO 线程, 触发 `ioservice_t::perform()`
+回调中传入的地址字符串属于库，不应保存其指针用于回调之外；需要保留时自行复制。业务上下文属于应用，正常会话结束时在 `shutdown()` 中释放。若应用分配了上下文后又拒绝接入，必须自行回收，不能期待尚未启动的会话调用业务 `shutdown()`。
 
-`iolayer_perform()` 投递失败时会立即调用传入的 `recycle` 方法回收任务, 调用方无需重复释放。
+完整注册和资源管理方式见 [TCP 回显示例](examples/echo.c)。
 
-### 3.12 停止服务 `iolayer_stop()`
+## 业务回调契约
 
-- 停止对外提供接入服务, 不再接受新的连接;
-- 停止所有连接的接收服务, 不再回调 `ioservice_t::process()`
+| 回调 | 行为与返回值 |
+| --- | --- |
+| `start(context)` | 首次建立及重连成功时调用；当前实现不使用返回值决定是否关闭 |
+| `process(context, buf, nbytes)` | 返回已消费字节数；`0` 保留全部数据，负数请求结束会话 |
+| `transform(context, buf, &nbytes)` | 发送前的会话级改造；可以为空，详见缓冲区归属 |
+| `keepalive(context)` | 返回 `0` 继续安排下一次保活，非 `0` 停止保活；不会因此关闭会话 |
+| `timeout(context)` | 返回非 `0` 请求结束会话；返回 `0` 时，临时会话重新计时，可重连会话尝试重连 |
+| `error(context, result)` | 临时会话结束；可重连会话返回 `0` 重连，非 `0` 结束 |
+| `perform(context, type, task)` | 返回负数请求主动结束会话；执行后仍由任务回收函数回收任务 |
+| `shutdown(context, way)` | 最终结束会话时调用；`way=0` 表示主动结束，`way=1` 表示被动结束 |
 
-已建立的连接仍可发送数据, 适用于服务器优雅停机的过渡阶段。
+TCP 是字节流，`process()` 一次收到的数据不一定对应一条完整业务消息。业务自行处理半包、粘包和长度校验，返回值必须不大于本次 `nbytes`。未消费部分保留在接收缓冲区，后续接收时继续处理。
 
-### 3.13 销毁网络层 `iolayer_destroy()`
+`process()` 的缓冲区由库管理，不得释放、修改或在回调结束后继续保存其指针。跨线程交给业务工作线程时，应复制数据并明确归属。`process()` 也可能处理之前积累的数据，不应假定每次调用都代表一次新的成功读取。
 
-停止所有 IO 线程并释放全部资源。调用前应确保已完成 `iolayer_stop()` 及必要的数据落地。
+主动关闭接口采用任务投递，避免在业务回调中直接销毁当前会话。内部的 `session_error()` 等函数不是业务 API，不应由应用直接调用。
 
----
+## 会话参数与定时器
 
-## 4. 典型用法
+| 接口 | 单位与含义 |
+| --- | --- |
+| `iolayer_set_timeout()` | 秒；负数关闭业务超时；修改后若读事件已注册，会删除并按新值重新注册 |
+| `iolayer_set_keepalive()` | 秒；负数关闭保活；修改已运行保活的间隔不保证立即重置当前定时器 |
+| `iolayer_set_persist()` | `0` 关闭、非 `0` 开启 TCP 常驻读事件；建议在首次读事件注册前设置 |
+| `iolayer_set_sndqlimit()` | 会话待发送消息条数，不是字节数；非正值不限制；刷新后队列达到阈值时按错误处理 |
+| `iolayer_set_mtu()` | KCP MTU，50..65507 字节；待发送和待确认分片清空后生效 |
+| `iolayer_set_minrto()` | KCP 最小重传超时，单位毫秒 |
+| `iolayer_set_wndsize()` | KCP 发送、接收窗口，单位分片 |
 
-### 4.1 服务端
+TCP 业务超时与读事件绑定；读事件触发并重新安排时会更新超时，因此不是某条业务请求的独立截止时间。KCP 会话的业务超时是独立定时器，UDP 收包本身不会自动重置它；若业务需要“收到包后延长存活”，应在本会话回调中显式设置超时。
+
+运行中修改 KCP MTU 时，返回 `0` 表示设置请求已接受。KCP 内部没有待发送或待确认分片时立即生效，否则在后续协议处理或定时调度中等待队列自然清空后应用；期间继续使用原 MTU，不暂停业务发送，因此持续发送可能长期推迟生效。多次设置以最后一次有效请求为准，设置为当前实际 MTU 会取消待生效请求。非法值返回 `-1`，立即应用时分配失败返回 `-2`，均保留原配置和此前的待生效请求；延后应用时分配失败会保留请求并自动重试。该接口须在会话所属 IO 线程调用，非 KCP 会话保持无操作。
+
+已知边界：已经配置过超时的 TCP 常驻事件再设置负值，事件对象可能保留旧超时配置，并在后续 IO 活动时重新挂载旧定时器。这个历史问题尚未修改，不应把该路径当作严格取消超时的保证。
+
+时间轮刻度表示调度粒度，不是实时精度保证。当前事件循环会补扫错过的刻度，但 IO 回调耗时、线程调度及负载仍会延迟回调。`0` 超时也需经过事件循环，不表示同步执行回调。KCP 的 `interval` 与事件集 `precision` 是不同参数，减小其中之一不会消除所有延迟。
+
+## 发送、广播与缓冲区归属
 
 ```c
-// 1. 创建网络层
-iolayer_t layer = iolayer_create( 4, 10000, 20, 1 );
-
-// 2. 监听端口
-iolayer_listen( layer, NETWORK_TCP, "0.0.0.0", 9029, NULL, on_accept, ctx );
-
-// 3. 在 on_accept 中为新会话注册服务逻辑
-static int32_t on_accept( void * context, void * iocontext,
-                          sid_t id, const char * host, uint16_t port )
-{
-    ioservice_t service = {
-        .start     = on_start,
-        .process   = on_process,
-        .timeout   = on_timeout,
-        .keepalive = on_keepalive,
-        .error     = on_error,
-        .shutdown  = on_shutdown,
-        .perform   = on_perform,
-        .transform = NULL,
-    };
-    iolayer_set_service( layer, id, &service, session_create() );
-    iolayer_set_timeout( layer, id, 30 );
-    return 0;
-}
+int32_t iolayer_send(iolayer_t self, sid_t id,
+    const char *buf, size_t nbytes, int32_t isfree);
 ```
 
-### 4.2 拆包处理
+返回 `0` 表示当前发送路径接受了操作，不代表对端已收到、已消费或每条广播都成功。跨线程发送还可能在之后发现 SID 已失效。需要端到端可靠确认时，应由业务协议实现 ACK。
+
+| 操作 | 调用方的责任 |
+| --- | --- |
+| `iolayer_send(..., isfree=0)` | 调用方保留原缓冲区；函数返回后可复用或释放；异步保留的部分由库复制 |
+| `iolayer_send(..., isfree!=0)` | 交给库释放，必须是可 `free()` 的指针；即使本次调用失败，也不要重复释放 |
+| `iolayer_broadcast()` / `iolayer_broadcast2()` | 库复制原始内容，调用方保留原缓冲区；指定 SID 数组也复制到消息对象中 |
+
+库可能在同线程发送路径中立即释放移交的缓冲区，而不是一直保留到网络发送完毕。发送排队不保证马上检查发送队列阈值，也不限制 KCP 内部所有待确认数据的总字节数。
+
+两层 `transform` 的执行顺序是网络层改造在前、会话级改造在后：
+
+- 返回新的指针时，必须能由 `free()` 释放，并通过 `*nbytes` 返回有效长度。不能返回栈内存或输入缓冲区内部的偏移指针。
+- 返回 `NULL` 表示本次改造失败，不应释放传入的原缓冲区。
+- 返回原指针表示沿用原缓冲区。网络层改造允许同步调整长度，但长度不得超出实际分配空间，不建议原地修改内容。
+- 会话级改造不得原地修改共享广播内容；需要修改内容或长度时返回独立新缓冲区。
+
+广播会按 IO 线程生成消息，各线程只处理归属于自己的会话。同线程部分可能同步处理；不能把一次广播理解为跨线程原子操作，返回值也不是逐会话送达报告。
+
+## 会话结束与重连
+
+TCP 接入会话与 KCP Shared 会话是临时会话。TCP Connect 会话是永久会话；Associate 会话只有设置 `reattach` 才能重连。
+
+永久会话发生错误或业务超时且业务同意继续时，会停止旧 IO、清空接收缓冲区并安排约 `200ms` 后重连。已经排队的发送消息保留，重连成功后再次调用 `start()`，然后处理保留队列。等待普通写事件不会阻止重连。
+
+队首消息在旧连接中可能已经发送了一部分；重连成功后偏移重置，该消息从头重发。只保留尚未出队的消息，已经交给内核并出队的消息不会自动补发。因此该机制不保证业务“恰好一次”，协议必须自行处理握手、去重和确认。
+
+`reattach` 及其私有上下文负责关联会话的旧资源处理，不能假定重连回调一定收到原来的 fd：当前重连路径会先将会话 fd 设为 `-1`。关联成功后的最终结束与启动重连也不是同一种描述符处理路径，应结合自身资源归属实现回调。
+
+`iolayer_shutdown()` / `iolayer_shutdowns()` 投递主动关闭请求。若发送队列非空，先停止读事件并尝试清空队列，最长等待约 `10s`；队列清空、写错误或关闭超时后结束会话。错误处理及网络层销毁可直接丢弃队列，不能承诺所有关闭都排空数据。
+
+KCP 队列清空只表示数据已交给 KCP，并不表示对端已确认。当前主动关闭不会等待 KCP 内部待确认数据全部完成，不应把它当作可靠的最终消息送达屏障。
+
+## KCP 配置
+
+通过 `iolayer_listen(..., NETWORK_KCP, ..., options, ...)` 开启 KCP 服务。传入 `NULL` 使用完整默认配置；传入 `options_t` 时按整个结构体复制，未填写字段不会逐项自动补默认值。
+
+| 参数 | 默认值 | 含义 |
+| --- | --- | --- |
+| `mtu` | `1000` | 最大传输单元，字节 |
+| `minrto` | `30` | 最小重传超时，毫秒 |
+| `sndwnd` / `rcvwnd` | `128` / `128` | 发送、接收窗口 |
+| `stream` | `1` | 流模式；`0` 为消息模式 |
+| `resend` | `2` | 快速重传参数 |
+| `deadlink` | `30` | 断链重传上限 |
+| `interval` | `20` | KCP 更新间隔，毫秒 |
+| `ntransfer` | `16` | 中转 UDP 描述符数量；无相应 REUSEPORT 支持时回退为一个 |
+
+## 一次性任务
+
+`iolayer_invoke(self, task, clone, execute)` 不绑定会话，按以下规则投递：
+
+| clone 参数 | 投递规则 |
+| --- | --- |
+| `NULL` | 按当前时间戳选择一个 IO 线程，只执行一次，不保证选中调用线程 |
+| 非 `NULL` | 原任务交给 0 号线程，其余线程分别调用 `clone(task)` 获取副本；副本为 `NULL` 时跳过该线程 |
+| 始终返回 `NULL` 的函数 | 只有 0 号线程收到原任务 |
+
+目标为调用线程时直接执行，否则入队。回调第三参数为 `-1`，业务回收任务；复制期间原任务必须有效，当前是逐个复制、投递，不是先复制全部副本再执行。
+
+`iolayer_perform(self, id, type, task, recycle)` 在指定 SID 所属线程调用会话 `perform()`，也可能同步执行。必须提供有效的 `recycle`：已执行的任务，以及投递后发现会话不存在的任务，都会调用它。任务在 `perform()` 中只借用，不要与 `recycle()` 重复释放。
+
+非法线程索引或尚未成功投递的失败路径不会统一调用 recycle，不能假定所有失败都会自动回收。`invoke` 也不提供统一的提交失败回收保证，应在应用生命周期中禁止销毁后继续提交。
+
+## 周期调度 iolayer_schedule
 
 ```c
-static ssize_t on_process( void * context, const char * buffer, size_t nbytes )
-{
-    size_t nprocess = 0;
-
-    for ( ;; ) {
-        size_t nleft = nbytes - nprocess;
-        const char * p = buffer + nprocess;
-
-        if ( nleft < sizeof( struct msghead ) ) break;
-
-        struct msghead head;
-        decode_head( p, &head );
-
-        if ( nleft < sizeof( struct msghead ) + head.size ) break;
-
-        handle_message( context, &head, p + sizeof( struct msghead ) );
-        nprocess += sizeof( struct msghead ) + head.size;
-    }
-
-    return nprocess;   // 返回已消费长度, 剩余部分留待下次
-}
+int32_t iolayer_schedule(iolayer_t self, void *task, taskexecutor_t execute, int32_t interval);
 ```
 
----
+与具体会话无关的周期任务接口，不向全部线程广播：
 
-## 5. 注意事项
+| 调用来源 | 投递规则 |
+| --- | --- |
+| 本网络层的 IO 线程 | 在调用线程注册定时器 |
+| 其他线程 | 按当前时间戳选择一个 IO 线程，入队后注册定时器 |
 
-- `ioservice_t` 的所有回调均在 IO 线程中触发, 业务对象若需被逻辑线程访问必须自行同步
-- `iolayer_set_*()` 系列方法只能在 IO 线程中调用, 通常是在 `accept` / `connect` 回调内
-- `shutdown()` 是释放业务资源的唯一时机, `error()` 和 `timeout()` 返回非 0 后仍会走到 `shutdown()`
-- `transform()` 返回的新缓冲区必须由 `malloc` 分配, 网络层会在发送完成后 `free()`
-- 会话与 IO 线程的绑定关系在生命周期内固定, 不要跨线程直接操作会话对象, 应通过 `iolayer_perform()` 投递
+- `interval` 单位为毫秒，周期任务使用正值；首次执行也等待定时器，不同步执行。
+- 回调第一个参数为所选线程上下文；返回 `0` 重新计时，返回非 `0` 结束，业务在本次回调释放任务。
+- 网络层销毁时，残留任务以 `interval=-1` 回调回收；此时只清理资源，回调在销毁调用线程执行。
+- 任务内容不复制，必须保持有效直到结束；当前返回值不统一反馈内部投递失败，销毁前应停止提交。
+
+## 停止与销毁
+
+`iolayer_stop()` 仅设置网络层停止状态，不会等待或销毁 IO 线程。TCP 继续监听，新连接 accept 后立即关闭，不创建会话；已有会话接收路径不再执行业务 `process()`，发送仍可继续。KCP 继续处理已有会话的协议包和 ACK，不创建新会话、不执行业务 `process()`。
+
+`iolayer_destroy()` 等待 IO 线程退出并释放网络层资源，不保证先排空发送队列。应从管理线程调用，不要在该网络层自身的 IO 回调中调用，否则会等待当前线程退出。调用前停止外部任务提交，并完成业务需要的数据落地或协议确认。
+
+## 底层事件接口
+
+`event_create()` 创建事件，`event_set()` 设置 fd 与事件标志，`event_set_callback()` 设置回调及上下文。`EV_READ/EV_WRITE` 表示 IO 就绪，`EV_TIMEOUT` 表示定时器到期，`EV_PERSIST` 表示事件持续保留。
+
+`evsets_create(precision)` 创建事件集，`evsets_add(sets, event, timeout_ms)` 注册 IO 或超时，`evsets_dispatch()` 执行一轮分发并返回激活的回调数量。纯定时器使用 `fd=-1`、事件标志 `0`；超时参数单位毫秒。
+
+没有 `EV_PERSIST` 的事件触发前会自动从事件集中删除，需要继续监听时由回调重新添加。常驻事件的 IO 活动会重新安排其已配置的超时。它与网络层 KCP 独立业务定时器的行为不同。
+
+销毁事件对象前先通过 `evsets_del()` 解除注册；该函数也会取消待执行的激活事件。事件集不拥有业务 fd，删除或销毁事件并不替应用关闭 fd。不要跨线程直接修改事件集。修改或关闭已有定时器时应先删除旧注册；事件对象会保留部分超时配置，不要仅凭一次 `evsets_add(..., -1)` 假定旧配置全部清除。
+
+完整接口及事件添加返回值见 [include/event.h](include/event.h)。测试说明与历史记录另见 [docs/README](docs/README)。

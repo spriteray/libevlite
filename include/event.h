@@ -80,7 +80,7 @@ int32_t event_get_fd( event_t self );
 // 获取事件所属事件集
 evsets_t event_get_sets( event_t self );
 
-// 获取缓存的时间戳
+// 获取缓存的时间(monotonic milliseconds; not a Unix timestamp)
 int64_t event_get_current( event_t self );
 
 // 重置事件
@@ -99,7 +99,7 @@ evsets_t evsets_create( int32_t precision );
 // 事件库的版本
 const char * evsets_get_version();
 
-// 获取缓存的时间戳
+// 获取缓存的时间(monotonic milliseconds; not a Unix timestamp)
 int64_t evsets_get_current( evsets_t self );
 
 // 向事件集中添加事件

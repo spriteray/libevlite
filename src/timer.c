@@ -45,7 +45,7 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
 
     // 把桶的索引号写入事件句柄中, 便于查找以及删除
     // 如果定时器超时时间过长, 设定其定时器周期数
-    index += tv / self->max_precision;
+    index += EVTIMER_INDEX( self, tv / self->max_precision );
     index = EVTIMER_INDEX( self, index );
 
     //
@@ -87,7 +87,8 @@ int32_t evtimer_dispatch( struct evtimer * self )
     struct event * laster = NULL;
     struct event_list * head = NULL;
 
-    index = self->dispatch_refer++;
+    index = self->dispatch_refer;
+    self->dispatch_refer = EVTIMER_INDEX( self, index + 1 );
     head = &( self->bucket_array[EVTIMER_INDEX( self, index )] );
 
     // 该桶中没有定时的事件

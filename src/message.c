@@ -49,6 +49,8 @@ int32_t _expand( struct buffer * self, size_t length )
         void * newbuffer = NULL;
         size_t newcapacity = self->capacity;
 
+        // Compaction below reclaims the consumed prefix before reallocating.
+        needlength = self->length + length;
         if ( newcapacity < MIN_BUFFER_LENGTH ) {
             newcapacity = MIN_BUFFER_LENGTH;
         }
@@ -350,16 +352,16 @@ int32_t message_set_buffer( struct message * self, char * buffer, size_t len )
 
 int32_t message_add_buffer( struct message * self, const char * buffer, size_t len )
 {
-    if ( self->buffer ) {
-        free( self->buffer );
+    char * copy = NULL;
+    if ( len > 0 ) {
+        copy = (char *)malloc( len );
+        if ( copy == NULL ) {
+            return -1;
+        }
+        memcpy( copy, buffer, len );
     }
 
-    self->length = len;
-    self->buffer = (char *)malloc( len );
-    assert( self->buffer != NULL && "message_add_buffer() failed" );
-    memcpy( self->buffer, buffer, len );
-
-    return 0;
+    return message_set_buffer( self, copy, len );
 }
 
 // int32_t message_add_failure( struct message * self, sid_t id )

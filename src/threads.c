@@ -11,7 +11,11 @@
 #include <unistd.h>
 
 #include "config.h"
+#include "channel.h"
 #include "threads.h"
+#include "event.h"
+#include "network.h"
+#include "queue.h"
 #include "session.h"
 #include "threads-internal.h"
 
@@ -42,7 +46,14 @@ iothreads_t iothreads_start( uint8_t nthreads, uint32_t nclients, int32_t precis
     iothreads->runflags = 1;
     iothreads->nrunthreads = nthreads;
     for ( uint8_t i = 0; i < nthreads; ++i ) {
-        iothread_start( iothreads->threads + i, i, nclients, iothreads );
+        if ( iothread_start( iothreads->threads + i, i, nclients, iothreads ) != 0 ) {
+            pthread_mutex_lock( &iothreads->lock );
+            iothreads->nrunthreads -= nthreads - i;
+            pthread_mutex_unlock( &iothreads->lock );
+            iothreads->nthreads = i;
+            iothreads_stop( iothreads );
+            return NULL;
+        }
     }
 
     return iothreads;
@@ -219,17 +230,21 @@ void iothreads_stop( iothreads_t self )
 
 static void * iothread_main( void * arg );
 static void iothread_on_command( int32_t fd, int16_t ev, void * arg );
+static void _free_scheduler(
+    struct iothread * self, struct scheduler * s, uint8_t flag );
 static inline uint32_t _process(
     struct iothreads * parent, struct iothread * thread, struct taskqueue * doqueue );
 
 int32_t iothread_start( struct iothread * self, uint8_t index, uint32_t nclients, iothreads_t parent )
 {
+    memset( self, 0, sizeof( *self ) );
     self->index = index;
     self->parent = parent;
 
     self->manager = session_manager_create( index, nclients );
     if ( self->manager == NULL ) {
         iothread_stop( self );
+        return -1;
     }
 
     self->sets = evsets_create( ( (struct iothreads *)parent )->precision );
@@ -239,9 +254,10 @@ int32_t iothread_start( struct iothread * self, uint8_t index, uint32_t nclients
     }
 
     // 初始化列表
-    STAILQ_INIT( &self->acceptorlist );
-    STAILQ_INIT( &self->connectorlist );
-    STAILQ_INIT( &self->associaterlist );
+    LIST_INIT( &self->schedulerlist );
+    LIST_INIT( &self->acceptorlist );
+    LIST_INIT( &self->connectorlist );
+    LIST_INIT( &self->associaterlist );
 
     self->cmdevent = event_create();
     self->queue = msgqueue_create( MSGQUEUE_DEFAULT_SIZE );
@@ -253,7 +269,10 @@ int32_t iothread_start( struct iothread * self, uint8_t index, uint32_t nclients
     // 初始化命令事件
     event_set( self->cmdevent, msgqueue_popfd( self->queue ), EV_READ | EV_PERSIST );
     event_set_callback( self->cmdevent, iothread_on_command, self );
-    evsets_add( self->sets, self->cmdevent, -1 );
+    if ( evsets_add( self->sets, self->cmdevent, -1 ) != 1 ) {
+        iothread_stop( self );
+        return -2;
+    }
 
     // 启动线程
     pthread_attr_t attr;
@@ -286,6 +305,50 @@ int32_t iothread_post( struct iothread * self, int16_t type, int16_t utype, void
     return msgqueue_push( self->queue, &inter_task );
 }
 
+void _free_scheduler( struct iothread * self, struct scheduler * s, uint8_t flag )
+{
+    // 删除定时器事件
+    evsets_del( self->sets, s->event );
+    event_destroy( s->event );
+    // flag == 0不需要回调
+    if ( flag != 0 ) {
+        s->perform( self->context, s->task, -1 );
+    }
+    free( s );
+}
+
+void iothread_cancel( struct iothread * self, struct scheduler * s, uint8_t flag )
+{
+    // 从列表中取出
+    LIST_REMOVE( s, linker );
+    // 释放内存
+    _free_scheduler( self, s, flag );
+}
+
+int32_t iothread_schedule( struct iothread * self, void * task, taskexecutor_t execute, int32_t interval )
+{
+    struct scheduler * s
+        = (struct scheduler *)calloc( 1, sizeof( struct scheduler ) );
+    assert( s != NULL && "create struct scheduler failed" );
+
+    s->task = task;
+    s->interval = interval;
+    s->thread = self;
+    s->perform = execute;
+    s->event = event_create();
+    assert( s->event != NULL && "event_create() failed" );
+
+    // 压入链表
+    LIST_INSERT_HEAD( &self->schedulerlist, s, linker );
+
+    // 定时
+    event_set( s->event, -1, 0 );
+    event_set_callback( s->event, channel_on_schedule, s );
+    evsets_add( self->sets, s->event, interval );
+
+    return 0;
+}
+
 int32_t iothread_stop( struct iothread * self )
 {
     if ( self->queue ) {
@@ -294,34 +357,36 @@ int32_t iothread_stop( struct iothread * self )
     }
 
     if ( self->cmdevent ) {
-        evsets_del( self->sets, self->cmdevent );
+        event_reset( self->cmdevent );
         event_destroy( self->cmdevent );
         self->cmdevent = NULL;
     }
 
-    if ( self->sets ) {
-        evsets_destroy( self->sets );
-        self->sets = NULL;
+    struct scheduler * scheduler = LIST_FIRST( &self->schedulerlist );
+    for ( ; scheduler != NULL; ) {
+        struct scheduler * next = LIST_NEXT( scheduler, linker );
+        _free_scheduler( self, scheduler, 1 );
+        scheduler = next;
     }
 
-    struct acceptor * acceptor = STAILQ_FIRST( &self->acceptorlist );
+    struct acceptor * acceptor = LIST_FIRST( &self->acceptorlist );
     for ( ; acceptor != NULL; ) {
-        struct acceptor * next = STAILQ_NEXT( acceptor, linker );
+        struct acceptor * next = LIST_NEXT( acceptor, linker );
         iolayer_free_acceptor( acceptor );
         acceptor = next;
     }
 
-    struct connector * connector = STAILQ_FIRST( &self->connectorlist );
+    struct connector * connector = LIST_FIRST( &self->connectorlist );
     for ( ; connector != NULL; ) {
-        struct connector * next = STAILQ_NEXT( connector, linker );
+        struct connector * next = LIST_NEXT( connector, linker );
         connector->state = 0;
         iolayer_free_connector( connector );
         connector = next;
     }
 
-    struct associater * associater = STAILQ_FIRST( &self->associaterlist );
+    struct associater * associater = LIST_FIRST( &self->associaterlist );
     for ( ; associater != NULL; ) {
-        struct associater * next = STAILQ_NEXT( associater, linker );
+        struct associater * next = LIST_NEXT( associater, linker );
         associater->state = 0;
         iolayer_free_associater( associater );
         associater = next;
@@ -330,6 +395,11 @@ int32_t iothread_stop( struct iothread * self )
     if ( self->manager != NULL ) {
         session_manager_destroy( self->manager );
         self->manager = NULL;
+    }
+
+    if ( self->sets ) {
+        evsets_destroy( self->sets );
+        self->sets = NULL;
     }
 
     return 0;

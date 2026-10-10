@@ -1,4 +1,83 @@
 
+# 测试说明与历史记录
+
+当前接口说明见 [README.md](../README.md)。本文集中记录测试入口、覆盖范围、内存检查方式及历史性能结果，不作为接口契约。
+
+## 当前回归测试
+
+从仓库根目录执行，以下命令按 Linux 开发环境说明：
+
+```sh
+make -j test_regressions test_review_edges test_review_probes \
+    test_kcp_transmit test_reconnect_audit
+./test_regressions
+./test_review_edges
+./test_review_probes
+./test_kcp_transmit
+./test_reconnect_audit
+```
+
+| 程序 | 主要覆盖内容 |
+| --- | --- |
+| `test_regressions` | 周期任务执行及回收、消息缓冲区复制、TCP 队列刷新和关闭、部分写入后遭遇 EINTR |
+| `test_review_edges` | 空消息及混合队列正常出队、关闭时排空队列、业务回调修改 errno 不改变读取错误判断 |
+| `test_review_probes` | TCP 常驻/非常驻读事件、两种广播改造后的长度、KCP 断链只通知和结束一次 |
+| `test_kcp_transmit` | KCP 流/消息模式正常提交及超限失败、部分接受偏移、空消息、共享 fd、多会话发送、独立业务超时、接收扩容失败、短 UDP 包过滤 |
+| `test_reconnect_audit` | EOF/读超时/写失败时重连，两种读事件模式，取消同轮旧写回调，队列和新增消息保留，失败重试、拒绝/退出及关联会话重连 |
+
+回归程序通过断言检查行为，成功后打印通过信息；非零退出表示断言、构建或运行错误。测试基于本地 socketpair 或回环地址，不需要连接外部业务服务器。它们不是完整业务协议测试，也不是性能基准。
+
+Linux Makefile 为 `test_regressions` 包装 `writev`，为 `test_kcp_transmit` 包装 `realloc`，为 `test_review_edges` 包装 `readv`，用于可重复地注入部分写入、中断及分配失败。其他平台的链接器选项不同，不应直接照搬全部故障注入配置。
+
+## AddressSanitizer
+
+需要支持 AddressSanitizer 的 Linux 编译工具链。`-B` 强制重编，避免复用普通构建的对象。覆盖命令行 CFLAGS 时，要显式保留测试用的故障注入宏：
+
+```sh
+make -B test_reconnect_audit test_review_edges test_review_probes \
+    CFLAGS='-Iinclude -Isrc -g -O1 -DUSE_ATOMIC -fsanitize=address -fno-omit-frame-pointer' \
+    LFLAGS='-pthread -lrt -fsanitize=address'
+ASAN_OPTIONS=detect_leaks=1 ./test_reconnect_audit
+ASAN_OPTIONS=detect_leaks=1 ./test_review_edges
+ASAN_OPTIONS=detect_leaks=1 ./test_review_probes
+
+make -B test_regressions \
+    CFLAGS='-Iinclude -Isrc -g -O1 -DUSE_ATOMIC -DTEST_WRITEV_INTERRUPT -fsanitize=address -fno-omit-frame-pointer' \
+    LFLAGS='-pthread -lrt -fsanitize=address -Wl,--wrap=writev'
+ASAN_OPTIONS=detect_leaks=1 ./test_regressions
+
+make -B test_kcp_transmit \
+    CFLAGS='-Iinclude -Isrc -g -O1 -DUSE_ATOMIC -DTEST_RESERVE_FAILURE -fsanitize=address -fno-omit-frame-pointer' \
+    LFLAGS='-pthread -lrt -fsanitize=address -Wl,--wrap=realloc'
+ASAN_OPTIONS=detect_leaks=1 ./test_kcp_transmit
+```
+
+检查后恢复普通构建时也使用 `make -B`，或先清理再构建。内存检查通过不代表所有并发时序或极端负载都已经覆盖。
+
+## 时间轮与 KCP 调度实验
+
+```sh
+make -j test_timer_axis test_timer_kcp
+./test_timer_axis
+./test_timer_kcp
+```
+
+`test_timer_axis` 检查固定时间轴边界、延迟后的刻度补扫、补扫后重新注册、取消已激活定时器及多轮时间轮行为。
+
+`test_timer_kcp` 对比 `1/4/8/20ms` 刻度，模拟事件循环负载、KCP 更新延迟及丢包，输出定时器实际耗时、吞吐、延迟分位数、重传和更新次数。模拟协议链路不等同于真实网络压测。
+
+已有结果保存在 [test/timer_kcp_results.txt](../test/timer_kcp_results.txt)。结果对应记录时的代码及测试条件，时间轮实现变化后应重新运行，不可将历史数值直接当作当前实现或生产环境的精度保证。
+
+## 用法示例
+
+[examples/echo.c](../examples/echo.c) 是根目录接口说明配套的最小 TCP 回显示例。较完整的业务示例位于 `test/echoserver.cpp`、`test/echoclient.cpp`、`test/chatroom_server.cpp`、`test/chatroom_client.cpp`，部分目标依赖外部 C++ 项目，不是纯 C 回归测试的必要依赖。
+
+历史性能表另见 [benchmark.md](benchmark.md)。重新评估性能时应记录硬件、系统、编译参数、连接数、包长及压测方式。
+
+## 历史记录
+
+以下内容保留早期平台、性能数据及问题记录，不代表当前接口契约或性能保证。
+
 event事件操作库
 
 include\	- 对外接口目录，提供给使用者的include文件

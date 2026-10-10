@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.15.2
+VERSION 	= 9.16.15
 PREFIX		= /usr/local
 
 # 主版本号
@@ -83,7 +83,8 @@ all : $(REALNAME)
 install : all
 	install -d $(INCLUDEPATH)/evlite
 	install -m 644 include/* $(INCLUDEPATH)/evlite/
-	install -m 644 -D $(REALNAME) $(LIBPATH)/$(REALNAME)
+	install -d $(LIBPATH)
+	install -m 644 $(REALNAME) $(LIBPATH)/$(REALNAME)
 	rm -f $(LIBPATH)/$(SONAME); ln -s $(REALNAME) $(LIBPATH)/$(SONAME)
 	rm -f $(LIBPATH)/$(LIBNAME); ln -s $(REALNAME) $(LIBPATH)/$(LIBNAME)
 
@@ -95,6 +96,9 @@ $(REALNAME) : $(OBJS)
 test : test_multicurl pingpong_client test_events test_addtimer test_queue test_sidlist echoserver
 
 test_events : test_events.o $(OBJS)
+	$(CC) $^ -o $@ $(LFLAGS)
+
+test_regressions : test_regressions.o $(OBJS)
 	$(CC) $^ -o $@ $(LFLAGS)
 
 test_addtimer : test_addtimer.o $(OBJS)
@@ -156,6 +160,7 @@ clean :
 	rm -rf $(REALNAME)
 	rm -rf test_events event.fifo
 	rm -rf test_queue test_sidlist
+	rm -f test_regressions
 	rm -rf chatroom_client chatroom_server
 	rm -rf test_multicurl test_addtimer echoclient echostress raw_echoserver echoserver pingpong echoserver-lock iothreads_dispatcher redis_client pingpong_client
 

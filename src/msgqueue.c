@@ -134,10 +134,10 @@ int32_t msgqueue_popfd( struct msgqueue * self )
 
 int32_t msgqueue_destroy( struct msgqueue * self )
 {
-    if ( self->popfd ) {
+    if ( self->popfd >= 0 ) {
         close( self->popfd );
     }
-    if ( self->pushfd
+    if ( self->pushfd >= 0
         && self->pushfd != self->popfd ) {
         close( self->pushfd );
     }

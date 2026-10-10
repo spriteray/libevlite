@@ -9,12 +9,11 @@
 #define INVOKE( self, method, entry ) \
     if ( ( self )->helper != NULL ) { ( self )->helper( ( method ), ( entry ) ); }
 
-static inline uint32_t _hash_function( const void * key, int32_t len )
+static inline uint32_t _hash_function( const void * key, int32_t len, uint32_t seed )
 {
     /* 'm' and 'r' are mixing constants generated offline.
      *      They're not really 'magic', they just happen to work well.  */
     const int r = 24;
-    static uint32_t seed = 5381;
     const uint32_t m = 0x5bd1e995;
 
     /* Initialize the hash to a 'random' value */
@@ -24,7 +23,8 @@ static inline uint32_t _hash_function( const void * key, int32_t len )
     const unsigned char * data = (const unsigned char *)key;
 
     while ( len >= 4 ) {
-        uint32_t k = *(uint32_t *)data;
+        uint32_t k;
+        memcpy( &k, data, sizeof( k ) );
 
         k *= m;
         k ^= k >> r;
@@ -55,10 +55,7 @@ static inline uint32_t _hash_function( const void * key, int32_t len )
 
 static uint32_t _get_hashkey( const char * host, uint16_t port )
 {
-    char key[128];
-    size_t len = snprintf( key,
-        127, "%s::%d", host, port );
-    return _hash_function( key, len );
+    return _hash_function( host, strlen( host ), 5381U ^ port );
 }
 
 struct ephashtable * ephashtable_create( size_t count, size_t size, helper_t helper )

@@ -2,6 +2,7 @@
 #ifndef THREADS_INTERNAL_H
 #define THREADS_INTERNAL_H
 
+#include "network.h"
 #include "threads.h"
 #include "msgqueue.h"
 #include "network-internal.h"
@@ -17,12 +18,23 @@
 // 网络线程
 //
 
-struct session_manager;
-STAILQ_HEAD( acceptorlist, acceptor );
-STAILQ_HEAD( connectorlist, connector );
-STAILQ_HEAD( associaterlist, associater );
+struct iothread;
+struct scheduler {
+    int32_t interval;
+    void * task;
+    event_t event;
+    taskexecutor_t perform;
+    struct iothread * thread;
+    LIST_ENTRY( scheduler ) linker;
+};
 
-// 64位对齐，消除伪共享
+struct session_manager;
+LIST_HEAD( schedulerlist, scheduler );
+LIST_HEAD( acceptorlist, acceptor );
+LIST_HEAD( connectorlist, connector );
+LIST_HEAD( associaterlist, associater );
+
+// 64字节对齐，消除伪共享
 struct iothread {
     uint8_t index;
     pthread_t id;
@@ -35,15 +47,24 @@ struct iothread {
     event_t cmdevent;
     struct msgqueue * queue;
 
+    // 定时调度
+    struct schedulerlist schedulerlist;
+
     // 回收列表
     struct acceptorlist acceptorlist;
     struct connectorlist connectorlist;
     struct associaterlist associaterlist;
 }__attribute__((aligned(64)));
 
-int32_t iothread_start( struct iothread * self, uint8_t index, uint32_t nclients, iothreads_t parent );
+int32_t iothread_start( struct iothread * self,
+    uint8_t index, uint32_t nclients, iothreads_t parent );
+
 int32_t iothread_post( struct iothread * self,
     int16_t type, int16_t utype, void * task, uint8_t size );
+int32_t iothread_schedule( struct iothread * self,
+    void * task, taskexecutor_t execute, int32_t interval );
+void iothread_cancel( struct iothread * self, struct scheduler * s, uint8_t flag );
+
 int32_t iothread_stop( struct iothread * self );
 
 //

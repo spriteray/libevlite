@@ -41,7 +41,7 @@ public:
     virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
     virtual int32_t onError( int32_t result ) { return 0; }
-    virtual int32_t onPerform( int32_t type, void * task, int32_t interval ) { return 0; }
+    virtual int32_t onPerform( int32_t type, void * task ) { return 0; }
     virtual void onShutdown( int32_t way ) {}
 
 public:
@@ -100,7 +100,7 @@ protected:
     static int32_t onTimeoutSession( void * context );
     static int32_t onKeepaliveSession( void * context );
     static int32_t onErrorSession( void * context, int32_t result );
-    static int32_t onPerformSession( void * context, int32_t type, void * task, int32_t interval );
+    static int32_t onPerformSession( void * context, int32_t type, void * task );
     static void onShutdownSession( void * context, int32_t way );
 
 private:
@@ -205,7 +205,7 @@ public:
 
     // 提交任务到网络层
     int32_t invoke( void * task, taskcloner_t clone, taskexecutor_t execute );
-    int32_t perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle, int32_t interval = -1 );
+    int32_t perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle );
 
 private:
     // 监听上下文

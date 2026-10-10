@@ -65,7 +65,7 @@ typedef struct
 // IO服务
 //        start()       - 网络就绪的回调
 //        process()     - 收到数据包的回调
-//                        返回值为处理掉的数据包, <0: 出错,关闭连接
+//                        返回已消费字节数(不超过nbytes); 0:保留数据, <0:出错,结束会话
 //        transform()   - 发送数据包前的回调
 //                        返回需要发送的数据包
 //                        如果改造了数据包，请务必确保1.禁止原地改造; 2.数据包是必须是malloc()分配出来的
@@ -78,7 +78,6 @@ typedef struct
 //        perform()     - 处理其他模块提交到网络层的任务, <0: 出错,关闭连接
 //                        type - 任务类型
 //                        task - 任务数据
-//                        interval - 定时任务
 //        shutdown()    - 会话终止时的回调, 不论返回值, 直接销毁会话
 //                        way - 0, 逻辑层主动终止会话的情况,
 //                                      1) 显式的iolayer_shutdown()或者iolayer_shutdowns()
@@ -92,14 +91,14 @@ typedef struct
     int32_t ( *keepalive )( void * context );
     int32_t ( *timeout )( void * context );
     int32_t ( *error )( void * context, int32_t result );
-    int32_t ( *perform )( void * context, int32_t type, void * task, int32_t interval );
+    int32_t ( *perform )( void * context, int32_t type, void * task );
     void ( *shutdown )( void * context, int32_t way );
 } ioservice_t;
 
 // 创建网络层
 //        nthreads      - 网络线程数
 //        nclients      - 网络层服务的连接数
-//        precision     - 事件集的时间精度(建议值为8ms)
+//        precision     - 时间轮刻度(ms), TCP常用20ms, KCP常用8ms, 不是实时精度保证
 iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision );
 
 // 网络层设置线程上下文参数(在listen(), connect(), associate()之前调用)
@@ -129,7 +128,7 @@ int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * c
 //      参数5: 会话的端口号
 typedef int32_t ( *acceptor_t )( void *, void *, sid_t, const char *, uint16_t );
 // 开启服务端
-//        type          - 网络类型: NETWORK_TCP or NETWORK_UDP or NETWORK_KCP
+//        type          - 当前支持NETWORK_TCP或NETWORK_KCP; NETWORK_UDP仅保留常量
 //        host          - 绑定的地址
 //        port          - 监听的端口号
 //        options       - 服务器参数
@@ -155,7 +154,7 @@ int32_t iolayer_connect( iolayer_t self,
     const char * host, uint16_t port, connector_t callback, void * context );
 
 //  重新关联函数，返回新的描述符
-//      参数1: 上次关联的描述符
+//      参数1: 当前关联的描述符; 会话重连路径可能传入-1, 旧资源通过私有上下文管理
 //      参数2: 描述符相关的私有数据
 typedef int32_t ( *reattacher_t )( int32_t, void * );
 //  关联成功后的回调
@@ -185,6 +184,10 @@ int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
 // 设置发送队列阈值, 超过阈值关闭连接( 默认为0: 不限制 )
 int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
 // 设置kcp的窗口, MTU, MINRTO
+// MTU范围50..65507字节, 在所属IO线程调用; 0表示请求已接受, 不保证立即生效。
+// KCP待发送/待确认分片清空后应用, 多次设置以最后一次有效请求为准。
+// 持续发送可能推迟生效; 延后应用分配失败会自动重试。
+// 返回-1表示SID或MTU非法, -2表示立即应用时分配失败; 非KCP会话保持无操作。
 int32_t iolayer_set_mtu( iolayer_t self, sid_t id, int32_t mtu );
 int32_t iolayer_set_minrto( iolayer_t self, sid_t id, int32_t minrto );
 int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t rcvwnd );
@@ -207,13 +210,25 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes );
 int32_t iolayer_shutdown( iolayer_t self, sid_t id );
 int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 
+// 任务处理函数
+//      参数1: 网络线程上下文
+//      参数2: 任务
+//      参数3: 调度间隔, <0表示调度终止，仅回收task
+//      返回值: 0继续调度, 非0结束调度并由本次回调释放task, 不再额外回调一次
+typedef int32_t ( *taskexecutor_t )( void *, void *, int32_t );
+
+// 调度任务到网络层
+//      task            - 任务数据
+//      execute         - 执行函数
+//      interval        - 时间间隔(毫秒)
+//      来自本IO线程时在本线程调度, 否则选择一个IO线程; 首次执行也等待定时器
+//      当前返回值不统一反映内部投递失败, 必须在网络层销毁前停止提交任务
+//      销毁时残留任务以interval=-1回调回收, 该清理发生在销毁调用线程
+int32_t iolayer_schedule( iolayer_t self, void * task, taskexecutor_t execute, int32_t interval );
+
 // 任务复制函数
 //      参数: 任务
 typedef void * ( *taskcloner_t )( void * );
-// 任务处理函数
-//      参数1: 网络线程上下文参数
-//      参数2: 任务
-typedef void ( *taskexecutor_t )( void *, void * );
 // 提交任务到网络层
 //      task            - 任务
 //      clone           - 任务复制函数(参考taskcloner_t的定义),
@@ -222,18 +237,16 @@ typedef void ( *taskexecutor_t )( void *, void * );
 //      execute         - 任务处理函数(参考taskexecutor_t的定义)
 int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 
-// 任务回收函数
+// 任务回收函数(已执行或投递后会话失效时回收; 未成功投递的失败路径不统一回收)
 //      参数1: 类型
 //      参数2: 任务
-//      参数3: 时间
-typedef void ( *taskrecycler_t )( int32_t, void *, int32_t );
+typedef void ( *taskrecycler_t )( int32_t, void * );
 // 分派任务给指定的会话, 通过ioservice_t::perform()回调执行该任务
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-//      interval        - 定时任务
 //      recycle         - 任务回收函数(参考taskrecycler_t的定义)
-int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, int32_t interval, taskrecycler_t recycle );
+int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
 
 // 停止网络服务
 // 行为定义:

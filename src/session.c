@@ -33,9 +33,8 @@ struct session * _new_session()
 {
     struct session * self = (struct session *)calloc( 1, sizeof( struct session ) );
     assert( self != NULL && "allocate struct session failed" );
+    self->fd = -1;
 
-    // 初始化任务队列
-    SLIST_INIT( &self->tasklist );
     // 初始化接收缓冲区
     buffer_init( &self->inbuffer );
     // 初始化设置
@@ -125,19 +124,6 @@ int32_t _del_session( struct session * self )
 // 会话停止(删除网络事件以及关闭描述符)
 void _stop( struct session * self )
 {
-    struct schedule_task * loop = NULL;
-    struct schedule_task * temp = NULL;
-    SLIST_FOREACH_SAFE( loop, &self->tasklist, tasklink, temp ) {
-        if ( likely( loop->evschedule != NULL ) ) {
-            evsets_del( self->evsets, loop->evschedule );
-            event_destroy( loop->evschedule );
-            loop->evschedule = NULL;
-        }
-        loop->recycle( loop->type, loop->task, loop->interval );
-        free( loop );
-    }
-    SLIST_INIT( &self->tasklist );
-
     // 删除网络事件
     if ( self->status & SESSION_READING ) {
         evsets_del( self->evsets, self->evread );
@@ -161,7 +147,7 @@ void _stop( struct session * self )
     }
 
     // 关闭描述符
-    if ( self->fd > 0
+    if ( self->fd >= 0
         && self->type != eSessionType_Shared ) {
         close( self->fd );
     }
@@ -177,6 +163,8 @@ void _init_settings( struct session_setting * self )
     self->keepalive_msecs = -1;
     self->max_inbuffer_len = 0;
     self->sendqueue_limit = 0;
+    self->read_callback = NULL;
+    self->write_callback = NULL;
     self->send = NULL;
     self->transmit = NULL;
 }
@@ -246,9 +234,12 @@ ssize_t _send_buffer( struct session * self, char * buf, size_t nbytes )
         if ( message == NULL ) {
             return -2;
         }
-        message_add_buffer( message, buf + ntry, nbytes - ntry );
-        message_add_receiver( message, self->id );
-        QUEUE_PUSH( sendqueue ) ( &self->sendqueue, &message );
+        if ( message_add_buffer( message, buf + ntry, nbytes - ntry ) != 0
+            || message_add_receiver( message, self->id ) != 0
+            || QUEUE_PUSH( sendqueue )( &self->sendqueue, &message ) != 0 ) {
+            message_destroy( message );
+            return -2;
+        }
         session_add_event( self, EV_WRITE );
     }
 
@@ -277,9 +268,13 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
     if ( self->driver == NULL ) {
         self->setting.send = channel_send;
         self->setting.transmit = channel_transmit;
+        self->setting.read_callback = channel_on_read;
+        self->setting.write_callback = channel_on_write;
     } else {
         self->setting.send = driver_send;
         self->setting.transmit = driver_transmit;
+        self->setting.read_callback = channel_on_udptimeout;
+        self->setting.write_callback = channel_on_udpshutdown;
     }
 
     // 不需要每次开始会话的时候初始化
@@ -352,9 +347,22 @@ void session_set_timeout( struct session * self, int32_t seconds )
 
     // 监听读事件的情况下, 需要重新添加事件
     if ( ( self->status & SESSION_READING ) ) {
-        //
-        session_readd_event( self, EV_READ );
+        // 会移除定时以及读事件
+        session_del_event( self, EV_READ );
+        // 根据新的超时时间重新定时
+        session_add_event( self, EV_READ );
     }
+}
+
+void session_set_persist( struct session * self, int32_t onoff )
+{
+    int32_t mode = onoff == 0 ? 0 : EV_PERSIST;
+    if ( self->setting.persist_mode == mode ) return;
+
+    int8_t reading = self->status & SESSION_READING;
+    if ( reading ) session_del_event( self, EV_READ );
+    self->setting.persist_mode = mode;
+    if ( reading ) session_add_event( self, EV_READ );
 }
 
 void session_sendqueue_take( struct session * self, struct sendqueue * q )
@@ -406,6 +414,11 @@ ssize_t session_send( struct session * self, char * buf, size_t nbytes )
 //
 ssize_t session_sendmessage( struct session * self, struct message * message )
 {
+    if ( unlikely( self->status & SESSION_EXITING ) ) {
+        message_add_failure( message, self->id );
+        return -1;
+    }
+
     char * buf = message_get_buffer( message );
     size_t nbytes = message_get_length( message );
 
@@ -446,41 +459,103 @@ ssize_t session_sendmessage( struct session * self, struct message * message )
     return rc;
 }
 
+void session_error( struct session * self, int32_t result )
+{
+    /* 出错
+     * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据
+     *
+     * 根据会话的类型
+     *        1. 临时会话, 直接终止会话
+     *        2. 永久会话, 终止socket, 尝试重新连接
+     */
+    int8_t isattach = session_is_reattch( self );
+    int32_t rc = self->service.error( self->context, result );
+    if ( isattach == 0
+        || ( isattach == 1 && rc != 0 )
+        || ( self->status & SESSION_EXITING ) ) {
+        // 临时会话
+        // 等待终止的会话
+        // 逻辑层需要终止的永久会话
+        // 直接终止会话, 导致发送队列中的数据丢失
+        channel_shutdown( self );
+    } else {
+        // 尝试重连的永久会话
+        session_start_reconnect( self );
+    }
+}
+
+void session_flush_sendqueue( struct session * self )
+{
+    int32_t queuesize = session_sendqueue_count( self );
+    if ( queuesize == 0 
+        && self->type != eSessionType_Shared ) {
+        return;
+    }
+
+    ssize_t writen = queuesize > 0 ? self->setting.transmit( self ) : 0;
+    if ( writen < 0 ) {
+        session_error( self, eIOError_WriteFailure );
+        return;
+    }
+
+    queuesize = session_sendqueue_count( self );
+    if ( queuesize > 0 ) {
+        if ( self->setting.sendqueue_limit <= 0
+            || queuesize < self->setting.sendqueue_limit ) {
+            session_add_event( self, EV_WRITE );
+        } else {
+            session_error( self, eIOError_SendQueueLimit );
+        }
+        return;
+    }
+
+    if ( self->type == eSessionType_Shared ) {
+        // Keep the original shutdown deadline while KCP waits for acknowledgments.
+        if ( ( self->status & SESSION_EXITING )
+            && driver_pending( self->driver ) > 0 ) {
+            return;
+        }
+        session_del_event( self, EV_WRITE );
+    }
+    if ( self->status & SESSION_EXITING ) channel_shutdown( self );
+}
+
 // 注册网络事件
 void session_add_event( struct session * self, int16_t ev )
 {
+    int16_t event = ev;
+    int32_t fd = self->fd;
     int8_t status = self->status;
+    int16_t direction = ev & ( EV_READ | EV_WRITE );
+
+    // Shared 会话使用-1,0
+    if ( self->type == eSessionType_Shared ) {
+        fd = -1; event = 0;
+    }
 
     // 注册读事件
     // 不在等待读事件的正常会话
     if ( !( status & SESSION_EXITING )
-        && ( ev & EV_READ ) && !( status & SESSION_READING ) ) {
-        int32_t fd = -1;
-        int16_t event = 0;
-        if ( self->type != eSessionType_Shared ) {
-            fd = self->fd;
-            event = ev | self->setting.persist_mode;
-        }
+        && direction == EV_READ && !( status & SESSION_READING ) ) {
+        event |= self->setting.persist_mode;
         event_set( self->evread, fd, event );
-        event_set_callback( self->evread, channel_on_read, self );
+        event_set_callback( self->evread, self->setting.read_callback, self );
         evsets_add( self->evsets, self->evread, self->setting.timeout_msecs );
         // 修改读状态
         self->status |= SESSION_READING;
     }
 
     // 注册写事件
-    if ( ( ev & EV_WRITE ) && !( status & SESSION_WRITING ) ) {
+    if ( direction == EV_WRITE && !( status & SESSION_WRITING ) ) {
         int32_t wait_for_shutdown = -1;
-
         // 在等待退出的会话上总是会添加10s的定时器
         if ( status & SESSION_EXITING ) {
             // 对端主机崩溃 + Socket缓冲区满的情况下
             // 会一直等不到EV_WRITE发生, 这时libevlite就出现了会话泄漏
             wait_for_shutdown = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
         }
-
-        event_set( self->evwrite, self->fd, ev );
-        event_set_callback( self->evwrite, channel_on_write, self );
+        event_set( self->evwrite, fd, event );
+        event_set_callback( self->evwrite, self->setting.write_callback, self );
         evsets_add( self->evsets, self->evwrite, wait_for_shutdown );
         // 修改写状态
         self->status |= SESSION_WRITING;
@@ -502,18 +577,6 @@ void session_del_event( struct session * self, int16_t ev )
         evsets_del( sets, self->evwrite );
         self->status &= ~SESSION_WRITING;
     }
-}
-
-void session_readd_event( struct session * self, int16_t ev )
-{
-    if ( ev & EV_READ ) {
-        self->status &= ~SESSION_READING;
-    }
-    if ( ev & EV_WRITE ) {
-        self->status &= ~SESSION_WRITING;
-    }
-
-    session_add_event( self, ev );
 }
 
 int32_t session_stop_keepalive( struct session * self )
@@ -550,10 +613,14 @@ int32_t session_start_reconnect( struct session * self )
         return -1;
     }
 
+    // SESSION_WRITING 同时用于发送和重连, 不能据此拒绝错误或超时后的重连。
+    // _stop() 会取消旧写事件(包括已激活的回调), 保留发送队列供重连成功后重发。
+    /* 
     if ( self->status & SESSION_WRITING ) {
         // 正在等待写事件的情况下
         return -2;
-    }
+    } 
+    */
 
     // NOTICE: 关联的会话, 网络层是不能关闭的, 必须交由逻辑层处理
     if ( self->type == eSessionType_Associate ) {
@@ -572,63 +639,18 @@ int32_t session_start_reconnect( struct session * self )
     return 0;
 }
 
-int32_t session_cancel_task( struct session * self, struct schedule_task * task )
-{
-    SLIST_REMOVE(
-        &self->tasklist, task, schedule_task, tasklink );
-
-    if ( task->evschedule != NULL ) {
-        evsets_del( self->evsets, task->evschedule );
-        event_destroy( task->evschedule );
-        task->evschedule = NULL;
-    }
-
-    task->recycle( task->type, task->task, task->interval );
-    free( task );
-    return 0;
-}
-
-int32_t session_schedule_task( struct session * self, int32_t type, void * t, int32_t interval, taskrecycler_t recycle )
-{
-    if ( self->status & SESSION_EXITING ) {
-        return -1;
-    }
-
-    struct schedule_task * task = (struct schedule_task *)calloc( 1, sizeof( struct schedule_task ) );
-    if ( task == NULL ) {
-        return -2;
-    }
-
-    task->task = task;
-    task->type = type;
-    task->recycle = recycle;
-    task->interval = interval;
-    task->session = self;
-    task->evschedule = event_create();
-    if ( task->evschedule == NULL ) {
-        return -3;
-    }
-
-    // 压入链表
-    SLIST_INSERT_HEAD( &self->tasklist, task, tasklink );
-    // 定时
-    event_set( task->evschedule, -1, 0 );
-    event_set_callback( task->evschedule, channel_on_schedule, task );
-    evsets_add( self->evsets, task->evschedule, task->interval );
-
-    return 0;
-}
-
 int32_t session_shutdown( struct session * self )
 {
     if ( !( self->status & SESSION_EXITING )
-        && session_sendqueue_count( self ) > 0 ) {
-        // 会话状态正常, 并且发送队列不为空
+        && ( session_sendqueue_count( self ) > 0
+            || ( self->driver != NULL && driver_pending( self->driver ) > 0 ) ) ) {
+        // 会话状态正常, 并且还有待发送或待确认的数据
         // 尝试继续把未发送的数据发送出去, 在终止会话
         self->status |= SESSION_EXITING;
 
         // 优先把数据发出去
         session_del_event( self, EV_READ );
+        session_del_event( self, EV_WRITE );
         session_add_event( self, EV_WRITE );
 
         return 1;
@@ -736,10 +758,15 @@ struct session_manager * session_manager_create( uint8_t index, uint32_t size )
     if ( size > MAX_SLOT_CAPACITY ) size = MAX_SLOT_CAPACITY;
 
     self = (struct session_manager *)calloc( 1, sizeof(struct session_manager) );
-    assert( self != NULL && "allocate session_manager failed" );
+    if ( self == NULL ) {
+        return NULL;
+    }
 
     self->table = (struct slot *)calloc( size, sizeof(struct slot) );
-    assert( self->table != NULL && "allocate struct slot failed" );
+    if ( self->table == NULL ) {
+        free( self );
+        return NULL;
+    }
 
     self->count = 0;
     self->free_head = 0;

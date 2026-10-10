@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <time.h>
 #include <syslog.h>
 
 #include <sys/un.h>
@@ -16,6 +17,21 @@
 
 #include "utils.h"
 #include "config.h"
+
+#if defined EVENT_USE_MACH_TIME
+#include <mach/mach_time.h>
+#include <pthread.h>
+static pthread_once_t monotime_once = PTHREAD_ONCE_INIT;
+static double monotime_scale;
+
+static void _init_monotime()
+{
+    mach_timebase_info_data_t info;
+    if ( mach_timebase_info( &info ) == KERN_SUCCESS && info.denom != 0 ) {
+        monotime_scale = (double)info.numer / info.denom / 1000000.0;
+    }
+}
+#endif
 
 #if defined EVENT_OS_LINUX
 
@@ -66,6 +82,19 @@ void msleep( int32_t mseconds )
     tv.tv_usec = ( mseconds % 1000 ) * 1000;
 
     select( 0, NULL, NULL, NULL, &tv );
+}
+
+int64_t monotime()
+{
+#if defined EVENT_USE_MACH_TIME
+    pthread_once( &monotime_once, _init_monotime );
+    if ( monotime_scale == 0 ) return -1;
+    return (int64_t)( mach_absolute_time() * monotime_scale );
+#else
+    struct timespec ts;
+    if ( clock_gettime( CLOCK_MONOTONIC, &ts ) != 0 ) return -1;
+    return ts.tv_sec * 1000ll + ts.tv_nsec / 1000000ll;
+#endif
 }
 
 int64_t milliseconds()
@@ -401,7 +430,7 @@ int32_t udp_connect( struct sockaddr_storage * localaddr, struct sockaddr_storag
 {
     int32_t newfd = socket(
         ( (struct sockaddr *)localaddr )->sa_family, SOCK_DGRAM, IPPROTO_UDP );
-    if ( newfd <= 0 ) {
+    if ( newfd < 0 ) {
         return -1;
     }
 
