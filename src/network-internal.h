@@ -217,7 +217,7 @@ struct task_perform {
 struct task_schedule {
     void * task;
     int32_t interval;
-    taskexecutor_t perform;
+    taskscheduler_t perform;
 };
 
 // 描述符分发策略

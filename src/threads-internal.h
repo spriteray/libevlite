@@ -23,7 +23,7 @@ struct scheduler {
     int32_t interval;
     void * task;
     event_t event;
-    taskexecutor_t perform;
+    taskscheduler_t perform;
     struct iothread * thread;
     LIST_ENTRY( scheduler ) linker;
 };
@@ -62,7 +62,7 @@ int32_t iothread_start( struct iothread * self,
 int32_t iothread_post( struct iothread * self,
     int16_t type, int16_t utype, void * task, uint8_t size );
 int32_t iothread_schedule( struct iothread * self,
-    void * task, taskexecutor_t execute, int32_t interval );
+    void * task, taskscheduler_t execute, int32_t interval );
 void iothread_cancel( struct iothread * self, struct scheduler * s, uint8_t flag );
 
 int32_t iothread_stop( struct iothread * self );

@@ -215,8 +215,7 @@ int32_t iolayer_shutdowns( iolayer_t self, sid_t * ids, uint32_t count );
 //      参数2: 任务
 //      参数3: 调度间隔, <0表示调度终止，仅回收task
 //      返回值: 0继续调度, 非0结束调度并由本次回调释放task, 不再额外回调一次
-typedef int32_t ( *taskexecutor_t )( void *, void *, int32_t );
-
+typedef int32_t ( *taskscheduler_t )( void *, void *, int32_t );
 // 调度任务到网络层
 //      task            - 任务数据
 //      execute         - 执行函数
@@ -224,11 +223,15 @@ typedef int32_t ( *taskexecutor_t )( void *, void *, int32_t );
 //      来自本IO线程时在本线程调度, 否则选择一个IO线程; 首次执行也等待定时器
 //      当前返回值不统一反映内部投递失败, 必须在网络层销毁前停止提交任务
 //      销毁时残留任务以interval=-1回调回收, 该清理发生在销毁调用线程
-int32_t iolayer_schedule( iolayer_t self, void * task, taskexecutor_t execute, int32_t interval );
+int32_t iolayer_schedule( iolayer_t self, void * task, taskscheduler_t execute, int32_t interval );
 
 // 任务复制函数
 //      参数: 任务
 typedef void * ( *taskcloner_t )( void * );
+// 任务处理函数
+//      参数1: 网络线程上下文
+//      参数2: 任务
+typedef void ( *taskexecutor_t )( void *, void * );
 // 提交任务到网络层
 //      task            - 任务
 //      clone           - 任务复制函数(参考taskcloner_t的定义),

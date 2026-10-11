@@ -1,7 +1,45 @@
+# 构建与安装
 
-linux :
-    make os=linux install
+[返回项目首页](../README.md)
 
-freebsd :
-    gmake os=bsd install(如果你安装了gmake)
-    或者直接make install -f Makefile.bsd
+## 环境
+
+需要 POSIX 开发环境、GNU Make 和 C/C++ 编译器。事件后端为 Linux epoll 或 Darwin / BSD kqueue，不支持原生 Windows 网络后端。
+
+Makefile 通过 `uname` 自动识别系统；FreeBSD 默认使用 Clang，其他平台默认使用 GCC。KCP 源码已包含在 `src/` 中，无需单独安装。
+
+## Linux
+
+在仓库根目录执行：
+
+```sh
+make -j
+make install PREFIX=/your/install/prefix
+```
+
+默认只构建动态库。安装目录为 `PREFIX/include/evlite/` 和 `PREFIX/lib/`，默认前缀是 `/usr/local`，安装时需要目标目录的写权限。
+
+使用已安装的库：
+
+```sh
+gcc -I/your/install/prefix/include/evlite examples/echo.c \
+    -L/your/install/prefix/lib -levlite -pthread \
+    -Wl,-rpath,/your/install/prefix/lib -o echo
+./echo 9029
+```
+
+动态库也可通过系统动态链接器配置或 `LD_LIBRARY_PATH` 查找。
+
+## FreeBSD 与 Darwin
+
+FreeBSD 使用 GNU Make（通常命名为 `gmake`）。Darwin 的 Makefile 分支生成 `.dylib`。仓库还提供 `libevlite.xcodeproj`。
+
+当前 Makefile 包含 `-flto=auto` 等 GCC 风格选项，使用 Clang 时需按本地工具链调整 `CFLAGS`、`CXXFLAGS`、`LFLAGS` 和 `SOFLAGS`；Darwin 的动态库查找路径也需相应配置。本次文档更新未验证这些平台的构建。
+
+旧说明中的 `os=linux`、`os=bsd` 不参与平台选择，仓库也没有 `Makefile.bsd`。
+
+## 编译配置与示例
+
+默认使用 `-O0 -ggdb` 并启用 `USE_ATOMIC`，不是发布性能配置。性能评估前应明确优化选项；覆盖 `CFLAGS` 时保留 `-Iinclude -Isrc`、`-fPIC` 和 `-DUSE_ATOMIC`。`USE_REUSESESSION` 默认关闭，尚不是常规使用路径。
+
+根目录 README 提供纯 C TCP 回显示例的编译命令。`make test` 只构建一组历史测试和示例，不会自动运行测试，也不等于完整回归套件；部分目标依赖 libcurl 或其他外部组件。当前回归入口见[测试说明](README)。

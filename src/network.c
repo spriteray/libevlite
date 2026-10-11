@@ -289,7 +289,7 @@ int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds )
     if ( seconds > INT32_MAX / 1000 ) {
         return -1;
     }
-    
+
     session = _get_session_local( self, id );
     if ( likely( session != NULL ) ) {
         session_set_timeout( session, seconds );
@@ -392,7 +392,7 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
     // NOT Thread-Safe
     int32_t rc = 0;
     struct session * session = NULL;
-    
+
     if ( seconds > INT32_MAX / 1000 ) {
         return -1;
     }
@@ -508,7 +508,7 @@ int32_t iolayer_broadcast2( iolayer_t self, const char * buf, size_t nbytes )
     return 0;
 }
 
-int32_t iolayer_schedule( iolayer_t self, void * task, taskexecutor_t execute, int32_t interval )
+int32_t iolayer_schedule( iolayer_t self, void * task, taskscheduler_t execute, int32_t interval )
 {
     assert( self != NULL && "Illegal IOLayer" );
     assert( execute != NULL && "Illegal specified Execute-Function" );
@@ -1135,7 +1135,7 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
     connector->state = 1;
     connector->evsets = sets;
     LIST_INSERT_HEAD( head, connector, linker );
-    
+
     // 检查描述符连接状态
     event_set( connector->event, connector->fd, EV_WRITE );
     event_set_callback( connector->event, channel_on_connected, connector );
@@ -1340,7 +1340,7 @@ int32_t _broadcast2_direct( struct iolayer * self, struct session_manager * mana
 
 void _invoke_direct( struct iolayer * self, uint8_t index, struct task_invoke * task )
 {
-    task->perform( iothreads_get_context( self->threads, index ), task->task, -1 );
+    task->perform( iothreads_get_context( self->threads, index ), task->task );
 }
 
 int32_t _perform_direct( struct iolayer * self, struct session_manager * manager, struct task_perform * task )

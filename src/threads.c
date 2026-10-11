@@ -325,7 +325,7 @@ void iothread_cancel( struct iothread * self, struct scheduler * s, uint8_t flag
     _free_scheduler( self, s, flag );
 }
 
-int32_t iothread_schedule( struct iothread * self, void * task, taskexecutor_t execute, int32_t interval )
+int32_t iothread_schedule( struct iothread * self, void * task, taskscheduler_t execute, int32_t interval )
 {
     struct scheduler * s
         = (struct scheduler *)calloc( 1, sizeof( struct scheduler ) );
