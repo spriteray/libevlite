@@ -240,7 +240,8 @@ typedef void ( *taskexecutor_t )( void *, void * );
 //      execute         - 任务处理函数(参考taskexecutor_t的定义)
 int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 
-// 任务回收函数(已执行或投递后会话失效时回收; 未成功投递的失败路径不统一回收)
+// 任务回收函数(仅在投递失败时回调)
+// 任务一旦进入 onPerform()，生命周期由业务层负责。
 //      参数1: 类型
 //      参数2: 任务
 typedef void ( *taskrecycler_t )( int32_t, void * );
@@ -248,7 +249,7 @@ typedef void ( *taskrecycler_t )( int32_t, void * );
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-//      recycle         - 任务回收函数(参考taskrecycler_t的定义)
+//      recycle         - 投递失败时的任务回收函数
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
 
 // 停止网络服务

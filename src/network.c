@@ -1356,13 +1356,12 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
             // 回调可能嵌套在其他会话回调中, 延后关闭以免释放当前会话
             iolayer_shutdown( self, task->id );
         }
-        // 回收任务
-        task->recycle( task->type, task->task );
     } else {
         // 非法会话
         rc = -1;
-        task->recycle( task->type, task->task );
         syslog( LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
+        // 回收任务
+        task->recycle( task->type, task->task );
     }
 
     return rc;
