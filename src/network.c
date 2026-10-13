@@ -138,10 +138,7 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     struct acceptor * acceptor = _server_listen( layer,
         type, DISPATCH_POLICY( layer, current ), host, port, options, callback, context );
     if ( acceptor == NULL ) return -1;
-    if ( iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 ) != 0 ) {
-        iolayer_free_acceptor( acceptor );
-        return -1;
-    }
+    iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
 #else
     // reuseport
     syslog( LOG_INFO,
@@ -157,11 +154,7 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
         }
     }
     for ( uint8_t i = 0; i < layer->nthreads; ++i ) {
-        if ( iothreads_post( layer->threads, i, eIOTaskType_Listen, acceptors[i], 0 ) != 0 ) {
-            // 线程组已停止, 已投递的随iothread_stop()释放
-            for ( uint8_t j = i; j < layer->nthreads; ++j ) iolayer_free_acceptor( acceptors[j] );
-            return -1;
-        }
+        iothreads_post( layer->threads, i, eIOTaskType_Listen, acceptors[i], 0 );
     }
 #endif
     return 0;
@@ -220,10 +213,7 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
         uint32_t current = atomic_fetch_add_explicit(
             &layer->roundrobin, 1, memory_order_relaxed );
         connector->index = DISPATCH_POLICY( layer, current );
-        if ( iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 ) != 0 ) {
-            iolayer_free_connector( connector );
-            return -1;
-        }
+        iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
     }
 
     return 0;
@@ -281,10 +271,7 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
             &layer->roundrobin, 1, memory_order_relaxed );
         associater->index = DISPATCH_POLICY( layer, current );
         // 提交到网络层
-        if ( iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 ) != 0 ) {
-            iolayer_free_associater( associater );
-            return -1;
-        }
+        iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
     }
 
     return 0;
@@ -1281,7 +1268,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
         if ( driver != NULL ) {
             rc = driver_set_endpoint( driver,
                 task->acceptor->eptable,
-                task->addr, task->host, task->port );
+                task->transfer->addr.ss_family, task->host, task->port );
         }
         if ( driver == NULL || rc != 0 ) {
             syslog( LOG_WARNING,

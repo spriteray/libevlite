@@ -3,7 +3,6 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
-#include <string.h>
 
 #include "utils.h"
 #include "message.h"
@@ -91,7 +90,7 @@ void driver_destroy( struct driver * self )
     self = NULL;
 }
 
-int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, const struct sockaddr_storage * addr, const char * host, uint16_t port )
+int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, int32_t family, const char * host, uint16_t port )
 {
     // 添加到ep管理器中
     self->entry = (struct udpentry *)ephashtable_append( table, host, port );
@@ -101,8 +100,7 @@ int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, c
 
     self->entry->hashtable = table;
     self->entry->session = _get_session( self );
-    // 保留原始地址(含IPv6 scope id), 字符串仅作为eptable的键
-    memcpy( &( self->addr ), addr, sizeof( self->addr ) );
+    convert_endpoint( &( self->addr ), family, host, port );
 
     return 0;
 }

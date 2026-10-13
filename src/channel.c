@@ -206,10 +206,12 @@ void _reconnected( int32_t fd, int16_t ev, void * arg )
     session->status &= ~SESSION_WRITING;
 
     if ( ev & EV_WRITE ) {
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
         if ( is_connected( fd ) != 0 ) {
             session_error( session, eIOError_ConnectStatus );
             return;
         }
+#endif
         // 总算是连接上了
 
         // 把缓存的消息提取出来
@@ -436,13 +438,12 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             task.acceptor = acceptor;
             task.type = acceptor->type;
             task.transfer = NULL;
-            task.addr = NULL;
             task.host = host;
             task.port = port;
             iolayer_assign_session( layer,
                 acceptor->index, DISPATCH_POLICY( layer, cfd ), &task );
         } else {
-            if ( errno == EMFILE || errno == ENFILE ) {
+            if ( errno == EMFILE ) {
                 // Read the section named
                 // "The special problem of accept()ing when you can't" in libev's doc.
                 // By Marc Lehmann, author of libev
@@ -489,7 +490,6 @@ void channel_on_datagram( int32_t fd, int16_t ev, void * arg )
                 task.port = port;
                 task.host = strdup(host);
                 task.transfer = transfer;
-                task.addr = &remoteaddr;
                 task.acceptor = acceptor;
                 task.type = acceptor->type;
                 iolayer_assign_session( layer, acceptor->index, acceptor->index, &task );
@@ -543,7 +543,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     // 注册写事件, 以重新激活会话
     event_set( session->evwrite, session->fd, EV_WRITE );
     event_set_callback( session->evwrite, _reconnected, session );
-    evsets_add( session->evsets, session->evwrite, -1 );
+    evsets_add( session->evsets, session->evwrite, MAX_SECONDS_WAIT_FOR_CONNECT );
 
     session->status |= SESSION_WRITING;
 }
@@ -559,9 +559,12 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     struct iothread * thread = iothreads_get( layer->threads, connector->index );
 
     if ( ev & EV_WRITE ) {
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
+        // linux需要进一步检查连接是否成功
         if ( is_connected( fd ) != 0 ) {
             result = eIOError_ConnectStatus;
         }
+#endif
     } else {
         result = eIOError_Timeout;
     }
@@ -623,9 +626,12 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
     struct iothread * thread = iothreads_get( layer->threads, associater->index );
 
     if ( ev & EV_WRITE ) {
+#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
+        // linux需要进一步检查连接是否成功
         if ( is_connected( fd ) != 0 ) {
             result = eIOError_ConnectStatus;
         }
+#endif
     } else {
         result = eIOError_Timeout;
     }

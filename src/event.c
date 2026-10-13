@@ -418,7 +418,9 @@ void evsets_destroy( evsets_t self )
     }
 
     // 销毁IO实例
-    sets->evselect->final( sets->evsets );
+    if ( sets->evsets != NULL ) {
+        sets->evselect->final( sets->evsets );
+    }
     free( sets );
 }
 
