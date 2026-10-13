@@ -17,6 +17,8 @@
 // 关闭前最大等待时间,默认10s
 #define MAX_SECONDS_WAIT_FOR_SHUTDOWN ( 10 * 1000 )
 
+// 描述符耗尽时暂停accept的时间(毫秒)
+#define TRY_ACCEPT_INTERVAL 100
 // 尝试重连的间隔时间,默认为200ms
 #define TRY_RECONNECT_INTERVAL 200
 // 等待连接完成的超时时间(毫秒)

@@ -33,10 +33,11 @@ static inline void _free_transfer( struct transfer * transfer );
 static inline int32_t _init_transfer( struct transfer * transfer, struct acceptor * acceptor );
 static inline struct transfer * _get_transfer( struct acceptor * acceptor, int32_t fd );
 static inline void _recycle_task( int32_t type, void * task, taskrecycler_t recycle );
-static int32_t _server_listen( struct iolayer * layer,
+static struct acceptor * _server_listen( struct iolayer * layer,
     uint8_t type, uint8_t index, const char * host, uint16_t port,
     const options_t * options, acceptor_t callback, void * context );
 
+static void _resume_accept( int32_t fd, int16_t ev, void * arg );
 static int32_t _listen_direct( struct acceptorlist * acceptorlist, evsets_t sets, struct acceptor * acceptor );
 static int32_t _connect_direct( evsets_t sets, struct connector * connector );
 static int32_t _associate_direct( evsets_t sets, struct associater * associater );
@@ -130,26 +131,40 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
         return -1;
     }
 
-#ifdef EVENT_HAVE_REUSEPORT
+#ifndef EVENT_HAVE_REUSEPORT
+    // normal
+    uint32_t current = atomic_fetch_add_explicit(
+        &layer->roundrobin, 1, memory_order_relaxed );
+    struct acceptor * acceptor = _server_listen( layer,
+        type, DISPATCH_POLICY( layer, current ), host, port, options, callback, context );
+    if ( acceptor == NULL ) return -1;
+    if ( iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 ) != 0 ) {
+        iolayer_free_acceptor( acceptor );
+        return -1;
+    }
+#else
     // reuseport
     syslog( LOG_INFO,
         "%s(host:'%s', port:%d) use SO_REUSEPORT .",
         __FUNCTION__, host == NULL ? "" : host, port );
+    // 先全部创建, 任一失败则全部释放, 避免部分监听
+    struct acceptor * acceptors[ UINT8_MAX ];
     for ( uint8_t i = 0; i < layer->nthreads; ++i ) {
-        int32_t rc = _server_listen( layer, type, i, host, port, options, callback, context );
-        if ( rc < 0 ) {
-            return rc;
+        acceptors[i] = _server_listen( layer, type, i, host, port, options, callback, context );
+        if ( acceptors[i] == NULL ) {
+            for ( uint8_t j = 0; j < i; ++j ) iolayer_free_acceptor( acceptors[j] );
+            return -1;
         }
     }
-    return 0;
-#else
-    // normal
-    uint32_t current = atomic_fetch_add_explicit(
-        &layer->roundrobin, 1, memory_order_relaxed );
-    return _server_listen( layer, type, DISPATCH_POLICY( layer, current ), host, port, options, callback, context );
+    for ( uint8_t i = 0; i < layer->nthreads; ++i ) {
+        if ( iothreads_post( layer->threads, i, eIOTaskType_Listen, acceptors[i], 0 ) != 0 ) {
+            // 线程组已停止, 已投递的随iothread_stop()释放
+            for ( uint8_t j = i; j < layer->nthreads; ++j ) iolayer_free_acceptor( acceptors[j] );
+            return -1;
+        }
+    }
 #endif
-
-    return -1;
+    return 0;
 }
 
 // 客户端开启
@@ -707,7 +722,7 @@ int32_t iolayer_server_option( int32_t fd )
 
 #ifdef EVENT_HAVE_REUSEPORT
     flag = 1;
-    setsockopt( fd, SOL_SOCKET, SO_REUSEPORT, (void *)&flag, sizeof( flag ) );
+    setsockopt( fd, SOL_SOCKET, EVENT_REUSEPORT_OPTION, (void *)&flag, sizeof( flag ) );
 #endif
 
 #if SAFE_SHUTDOWN == 0
@@ -870,14 +885,20 @@ void iolayer_free_associater( struct associater * associater )
 
 void iolayer_accept_fdlimits( struct acceptor * acceptor )
 {
-    close( acceptor->idlefd );
-
-    acceptor->idlefd = accept( acceptor->fd, NULL, NULL );
     if ( acceptor->idlefd >= 0 ) {
         close( acceptor->idlefd );
+        acceptor->idlefd = accept( acceptor->fd, NULL, NULL );
+        if ( acceptor->idlefd >= 0 ) {
+            close( acceptor->idlefd );
+        }
+        acceptor->idlefd = open( "/dev/null", O_RDONLY | O_CLOEXEC );
+        if ( acceptor->idlefd >= 0 ) return;
     }
-
-    acceptor->idlefd = open( "/dev/null", O_RDONLY | O_CLOEXEC );
+    // 无法预留描述符, 暂停accept, 避免空转
+    evsets_del( acceptor->evsets, acceptor->event );
+    event_set( acceptor->event, -1, 0 );
+    event_set_callback( acceptor->event, _resume_accept, acceptor );
+    evsets_add( acceptor->evsets, acceptor->event, TRY_ACCEPT_INTERVAL );
 }
 
 int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_t index, struct task_assign * task )
@@ -935,13 +956,13 @@ void _udpentry_helper( int method, struct endpoint * endpoint )
     }
 }
 
-int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context )
+struct acceptor * _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, const char * host, uint16_t port, const options_t * options, acceptor_t callback, void * context )
 {
     struct acceptor * acceptor = (struct acceptor *)calloc( 1, sizeof( struct acceptor ) );
     if ( acceptor == NULL ) {
         syslog( LOG_WARNING,
             "%s(host:'%s', port:%d) failed, Out-Of-Memory .", __FUNCTION__, host == NULL ? "" : host, port );
-        return -1;
+        return NULL;
     }
 
     acceptor->fd = -1;
@@ -965,7 +986,7 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
             syslog( LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, can't create AcceptEvent .", __FUNCTION__, host == NULL ? "" : host, port );
             iolayer_free_acceptor( acceptor );
-            return -2;
+            return NULL;
         }
 
         acceptor->idlefd = open( "/dev/null", O_RDONLY | O_CLOEXEC );
@@ -975,7 +996,7 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
             syslog( LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, tcp_listen() failure .", __FUNCTION__, host == NULL ? "" : host, port );
             iolayer_free_acceptor( acceptor );
-            return -3;
+            return NULL;
         }
     } else if ( type == NETWORK_KCP ) {
         // 设置KCP默认参数
@@ -1003,7 +1024,7 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
                 "%s(host:'%s', port:%d) failed, can't create EndpointTable .",
                 __FUNCTION__, host == NULL ? "" : host, port );
             iolayer_free_acceptor( acceptor );
-            return -4;
+            return NULL;
         }
 
         // 中转描述符
@@ -1013,7 +1034,7 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
                 "%s(host:'%s', port:%d) failed, can't create TransferList .",
                 __FUNCTION__, host == NULL ? "" : host, port );
             iolayer_free_acceptor( acceptor );
-            return -5;
+            return NULL;
         }
 
         for ( int32_t i = 0; i < acceptor->ntransfer; ++i ) {
@@ -1023,17 +1044,12 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
             if ( _init_transfer(
                      &( acceptor->transferlist[i] ), acceptor ) != 0 ) {
                 iolayer_free_acceptor( acceptor );
-                return -6;
+                return NULL;
             }
         }
     }
 
-    // 提交
-    if ( iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 ) != 0 ) {
-        iolayer_free_acceptor( acceptor );
-        return -1;
-    }
-    return 0;
+    return acceptor;
 }
 
 int32_t _send_buffer( struct iolayer * self, sid_t id, const char * buf, size_t nbytes, int32_t isfree )
@@ -1152,6 +1168,18 @@ struct transfer * _get_transfer( struct acceptor * acceptor, int32_t fd )
     }
 
     return NULL;
+}
+
+void _resume_accept( int32_t fd, int16_t ev, void * arg )
+{
+    struct acceptor * acceptor = (struct acceptor *)arg;
+    if ( acceptor->idlefd < 0 ) {
+        acceptor->idlefd = open( "/dev/null", O_RDONLY | O_CLOEXEC );
+    }
+
+    event_set( acceptor->event, acceptor->fd, EV_READ | EV_PERSIST );
+    event_set_callback( acceptor->event, channel_on_accept, acceptor );
+    evsets_add( acceptor->evsets, acceptor->event, -1 );
 }
 
 int32_t _listen_direct( struct acceptorlist * acceptlist, evsets_t sets, struct acceptor * acceptor )

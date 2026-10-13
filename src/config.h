@@ -44,18 +44,20 @@
 #endif
 
 // EVENT_HAVE_REUSEPORT
-#ifdef SO_REUSEPORT
-    #ifdef EVENT_OS_LINUX
-        // Faster SO_REUSEPORT for TCP ( since Linux 4.6.0 )
-        // faster lookup of a target socket when choosing a socket from the group of sockets,
-        // and also expose the ability to use a BPF program when selecting a socket from a reuseport group
-        // https://kernelnewbies.org/Linux_4.6#Networking
-        #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
-            #define EVENT_HAVE_REUSEPORT
-        #endif
-    #else
+// 仅在内核会分流连接的平台上开启, macOS退化为单acceptor
+#if defined EVENT_OS_LINUX && defined SO_REUSEPORT
+    // Faster SO_REUSEPORT for TCP ( since Linux 4.6.0 )
+    // faster lookup of a target socket when choosing a socket from the group of sockets,
+    // and also expose the ability to use a BPF program when selecting a socket from a reuseport group
+    // https://kernelnewbies.org/Linux_4.6#Networking
+    #if LINUX_VERSION_CODE >= KERNEL_VERSION(4,6,0)
         #define EVENT_HAVE_REUSEPORT
+        #define EVENT_REUSEPORT_OPTION SO_REUSEPORT
     #endif
+#elif defined EVENT_OS_BSD && defined SO_REUSEPORT_LB
+    // FreeBSD 12+ 需要SO_REUSEPORT_LB才会分流
+    #define EVENT_HAVE_REUSEPORT
+    #define EVENT_REUSEPORT_OPTION SO_REUSEPORT_LB
 #endif
 
 // EVENT_USE_LOCALHOST

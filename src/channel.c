@@ -439,9 +439,9 @@ void channel_on_accept( int32_t fd, int16_t ev, void * arg )
             task.host = host;
             task.port = port;
             iolayer_assign_session( layer,
-                acceptor->index, DISPATCH_POLICY( layer, fd ), &task );
+                acceptor->index, DISPATCH_POLICY( layer, cfd ), &task );
         } else {
-            if ( errno == EMFILE ) {
+            if ( errno == EMFILE || errno == ENFILE ) {
                 // Read the section named
                 // "The special problem of accept()ing when you can't" in libev's doc.
                 // By Marc Lehmann, author of libev
