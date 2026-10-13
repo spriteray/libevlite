@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "utils.h"
 #include "message.h"
@@ -90,7 +91,7 @@ void driver_destroy( struct driver * self )
     self = NULL;
 }
 
-int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, int32_t family, const char * host, uint16_t port )
+int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, const struct sockaddr_storage * addr, const char * host, uint16_t port )
 {
     // 添加到ep管理器中
     self->entry = (struct udpentry *)ephashtable_append( table, host, port );
@@ -100,7 +101,8 @@ int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, i
 
     self->entry->hashtable = table;
     self->entry->session = _get_session( self );
-    convert_endpoint( &( self->addr ), family, host, port );
+    // 保留原始地址(含IPv6 scope id), 字符串仅作为eptable的键
+    memcpy( &( self->addr ), addr, sizeof( self->addr ) );
 
     return 0;
 }
@@ -336,7 +338,7 @@ int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * user )
 
     // kcp出错的情况下，就重传呗, 没啥大不了的
     ssize_t writen = sendto( session->fd, buf, len,
-        MSG_DONTWAIT, (struct sockaddr *)&driver->addr, sizeof( driver->addr ) );
+        MSG_DONTWAIT, (struct sockaddr *)&driver->addr, endpoint_length( &driver->addr ) );
     if ( writen < 0 ) {
         if ( errno == EINTR
             || errno == EAGAIN || errno == EWOULDBLOCK ) {

@@ -435,8 +435,8 @@ int32_t udp_connect( struct sockaddr_storage * localaddr, struct sockaddr_storag
     }
 
     options( newfd );
-    socklen_t locallen = localaddr->ss_family == AF_INET6 ? sizeof( struct sockaddr_in6 ) : sizeof( struct sockaddr_in );
-    socklen_t remotelen = remoteaddr->ss_family == AF_INET6 ? sizeof( struct sockaddr_in6 ) : sizeof( struct sockaddr_in );
+    socklen_t locallen = endpoint_length( localaddr );
+    socklen_t remotelen = endpoint_length( remoteaddr );
 
     // 绑定
     if ( bind( newfd, (struct sockaddr *)localaddr, locallen ) < 0 ) {
@@ -456,6 +456,11 @@ int32_t udp_connect( struct sockaddr_storage * localaddr, struct sockaddr_storag
     }
 
     return newfd;
+}
+
+socklen_t endpoint_length( const struct sockaddr_storage * addr )
+{
+    return addr->ss_family == AF_INET6 ? sizeof( struct sockaddr_in6 ) : sizeof( struct sockaddr_in );
 }
 
 void convert_endpoint( struct sockaddr_storage * addr, int32_t type, const char * host, uint16_t port )

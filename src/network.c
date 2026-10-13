@@ -1281,7 +1281,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
         if ( driver != NULL ) {
             rc = driver_set_endpoint( driver,
                 task->acceptor->eptable,
-                task->transfer->addr.ss_family, task->host, task->port );
+                task->addr, task->host, task->port );
         }
         if ( driver == NULL || rc != 0 ) {
             syslog( LOG_WARNING,

@@ -60,6 +60,8 @@ int32_t udp_bind( const char * host, uint16_t port, int32_t ( *options )( int32_
 int32_t udp_connect( struct sockaddr_storage * localaddr,
     struct sockaddr_storage * remoteaddr, int32_t ( *options )( int32_t ) );
 int32_t parse_endpoint( struct sockaddr_storage * addr, char * host, uint16_t * port );
+// 按地址族返回sockaddr长度(BSD要求精确长度)
+socklen_t endpoint_length( const struct sockaddr_storage * addr );
 void convert_endpoint( struct sockaddr_storage * addr, int32_t type, const char * host, uint16_t port );
 
 #ifdef __cplusplus

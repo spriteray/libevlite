@@ -26,7 +26,7 @@ struct driver * driver_create(
     struct session * s, struct buffer * buffer, const options_t * option );
 
 int32_t driver_set_endpoint( struct driver * self,
-    struct ephashtable * table, int32_t family, const char * host, uint16_t port );
+    struct ephashtable * table, const struct sockaddr_storage * addr, const char * host, uint16_t port );
 
 // 输入数据(KCP重组), 返回接收字节数; -2: 接收缓冲区扩容失败
 ssize_t driver_input( struct driver * self, struct buffer * in, struct buffer * out );

@@ -197,6 +197,7 @@ struct task_assign {
     char * host;
     struct acceptor * acceptor;
     struct transfer * transfer;
+    struct sockaddr_storage * addr; // 对端地址(仅KCP, 本线程内有效)
 };
 
 struct task_send {
