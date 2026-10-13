@@ -243,7 +243,7 @@ void _reconnect_direct( int32_t fd, int16_t ev, void * arg )
     // 检查连接状态
     event_set( connector->event, connector->fd, EV_WRITE );
     event_set_callback( connector->event, channel_on_connected, connector );
-    evsets_add( connector->evsets, connector->event, TRY_RECONNECT_INTERVAL );
+    evsets_add( connector->evsets, connector->event, MAX_SECONDS_WAIT_FOR_CONNECT );
 }
 
 void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
@@ -263,7 +263,7 @@ void _reassociate_direct( int32_t fd, int16_t ev, void * arg )
     // 检查连接状态
     event_set( associater->event, associater->fd, EV_WRITE );
     event_set_callback( associater->event, channel_on_associated, associater );
-    evsets_add( associater->evsets, associater->event, TRY_RECONNECT_INTERVAL );
+    evsets_add( associater->evsets, associater->event, MAX_SECONDS_WAIT_FOR_CONNECT );
 }
 
 int32_t channel_shutdown( struct session * session )

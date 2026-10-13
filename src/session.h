@@ -17,13 +17,13 @@
 
 // 64位SID的构成
 // |RESERVED  |INDEX   |VERSION    |SEQ      |
-// |16        |8       |16         |24       |
+// |16        |8       |20         |20       |
 // (逻辑层用)  (路由节点) (防串号)     (底层槽位)
 
 #define SID_RES_BITS        16
 #define SID_INDEX_BITS      8
-#define SID_VERSION_BITS    16
-#define SID_SEQ_BITS        24
+#define SID_VERSION_BITS    20
+#define SID_SEQ_BITS        20
 #define INVALID_SLOT_INDEX  0xFFFFFFFF
 #define MAX_SLOT_CAPACITY   ( 1 << SID_SEQ_BITS )
 
@@ -34,7 +34,7 @@
 
 // 提取宏：利用 Mask 天然屏蔽高位干扰
 #define SID_SEQ(sid)        ((uint32_t)((sid) & SID_SEQ_MASK))
-#define SID_VERSION(sid)    ((uint16_t)(((sid) >> SID_SEQ_BITS) & SID_VERSION_MASK))
+#define SID_VERSION(sid)    ((uint32_t)(((sid) >> SID_SEQ_BITS) & SID_VERSION_MASK))
 #define SID_INDEX(sid)      ((uint8_t)(((sid) >> (SID_SEQ_BITS + SID_VERSION_BITS)) & SID_INDEX_MASK) - 1)
 #define SID_RES(sid)        ((uint16_t)(((sid) >> (SID_SEQ_BITS + SID_VERSION_BITS + SID_INDEX_BITS)) & SID_RES_MASK))
 

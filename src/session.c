@@ -683,7 +683,7 @@ struct slot {
         uint32_t next_free;
         struct session * session;
     };
-    uint16_t version;
+    uint32_t version;
     uint8_t is_active;
 };
 
@@ -813,7 +813,7 @@ struct session * session_manager_alloc( struct session_manager * self )
 struct session * session_manager_get( struct session_manager * self, sid_t id )
 {
     uint32_t seq = SID_SEQ( id );
-    uint16_t ver = SID_VERSION( id );
+    uint32_t ver = SID_VERSION( id );
 
     if ( unlikely( seq >= self->capacity ) ) {
         return NULL;
@@ -861,8 +861,8 @@ int32_t session_manager_remove( struct session_manager * self, struct session * 
 
     // 关闭
     slot->is_active = 0;
-    // 版本号增加
-    ++slot->version;
+    // 版本号按SID中的位宽回绕, 保持存储值与编码值一致
+    slot->version = ( slot->version + 1 ) & SID_VERSION_MASK;
     // 归还
     slot->next_free = self->free_head;
     --self->count;

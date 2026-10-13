@@ -358,15 +358,15 @@ int32_t iothread_schedule( struct iothread * self, void * task, taskscheduler_t 
 
 int32_t iothread_stop( struct iothread * self )
 {
-    if ( self->queue ) {
-        msgqueue_destroy( self->queue );
-        self->queue = NULL;
-    }
-
     if ( self->cmdevent ) {
         event_reset( self->cmdevent );
         event_destroy( self->cmdevent );
         self->cmdevent = NULL;
+    }
+
+    if ( self->queue ) {
+        msgqueue_destroy( self->queue );
+        self->queue = NULL;
     }
 
     struct scheduler * scheduler = LIST_FIRST( &self->schedulerlist );

@@ -205,7 +205,10 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
         uint32_t current = atomic_fetch_add_explicit(
             &layer->roundrobin, 1, memory_order_relaxed );
         connector->index = DISPATCH_POLICY( layer, current );
-        iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 );
+        if ( iothreads_post( layer->threads, connector->index, eIOTaskType_Connect, connector, 0 ) != 0 ) {
+            iolayer_free_connector( connector );
+            return -1;
+        }
     }
 
     return 0;
@@ -263,7 +266,10 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
             &layer->roundrobin, 1, memory_order_relaxed );
         associater->index = DISPATCH_POLICY( layer, current );
         // 提交到网络层
-        iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 );
+        if ( iothreads_post( layer->threads, associater->index, eIOTaskType_Associate, associater, 0 ) != 0 ) {
+            iolayer_free_associater( associater );
+            return -1;
+        }
     }
 
     return 0;
@@ -1023,7 +1029,10 @@ int32_t _server_listen( struct iolayer * layer, uint8_t type, uint8_t index, con
     }
 
     // 提交
-    iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 );
+    if ( iothreads_post( layer->threads, acceptor->index, eIOTaskType_Listen, acceptor, 0 ) != 0 ) {
+        iolayer_free_acceptor( acceptor );
+        return -1;
+    }
     return 0;
 }
 
@@ -1181,7 +1190,7 @@ int32_t _connect_direct( evsets_t sets, struct connector * connector )
     // 检查描述符连接状态
     event_set( connector->event, connector->fd, EV_WRITE );
     event_set_callback( connector->event, channel_on_connected, connector );
-    evsets_add( sets, connector->event, TRY_RECONNECT_INTERVAL );
+    evsets_add( sets, connector->event, MAX_SECONDS_WAIT_FOR_CONNECT );
 
     return 0;
 }
@@ -1199,7 +1208,7 @@ int32_t _associate_direct( evsets_t sets, struct associater * associater )
     // 检查描述符连接状态
     event_set( associater->event, associater->fd, EV_WRITE );
     event_set_callback( associater->event, channel_on_associated, associater );
-    evsets_add( sets, associater->event, TRY_RECONNECT_INTERVAL );
+    evsets_add( sets, associater->event, MAX_SECONDS_WAIT_FOR_CONNECT );
 
     return 0;
 }

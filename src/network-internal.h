@@ -19,6 +19,8 @@
 
 // 尝试重连的间隔时间,默认为200ms
 #define TRY_RECONNECT_INTERVAL 200
+// 等待连接完成的超时时间(毫秒)
+#define MAX_SECONDS_WAIT_FOR_CONNECT ( 2 * 1000 )
 
 // UDP发送接收缓冲区设置
 #define SEND_BUFFER_SIZE 4194304 // 4M
