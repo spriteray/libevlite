@@ -32,6 +32,7 @@ static inline void _free_task_assign( struct task_assign * task );
 static inline void _free_transfer( struct transfer * transfer );
 static inline int32_t _init_transfer( struct transfer * transfer, struct acceptor * acceptor );
 static inline struct transfer * _get_transfer( struct acceptor * acceptor, int32_t fd );
+static inline void _recycle_task( int32_t type, void * task, taskrecycler_t recycle );
 static int32_t _server_listen( struct iolayer * layer,
     uint8_t type, uint8_t index, const char * host, uint16_t port,
     const options_t * options, acceptor_t callback, void * context );
@@ -124,6 +125,11 @@ int32_t iolayer_listen( iolayer_t self, uint8_t type, const char * host, uint16_
     assert( callback != NULL && "Illegal specified Callback-Function" );
     assert( ( type == NETWORK_TCP || type == NETWORK_KCP ) && "Illegal type" );
 
+    // 网络线程组已停止
+    if ( unlikely( !iothreads_is_running( layer->threads ) ) ) {
+        return -1;
+    }
+
 #ifdef EVENT_HAVE_REUSEPORT
     // reuseport
     syslog( LOG_INFO,
@@ -158,6 +164,11 @@ int32_t iolayer_connect( iolayer_t self, const char * host, uint16_t port, conne
     assert( self != NULL && "Illegal IOLayer" );
     assert( host != NULL && "Illegal specified Host" );
     assert( callback != NULL && "Illegal specified Callback-Function" );
+
+    // 网络线程组已停止
+    if ( unlikely( !iothreads_is_running( layer->threads ) ) ) {
+        return -1;
+    }
 
     struct connector * connector = (struct connector *)calloc( 1, sizeof( struct connector ) );
     if ( connector == NULL ) {
@@ -214,6 +225,11 @@ int32_t iolayer_associate( iolayer_t self, int32_t fd, void * privdata, reattach
     // assert( fd > 2 && "Illegal Descriptor" );
     assert( callback != NULL && "Illegal specified Callback-Function" );
     // assert( reattach != NULL && "Illegal specified Reattach-Function" );
+
+    // 网络线程组已停止
+    if ( unlikely( !iothreads_is_running( layer->threads ) ) ) {
+        return -1;
+    }
 
     struct associater * associater = (struct associater *)calloc( 1, sizeof( struct associater ) );
     if ( associater == NULL ) {
@@ -540,6 +556,11 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
     pthread_t threadid = pthread_self();
     struct iolayer * layer = (struct iolayer *)self;
 
+    // 网络线程组已停止, 直接返回失败, 不复制也不投递任何任务, 由业务层释放task
+    if ( unlikely( !iothreads_is_running( layer->threads ) ) ) {
+        return -1;
+    }
+
     if ( clone == NULL ) {
         uint32_t current = atomic_fetch_add_explicit(
             &layer->roundrobin, 1, memory_order_relaxed );
@@ -574,13 +595,21 @@ int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexe
     return 0;
 }
 
+void _recycle_task( int32_t type, void * task, taskrecycler_t recycle )
+{
+    if ( recycle != NULL ) {
+        recycle( type, task );
+    }
+}
+
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle )
 {
     uint8_t index = SID_INDEX( id );
     struct iolayer * layer = (struct iolayer *)self;
 
-    if ( unlikely( index >= layer->nthreads ) ) {
+    if ( unlikely( layer == NULL || index >= layer->nthreads ) ) {
         syslog( LOG_WARNING, "%s(SID=%ld) failed, the Session's index[%u] is invalid .", __FUNCTION__, id, index );
+        _recycle_task( type, task, recycle );
         return -1;
     }
 
@@ -588,11 +617,19 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
     struct iothread * thread = iothreads_get( layer->threads, index );
 
     if ( pthread_self() == thread->id ) {
+        // 失败时_perform_direct内部已回收任务
         return _perform_direct( layer, thread->manager, &ptask );
     }
 
     // 跨线程提交发送任务
-    return iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof( ptask ) );
+    // 投递成功后, 任务由IO线程负责(会话失效时在IO线程内回收)
+    if ( iothreads_post( layer->threads, index, eIOTaskType_Perform, (void *)&ptask, sizeof( ptask ) ) != 0 ) {
+        syslog( LOG_WARNING, "%s(SID=%ld, TASK:%d) failed, post to IOThread[%u] failed .", __FUNCTION__, id, type, index );
+        _recycle_task( type, task, recycle );
+        return -1;
+    }
+
+    return 0;
 }
 
 int32_t iolayer_shutdown( iolayer_t self, sid_t id )
@@ -844,6 +881,11 @@ int32_t iolayer_assign_session( struct iolayer * self, uint8_t acceptidx, uint8_
 #else
     if ( acceptidx == index ) {
         return _assign_direct( self, acceptidx, iothreads_get_sets( self->threads, acceptidx ), task );
+    }
+    // 网络线程组已停止, 释放描述符和地址
+    if ( unlikely( !iothreads_is_running( self->threads ) ) ) {
+        _free_task_assign( task );
+        return -1;
     }
     // 跨线程提交发送任务
     return iothreads_post( self->threads, index, eIOTaskType_Assign, task, sizeof( struct task_assign ) );
@@ -1195,22 +1237,25 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
         session_start( session, eSessionType_Accept, task->fd, sets );
     } else if ( task->type == NETWORK_KCP ) {
         // 创建UDP驱动
+        int32_t rc = -1;
         struct driver * driver = driver_create(
             session, &( task->transfer->buffer ), &( task->acceptor->options ) );
-        if ( driver == NULL ) {
+        // 设置ip地址和端口号(添加到eptable中)
+        if ( driver != NULL ) {
+            rc = driver_set_endpoint( driver,
+                task->acceptor->eptable,
+                task->transfer->addr.ss_family, task->host, task->port );
+        }
+        if ( driver == NULL || rc != 0 ) {
             syslog( LOG_WARNING,
                 "%s(fd:%d, host:'%s', port:%d) failed, initialize driver .",
                 __FUNCTION__, task->fd, task->host, task->port );
+            if ( driver != NULL ) driver_destroy( driver );
             session_manager_remove( thread->manager, session );
             session_end( session, id, 0 );
             _free_task_assign( task );
             return -2;
         }
-
-        // 设置ip地址和端口号(添加到eptable中)
-        driver_set_endpoint(
-            driver, task->acceptor->eptable,
-            task->transfer->addr.ss_family, task->host, task->port );
 
         // 初始化会话信息
         session_set_driver( session, driver );
@@ -1361,7 +1406,7 @@ int32_t _perform_direct( struct iolayer * self, struct session_manager * manager
         rc = -1;
         syslog( LOG_WARNING, "%s(SID=%ld, TASK:%u) failed, the Session is invalid .", __FUNCTION__, task->id, task->type );
         // 回收任务
-        task->recycle( task->type, task->task );
+        _recycle_task( task->type, task->task, task->recycle );
     }
 
     return rc;

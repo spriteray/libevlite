@@ -106,9 +106,10 @@ ssize_t _read_withsize( struct buffer * self, int32_t fd, ssize_t nbytes )
     ssize_t nread = -1;
 
     if ( nbytes == -1 ) {
-        int32_t rc = ioctl( fd, FIONREAD, &nread );
-        if ( rc == 0 && nread > 0 ) {
-            nbytes = nread;
+        int avail = 0;
+        int32_t rc = ioctl( fd, FIONREAD, &avail );
+        if ( rc == 0 && avail > 0 ) {
+            nbytes = avail;
         } else {
             nbytes = MAX_BUFFER_LENGTH;
         }

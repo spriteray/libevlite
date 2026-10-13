@@ -128,6 +128,13 @@ int8_t iothreads_get_index( iothreads_t self )
     return -1;
 }
 
+int32_t iothreads_is_running( iothreads_t self )
+{
+    struct iothreads * iothreads = (struct iothreads *)( self );
+    assert( iothreads != NULL );
+    return likely( iothreads->runflags == 1 );
+}
+
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index )
 {
     struct iothreads * iothreads = (struct iothreads *)( self );

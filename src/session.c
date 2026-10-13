@@ -19,10 +19,8 @@ static inline void _init_settings( struct session_setting * self );
 
 // 发送数据
 // _send_only()仅发送,
-// _send_message()发送消息, 未发送成功的添加到发送队列中
 // _send_buffer()发送数据, 未发送成功的创建消息, 添加到发送队列中
 static inline ssize_t _send_only( struct session * self, char * buf, size_t nbytes );
-static inline ssize_t _send_message( struct session * self, struct message * message );
 static inline ssize_t _send_buffer( struct session * self, char * buf, size_t nbytes );
 
 //
@@ -195,28 +193,6 @@ ssize_t _send_only( struct session * self, char * buf, size_t nbytes )
         // 为什么发送错误没有直接终止会话呢？
         // 该接口有可能在ioservice_t中调用, 直接终止会话后, 会引发后续对会话的操作崩溃
         // 发送出错的情况下, 添加写事件, 在channel.c:_transmit()出错后, 会尝试关闭连接
-    }
-
-    return ntry;
-}
-
-ssize_t _send_message( struct session * self, struct message * message )
-{
-    ssize_t ntry = 0;
-    char * buf = message_get_buffer( message );
-    size_t nbytes = message_get_length( message );
-
-    // 发送
-    ntry = _send_only( self, buf, nbytes );
-    if ( ntry >= 0 && ntry < (ssize_t)nbytes ) {
-        // 未全部发送成功的情况下
-
-        // 添加到发送队列中
-        // ntry == 0有两种情况:1. 繁忙; 2. 发送出错
-        self->msgoffset += ntry;
-        QUEUE_PUSH( sendqueue ) ( &self->sendqueue, &message );
-        // 增加写事件
-        session_add_event( self, EV_WRITE );
     }
 
     return ntry;

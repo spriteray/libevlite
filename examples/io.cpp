@@ -372,13 +372,8 @@ int32_t IIOService::invoke( void * task, taskcloner_t clone, taskexecutor_t exec
 
 int32_t IIOService::perform( sid_t sid, int32_t type, void * task, taskrecycler_t recycle )
 {
-    int32_t rc = iolayer_perform( m_IOLayer, sid, type, task, recycle );
-    if ( rc != 0 )
-    {
-        recycle( type, task );
-    }
-
-    return rc;
+    // 失败时由iolayer_perform()负责回收任务, 此处不能再次回收
+    return iolayer_perform( m_IOLayer, sid, type, task, recycle );
 }
 
 int32_t IIOService::shutdown( sid_t id )

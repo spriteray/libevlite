@@ -221,7 +221,7 @@ int32_t epoll_del( void * arg, struct event * ev )
     struct epoller * poller = (struct epoller *)arg;
 
     fd = event_get_fd( (event_t)ev );
-    if ( fd >= poller->npairs ) {
+    if ( fd < 0 || fd >= poller->npairs ) {
         return -1;
     }
 

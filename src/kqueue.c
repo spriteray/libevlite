@@ -9,6 +9,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
+#include <syslog.h>
 
 #include <sys/types.h>
 #include <sys/event.h>
@@ -219,6 +220,11 @@ int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv )
         ptsp = &tsp;
     }
 
+    // 保证结果数组能容纳所有变更的错误, 否则kevent()会返回-1并丢弃剩余变更
+    while ( poller->nevents < poller->nchanges ) {
+        if ( kqueue_expand( poller ) != 0 ) break;
+    }
+
     res = kevent( poller->kqueuefd,
         poller->changes, poller->nchanges, poller->events, poller->nevents, ptsp );
     poller->nchanges = 0;
@@ -242,8 +248,8 @@ int32_t kqueue_dispatch( struct eventset * sets, void * arg, int32_t tv )
                 continue;
             }
 
-            errno = (int32_t)poller->events[i].data;
-            return -2;
+            syslog( LOG_WARNING, "%s() kevent(fd:%d) error <%d>", __FUNCTION__, (int32_t)poller->events[i].ident, (int32_t)poller->events[i].data );
+            continue;
         }
 
         if ( poller->events[i].filter == EVFILT_READ ) {

@@ -186,7 +186,6 @@ int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
 // 设置kcp的窗口, MTU, MINRTO
 // MTU范围50..65507字节, 在所属IO线程调用; 0表示请求已接受, 不保证立即生效。
 // KCP待发送/待确认分片清空后应用, 多次设置以最后一次有效请求为准。
-// 持续发送可能推迟生效; 延后应用分配失败会自动重试。
 // 返回-1表示SID或MTU非法, -2表示立即应用时分配失败; 非KCP会话保持无操作。
 int32_t iolayer_set_mtu( iolayer_t self, sid_t id, int32_t mtu );
 int32_t iolayer_set_minrto( iolayer_t self, sid_t id, int32_t minrto );
@@ -238,18 +237,21 @@ typedef void ( *taskexecutor_t )( void *, void * );
 //                          如果为NULL, 随机选择一个网络线程投递
 //                          如果指定一个返回NULL的clone函数，将会投递给0号线程
 //      execute         - 任务处理函数(参考taskexecutor_t的定义)
+//      返回值: 0  - 已交付
+//              -1 - 网络线程组已停止, 未复制也未投递任何任务, 业务层需自行释放task
 int32_t iolayer_invoke( iolayer_t self, void * task, taskcloner_t clone, taskexecutor_t execute );
 
-// 任务回收函数(仅在投递失败时回调)
-// 任务一旦进入 onPerform()，生命周期由业务层负责。
-//      参数1: 类型
+// 任务回收函数
+//      参数1: 任务类型
 //      参数2: 任务
 typedef void ( *taskrecycler_t )( int32_t, void * );
 // 分派任务给指定的会话, 通过ioservice_t::perform()回调执行该任务
 //      id              - 会话ID
 //      type            - 任务类型
 //      task            - 任务数据
-//      recycle         - 投递失败时的任务回收函数
+//      recycle         - 任务回收函数(参考taskrecycler_t的定义), 可为NULL
+//      返回值: 0  - 已交付, 任务进入ioservice_t::perform()后由业务层负责释放
+//              -1 - 失败, 网络层已回收任务, 调用方不能再释放
 int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, taskrecycler_t recycle );
 
 // 停止网络服务
@@ -260,6 +262,7 @@ int32_t iolayer_perform( iolayer_t self, sid_t id, int32_t type, void * task, ta
 void iolayer_stop( iolayer_t self );
 
 // 销毁网络层
+// 调用前须保证业务层已停止投递任务(iolayer_perform()/iolayer_invoke()等), 否则并发投递的任务可能泄漏
 void iolayer_destroy( iolayer_t self );
 
 #ifdef __cplusplus

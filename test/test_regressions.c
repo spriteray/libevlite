@@ -2,12 +2,14 @@
 #include <errno.h>
 #include <stdatomic.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/uio.h>
 
 #include "network.h"
+#include "network-internal.h"
 #include "channel.h"
 #include "session.h"
 #include "event-internal.h"
@@ -318,6 +320,82 @@ static void test_tcp_flush( int interrupt )
     close( sockets[1] );
 }
 
+// iolayer_perform(): 所有失败路径由网络层回收且仅回收一次
+static atomic_int perform_recycled;
+static void count_recycle( int32_t type, void * task )
+{
+    assert( type == 7 );
+    atomic_fetch_add( &perform_recycled, 1 );
+    free( task );
+}
+
+struct perform_probe {
+    iolayer_t layer;
+    sid_t sid;
+    atomic_int done;
+    int32_t rc;
+};
+
+static void perform_in_iothread( void * context, void * task )
+{
+    (void)context;
+    struct perform_probe * probe = task;
+    probe->rc = iolayer_perform( probe->layer, probe->sid, 7, malloc( 16 ), count_recycle );
+    atomic_store( &probe->done, 1 );
+}
+
+static void wait_recycled( int expected )
+{
+    for ( int i = 0; i < 5000 && atomic_load( &perform_recycled ) < expected; ++i ) {
+        usleep( 1000 );
+    }
+    usleep( 10000 );
+    assert( atomic_load( &perform_recycled ) == expected );
+}
+
+static void test_perform_recycle( void )
+{
+    // 指向0号线程上不存在的会话
+    sid_t invalid = ( (sid_t)1 << ( SID_SEQ_BITS + SID_VERSION_BITS ) ) | 12345;
+    iolayer_t layer = iolayer_create( 1, 16, 1 );
+    assert( layer != NULL );
+
+    // 1. 非法线程索引
+    atomic_store( &perform_recycled, 0 );
+    assert( iolayer_perform( layer, 0, 7, malloc( 16 ), count_recycle ) != 0 );
+    wait_recycled( 1 );
+
+    // 2. 同线程, 会话无效: 返回非0且仅回收一次
+    atomic_store( &perform_recycled, 0 );
+    struct perform_probe probe = { .layer = layer, .sid = invalid };
+    assert( iolayer_invoke( layer, &probe, NULL, perform_in_iothread ) == 0 );
+    for ( int i = 0; i < 5000 && atomic_load( &probe.done ) == 0; ++i ) {
+        usleep( 1000 );
+    }
+    assert( atomic_load( &probe.done ) == 1 && probe.rc != 0 );
+    wait_recycled( 1 );
+
+    // 3. 跨线程, 会话无效: 投递成功, 在IO线程内回收一次
+    atomic_store( &perform_recycled, 0 );
+    assert( iolayer_perform( layer, invalid, 7, malloc( 16 ), count_recycle ) == 0 );
+    wait_recycled( 1 );
+
+    // 4. recycle为NULL时不崩溃
+    char stack_task[16];
+    assert( iolayer_perform( layer, 0, 7, stack_task, NULL ) != 0 );
+    assert( iolayer_perform( layer, invalid, 7, stack_task, NULL ) == 0 );
+
+    // 5. 跨线程投递失败(模拟线程组已停止): 回收一次
+    struct iothreads * threads = (struct iothreads *)( (struct iolayer *)layer )->threads;
+    threads->runflags = 0;
+    atomic_store( &perform_recycled, 0 );
+    assert( iolayer_perform( layer, invalid, 7, malloc( 16 ), count_recycle ) != 0 );
+    wait_recycled( 1 );
+    threads->runflags = 1;
+
+    iolayer_destroy( layer );
+}
+
 int main( void )
 {
     test_buffer_compact_growth();
@@ -326,6 +404,7 @@ int main( void )
     test_cross_thread_schedule();
     test_session_shutdown();
     test_send_result();
+    test_perform_recycle();
     test_tcp_flush( 0 );
 #ifdef TEST_WRITEV_INTERRUPT
     test_tcp_flush( 1 );

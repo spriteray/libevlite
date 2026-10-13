@@ -52,6 +52,9 @@ iothreads_t iothreads_start( uint8_t nthreads, uint32_t nclients, int32_t precis
 // 设置处理器
 void iothreads_set_processor( iothreads_t self, processor_t processor, void * context );
 
+// 网络线程组是否在运行中(未调用iothreads_stop())
+int32_t iothreads_is_running( iothreads_t self );
+
 // 获取网络线程组中指定线程的ID
 pthread_t iothreads_get_id( iothreads_t self, uint8_t index );
 

@@ -160,7 +160,6 @@ int32_t evtimer_clean( struct evtimer * self )
 
             ++rc;
             ev = next;
-            --self->event_count;
         }
     }
 

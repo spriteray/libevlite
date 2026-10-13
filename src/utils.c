@@ -435,16 +435,18 @@ int32_t udp_connect( struct sockaddr_storage * localaddr, struct sockaddr_storag
     }
 
     options( newfd );
+    socklen_t locallen = localaddr->ss_family == AF_INET6 ? sizeof( struct sockaddr_in6 ) : sizeof( struct sockaddr_in );
+    socklen_t remotelen = remoteaddr->ss_family == AF_INET6 ? sizeof( struct sockaddr_in6 ) : sizeof( struct sockaddr_in );
 
     // 绑定
-    if ( bind( newfd, (struct sockaddr *)localaddr, sizeof( struct sockaddr ) ) < 0 ) {
+    if ( bind( newfd, (struct sockaddr *)localaddr, locallen ) < 0 ) {
         close( newfd );
         return -2;
     }
 
     // 连接
     int32_t rc = connect( newfd,
-        (struct sockaddr *)remoteaddr, sizeof( struct sockaddr ) );
+        (struct sockaddr *)remoteaddr, remotelen );
     // 出错的情况下, 忽略EINPROGRESS, EINTR
     if ( rc == -1
         && errno != EINTR

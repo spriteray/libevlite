@@ -206,12 +206,10 @@ void _reconnected( int32_t fd, int16_t ev, void * arg )
     session->status &= ~SESSION_WRITING;
 
     if ( ev & EV_WRITE ) {
-#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
         if ( is_connected( fd ) != 0 ) {
             session_error( session, eIOError_ConnectStatus );
             return;
         }
-#endif
         // 总算是连接上了
 
         // 把缓存的消息提取出来
@@ -559,12 +557,9 @@ void channel_on_connected( int32_t fd, int16_t ev, void * arg )
     struct iothread * thread = iothreads_get( layer->threads, connector->index );
 
     if ( ev & EV_WRITE ) {
-#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
-        // linux需要进一步检查连接是否成功
         if ( is_connected( fd ) != 0 ) {
             result = eIOError_ConnectStatus;
         }
-#endif
     } else {
         result = eIOError_Timeout;
     }
@@ -626,12 +621,9 @@ void channel_on_associated( int32_t fd, int16_t ev, void * arg )
     struct iothread * thread = iothreads_get( layer->threads, associater->index );
 
     if ( ev & EV_WRITE ) {
-#if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
-        // linux需要进一步检查连接是否成功
         if ( is_connected( fd ) != 0 ) {
             result = eIOError_ConnectStatus;
         }
-#endif
     } else {
         result = eIOError_Timeout;
     }
