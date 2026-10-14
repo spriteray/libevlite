@@ -881,6 +881,7 @@ void iolayer_accept_fdlimits( struct acceptor * acceptor )
         acceptor->idlefd = open( "/dev/null", O_RDONLY | O_CLOEXEC );
         if ( acceptor->idlefd >= 0 ) return;
     }
+
     // 无法预留描述符, 暂停accept, 避免空转
     evsets_del( acceptor->evsets, acceptor->event );
     event_set( acceptor->event, -1, 0 );

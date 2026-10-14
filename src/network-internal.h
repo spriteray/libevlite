@@ -14,6 +14,8 @@
 // 发送队列的默认大小
 #define DEFAULT_SENDQUEUE_SIZE 128
 
+// 发送队列上限检查时间
+#define SENDQUEUE_LIMIT_TIMEOUT_MSECS 1000
 // 关闭前最大等待时间,默认10s
 #define MAX_SECONDS_WAIT_FOR_SHUTDOWN ( 10 * 1000 )
 

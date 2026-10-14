@@ -37,6 +37,7 @@ public:
 
     virtual int32_t onStart() { return 0; }
     virtual ssize_t onProcess( const char * buffer, size_t nbytes ) { return 0; }
+    // 输入只读; 返回原指针时长度不变。改造须返回独立malloc缓冲区, 由网络库释放。
     virtual char * onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>( buffer ); }
     virtual int32_t onTimeout() { return 0; }
     virtual int32_t onKeepalive() { return 0; }
@@ -126,7 +127,7 @@ public:
     // 初始化/销毁IO上下文
     virtual void finalIOContext( void * context ) {}
     virtual void * initIOContext() { return nullptr; }
-    // 数据改造
+    // 数据改造: 输入只读; 返回原指针时长度不变, 新结果须独立malloc并交给网络库释放。
     virtual char * onTransform( const char * buffer, size_t & nbytes ) { return const_cast<char *>( buffer ); }
     // 回调事件
     // 需要调用者自己实现

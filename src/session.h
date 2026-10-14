@@ -157,7 +157,7 @@ ssize_t session_sendmessage( struct session * self, struct message * message );
 // These operations may close and release the session.
 void session_flush_sendqueue( struct session * self );
 // session
-void session_error( struct session * self, int32_t result );
+void session_error( struct session * self, int32_t result, int8_t iswarning );
 
 // 会话注册/反注册网络事件
 void session_add_event( struct session * self, int16_t ev );

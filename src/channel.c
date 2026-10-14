@@ -117,7 +117,7 @@ void channel_udpprocess( struct session * session, struct buffer * buffer, uint8
     ssize_t rc = driver_input(
         session->driver, buffer, &( session->inbuffer ) );
     if ( rc == -2 ) {
-        session_error( session, eIOError_OutMemory );
+        session_error( session, eIOError_OutMemory, 0 );
         return;
     }
 
@@ -208,7 +208,7 @@ void _reconnected( int32_t fd, int16_t ev, void * arg )
     if ( ev & EV_WRITE ) {
 #if defined EVENT_OS_LINUX || defined EVENT_OS_MACOS
         if ( is_connected( fd ) != 0 ) {
-            session_error( session, eIOError_ConnectStatus );
+            session_error( session, eIOError_ConnectStatus, 0 );
             return;
         }
 #endif
@@ -348,30 +348,30 @@ void channel_on_read( int32_t fd, int16_t ev, void * arg )
 
                 if ( nread == -2 ) {
                     // expand() failure
-                    session_error( session, eIOError_OutMemory );
+                    session_error( session, eIOError_OutMemory, 0 );
                 } else if ( nread == -1 ) {
                     // read() failure
                     switch ( current_errno ) {
                         case EBADF :
                         case EISDIR :
-                            session_error( session, eIOError_SocketInvalid );
+                            session_error( session, eIOError_SocketInvalid, 0 );
                             break;
                         case EFAULT :
-                            session_error( session, eIOError_InBufferInvalid );
+                            session_error( session, eIOError_InBufferInvalid, 0 );
                             break;
                         case EINVAL :
-                            session_error( session, eIOError_ReadInvalid );
+                            session_error( session, eIOError_ReadInvalid, 0 );
                             break;
                         case EIO :
-                            session_error( session, eIOError_ReadIOError );
+                            session_error( session, eIOError_ReadIOError, 0 );
                             break;
                         default :
-                            session_error( session, eIOError_ReadFailure );
+                            session_error( session, eIOError_ReadFailure, 0 );
                             break;
                     }
                 } else if ( nread == 0 ) {
                     // peer shutdown
-                    session_error( session, eIOError_PeerShutdown );
+                    session_error( session, eIOError_PeerShutdown, 0 );
                 }
             }
         }
@@ -389,11 +389,15 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
         session->status &= ~SESSION_WRITING;
         session_flush_sendqueue( session );
     } else if ( ev & EV_TIMEOUT ) {
-        // 等待关闭的会话写事件超时的情况下
-        // 不管发送队列如何, 直接终止会话
+        // 关闭超时直接终止, 普通发送超时重新检查队列。
         session->status &= ~SESSION_WRITING;
-        assert( session->status & SESSION_EXITING );
-        channel_shutdown( session );
+        if ( session->status & SESSION_EXITING ) {
+            channel_shutdown( session );
+        } else {
+            // 队列达到上限后补上的timer。重新尝试发送并检查当前积压,
+            // session_flush_sendqueue()沿用原有错误处理契约。
+            session_flush_sendqueue( session );
+        }
     }
 }
 
@@ -536,7 +540,7 @@ void channel_on_reconnect( int32_t fd, int16_t ev, void * arg )
     }
 
     if ( session->fd < 0 ) {
-        session_error( session, eIOError_ConnectFailure );
+        session_error( session, eIOError_ConnectFailure, 0 );
         return;
     }
 

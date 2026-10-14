@@ -16,6 +16,7 @@ struct driver
     ikcpcb * kcp;                 // kcp对象
     int32_t mtu;                  // 待生效的MTU, 0表示无请求
     event_t timer;                // 定时器
+    uint32_t deadline;            // 定时器到期时间(kcp时钟)
     int64_t epoch;                // 开始时间
     struct udpentry * entry;      // UDP条目
     struct sockaddr_storage addr; // 对端地址

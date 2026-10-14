@@ -9,7 +9,13 @@ struct msgqueue * msgqueue_create( uint32_t size )
 {
     struct msgqueue * self = NULL;
 
-    self = (struct msgqueue *)malloc( sizeof( struct msgqueue ) );
+    // taskqueue及其锁可能要求64字节对齐, 普通malloc不保证满足。
+    void * storage = NULL;
+    if ( posix_memalign( &storage, 
+        _Alignof( struct msgqueue ), sizeof( struct msgqueue ) ) != 0 ) {
+        return NULL;
+    }
+    self = (struct msgqueue *)storage;
     if ( self ) {
         self->popfd = -1;
         self->pushfd = -1;

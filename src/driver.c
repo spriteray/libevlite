@@ -3,6 +3,7 @@
 #include <errno.h>
 #include <limits.h>
 #include <stdlib.h>
+#include <syslog.h>
 
 #include "utils.h"
 #include "message.h"
@@ -13,6 +14,7 @@
 
 #include "driver.h"
 
+static inline size_t _kcp_max_send( struct driver * self );
 static inline int32_t _kcp_can_send( struct driver * self );
 static inline uint32_t _kcp_milliseconds( struct driver * self );
 static inline struct session * _get_session( struct driver * self );
@@ -161,14 +163,25 @@ ssize_t driver_transmit( struct session * session )
         struct message * message = NULL;
         QUEUE_TOP( sendqueue ) ( &session->sendqueue, &message );
         size_t length = message_get_length( message ) - session->msgoffset;
-        if ( length > INT_MAX ) {
-            return -1;
+        if ( length > _kcp_max_send( driver ) ) {
+            if ( !driver->kcp->stream ) {
+                // 消息模式超过KCP分片上限, 丢弃该消息
+                session->msgoffset = 0;
+                QUEUE_POP( sendqueue ) ( &session->sendqueue, &message );
+                message_add_failure( message, session->id );
+                if ( message_is_complete( message ) ) {
+                    message_destroy( message );
+                }
+                syslog( LOG_WARNING, "%s(SID=%ld) failed, the message(LENGTH=%lu) is too large .", __FUNCTION__, session->id, length );
+                continue;
+            }
+            // 流模式分段发送
+            length = _kcp_max_send( driver );
         }
         // 发送数据给KCP
         if ( length > 0 ) {
             rc = ikcp_send( driver->kcp,
                 message_get_buffer( message ) + session->msgoffset, (int32_t)length );
-            ikcp_flush( driver->kcp );
         }
         if ( rc < 0 ) {
             return -1;
@@ -201,10 +214,16 @@ ssize_t driver_send( struct session * session, char * buf, size_t nbytes )
     int32_t rc = 0;
     struct driver * d = session->driver;
 
-    if ( nbytes <= INT_MAX && _kcp_can_send( d ) ) {
+    if ( nbytes > _kcp_max_send( d ) ) {
+        // 消息模式超过KCP分片上限
+        if ( !d->kcp->stream ) {
+            return -1;
+        }
+        nbytes = _kcp_max_send( d );
+    }
+    if ( _kcp_can_send( d ) ) {
         // 发送
-        rc = ikcp_send(
-            d->kcp, buf, (int32_t)nbytes );
+        rc = ikcp_send( d->kcp, buf, (int32_t)nbytes );
     }
 
     // 写事件, 立刻update()不需要等下一轮
@@ -290,7 +309,7 @@ void _kcp_timer( int32_t fd, int16_t ev, void * arg )
 
     // Only the timer reports dead links: send/input callers may still use the session.
     if ( session->driver->kcp->state == (IUINT32)-1 ) {
-        session_error( session, eIOError_KcpDeadLink );
+        session_error( session, eIOError_KcpDeadLink, 0 );
         return;
     }
 
@@ -316,8 +335,12 @@ void _kcp_schedule( struct driver * self, int32_t timeout )
         timeout = EVENTSET_PRECISION( session->evsets );
     }
 
-    // 还在定时器中, 移除
+    // 已有更早的定时器, 不必重排
+    uint32_t deadline = _kcp_milliseconds( self ) + timeout;
     if ( session->status & SESSION_SCHEDULING ) {
+        if ( (int32_t)( deadline - self->deadline ) >= 0 ) {
+            return;
+        }
         evsets_del( session->evsets, self->timer );
         session->status &= ~SESSION_SCHEDULING;
     }
@@ -326,6 +349,7 @@ void _kcp_schedule( struct driver * self, int32_t timeout )
     event_set( self->timer, -1, 0 );
     event_set_callback( self->timer, _kcp_timer, session );
     evsets_add( session->evsets, self->timer, timeout );
+    self->deadline = deadline;
     session->status |= SESSION_SCHEDULING;
 }
 
@@ -347,7 +371,14 @@ int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * user )
     return (int32_t)writen;
 }
 
+size_t _kcp_max_send( struct driver * self )
+{
+    // ikcp_send()单次最多分片数(IKCP_WND_RCV - 1)
+    return (size_t)127 * self->kcp->mss;
+}
+
 int32_t _kcp_can_send( struct driver * self )
 {
     return (uint32_t)ikcp_waitsnd( self->kcp ) < 4 * self->kcp->snd_wnd;
 }
+

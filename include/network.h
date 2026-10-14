@@ -67,11 +67,14 @@ typedef struct
 //        process()     - 收到数据包的回调
 //                        返回已消费字节数(不超过nbytes); 0:保留数据, <0:出错,结束会话
 //        transform()   - 发送数据包前的回调
-//                        返回需要发送的数据包
-//                        如果改造了数据包，请务必确保1.禁止原地改造; 2.数据包是必须是malloc()分配出来的
+//                        输入只读, 禁止原地修改、释放或realloc; 广播输入可能由多个接收者共享。
+//                        不改造: 返回原指针且保持*nbytes不变。
+//                        改造: 返回独立malloc分配的新缓冲区并更新*nbytes, 由网络层free。
+//                        失败: 返回NULL, 输入仍由原所有者管理; 不得返回输入内部指针。
+//                        先执行网络层transform, 再对各会话执行此回调。
 //        keepalive()   - 保活定时器超时的回调
 //        timeout()     - 超时的回调
-//        error()       - 出错的回调
+//        error()       - 错误或警告的回调
 //                        对于accept()出来的客户端, 直接回调shutdown();
 //                        对于connect()出去的客户端, ==0, 尝试重连, !=0, 直接回调shutdown();
 //                        对于assoicate()关联的客户端, 设置过reattach函数, 行为类似connect(), 未设置过的, 直接回调shutdown() .
@@ -108,15 +111,18 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision
 //                        确保长度和网络线程个数相等, 毕竟多个网络线程是对等的
 int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count );
 
-// 数据改造方法(不建议原地改造)
+// 网络层数据改造方法(与ioservice_t::transform采用相同的只读输入及所有权规则)
 //      参数1: 上下文参数
 //      参数2: 欲发送或者广播的消息内容
-//      参数3: 指向消息长度的指针, 返回改造后的数据包长度
+//      参数3: 指向消息长度的指针; 返回新缓冲区时更新长度, 返回原指针时保持不变
+// 返回原指针表示不改造; 返回独立malloc缓冲区表示改造成功, 由网络层free;
+// 返回NULL表示失败。禁止修改、释放或realloc输入, 禁止返回输入内部指针。
 typedef char * ( *transformer_t )( void *, const char *, size_t * );
 // 网络层设置数据包改造方法,
 // 该网络层的统一的数据包改造方法(在listen(), connect(), associate()之前调用)
 //        self          -
-//        transform     - 数据包改造方法(不建议原地改造)
+// 广播时每个IO线程对自己的消息副本执行一次, 之后再执行各会话的transform。
+//        transform     - 数据包改造方法(禁止原地改造); 多个IO线程可能并发调用
 //        context       - 上下文参数
 int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * context );
 
@@ -181,7 +187,10 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
 // 设置读事件常驻事件库( 默认为0; 激活后, 极端的情况下能提高IO性能40%左右 )
 int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
-// 设置发送队列阈值, 超过阈值关闭连接( 默认为0: 不限制 )
+// 设置发送队列告警阈值(消息条数; 默认0, 非正值不检查), 不拒绝消息入队。
+// 发送检查后剩余队列达到阈值时, 回调error(eIOError_SendQueueLimit):
+// 返回0继续发送, 非0终止会话。TCP配置正数阈值时, 注册写事件附带约1秒检查超时,
+// 即使一直不可写也会检查; KCP沿用协议定时器检查。建议在start()中设置。
 int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
 // 设置kcp的窗口, MTU, MINRTO
 // MTU范围50..65507字节, 在所属IO线程调用; 0表示请求已接受, 不保证立即生效。

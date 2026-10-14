@@ -435,27 +435,19 @@ ssize_t session_sendmessage( struct session * self, struct message * message )
     return rc;
 }
 
-void session_error( struct session * self, int32_t result )
+void session_error( struct session * self, int32_t result, int8_t iswarning )
 {
-    /* 出错
-     * 出错时, libevlite会直接终止会话, 丢弃发送队列中的数据
-     *
-     * 根据会话的类型
-     *        1. 临时会话, 直接终止会话
-     *        2. 永久会话, 终止socket, 尝试重新连接
-     */
+    // 警告默认保留连接; 普通错误按会话类型关闭或重连。
     int8_t isattach = session_is_reattch( self );
     int32_t rc = self->service.error( self->context, result );
-    if ( isattach == 0
-        || ( isattach == 1 && rc != 0 )
+    if ( iswarning && rc == 0 ) return;
+
+    if ( rc != 0 || !isattach 
         || ( self->status & SESSION_EXITING ) ) {
-        // 临时会话
-        // 等待终止的会话
-        // 逻辑层需要终止的永久会话
-        // 直接终止会话, 导致发送队列中的数据丢失
+        // 业务要求关闭、不可重连或正在退出。
         channel_shutdown( self );
     } else {
-        // 尝试重连的永久会话
+        // 普通错误, 业务允许继续, 尝试重连。
         session_start_reconnect( self );
     }
 }
@@ -470,17 +462,17 @@ void session_flush_sendqueue( struct session * self )
 
     ssize_t writen = queuesize > 0 ? self->setting.transmit( self ) : 0;
     if ( writen < 0 ) {
-        session_error( self, eIOError_WriteFailure );
+        session_error( self, eIOError_WriteFailure, 0 );
         return;
     }
 
     queuesize = session_sendqueue_count( self );
     if ( queuesize > 0 ) {
-        if ( self->setting.sendqueue_limit <= 0
-            || queuesize < self->setting.sendqueue_limit ) {
-            session_add_event( self, EV_WRITE );
-        } else {
-            session_error( self, eIOError_SendQueueLimit );
+        // 先恢复写事件; 警告回调可能关闭并释放self, 之后不能再访问。
+        session_add_event( self, EV_WRITE );
+        if ( self->setting.sendqueue_limit > 0
+            && queuesize >= self->setting.sendqueue_limit ) {
+            session_error( self, eIOError_SendQueueLimit, 1 );
         }
         return;
     }
@@ -523,17 +515,19 @@ void session_add_event( struct session * self, int16_t ev )
 
     // 注册写事件
     if ( direction == EV_WRITE && !( status & SESSION_WRITING ) ) {
-        int32_t wait_for_shutdown = -1;
+        int32_t timeout_msecs = -1;
         // 在等待退出的会话上总是会添加10s的定时器
         if ( status & SESSION_EXITING ) {
             // 对端主机崩溃 + Socket缓冲区满的情况下
             // 会一直等不到EV_WRITE发生, 这时libevlite就出现了会话泄漏
-            wait_for_shutdown = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
+            timeout_msecs = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
+        } else if ( self->type != eSessionType_Shared
+            && self->setting.sendqueue_limit > 0 ) {
+            timeout_msecs = SENDQUEUE_LIMIT_TIMEOUT_MSECS;
         }
         event_set( self->evwrite, fd, event );
         event_set_callback( self->evwrite, self->setting.write_callback, self );
-        evsets_add( self->evsets, self->evwrite, wait_for_shutdown );
-        // 修改写状态
+        evsets_add( self->evsets, self->evwrite, timeout_msecs );
         self->status |= SESSION_WRITING;
     }
 }
