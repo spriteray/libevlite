@@ -2,9 +2,10 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h>
 
 #include "utils.h"
-#include "ephashtable.h"
+#include "addrtable.h"
 
 #define INVOKE( self, method, entry ) \
     if ( ( self )->helper != NULL ) { ( self )->helper( ( method ), ( entry ) ); }
@@ -53,17 +54,32 @@ static inline uint32_t _hash_function( const void * key, int32_t len, uint32_t s
     return h;
 }
 
-static uint32_t _get_hashkey( const char * host, uint16_t port )
+static inline void _make_key( const struct sockaddr_storage * addr, struct epkey * key )
 {
-    return _hash_function( host, strlen( host ), 5381U ^ port );
+    memset( key, 0, sizeof( struct epkey ) );
+    key->family = addr->ss_family;
+    if ( addr->ss_family == AF_INET ) {
+        const struct sockaddr_in * a4 = (const struct sockaddr_in *)addr;
+        key->port = a4->sin_port;
+        memcpy( key->addr, &a4->sin_addr, 4 );
+    } else if ( addr->ss_family == AF_INET6 ) {
+        const struct sockaddr_in6 * a6 = (const struct sockaddr_in6 *)addr;
+        key->port = a6->sin6_port;
+        memcpy( key->addr, &a6->sin6_addr, 16 );
+    }
 }
 
-struct ephashtable * ephashtable_create( size_t count, size_t size, helper_t helper )
+static uint32_t _get_hashkey( const struct epkey * key )
 {
-    struct ephashtable * q = NULL;
+    return _hash_function( key, sizeof( struct epkey ), 5381U );
+}
 
-    q = (struct ephashtable *)calloc( 1, sizeof( struct ephashtable ) );
-    assert( q != NULL && "create struct ephashtable failed" );
+struct addresstable * addrtable_create( size_t count, size_t size, helper_t helper )
+{
+    struct addresstable * q = NULL;
+
+    q = (struct addresstable *)calloc( 1, sizeof( struct addresstable ) );
+    assert( q != NULL && "create struct addresstable failed" );
 
     q->size = nextpow2( count );
     q->sizemask = q->size - 1;
@@ -76,7 +92,7 @@ struct ephashtable * ephashtable_create( size_t count, size_t size, helper_t hel
     return q;
 }
 
-void ephashtable_destroy( struct ephashtable * self )
+void addrtable_destroy( struct addresstable * self )
 {
     if ( self->table != NULL ) {
         for ( size_t i = 0; i < self->size; ++i ) {
@@ -103,16 +119,17 @@ void ephashtable_destroy( struct ephashtable * self )
     self = NULL;
 }
 
-void * ephashtable_find( struct ephashtable * self, const char * host, uint16_t port )
+void * addrtable_find( struct addresstable * self, const struct sockaddr_storage * addr )
 {
     if ( self->count == 0 ) {
         return NULL;
     }
 
-    struct endpoint * head = self->table[_get_hashkey(host, port) & self->sizemask];
+    struct epkey key;
+    _make_key( addr, &key );
+    struct endpoint * head = self->table[_get_hashkey( &key ) & self->sizemask];
     while ( head != NULL ) {
-        if ( port == head->port
-            && strcmp( host, head->host ) == 0 ) {
+        if ( memcmp( &key, &head->key, sizeof( key ) ) == 0 ) {
             return head->value;
         }
 
@@ -122,19 +139,20 @@ void * ephashtable_find( struct ephashtable * self, const char * host, uint16_t 
     return NULL;
 }
 
-void ephashtable_remove( struct ephashtable * self, const char * host, uint16_t port )
+void addrtable_remove( struct addresstable * self, const struct sockaddr_storage * addr )
 {
     if ( self->count == 0 ) {
         return;
     }
 
-    uint32_t index = _get_hashkey( host, port ) & self->sizemask;
+    struct epkey key;
+    _make_key( addr, &key );
+    uint32_t index = _get_hashkey( &key ) & self->sizemask;
 
     struct endpoint * prev = NULL;
     struct endpoint * head = self->table[index];
     while ( head != NULL ) {
-        if ( port == head->port
-            && strcmp( host, head->host ) == 0 ) {
+        if ( memcmp( &key, &head->key, sizeof( key ) ) == 0 ) {
             if ( prev != NULL ) {
                 prev->next = head->next;
             } else {
@@ -150,19 +168,20 @@ void ephashtable_remove( struct ephashtable * self, const char * host, uint16_t 
     }
 }
 
-void * ephashtable_append( struct ephashtable * self, const char * host, uint16_t port )
+void * addrtable_append( struct addresstable * self, const struct sockaddr_storage * addr )
 {
-    uint32_t index = _get_hashkey( host, port ) & self->sizemask;
+    struct epkey key;
+    _make_key( addr, &key );
+    uint32_t index = _get_hashkey( &key ) & self->sizemask;
 
     struct endpoint * entry = (struct endpoint *)calloc(
         1, sizeof( struct endpoint ) + self->objsize );
     assert( entry != NULL && "create struct udpentry failed" );
 
-    strcpy( entry->host, host );
+    entry->key = key;
     if ( self->objsize > 0 ) {
         entry->value = entry + 1;
     }
-    entry->port = port;
     entry->next = self->table[index];
     ++self->count;
     self->table[index] = entry;
@@ -170,3 +189,4 @@ void * ephashtable_append( struct ephashtable * self, const char * host, uint16_
 
     return entry->value;
 }
+

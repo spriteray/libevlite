@@ -8,7 +8,7 @@
 #include "utils.h"
 #include "message.h"
 #include "session.h"
-#include "ephashtable.h"
+#include "addrtable.h"
 #include "network-internal.h"
 #include "event-internal.h"
 
@@ -78,8 +78,7 @@ void driver_destroy( struct driver * self )
     }
 
     if ( self->entry != NULL ) {
-        ephashtable_remove(
-            self->entry->hashtable, session->host, session->port );
+        addrtable_remove( self->entry->addrtable, &( self->addr ) );
         self->entry = NULL;
     }
 
@@ -92,17 +91,18 @@ void driver_destroy( struct driver * self )
     self = NULL;
 }
 
-int32_t driver_set_endpoint( struct driver * self, struct ephashtable * table, int32_t family, const char * host, uint16_t port )
+int32_t driver_set_endpoint( struct driver * self, struct addresstable * table, int32_t family, const char * host, uint16_t port )
 {
+    convert_endpoint( &( self->addr ), family, host, port );
+
     // 添加到ep管理器中
-    self->entry = (struct udpentry *)ephashtable_append( table, host, port );
+    self->entry = (struct udpentry *)addrtable_append( table, &( self->addr ) );
     if ( self->entry == NULL ) {
         return -1;
     }
 
-    self->entry->hashtable = table;
+    self->entry->addrtable = table;
     self->entry->session = _get_session( self );
-    convert_endpoint( &( self->addr ), family, host, port );
 
     return 0;
 }

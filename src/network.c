@@ -16,7 +16,7 @@
 #include "channel.h"
 #include "session.h"
 #include "message.h"
-#include "ephashtable.h"
+#include "addrtable.h"
 #include "threads-internal.h"
 #include "network-internal.h"
 
@@ -810,9 +810,9 @@ void iolayer_free_acceptor( struct acceptor * acceptor )
         acceptor->idlefd = -1;
     }
 
-    if ( acceptor->eptable != NULL ) {
-        ephashtable_destroy( acceptor->eptable );
-        acceptor->eptable = NULL;
+    if ( acceptor->addrtable != NULL ) {
+        addrtable_destroy( acceptor->addrtable );
+        acceptor->addrtable = NULL;
     }
 
     if ( acceptor->transferlist != NULL ) {
@@ -1005,9 +1005,15 @@ struct acceptor * _server_listen( struct iolayer * layer, uint8_t type, uint8_t 
         acceptor->ntransfer = acceptor->options.ntransfer;
 #endif
 
-        // EP管理器
-        acceptor->eptable = ephashtable_create( 8192, sizeof( struct udpentry ), _udpentry_helper );
-        if ( acceptor->eptable == NULL ) {
+        // EP管理器, 桶数按本acceptor承载的会话数, 最少8192
+#ifndef EVENT_HAVE_REUSEPORT
+        uint32_t nbuckets = layer->nclients;
+#else
+        uint32_t nbuckets = layer->nclients / layer->nthreads;
+#endif
+        acceptor->addrtable = addrtable_create(
+            nbuckets > 8192 ? nbuckets : 8192, sizeof( struct udpentry ), _udpentry_helper );
+        if ( acceptor->addrtable == NULL ) {
             syslog( LOG_WARNING,
                 "%s(host:'%s', port:%d) failed, can't create EndpointTable .",
                 __FUNCTION__, host == NULL ? "" : host, port );
@@ -1265,10 +1271,10 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
         int32_t rc = -1;
         struct driver * driver = driver_create(
             session, &( task->transfer->buffer ), &( task->acceptor->options ) );
-        // 设置ip地址和端口号(添加到eptable中)
+        // 设置ip地址和端口号(添加到addrtable中)
         if ( driver != NULL ) {
             rc = driver_set_endpoint( driver,
-                task->acceptor->eptable,
+                task->acceptor->addrtable,
                 task->transfer->addr.ss_family, task->host, task->port );
         }
         if ( driver == NULL || rc != 0 ) {

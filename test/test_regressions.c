@@ -14,7 +14,8 @@
 #include "session.h"
 #include "event-internal.h"
 #include "threads-internal.h"
-#include "ephashtable.h"
+#include "addrtable.h"
+#include "utils.h"
 
 static void test_buffer_compact_growth( void )
 {
@@ -37,31 +38,37 @@ static void test_buffer_compact_growth( void )
 static void test_endpoint_keys( void )
 {
     const char * hosts[] = { "127.0.0.1", "::1", "2001:db8::1234" };
+    int32_t families[] = { AF_INET, AF_INET6, AF_INET6 };
     uint16_t ports[] = { 0, 1, 8080, 65535 };
     size_t sizes[] = { 1, 8192 };
     for ( size_t s = 0; s < 2; ++s ) {
         // A single bucket forces collisions through insert/find/remove.
-        struct ephashtable * table = ephashtable_create( sizes[s], sizeof( int ), NULL );
+        struct addresstable * table = addrtable_create( sizes[s], sizeof( int ), NULL );
         assert( table != NULL );
         for ( size_t h = 0; h < 3; ++h ) {
             for ( size_t p = 0; p < 4; ++p ) {
-                int * value = ephashtable_append( table, hosts[h], ports[p] );
+                struct sockaddr_storage addr;
+                memset( &addr, 0, sizeof( addr ) );
+                convert_endpoint( &addr, families[h], hosts[h], ports[p] );
+                int * value = addrtable_append( table, &addr );
                 assert( value != NULL );
                 *value = (int)( h * 4 + p );
             }
         }
         for ( size_t h = 0; h < 3; ++h ) {
             for ( size_t p = 0; p < 4; ++p ) {
-                char key[65];
-                strcpy( key + 1, hosts[h] );
-                int * value = ephashtable_find( table, key + 1, ports[p] );
+                // Unused sockaddr bytes must not affect the key.
+                struct sockaddr_storage addr;
+                memset( &addr, 0xcc, sizeof( addr ) );
+                convert_endpoint( &addr, families[h], hosts[h], ports[p] );
+                int * value = addrtable_find( table, &addr );
                 assert( value != NULL && *value == (int)( h * 4 + p ) );
-                ephashtable_remove( table, key + 1, ports[p] );
-                assert( ephashtable_find( table, key + 1, ports[p] ) == NULL );
+                addrtable_remove( table, &addr );
+                assert( addrtable_find( table, &addr ) == NULL );
             }
         }
         assert( table->count == 0 );
-        ephashtable_destroy( table );
+        addrtable_destroy( table );
     }
 }
 

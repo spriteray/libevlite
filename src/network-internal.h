@@ -99,7 +99,7 @@ struct transfer {
 
 // 接收器
 struct endpoint;
-struct ephashtable;
+struct addresstable;
 struct acceptor {
     int32_t fd;
     uint8_t type;
@@ -124,7 +124,7 @@ struct acceptor {
     struct iolayer * parent;
 
     // KCP管理器
-    struct ephashtable * eptable;
+    struct addresstable * addrtable;
     int32_t ntransfer;
     struct transfer * transferlist;
 
@@ -184,7 +184,7 @@ struct associater {
 struct session;
 struct udpentry {
     struct session * session;
-    struct ephashtable * hashtable;
+    struct addresstable * addrtable;
 };
 
 //

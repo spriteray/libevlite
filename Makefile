@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.17.8
+VERSION 	= 9.17.9
 PREFIX		= /usr/local
 
 # 主版本号
@@ -69,7 +69,7 @@ INCLUDEPATH	= $(PREFIX)/include
 #
 
 # ------------------------------------------------------------------------------
-OBJS 	= utils.o ephashtable.o msgqueue.o sidlist.o \
+OBJS 	= utils.o addrtable.o msgqueue.o sidlist.o \
 			ikcp.o driver.o \
 		  	epoll.o kqueue.o timer.o \
 			event.o \

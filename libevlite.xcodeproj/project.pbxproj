@@ -59,8 +59,8 @@
 		940B65312F53EFB600C61BBB /* io.h in Sources */ = {isa = PBXBuildFile; fileRef = 945AD59024617678005D545E /* io.h */; };
 		940B65322F53EFB600C61BBB /* msgqueue.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848002F51C61300B8D5E6 /* msgqueue.h */; };
 		940B65332F53EFB600C61BBB /* sidlist.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848022F51C61300B8D5E6 /* sidlist.h */; };
-		940B65342F53EFB600C61BBB /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
-		940B65352F53EFB600C61BBB /* ephashtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
+		940B65342F53EFB600C61BBB /* addrtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* addrtable.c */; };
+		940B65352F53EFB600C61BBB /* addrtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* addrtable.h */; };
 		940B65362F53EFB600C61BBB /* driver.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2725334B8F008EB084 /* driver.c */; };
 		940B65372F53EFB600C61BBB /* driver.h in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2625334B8F008EB084 /* driver.h */; };
 		940B65382F53EFB600C61BBB /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
@@ -87,8 +87,8 @@
 		940B654D2F53EFE700C61BBB /* io.h in Sources */ = {isa = PBXBuildFile; fileRef = 945AD59024617678005D545E /* io.h */; };
 		940B654E2F53EFE700C61BBB /* msgqueue.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848002F51C61300B8D5E6 /* msgqueue.h */; };
 		940B654F2F53EFE700C61BBB /* sidlist.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848022F51C61300B8D5E6 /* sidlist.h */; };
-		940B65502F53EFE700C61BBB /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
-		940B65512F53EFE700C61BBB /* ephashtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
+		940B65502F53EFE700C61BBB /* addrtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* addrtable.c */; };
+		940B65512F53EFE700C61BBB /* addrtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* addrtable.h */; };
 		940B65522F53EFE700C61BBB /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5EA1B025D57C5500B26FD7 /* network.c */; };
 		940B65532F53EFE700C61BBB /* epoll.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D11B95E63A00C33F84 /* epoll.c */; };
 		940B65542F53EFFD00C61BBB /* event.h in Sources */ = {isa = PBXBuildFile; fileRef = 71D319E31B95E64800C33F84 /* event.h */; };
@@ -97,8 +97,8 @@
 		940B65572F53EFFD00C61BBB /* io.h in Sources */ = {isa = PBXBuildFile; fileRef = 945AD59024617678005D545E /* io.h */; };
 		940B65582F53EFFD00C61BBB /* msgqueue.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848002F51C61300B8D5E6 /* msgqueue.h */; };
 		940B65592F53EFFD00C61BBB /* sidlist.h in Sources */ = {isa = PBXBuildFile; fileRef = 948848022F51C61300B8D5E6 /* sidlist.h */; };
-		940B655A2F53EFFD00C61BBB /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
-		940B655B2F53EFFD00C61BBB /* ephashtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
+		940B655A2F53EFFD00C61BBB /* addrtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* addrtable.c */; };
+		940B655B2F53EFFD00C61BBB /* addrtable.h in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* addrtable.h */; };
 		940B655C2F53EFFD00C61BBB /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5EA1B025D57C5500B26FD7 /* network.c */; };
 		940B655D2F53EFFD00C61BBB /* epoll.c in Sources */ = {isa = PBXBuildFile; fileRef = 71D319D11B95E63A00C33F84 /* epoll.c */; };
 		945AD59524617678005D545E /* io.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 945AD58F24617678005D545E /* io.cpp */; };
@@ -192,8 +192,8 @@
 		94A68E2F25334B90008EB084 /* ikcp.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2825334B8F008EB084 /* ikcp.h */; };
 		94A68E3125334B90008EB084 /* lock.h in Headers */ = {isa = PBXBuildFile; fileRef = 94A68E2A25334B8F008EB084 /* lock.h */; };
 		94A68E3225334B90008EB084 /* ikcp.c in Sources */ = {isa = PBXBuildFile; fileRef = 94A68E2B25334B90008EB084 /* ikcp.c */; };
-		94F3F3FE2A72C28F00406E50 /* ephashtable.h in Headers */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* ephashtable.h */; };
-		94F3F3FF2A72C28F00406E50 /* ephashtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* ephashtable.c */; };
+		94F3F3FE2A72C28F00406E50 /* addrtable.h in Headers */ = {isa = PBXBuildFile; fileRef = 94F3F3FC2A72C28F00406E50 /* addrtable.h */; };
+		94F3F3FF2A72C28F00406E50 /* addrtable.c in Sources */ = {isa = PBXBuildFile; fileRef = 94F3F3FD2A72C28F00406E50 /* addrtable.c */; };
 		DD20CE1625C4232B00ACBC2E /* test_multicurl.cpp in Sources */ = {isa = PBXBuildFile; fileRef = DD20CE1525C4232B00ACBC2E /* test_multicurl.cpp */; };
 		DD5EA1B125D57C5500B26FD7 /* network.c in Sources */ = {isa = PBXBuildFile; fileRef = DD5EA1B025D57C5500B26FD7 /* network.c */; };
 		DD817EDE2130033800DCC7BA /* config.h in Headers */ = {isa = PBXBuildFile; fileRef = DD817EDD2130033800DCC7BA /* config.h */; };
@@ -304,8 +304,8 @@
 		94A68E2825334B8F008EB084 /* ikcp.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ikcp.h; sourceTree = "<group>"; };
 		94A68E2A25334B8F008EB084 /* lock.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = lock.h; sourceTree = "<group>"; };
 		94A68E2B25334B90008EB084 /* ikcp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ikcp.c; sourceTree = "<group>"; };
-		94F3F3FC2A72C28F00406E50 /* ephashtable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ephashtable.h; sourceTree = "<group>"; };
-		94F3F3FD2A72C28F00406E50 /* ephashtable.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ephashtable.c; sourceTree = "<group>"; };
+		94F3F3FC2A72C28F00406E50 /* addrtable.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = addrtable.h; sourceTree = "<group>"; };
+		94F3F3FD2A72C28F00406E50 /* addrtable.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = addrtable.c; sourceTree = "<group>"; };
 		DD20CE0725C4231800ACBC2E /* helper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = helper.h; path = examples/helper.h; sourceTree = "<group>"; };
 		DD20CE0825C4231800ACBC2E /* xcurl.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = xcurl.cpp; path = examples/xcurl.cpp; sourceTree = "<group>"; };
 		DD20CE0925C4231800ACBC2E /* helper.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = helper.cpp; path = examples/helper.cpp; sourceTree = "<group>"; };
@@ -385,8 +385,8 @@
 				948848012F51C61300B8D5E6 /* msgqueue.c */,
 				948848022F51C61300B8D5E6 /* sidlist.h */,
 				948848032F51C61300B8D5E6 /* sidlist.c */,
-				94F3F3FD2A72C28F00406E50 /* ephashtable.c */,
-				94F3F3FC2A72C28F00406E50 /* ephashtable.h */,
+				94F3F3FD2A72C28F00406E50 /* addrtable.c */,
+				94F3F3FC2A72C28F00406E50 /* addrtable.h */,
 				DD5EA1B025D57C5500B26FD7 /* network.c */,
 				94A68E2725334B8F008EB084 /* driver.c */,
 				94A68E2625334B8F008EB084 /* driver.h */,
@@ -500,7 +500,7 @@
 				DD817EDE2130033800DCC7BA /* config.h in Headers */,
 				94A68E2D25334B90008EB084 /* driver.h in Headers */,
 				94A68E3125334B90008EB084 /* lock.h in Headers */,
-				94F3F3FE2A72C28F00406E50 /* ephashtable.h in Headers */,
+				94F3F3FE2A72C28F00406E50 /* addrtable.h in Headers */,
 				71D31A041B95E83700C33F84 /* event.h in Headers */,
 				71F9CACB22D0B18900990CF5 /* slice.h in Headers */,
 				71D31A051B95E83700C33F84 /* network.h in Headers */,
@@ -671,8 +671,8 @@
 				940B65312F53EFB600C61BBB /* io.h in Sources */,
 				940B65322F53EFB600C61BBB /* msgqueue.h in Sources */,
 				940B65332F53EFB600C61BBB /* sidlist.h in Sources */,
-				940B65342F53EFB600C61BBB /* ephashtable.c in Sources */,
-				940B65352F53EFB600C61BBB /* ephashtable.h in Sources */,
+				940B65342F53EFB600C61BBB /* addrtable.c in Sources */,
+				940B65352F53EFB600C61BBB /* addrtable.h in Sources */,
 				940B65362F53EFB600C61BBB /* driver.c in Sources */,
 				940B65372F53EFB600C61BBB /* driver.h in Sources */,
 				940B65382F53EFB600C61BBB /* ikcp.c in Sources */,
@@ -719,7 +719,7 @@
 				71D319F91B95E82600C33F84 /* message.c in Sources */,
 				DD20CE1625C4232B00ACBC2E /* test_multicurl.cpp in Sources */,
 				71D31A021B95E82600C33F84 /* utils.c in Sources */,
-				94F3F3FF2A72C28F00406E50 /* ephashtable.c in Sources */,
+				94F3F3FF2A72C28F00406E50 /* addrtable.c in Sources */,
 				71D319FD1B95E82600C33F84 /* session.c in Sources */,
 				94A68E3225334B90008EB084 /* ikcp.c in Sources */,
 				71D31A001B95E82600C33F84 /* threads.c in Sources */,
@@ -739,8 +739,8 @@
 				940B65572F53EFFD00C61BBB /* io.h in Sources */,
 				940B65582F53EFFD00C61BBB /* msgqueue.h in Sources */,
 				940B65592F53EFFD00C61BBB /* sidlist.h in Sources */,
-				940B655A2F53EFFD00C61BBB /* ephashtable.c in Sources */,
-				940B655B2F53EFFD00C61BBB /* ephashtable.h in Sources */,
+				940B655A2F53EFFD00C61BBB /* addrtable.c in Sources */,
+				940B655B2F53EFFD00C61BBB /* addrtable.h in Sources */,
 				940B655C2F53EFFD00C61BBB /* network.c in Sources */,
 				940B655D2F53EFFD00C61BBB /* epoll.c in Sources */,
 				9479103B2534AE6000F91879 /* driver.c in Sources */,
@@ -782,8 +782,8 @@
 				940B654D2F53EFE700C61BBB /* io.h in Sources */,
 				940B654E2F53EFE700C61BBB /* msgqueue.h in Sources */,
 				940B654F2F53EFE700C61BBB /* sidlist.h in Sources */,
-				940B65502F53EFE700C61BBB /* ephashtable.c in Sources */,
-				940B65512F53EFE700C61BBB /* ephashtable.h in Sources */,
+				940B65502F53EFE700C61BBB /* addrtable.c in Sources */,
+				940B65512F53EFE700C61BBB /* addrtable.h in Sources */,
 				940B65522F53EFE700C61BBB /* network.c in Sources */,
 				940B65532F53EFE700C61BBB /* epoll.c in Sources */,
 				9479104D2534AE7800F91879 /* driver.c in Sources */,
@@ -1022,7 +1022,7 @@
 			buildSettings = {
 				DEAD_CODE_STRIPPING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.17.8;
+				DYLIB_CURRENT_VERSION = 9.17.9;
 				EXECUTABLE_PREFIX = "";
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
@@ -1038,7 +1038,7 @@
 			buildSettings = {
 				DEAD_CODE_STRIPPING = YES;
 				DYLIB_COMPATIBILITY_VERSION = 9;
-				DYLIB_CURRENT_VERSION = 9.17.8;
+				DYLIB_CURRENT_VERSION = 9.17.9;
 				EXECUTABLE_PREFIX = "";
 				MACOSX_DEPLOYMENT_TARGET = "$(RECOMMENDED_MACOSX_DEPLOYMENT_TARGET)";
 				PRODUCT_NAME = "$(TARGET_NAME)";

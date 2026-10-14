@@ -13,7 +13,7 @@
 #include "utils.h"
 #include "driver.h"
 #include "channel.h"
-#include "ephashtable.h"
+#include "addrtable.h"
 #include "threads-internal.h"
 #include "network-internal.h"
 
@@ -477,17 +477,17 @@ void channel_on_datagram( int32_t fd, int16_t ev, void * arg )
                 buffer_erase( &transfer->buffer, -1 );
                 return;
             }
-            uint16_t port = 0;
-            char host[INET6_ADDRSTRLEN];
-            // 解析对端地址
-            parse_endpoint( &remoteaddr, host, &port );
             // 查找会话
-            struct udpentry * entry = (struct udpentry *)ephashtable_find( acceptor->eptable, host, port );
+            struct udpentry * entry = (struct udpentry *)addrtable_find( acceptor->addrtable, &remoteaddr );
             if ( entry != NULL ) {
                 // 接收到的数据包发送到会话中
                 channel_udpprocess(
                     entry->session, &( transfer->buffer ), layer->status );
             } else if ( layer->status == eIOStatus_Running ) {
+                // 新会话才解析对端地址
+                uint16_t port = 0;
+                char host[INET6_ADDRSTRLEN];
+                parse_endpoint( &remoteaddr, host, &port );
                 // 分配任务(KCP一定在本线程处理)
                 struct task_assign task;
                 task.fd = fd;
