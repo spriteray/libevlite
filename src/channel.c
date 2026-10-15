@@ -127,6 +127,10 @@ void channel_udpprocess( struct session * session, struct buffer * buffer, uint8
         if ( _process( session ) < 0 ) {
             // 处理出错，尝试终止会话
             session_shutdown( session );
+        } else if ( rc > 0 ) {
+            // 收到数据, 重新计算读超时
+            session_del_event( session, EV_READ );
+            session_add_event( session, EV_READ );
         }
     } else {
         // Stopped/closing KCP sessions still consume protocol packets and ACKs, not requests.
@@ -404,6 +408,13 @@ void channel_on_write( int32_t fd, int16_t ev, void * arg )
 void channel_on_udptimeout( int32_t fd, int16_t ev, void * arg )
 {
     _timeout( (struct session *)arg );
+}
+
+void channel_on_udpwrite( int32_t fd, int16_t ev, void * arg )
+{
+    // Keep SESSION_WRITING while blocked: the driver timer retries the queue.
+    // Clearing it here would rearm a zero timeout on every unsuccessful flush.
+    session_flush_sendqueue( (struct session *)arg );
 }
 
 void channel_on_udpshutdown( int32_t fd, int16_t ev, void * arg )

@@ -3,7 +3,7 @@
 OS			= $(shell uname)
 
 APP 		= libevlite
-VERSION 	= 9.17.10
+VERSION 	= 9.17.11
 PREFIX		= /usr/local
 
 # 主版本号

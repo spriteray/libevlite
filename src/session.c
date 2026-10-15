@@ -10,6 +10,7 @@
 #include "channel.h"
 #include "session.h"
 #include "network-internal.h"
+#include "event-internal.h"
 
 static inline struct session * _new_session();
 static inline int32_t _del_session( struct session * self );
@@ -250,7 +251,7 @@ int32_t session_start( struct session * self, int8_t type, int32_t fd, evsets_t 
         self->setting.send = driver_send;
         self->setting.transmit = driver_transmit;
         self->setting.read_callback = channel_on_udptimeout;
-        self->setting.write_callback = channel_on_udpshutdown;
+        self->setting.write_callback = channel_on_udpwrite;
     }
 
     // 不需要每次开始会话的时候初始化
@@ -317,8 +318,11 @@ void session_set_timeout( struct session * self, int32_t seconds )
     // 设置超时时间后，重新添加超时事件
     if ( seconds < 0 ) {
         self->setting.timeout_msecs = -1;
-    } else {
+    } else if ( seconds > 0 ) {
         self->setting.timeout_msecs = seconds * 1000;
+    } else {
+        // 0对齐到一个精度, 避免每帧超时
+        self->setting.timeout_msecs = EVENTSET_PRECISION( self->evsets );
     }
 
     // 监听读事件的情况下, 需要重新添加事件
@@ -516,17 +520,26 @@ void session_add_event( struct session * self, int16_t ev )
     // 注册写事件
     if ( direction == EV_WRITE && !( status & SESSION_WRITING ) ) {
         int32_t timeout_msecs = -1;
-        // 在等待退出的会话上总是会添加10s的定时器
-        if ( status & SESSION_EXITING ) {
+        eventcb_t callback = self->setting.write_callback;
+        if ( self->type == eSessionType_Shared ) {
+            // Shared会话没有真正的写事件, 用定时器驱动
+            // 退出时等待KCP确认, 最多10s
+            if ( !( status & SESSION_EXITING ) ) {
+                timeout_msecs = 0;
+            } else {
+                callback = channel_on_udpshutdown;
+                timeout_msecs = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
+            }
+        } else if ( status & SESSION_EXITING ) {
+            // 在等待退出的会话上总是会添加10s的定时器
             // 对端主机崩溃 + Socket缓冲区满的情况下
             // 会一直等不到EV_WRITE发生, 这时libevlite就出现了会话泄漏
             timeout_msecs = MAX_SECONDS_WAIT_FOR_SHUTDOWN;
-        } else if ( self->type != eSessionType_Shared
-            && self->setting.sendqueue_limit > 0 ) {
+        } else if ( self->setting.sendqueue_limit > 0 ) {
             timeout_msecs = SENDQUEUE_LIMIT_TIMEOUT_MSECS;
         }
         event_set( self->evwrite, fd, event );
-        event_set_callback( self->evwrite, self->setting.write_callback, self );
+        event_set_callback( self->evwrite, callback, self );
         evsets_add( self->evsets, self->evwrite, timeout_msecs );
         self->status |= SESSION_WRITING;
     }

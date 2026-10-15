@@ -343,12 +343,8 @@ void _kcp_schedule( struct driver * self, int32_t timeout )
         timeout = EVENTSET_PRECISION( session->evsets );
     }
 
-    // 已有更早的定时器, 不必重排
-    uint32_t deadline = _kcp_milliseconds( self ) + timeout;
+    // 总是重排, 到期时间以最新的ikcp_check()为准
     if ( session->status & SESSION_SCHEDULING ) {
-        if ( (int32_t)( deadline - self->deadline ) >= 0 ) {
-            return;
-        }
         evsets_del( session->evsets, self->timer );
         session->status &= ~SESSION_SCHEDULING;
     }
@@ -356,8 +352,8 @@ void _kcp_schedule( struct driver * self, int32_t timeout )
     // 加入定时器
     event_set( self->timer, -1, 0 );
     event_set_callback( self->timer, _kcp_timer, session );
-    evsets_add( session->evsets, self->timer, timeout );
-    self->deadline = deadline;
+    evsets_add( session->evsets, self->timer,
+        evsets_align_timeout( session->evsets, timeout ) );
     session->status |= SESSION_SCHEDULING;
 }
 

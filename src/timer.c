@@ -15,6 +15,7 @@ struct evtimer * evtimer_create( int32_t max_precision, int32_t bucket_count )
         t->dispatch_refer = 0;
         t->bucket_count = bucket_count;
         t->max_precision = max_precision;
+        TAILQ_INIT( &( t->immediate_list ) );
 
         t->bucket_array = (struct event_list *)calloc(
             bucket_count, sizeof( struct event_list ) );
@@ -38,6 +39,16 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
 
     if ( tv < 0 ) {
         return -1;
+    }
+
+    // 0超时不进时间轮, 放入立刻超时队列, 下一帧触发
+    if ( tv == 0 ) {
+        ev->timer_stepcnt = 0;
+        ev->timer_index = self->bucket_count;
+
+        ++self->event_count;
+        TAILQ_INSERT_TAIL( &( self->immediate_list ), ev, timerlink );
+        return 0;
     }
 
     // tv至少比self->max_precision大
@@ -64,17 +75,22 @@ int32_t evtimer_append( struct evtimer * self, struct event * ev )
 int32_t evtimer_remove( struct evtimer * self, struct event * ev )
 {
     // 根据句柄中的索引号, 快速定位桶
+    struct event_list * head = NULL;
     int32_t index = EVENT_TIMERINDEX( ev );
 
-    if ( index < 0 || index >= self->bucket_count ) {
+    // index == bucket_count 表示在立刻超时队列中
+    if ( index < 0 || index > self->bucket_count ) {
         return -1;
     }
+
+    head = index == self->bucket_count
+        ? &( self->immediate_list ) : &( self->bucket_array[index] );
 
     ev->timer_index = -1;
     ev->timer_stepcnt = -1;
 
     --self->event_count;
-    TAILQ_REMOVE( &( self->bucket_array[index] ), ev, timerlink );
+    TAILQ_REMOVE( head, ev, timerlink );
 
     return 0;
 }
@@ -140,6 +156,28 @@ int32_t evtimer_dispatch( struct evtimer * self )
     return rc;
 }
 
+int32_t evtimer_flush( struct evtimer * self )
+{
+    int32_t rc = 0;
+    struct event * ev = NULL;
+
+    // event_active()只插入激活队列, 不回调,
+    // 回调中重新添加的立刻超时留到下一帧
+    while ( ( ev = TAILQ_FIRST( &( self->immediate_list ) ) ) != NULL ) {
+        evtimer_remove( self, ev );
+        ev->status &= ~EVSTATUS_TIMER;
+        ++rc;
+        event_active( ev, EV_TIMEOUT );
+    }
+
+    return rc;
+}
+
+int32_t evtimer_has_immediate( struct evtimer * self )
+{
+    return !TAILQ_EMPTY( &( self->immediate_list ) );
+}
+
 int32_t evtimer_count( struct evtimer * self )
 {
     return self->event_count;
@@ -155,12 +193,19 @@ int32_t evtimer_clean( struct evtimer * self )
 
         for ( ev = TAILQ_FIRST( head ); ev; ) {
             struct event * next = TAILQ_NEXT( ev, timerlink );
-
             evsets_del( event_get_sets( (event_t)ev ), (event_t)ev );
-
             ++rc;
             ev = next;
         }
+    }
+
+    // 立刻超时队列
+    struct event * ev = TAILQ_FIRST( &( self->immediate_list ) );
+    while ( ev != NULL ) {
+        struct event * next = TAILQ_NEXT( ev, timerlink );
+        evsets_del( event_get_sets( (event_t)ev ), (event_t)ev );
+        ++rc;
+        ev = next;
     }
 
     self->dispatch_refer = 0;

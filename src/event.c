@@ -319,6 +319,28 @@ int32_t evsets_add( evsets_t self, event_t ev, int32_t tv )
     return rc;
 }
 
+int32_t evsets_align_timeout( evsets_t self, int32_t timeout )
+{
+    struct eventset * sets = (struct eventset *)self;
+    int32_t precision = sets->timer_precision;
+
+    // <=0原样返回, 交给定时器处理
+    if ( timeout <= 0 ) {
+        return timeout;
+    }
+
+    // 时间轮最多提前一个刻度触发,
+    // 按下一刻度的时间计算剩余时间
+    int64_t remain = _get_current( sets, 0 ) + timeout - sets->expire_time;
+    if ( remain <= 0 ) {
+        return precision;
+    }
+
+    // 到期后的第一个刻度
+    int64_t ticks = ( remain + precision - 1 ) / precision + 1;
+    return (int32_t)( ticks * precision );
+}
+
 int32_t evsets_del( evsets_t self, event_t ev )
 {
     struct event * e = (struct event *)ev;
@@ -350,8 +372,9 @@ int32_t evsets_dispatch( evsets_t self )
     int32_t seconds4wait = 0;
     struct eventset * sets = (struct eventset *)self;
 
-    // 没有激活事件的情况下等待超时时间
-    if ( TAILQ_EMPTY( &sets->activelist ) ) {
+    // 没有激活事件和立刻超时事件的情况下等待超时时间
+    if ( TAILQ_EMPTY( &sets->activelist )
+        && !evtimer_has_immediate( sets->core_timer ) ) {
         // 根据定时器的超时时间, 确认IO的等待时间
         seconds4wait = (int32_t)( sets->expire_time - _get_current( sets, 1 ) );
         if ( seconds4wait < 0 ) {
@@ -375,6 +398,9 @@ int32_t evsets_dispatch( evsets_t self )
         evtimer_dispatch( sets->core_timer );
         sets->expire_time += sets->timer_precision;
     }
+
+    // 立刻超时事件, 本帧触发
+    evtimer_flush( sets->core_timer );
 
     // 处理所有事件, 并回调定义好的函数
     return evsets_process_active( sets );

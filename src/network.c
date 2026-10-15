@@ -17,6 +17,7 @@
 #include "session.h"
 #include "message.h"
 #include "addrtable.h"
+#include "event-internal.h"
 #include "threads-internal.h"
 #include "network-internal.h"
 
@@ -428,7 +429,9 @@ int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds )
             session->setting.keepalive_msecs = -1;
             session_stop_keepalive( session );
         } else {
-            session->setting.keepalive_msecs = seconds * 1000;
+            // 0对齐到一个精度, 避免每帧保活
+            session->setting.keepalive_msecs = seconds > 0
+                ? seconds * 1000 : EVENTSET_PRECISION( session->evsets );
             session_start_keepalive( session );
         }
     } else {
@@ -536,6 +539,11 @@ int32_t iolayer_schedule( iolayer_t self, void * task, taskscheduler_t execute, 
 {
     assert( self != NULL && "Illegal IOLayer" );
     assert( execute != NULL && "Illegal specified Execute-Function" );
+
+    // 调度间隔必须大于0
+    if ( interval <= 0 ) {
+        return -1;
+    }
 
     struct iolayer * layer = (struct iolayer *)self;
     int8_t index = iothreads_get_index( layer->threads );

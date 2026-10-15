@@ -29,6 +29,7 @@ void channel_on_datagram( int32_t fd, int16_t ev, void * arg );
 void channel_on_write( int32_t fd, int16_t ev, void * arg );
 void channel_on_udptimeout( int32_t fd, int16_t ev, void * arg );
 void channel_on_udpshutdown( int32_t fd, int16_t ev, void * arg );
+void channel_on_udpwrite( int32_t fd, int16_t ev, void * arg );
 void channel_on_accept( int32_t fd, int16_t ev, void * arg );
 void channel_on_keepalive( int32_t fd, int16_t ev, void * arg );
 void channel_on_reconnect( int32_t fd, int16_t ev, void * arg );

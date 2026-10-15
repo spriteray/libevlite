@@ -92,6 +92,7 @@ struct evtimer {
 
     int32_t dispatch_refer;           //
     struct event_list * bucket_array; // 桶的数组
+    struct event_list immediate_list; // 立刻超时队列, 下一帧触发
 };
 
 #define EVTIMER_INDEX( t, c ) ( ( c ) & ( ( t )->bucket_count - 1 ) )
@@ -100,6 +101,8 @@ struct evtimer * evtimer_create( int32_t max_precision, int32_t bucket_count );
 int32_t evtimer_append( struct evtimer * self, struct event * ev );
 int32_t evtimer_remove( struct evtimer * self, struct event * ev );
 int32_t evtimer_dispatch( struct evtimer * self );
+int32_t evtimer_flush( struct evtimer * self );
+int32_t evtimer_has_immediate( struct evtimer * self );
 int32_t evtimer_count( struct evtimer * self );
 int32_t evtimer_clean( struct evtimer * self );
 void evtimer_destroy( struct evtimer * self );
@@ -123,5 +126,8 @@ struct eventset {
 };
 
 #define EVENTSET_PRECISION( sets ) ( ( (struct eventset *)( sets ) )->timer_precision )
+
+// 对齐超时时间, 保证在now+timeout之后的第一个刻度触发
+int32_t evsets_align_timeout( evsets_t self, int32_t timeout );
 
 #endif
