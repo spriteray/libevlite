@@ -484,19 +484,22 @@ void channel_on_datagram( int32_t fd, int16_t ev, void * arg )
                 channel_udpprocess(
                     entry->session, &( transfer->buffer ), layer->status );
             } else if ( layer->status == eIOStatus_Running ) {
-                // 新会话才解析对端地址
-                uint16_t port = 0;
-                char host[INET6_ADDRSTRLEN];
-                parse_endpoint( &remoteaddr, host, &port );
-                // 分配任务(KCP一定在本线程处理)
-                struct task_assign task;
-                task.fd = fd;
-                task.port = port;
-                task.host = strdup(host);
-                task.transfer = transfer;
-                task.acceptor = acceptor;
-                task.type = acceptor->type;
-                iolayer_assign_session( layer, acceptor->index, acceptor->index, &task );
+                if ( ikcp_getconv( buffer_data( &transfer->buffer ) ) == 0 ) {
+                    // 新会话首包conv必须为0, 否则是已关闭会话的残包, 丢弃
+                    // 新会话才解析对端地址
+                    uint16_t port = 0;
+                    char host[INET6_ADDRSTRLEN];
+                    parse_endpoint( &remoteaddr, host, &port );
+                    // 分配任务(KCP一定在本线程处理)
+                    struct task_assign task;
+                    task.fd = fd;
+                    task.port = port;
+                    task.host = strdup(host);
+                    task.transfer = transfer;
+                    task.acceptor = acceptor;
+                    task.type = acceptor->type;
+                    iolayer_assign_session( layer, acceptor->index, acceptor->index, &task );
+                }
             }
             // 重置BUFF
             buffer_erase( &transfer->buffer, -1 );

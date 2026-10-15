@@ -82,7 +82,7 @@ PingpongClient * pingpongclient_init( uint8_t type )
     }
 
     client->type = type;
-    client->conv = rand() % 0x7fffffff;
+    client->conv = 0; // 首包conv必须为0, 由服务端分配
     client->kcp = ikcp_create( client->conv, client );
     if ( client->kcp == NULL )
     {
@@ -182,6 +182,7 @@ void pingpongclient_on_read( int32_t fd, int16_t ev, void * arg )
         if ( len > 0 )
         {
             struct buffer inbuf;
+            buffer_init( &inbuf );
 
             if ( cli->type == NETWORK_TCP )
             {
@@ -189,6 +190,12 @@ void pingpongclient_on_read( int32_t fd, int16_t ev, void * arg )
             }
             else if ( cli->type == NETWORK_KCP )
             {
+                // 收到第一个包时切换成服务端分配的conv
+                if ( cli->kcp->conv == 0 && len >= 24 )
+                {
+                    cli->conv = ikcp_getconv( buffer );
+                    cli->kcp->conv = cli->conv;
+                }
                 ikcp_input( cli->kcp, buffer, len );
                 while ( 1 )
                 {

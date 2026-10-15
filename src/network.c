@@ -1269,8 +1269,7 @@ int32_t _assign_direct( struct iolayer * layer, uint8_t index, evsets_t sets, st
     } else if ( task->type == NETWORK_KCP ) {
         // 创建UDP驱动
         int32_t rc = -1;
-        struct driver * driver = driver_create(
-            session, &( task->transfer->buffer ), &( task->acceptor->options ) );
+        struct driver * driver = driver_create( session, &( task->acceptor->options ) );
         // 设置ip地址和端口号(添加到addrtable中)
         if ( driver != NULL ) {
             rc = driver_set_endpoint( driver,

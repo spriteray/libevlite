@@ -4,6 +4,8 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <syslog.h>
+#include <time.h>
+#include <unistd.h>
 
 #include "utils.h"
 #include "message.h"
@@ -14,6 +16,7 @@
 
 #include "driver.h"
 
+static inline uint32_t _kcp_genconv( void );
 static inline size_t _kcp_max_send( struct driver * self );
 static inline int32_t _kcp_can_send( struct driver * self );
 static inline uint32_t _kcp_milliseconds( struct driver * self );
@@ -24,12 +27,10 @@ static void _kcp_refresh_state( struct driver * self );
 static void _kcp_timer( int32_t fd, int16_t ev, void * arg );
 static int32_t _kcp_output( const char * buf, int32_t len, ikcpcb * kcp, void * user );
 
-struct driver * driver_create( struct session * s, struct buffer * buffer, const options_t * options )
+struct driver * driver_create( struct session * s, const options_t * options )
 {
     struct driver * self = (struct driver *)calloc( 1, sizeof( struct driver ) );
     if ( self != NULL ) {
-        uint32_t conv = ikcp_getconv( buffer_data( buffer ) );
-
         // 创建定时器
         self->timer = event_create();
         if ( self->timer == NULL ) {
@@ -37,8 +38,8 @@ struct driver * driver_create( struct session * s, struct buffer * buffer, const
             return NULL;
         }
 
-        // 创建kcp对象
-        self->kcp = ikcp_create( conv, s );
+        // 创建kcp对象, conv由服务端分配(客户端首包conv为0)
+        self->kcp = ikcp_create( _kcp_genconv(), s );
         if ( self->kcp == NULL ) {
             driver_destroy( self );
             return NULL;
@@ -137,9 +138,6 @@ ssize_t driver_input( struct driver * self, struct buffer * in, struct buffer * 
 
         len += peeksize;
         out->length += peeksize;
-        // 检验self->buffer中的conv是否变化
-        // 变化了直接替换kcp句柄中的conv
-        // driver_set_conv( self, ikcp_getconv( buffer_data( in ) ) );
     }
 
     // 读事件, 立刻update()不需要等下一轮
@@ -269,11 +267,6 @@ void driver_set_wndsize( struct driver * self, int32_t sndwnd, int32_t rcvwnd )
     ikcp_wndsize( self->kcp, sndwnd, rcvwnd );
 }
 
-void driver_set_conv( struct driver * self, uint32_t conv )
-{
-    self->kcp->conv = conv;
-}
-
 void _kcp_refresh_state( struct driver * self )
 {
     // Old segments retain their original size until acknowledged. Only resize
@@ -290,6 +283,21 @@ void _kcp_refresh_state( struct driver * self )
     ikcp_update( self->kcp, current );
     ikcp_flush( self->kcp );
     _kcp_schedule( self, ikcp_check( self->kcp, current ) - current );
+}
+
+uint32_t _kcp_genconv( void )
+{
+    // 随机非0即可, 会话按地址查找, 不要求唯一
+    // 线程局部种子, 不影响业务层的rand()
+    static __thread unsigned int seed = 0;
+    if ( seed == 0 ) {
+        seed = (unsigned int)time( NULL );
+        seed ^= (unsigned int)getpid();
+        seed ^= (unsigned int)(uintptr_t)&seed;
+    }
+    uint32_t conv = (uint32_t)rand_r( &seed );
+    conv ^= (uint32_t)rand_r( &seed ) << 16;
+    return conv != 0 ? conv : 1;
 }
 
 uint32_t _kcp_milliseconds( struct driver * self )
