@@ -111,18 +111,19 @@ iolayer_t iolayer_create( uint8_t nthreads, uint32_t nclients, int32_t precision
 //                        确保长度和网络线程个数相等, 毕竟多个网络线程是对等的
 int32_t iolayer_set_iocontext( iolayer_t self, void ** contexts, uint8_t count );
 
-// 网络层数据改造方法(与ioservice_t::transform采用相同的只读输入及所有权规则)
+// 网络层数据改造方法(允许原地改造, 与会话层只读输入规则不同)
 //      参数1: 上下文参数
 //      参数2: 欲发送或者广播的消息内容
-//      参数3: 指向消息长度的指针; 返回新缓冲区时更新长度, 返回原指针时保持不变
-// 返回原指针表示不改造; 返回独立malloc缓冲区表示改造成功, 由网络层free;
-// 返回NULL表示失败。禁止修改、释放或realloc输入, 禁止返回输入内部指针。
+//      参数3: 指向消息长度的指针; 返回原指针或新缓冲区时均可更新有效长度
+// 原地改造须保证输入可写且不超出原缓冲区范围; 同线程isfree=0可能直接使用调用方缓冲区。
+// 返回原指针保留原所有权; 返回独立malloc缓冲区由网络层free; 返回NULL表示失败。
+// 禁止释放或realloc输入, 禁止返回输入内部指针、栈内存或静态缓冲区作为新结果。
 typedef char * ( *transformer_t )( void *, const char *, size_t * );
 // 网络层设置数据包改造方法,
 // 该网络层的统一的数据包改造方法(在listen(), connect(), associate()之前调用)
 //        self          -
 // 广播时每个IO线程对自己的消息副本执行一次, 之后再执行各会话的transform。
-//        transform     - 数据包改造方法(禁止原地改造); 多个IO线程可能并发调用
+//        transform     - 数据包改造方法(允许原地改造); 多个IO线程可能并发调用
 //        context       - 上下文参数
 int32_t iolayer_set_transform( iolayer_t self, transformer_t transform, void * context );
 
@@ -182,6 +183,8 @@ int32_t iolayer_associate( iolayer_t self,
 
 // 会话参数的设置, 只能在ioservice_t中使用
 // 建议在ioservice_t::onStart()中调用
+// 超时单位为秒, 负数禁用, 0按事件集一个刻度计时。
+// KCP收到可交付的非空业务数据后续期, 纯ACK/控制包不续期。
 int32_t iolayer_set_timeout( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_keepalive( iolayer_t self, sid_t id, int32_t seconds );
 int32_t iolayer_set_service( iolayer_t self, sid_t id, ioservice_t * service, void * context );
@@ -193,9 +196,10 @@ int32_t iolayer_set_persist( iolayer_t self, sid_t id, int32_t onoff );
 // 即使一直不可写也会检查; KCP沿用协议定时器检查。建议在start()中设置。
 int32_t iolayer_set_sndqlimit( iolayer_t self, sid_t id, int32_t queuelimit );
 // 设置kcp的窗口, MTU, MINRTO
-// MTU范围50..65507字节, 在所属IO线程调用; 0表示请求已接受, 不保证立即生效。
-// KCP待发送/待确认分片清空后应用, 多次设置以最后一次有效请求为准。
-// 返回-1表示SID或MTU非法, -2表示立即应用时分配失败; 非KCP会话保持无操作。
+// 在所属IO线程调用; MTU参数交由KCP处理, 库层不做范围校验。
+// 0表示请求已接受, 不保证立即生效; KCP待发送/待确认分片清空后应用。
+// 多次设置以最后一次请求为准; 延后应用被KCP拒绝时保留当前MTU。
+// 立即应用时透传KCP返回值; SID非法返回-1, 非KCP会话保持无操作。
 int32_t iolayer_set_mtu( iolayer_t self, sid_t id, int32_t mtu );
 int32_t iolayer_set_minrto( iolayer_t self, sid_t id, int32_t minrto );
 int32_t iolayer_set_wndsize( iolayer_t self, sid_t id, int32_t sndwnd, int32_t rcvwnd );

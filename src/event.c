@@ -352,6 +352,9 @@ int32_t evsets_del( evsets_t self, event_t ev )
         return -2;
     }
 
+    // 删除同时取消持久事件的自动定时, 避免重新添加时复用旧超时。
+    e->timer_msecs = -1;
+
     if ( e->status & EVSTATUS_TIMER ) {
         event_queue_remove( sets, e, EVSTATUS_TIMER );
     }

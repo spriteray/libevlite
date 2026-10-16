@@ -236,9 +236,6 @@ int32_t driver_pending( struct driver * self )
 
 int32_t driver_set_mtu( struct driver * self, int32_t mtu )
 {
-    // KCP's minimum and the maximum portable UDP payload size.
-    if ( mtu < 50 || mtu > 65507 ) return -1;
-
     // Setting the active value also cancels an older deferred request.
     if ( mtu == self->kcp->mtu ) {
         self->mtu = 0;
@@ -249,10 +246,9 @@ int32_t driver_set_mtu( struct driver * self, int32_t mtu )
         return 0;
     }
 
+    // A new request replaces the deferred one; only allocation failure retries.
     int32_t rc = ikcp_setmtu( self->kcp, mtu );
-    if ( rc == 0 ) {
-        self->mtu = 0;
-    }
+    self->mtu = ( rc == -2 ) ? mtu : 0;
 
     return rc;
 }
@@ -273,7 +269,8 @@ void _kcp_refresh_state( struct driver * self )
     // after both KCP send queues drain; allocation failure retries next time.
     if ( self->mtu != 0
         && ikcp_waitsnd( self->kcp ) == 0 ) {
-        if ( ikcp_setmtu( self->kcp, self->mtu ) == 0 ) {
+        // KCP decides validity; only allocation failure needs a retry.
+        if ( ikcp_setmtu( self->kcp, self->mtu ) != -2 ) {
             self->mtu = 0;
         }
     }

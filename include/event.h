@@ -105,7 +105,8 @@ int64_t evsets_get_current( evsets_t self );
 // 向事件集中添加事件
 //      self    -
 //      ev      - 事件
-//      tv      - 超时时间(ms); -1:不超时; 0-立刻超时; >0指定的超时时间
+//      tv      - 超时时间(ms); <0:不修改已有超时; 0:加入立即超时队列; >0:添加/替换超时
+//                取消超时并保留IO监听: 先evsets_del(), 再evsets_add(..., -1)。
 //      返回值定义:
 //          返回<0, 添加事件失败
 //          返回 1, 添加IO事件成功
@@ -113,7 +114,7 @@ int64_t evsets_get_current( evsets_t self );
 //          返回 3, IO事件和超时事件添加成功
 int32_t evsets_add( evsets_t self, event_t ev, int32_t tv );
 
-// 从事件集中删除事件
+// 从事件集中删除IO监听、定时器及待执行回调, 同时清除保存的超时间隔。
 int32_t evsets_del( evsets_t self, event_t ev );
 
 // 分发并处理事件
